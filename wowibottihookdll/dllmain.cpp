@@ -7,9 +7,10 @@
 
 #define MYMENU_EXIT         (WM_APP + 101)
 #define MYMENU_DUMP			(WM_APP + 102) 
-#define MYMENU_FUNK			(WM_APP + 103)
-#define MYMENU_CTM			(WM_APP + 104)
-#define MYMENU_CTM_CONSTANT (WM_APP + 105)
+#define MYMENU_HOOK			(WM_APP + 103)
+#define MYMENU_UNHOOK		(WM_APP + 104)
+#define MYMENU_CTM			(WM_APP + 105)
+#define MYMENU_CTM_CONSTANT (WM_APP + 106)
 
 HINSTANCE  inj_hModule;          //Injected Modules Handle
 HWND       prnt_hWnd;            //Parent Window Handle
@@ -23,14 +24,12 @@ static FILE *CTM_debug;
 
 static HANDLE glhProcess;
 
-static const LPVOID cast_cond_errmsg_addr = (LPVOID)0x006F0B70;
-static const LPVOID lua_MoveForwardStart_addr = (LPVOID)0x005345F0;
+static const unsigned long DelIgnore_aux = 0x540D10;
+static const unsigned long ClosePetStables = 0x4FACA0;
 
-static const unsigned long DelIgnore_aux = 0x00540D10;
-
-static unsigned int * const PLAYER_TARGET_ADDR = (unsigned int* const)0x00C6E960;
-static unsigned int * const PLAYER_TARGET_ADDR2 = (unsigned int* const)0x00C6E968;
-static unsigned int * const PLAYER_TARGET_ADDR3 = (unsigned int* const)0x00C6E970; // this usually contains a copy of the GUID, also is kept even after target is changed
+static unsigned int * const PLAYER_TARGET_ADDR = (unsigned int* const)0xC6E960;
+static unsigned int * const PLAYER_TARGET_ADDR2 = (unsigned int* const)0xC6E968;
+static unsigned int * const PLAYER_TARGET_ADDR3 = (unsigned int* const)0xC6E970; // this usually contains a copy of the GUID, also is kept even after target is changed
 
 static BYTE original_opcodes[8];
 
@@ -38,17 +37,15 @@ static int BLAST_ENABLED = 0;
 static int CONSTANT_CTM_TARGET = 0;
 
 static HRESULT(*EndScene)(void);
-static const int(*LUA_DoString)(const char*, const char*, const char*) = (const int(*)(const char*, const char*, const char*)) 0x00706C80;
+static const int(*LUA_DoString)(const char*, const char*, const char*) = (const int(*)(const char*, const char*, const char*)) 0x706C80;
 
-
-static void walk_to_target();
+static void __stdcall walk_to_target();
 
 enum {
 	CTM_MOVE = 0x4,
 	CTM_TALK_NPC = 0x5,
 	CTM_LOOT = 0x6,
 	CTM_MOVE_AND_ATTACK = 0xA
-
 };
 
 static int STOP_SIGNALED = 0;
@@ -56,8 +53,6 @@ static int STOP_SIGNALED = 0;
 typedef unsigned long long GUID_t;
 
 typedef unsigned int uint; // looks kinda messy with all the "unsigned int"s
-#define DEREF(x) *(uint*)(x)
-
 
 void __stdcall print_errcode(int code) {
 	printf("Spell cast failed, errcode %d\n", code);
@@ -110,6 +105,7 @@ const std::string type_names[] = {
 class WowObject {
 private:
 	// these are offsets from the base addr of the object
+	
 	const unsigned int
 		GUID = 0x30,
 		Next = 0x3C,
@@ -137,6 +133,10 @@ private:
 		unsigned int base;
 
 public:
+	bool valid() const {
+		return ((this->get_base() != 0) && ((this->get_base() & 1) == 0));
+	}
+
 	WowObject getNextObject() const {
 		unsigned int next_base;
 		readAddr(base + this->Next, &next_base, sizeof(next_base));
@@ -242,8 +242,10 @@ return y;
 
 	char *unit_get_name(FILE *fp) {
 
-		// 0x00D29BB0 is some kind of static / global string-related thing, resides in the .data segment. (look at Wow.exe:0x006D9850)
-		const uint ecx = 0x00D29BB0;
+#define DEREF(x) *(uint*)(x)
+
+		// 0xD29BB0 is some kind of static / global string-related thing, resides in the .data segment. (look at Wow.exe:0x6D9850)
+		const uint ecx = 0xD29BB0;
 		
 		uint ECX24 = ecx + 0x24;
 		readAddr(ECX24, &ECX24, sizeof(ECX24));
@@ -333,19 +335,17 @@ public:
 		LoadAddresses();
 	}
 
-	WowObject *get_object_by_GUID(GUID_t GUID) {
+	WowObject get_object_by_GUID(GUID_t GUID) {
 		WowObject next = getFirstObject();
-		WowObject *ret = new WowObject;
 
-		while ((next.get_base() != 0) && ((next.get_base() & 1) == 0)) {
+		while (next.valid()) {
 			if (next.get_GUID() == GUID) {
-				*ret = next;  return ret;
+				return next;
 			}
 			next = next.getNextObject();
 		}
+		return next;
 
-		delete ret;
-		return NULL;
 	}
 
 	GUID_t get_localGUID() const { return localGUID; }
@@ -355,12 +355,12 @@ public:
 
 static void click_to_move(float x, float y, float z, uint action, GUID_t interact_GUID) {
 	static const uint 
-		CTM_X = 0x00D68A18,
-		CTM_Y = 0x00D68A1C,
-		CTM_Z = 0x00D68A20,
-		CTM_push = 0x00D689BC,
-		CTM_mystery = 0x00D689AE,
-		CTM_GUID = 0x00D689C0; // this is for interaction
+		CTM_X = 0xD68A18,
+		CTM_Y = 0xD68A1C,
+		CTM_Z = 0xD68A20,
+		CTM_push = 0xD689BC,
+		CTM_mystery = 0xD689AE,
+		CTM_GUID = 0xD689C0; // this is for interaction
 
 	// seems like addresses D689A0 D689A4 D689A8 are floats, maybe some angles?
 	// A0 = the angle where the character should be walking?
@@ -385,6 +385,11 @@ int dump_wowobjects_to_log() {
 
 	ObjectManager OM;
 
+	if (!OM.objectManagerBase) {
+		fprintf(stderr, "WowObject dumping failed: ObjectManager base addr seems to be NULL.\n(Is your character in the world?)\n");
+		return 0;
+	}
+
 	FILE *fp = fopen("C:\\Users\\elias\\Desktop\\out.log", "a");
 
 	if (fp) {
@@ -393,7 +398,7 @@ int dump_wowobjects_to_log() {
 		readAddr((unsigned int)PLAYER_TARGET_ADDR, &target_GUID, sizeof(target_GUID));
 		fprintf(fp, "ObjectManager base address: %X, local GUID = 0x%llX, player target: %llX\n", OM.objectManagerBase, OM.get_localGUID(), target_GUID);
 
-		while ((next.get_base() != 0) && ((next.get_base() & 1) == 0)) {
+		while (next.valid()) {
 
 			if (next.get_type() == 3 || next.get_type() == 4) { // 3 = NPC, 4 = Unit
 				fprintf(fp, "object GUID: 0x%llX, base addr = %X, type: %s, coords = (%f, %f, %f), rot: %f\n",
@@ -416,15 +421,16 @@ int dump_wowobjects_to_log() {
 	return 1;
 }
 
-static void walk_to_target() {
+static void __stdcall walk_to_target() {
+	
 	GUID_t GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
 	if (!GUID) return;
-	ObjectManager OM;
-	WowObject *t = OM.get_object_by_GUID(GUID);
-
-	click_to_move(t->get_pos_x(), t->get_pos_y(), t->get_pos_z(), CTM_MOVE, 0);
 	
-	delete t;
+	ObjectManager OM;
+	WowObject t = OM.get_object_by_GUID(GUID);
+
+	click_to_move(t.get_pos_x(), t.get_pos_y(), t.get_pos_z(), CTM_MOVE, 0);
+	
 }
 
 
@@ -465,7 +471,8 @@ HMENU CreateDLLWindowMenu()
 	AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hMenuPopup, TEXT("Dump"));
 
 	hMenuPopup = CreatePopupMenu();
-	AppendMenu(hMenuPopup, MF_STRING, MYMENU_FUNK, TEXT("Patch EndScene/DelIgnore"));
+	AppendMenu(hMenuPopup, MF_STRING, MYMENU_HOOK, TEXT("Patch EndScene/DelIgnore_aux/ClosePetStables"));
+	AppendMenu(hMenuPopup, MF_STRING, MYMENU_UNHOOK, TEXT("UN-patch EndScene/DelIgnore_aux/ClosePetStables"));
 	AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hMenuPopup, TEXT("FUNK"));
 
 	hMenuPopup = CreatePopupMenu();
@@ -473,7 +480,6 @@ HMENU CreateDLLWindowMenu()
 	AppendMenu(hMenuPopup, MF_STRING, MYMENU_CTM_CONSTANT, TEXT("Toggle walk-to-target"));
 	AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hMenuPopup, TEXT("CTM"));
 
-	//AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hMenuPopup, TEXT("CTM"));
 
 	return hMenu;
 }
@@ -493,29 +499,98 @@ HMENU CreateDLLWindowMenu()
 		 }
 	 }
 
-
 	 every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
-
 }
 
- static BYTE EndScene_patch[] = {
-	 0xE9, 0x00, 0x00, 0x00, 0x00,
-	 0xC3, 0x90
+ static void __stdcall change_target(const char* GUID_str) {
+
+	 const std::string prefix = "LOLE_TARGET_GUID:";
+
+	 if (strncmp(prefix.c_str(), GUID_str, prefix.length())) {
+		 printf("[WARNING]: change_target: argument string \"%s\" didn't have prefix \"%s\", ignoring\n", GUID_str, prefix.c_str());
+		 return;
+	 }
+
+	 char *end;
+
+	 std::string GUID_numstr = GUID_str + prefix.length() + 2; // better make a copy of it. the GUID_str still has the "0x" prefix in it 
+	 GUID_t GUID = strtoull(GUID_numstr.c_str(), &end, 16);
+
+	 printf("got LOLE_TARGET_GUID: GUID = %llX\nGUID_str + prefix.length() + 2 = \"%s\"\n", GUID, GUID_numstr.c_str());
+
+	 if (end != GUID_numstr.c_str() + GUID_numstr.length()) {
+		 printf("[WARNING]: change_target: couldn't wholly convert GUID string argument (strtoull(\"%s\", &end, 16) failed, bailing out\n", GUID_numstr.c_str());
+		 return;
+	 }
+
+	 memcpy((LPVOID)PLAYER_TARGET_ADDR, &GUID, sizeof(GUID));
+ }
+
+
+
+ static const BYTE EndScene_original[] = {
+	0x6A, 0x20, // push 20
+	0xB8, 0xD8, 0xB9, 0x08, 0x6C // MOV EAX, 6C08B9D8 after this should be mu genitals :D
  };
 
+ static BYTE EndScene_patch[] = {
+	 0xE9, 0x00, 0x00, 0x00, 0x00, // jmp address to be inserted to bytes 1-5
+	 0x90, 0x90
+ };
+
+ static const BYTE DelIgnore_aux_original[] = {
+	 0x55, // push EBP
+	 0x8B, 0xEC, // mov EBP, ESP
+	 0x8B, 0x45, 0x10, // MOV EAX, DWORD PTR SS:[ARG.3]
+ };
 
  static BYTE DelIgnore_aux_patch[] = {
-	 0xE9, 0x00, 0x00, 0x00, 0x00, 0xC3
+	 0xE9, 0x00, 0x00, 0x00, 0x00, // jmp address to be inserted to bytes 1-5
+	 0xC3 
  };
 
- static int really_hook() {
+ static const BYTE ClosePetStables_original[] = {
+	 0xE8, 0xBB, 0xFF, 0xFF, 0xFF // CALL 004FAC60. this wouldn't actually even need a trampoline lol
+ };
+
+ static BYTE ClosePetStables_patch[] = {
+	 0xE9, 0x00, 0x00, 0x00, 0x00
+ };
+
+ static int hook_all() {
 	 DWORD bytes;
+	
+	 printf("Patching EndScene at %p...", (LPVOID)EndScene);
 	 WriteProcessMemory(glhProcess, EndScene, EndScene_patch, sizeof(EndScene_patch), &bytes);
+	 printf("OK!\n");
+	
+	 printf("Patching DelIgnore_aux at %p...", (LPVOID)DelIgnore_aux);
 	 WriteProcessMemory(glhProcess, (LPVOID)DelIgnore_aux, DelIgnore_aux_patch, sizeof(DelIgnore_aux_patch), &bytes);
+	 printf("OK!\n");
+	
+	 printf("Patching ClosePetStables at %p...", ClosePetStables);
+	 WriteProcessMemory(glhProcess, (LPVOID)ClosePetStables, ClosePetStables_patch, sizeof(ClosePetStables_patch), &bytes);
+	 printf("OK!\n", (LPVOID)ClosePetStables);
+
 	 return 1;
  }
 
-static int hook_EndScene() {
+ static int unhook_all() {
+	 DWORD bytes;
+	
+	 WriteProcessMemory(glhProcess, EndScene, EndScene_original, sizeof(EndScene_original), &bytes);
+	 printf("Unpatched EndScene at %p!\n", EndScene);
+	
+	 WriteProcessMemory(glhProcess, (LPVOID)DelIgnore_aux, DelIgnore_aux_original, sizeof(DelIgnore_aux_original), &bytes);
+	 printf("Unpatched DelIgnore_aux at %p!\n", (LPVOID)DelIgnore_aux);
+
+	 WriteProcessMemory(glhProcess, (LPVOID)ClosePetStables, ClosePetStables_original, sizeof(ClosePetStables_original), &bytes);
+	 printf("Unpatched ClosePetStables at %p!\n", (LPVOID)ClosePetStables);
+
+	 return 1;
+ }
+
+static int prepare_EndScene_patch() {
 
 	// this actually seems to work :)
 
@@ -549,7 +624,7 @@ static int hook_EndScene() {
 	c->Release();
 
 
-	static BYTE trampoline[] = {
+	static BYTE EndScene_trampoline[] = {
 		// original EndScene opcodes follow
 		0x6A, 0x20, // push 20
 		0xB8, 0xD8, 0xB9, 0x08, 0x6C, // MOV EAX, 6C08B9D8 after this should be mu genitals :D
@@ -561,57 +636,34 @@ static int hook_EndScene() {
 	};
 
 
-	DWORD tr_offset = ((DWORD)trampoline - (DWORD)EndScene - 5);
+	DWORD tr_offset = ((DWORD)EndScene_trampoline - (DWORD)EndScene - 5);
 	memcpy(EndScene_patch + 1, &tr_offset, sizeof(tr_offset));
 
 	DWORD ret_addr = (DWORD)EndScene + 7;
-	memcpy(trampoline + 8, &ret_addr, sizeof(ret_addr)); // add return address
+	memcpy(EndScene_trampoline + 8, &ret_addr, sizeof(ret_addr)); // add return address
 
-	DWORD hookfunc_offset = (DWORD)&hook_func - (DWORD)trampoline - 18;
-	memcpy(trampoline + 14, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
+	DWORD hookfunc_offset = (DWORD)&hook_func - (DWORD)EndScene_trampoline - 18;
+	memcpy(EndScene_trampoline + 14, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
 
 	DWORD oldprotect;
-	VirtualProtect((LPVOID)trampoline, sizeof(trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
+	VirtualProtect((LPVOID)EndScene_trampoline, sizeof(EndScene_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
 
-	printf("tr_offset: %X, trampoline = %p, hook_func = %p\n", tr_offset, &trampoline, &hook_func);
+	printf("EndScene trampoline: %p\n", &EndScene_trampoline);
 	
 	return 1;
 
 }
 
-static void __stdcall change_target(const char* GUID_str) {
-
-	const std::string prefix = "LOLE_TARGET_GUID:";
-
-	if (strncmp(prefix.c_str(), GUID_str, prefix.length())) {
-		printf("[WARNING]: change_target: argument string \"%s\" didn't have prefix \"%s\", ignoring\n", GUID_str, prefix.c_str());
-		return;
-	}
-
-	char *end;
-
-	std::string GUID_numstr = GUID_str + prefix.length() + 2; // better make a copy of it. the GUID_str still has the "0x" prefix in it 
-	GUID_t GUID = strtoull(GUID_numstr.c_str(), &end, 16); 
-
-	printf("got LOLE_TARGET_GUID: GUID = %llX\nGUID_str + prefix.length() + 2 = \"%s\"\n", GUID, GUID_numstr.c_str());
-
-	if (end != GUID_numstr.c_str() + GUID_numstr.length()) {
-		printf("[WARNING]: change_target: couldn't wholly convert GUID string argument (strtoull(\"%s\", &end, 16) failed, bailing out\n", GUID_numstr.c_str());
-		return;
-	}
-
-	memcpy((LPVOID)PLAYER_TARGET_ADDR, &GUID, sizeof(GUID));
-}
 
 
-static int hook_DelIgnore() {
+static int prepare_DelIgnore_aux_patch() {
 
 	// DelIgnore == 5BA4B0, 
 	// but a more easy-to-hook func is at 540D10 (EAX = string arg passed to DelIgnore). 
 	// This is called at DelIgnore:5BA4D2
 
 
-	static BYTE trampoline[] = {
+	static BYTE DelIgnore_trampoline[] = {
 		// from the original DelIgnore-related func
 		0x55, // push EBP
 		0x8B, 0xEC, // mov EBP, ESP
@@ -626,25 +678,62 @@ static int hook_DelIgnore() {
 	};
 
 
-	DWORD tr_offset = ((DWORD)trampoline - (DWORD)DelIgnore_aux - 5);
+	DWORD tr_offset = ((DWORD)DelIgnore_trampoline - (DWORD)DelIgnore_aux - 5);
 	memcpy(DelIgnore_aux_patch + 1, &tr_offset, sizeof(tr_offset));
 
 	DWORD ret_addr = (DWORD)DelIgnore_aux + 6;
-	memcpy(trampoline + 7, &ret_addr, sizeof(ret_addr)); // add return address
+	memcpy(DelIgnore_trampoline + 7, &ret_addr, sizeof(ret_addr)); // add return address
 
-	DWORD hookfunc_offset = (DWORD)&change_target - (DWORD)trampoline - 21;
-	memcpy(trampoline + 17, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
+	DWORD hookfunc_offset = (DWORD)&change_target - (DWORD)DelIgnore_trampoline - 21;
+	memcpy(DelIgnore_trampoline + 17, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
 
 	DWORD oldprotect;
-	VirtualProtect((LPVOID)trampoline, sizeof(trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
+	VirtualProtect((LPVOID)DelIgnore_trampoline, sizeof(DelIgnore_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
 
-	printf("DelIgnore_aux trampoline: %p\n", &trampoline);
+	printf("DelIgnore_aux trampoline: %p\n", &DelIgnore_trampoline);
 
 	return 1;
 }
 
+static int prepare_ClosePetStables_patch() {
+	
+	// ClosePetStables = 0x4FACA0
 
-//The new thread
+	static BYTE ClosePetStables_trampoline[] = {
+		// original opcodes from ClosePetStables
+		0xE8, 0x00, 0x00, 0x00, 0x00, // CALL 004FAC60. need to insert address relative to this trampoline 
+
+		0x68, 0x00, 0x00, 0x00, 0x00, // push return address (ClosePetStables + 5) onto stack for ret
+		0x60, // pushad
+		0xE8, 0x00, 0x00, 0x00, 0x00, // call own function
+		0x61, // popad
+		0xC3 //ret
+	};
+
+	DWORD orig_CALL_target = 0x4FAC60;
+	DWORD CALL_target_offset = ((DWORD)orig_CALL_target - ((DWORD)ClosePetStables_trampoline + 5));
+	memcpy(ClosePetStables_trampoline + 1, &CALL_target_offset, sizeof(CALL_target_offset));
+
+	DWORD tr_offset = ((DWORD)ClosePetStables_trampoline - (DWORD)ClosePetStables - 5);
+	memcpy(ClosePetStables_patch + 1, &tr_offset, sizeof(tr_offset));
+
+
+	DWORD ret_addr = (DWORD)ClosePetStables + 5;
+	memcpy(ClosePetStables_trampoline + 6, &ret_addr, sizeof(ret_addr)); // add return address
+
+	DWORD hookfunc_offset = (DWORD)&walk_to_target - (DWORD)ClosePetStables_trampoline - 16;
+	memcpy(ClosePetStables_trampoline + 12, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
+
+	DWORD oldprotect;
+	VirtualProtect((LPVOID)ClosePetStables_trampoline, sizeof(ClosePetStables_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
+
+	printf("ClosePetStables trampoline: %p\n", &ClosePetStables_trampoline);
+
+	return 1;
+
+}
+
+
 DWORD WINAPI ThreadProc(LPVOID lpParam)
 {
 	MSG messages;
@@ -657,20 +746,19 @@ DWORD WINAPI ThreadProc(LPVOID lpParam)
 
 	RegisterHotKey(hwnd, 100, MOD_ALT, 'G');	// G is a special case. (blast XD)
 
-	hook_EndScene();
-	hook_DelIgnore();
-
+	prepare_EndScene_patch();
+	prepare_DelIgnore_aux_patch();
+	prepare_ClosePetStables_patch();
+	
 	while (GetMessage(&messages, NULL, 0, 0) && !STOP_SIGNALED) {
 		TranslateMessage(&messages);
 		DispatchMessage(&messages);
 	}
+
 	return 1;
 }
 
 
-
-
-//Our new windows proc
 LRESULT CALLBACK DLLWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	int lo, hi;
@@ -686,31 +774,31 @@ LRESULT CALLBACK DLLWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		case MYMENU_DUMP:
 			dump_wowobjects_to_log();
 			break;
-		case MYMENU_FUNK: {
-			//GUID_t guid = 0xF130000E0500B45D; // this is for a specific vendor in Teldrassil ^^
-			//writeAddr(PLAYER_TARGET_ADDR, &guid, sizeof(guid));
-			really_hook();
-		}	
+		case MYMENU_HOOK: 
+			hook_all();
+			break;
+			
+		case MYMENU_UNHOOK:
+			unhook_all();
+			break;
 		case MYMENU_CTM: {
 			
 			ObjectManager OM;
-			WowObject *o = OM.get_object_by_GUID(OM.get_localGUID());
-			if (!o) {
+			WowObject o = OM.get_object_by_GUID(OM.get_localGUID());
+			if (!o.valid()) {
 				break;
 			}
 		
-			WowObject *t = OM.get_object_by_GUID(o->unit_get_target_GUID());
-			if (!t) {
+			WowObject t = OM.get_object_by_GUID(o.unit_get_target_GUID());
+			if (!t.valid()) {
 				break;
 			}
-			click_to_move(t->get_pos_x(), t->get_pos_y(), t->get_pos_z(), CTM_MOVE, 0);
-			delete o;
-			delete t;
+			click_to_move(t.get_pos_x(), t.get_pos_y(), t.get_pos_z(), CTM_MOVE, 0);
+
 		   }
 		case MYMENU_CTM_CONSTANT: {
 			CONSTANT_CTM_TARGET = !CONSTANT_CTM_TARGET;
 			printf("CONSTANT_CTM: %d\n", CONSTANT_CTM_TARGET);
-
 			break;
 		}
 		}
@@ -743,7 +831,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
                        LPVOID lpReserved
 					 )
 {
-	memcpy(original_opcodes, cast_cond_errmsg_addr, 8);
 
 	HANDLE hProcess = GetCurrentProcess();
 	HANDLE windowThread = INVALID_HANDLE_VALUE;
@@ -753,34 +840,26 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	AllocConsole();
 	freopen("CONOUT$", "wb", stdout);
 
-	switch (ul_reason_for_call)
-	{
+	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH: 
-		//	patch_endscene(hProcess);
-
-		//	printf("DLL ATTACHED BEYOOTTCH!!\n");
 		patch_LUA_prot(hProcess);
-		//printf("patched LUA protection function at 0x49DBA0 ;)\n");
-
-		//	patch_cast_cond_errmsg(hProcess);
-		//	patch_moveforwardstart(hProcess);
-		
 		windowThread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
-
 		inj_hModule = hModule;
-
 		break;
 	
 	case DLL_THREAD_ATTACH:
 		break;
+
 	case DLL_THREAD_DETACH:
 		break;
+
 	case DLL_PROCESS_DETACH:
-		printf("DLL DETACHED LOLE\n");
+		printf("DLL DETACHED! Unhooking all functions.\n");
 		// might want to suspend the thread :DD
 		STOP_SIGNALED = 1;
-		WriteProcessMemory(hProcess, cast_cond_errmsg_addr, original_opcodes, 8, NULL);
 		WaitForSingleObject(windowThread, INFINITE);
+		unhook_all();
+
 		break;
 	}
 	//logfile.close();
