@@ -1,0 +1,27 @@
+## Interface: 20400
+## Title: LOLEXDD
+## Author: Toni Pillu
+## Notes: epic
+
+lole_common.lua
+
+druid_resto.lua
+paladin_holy.lua
+paladin_prot.lua
+druid_balance.lua
+mage_fire.lua
+mage_frost.lua
+priest_holy.lua
+priest_shadow.lua
+warlock_affli.lua
+warlock_sb.lua
+warrior_prot.lua
+
+shaman_common.lua
+shaman_elem.lua
+shaman_resto.lua
+
+lole.xml
+lole.lua
+
+##SavedVariablesPerCharacter: LOLE_CLASS_CONFIG_NAME LOLE_CLASS_CONFIG_ATTRIBS
