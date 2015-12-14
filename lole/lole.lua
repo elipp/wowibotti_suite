@@ -16,7 +16,7 @@ local available_configs = {
 	["paladin_prot"] = config_paladin_prot,
 	["druid_resto"] = config_druid_resto,
 	["paladin_holy"] = config_paladin_holy,
-	["paladin_retri"] = config_paladin_retri,
+	--["paladin_retri"] = config_paladin_retri,
 	["druid_balance"] = config_druid_balance,
 	["mage_fire"] = config_mage_fire,
 	["mage_frost"] = config_mage_frost,
@@ -27,7 +27,7 @@ local available_configs = {
 	["warlock_affli"] = config_warlock_affli,
 	["warlock_sb"] = config_warlock_sb,
 	["warrior_prot"] = config_warrior_prot,
-	["warrior_arms"] = config_warrior_arms
+	--["warrior_arms"] = config_warrior_arms
 };
 
 local function cipher_GUID(GUID)
@@ -331,7 +331,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 
     if (prefix == "lole_target") then
     	DEFAULT_CHAT_FRAME:AddMessage(decipher_GUID(message));
-	DelIgnore("LOLE_TARGET_GUID:" .. decipher_GUID(message)); -- DelIgnore is hooked to change the players target to the provided GUID ;) see DLL src.
+		DelIgnore("LOLE_TARGET_GUID:" .. decipher_GUID(message)); -- DelIgnore is hooked to change the players target to the provided GUID ;) see DLL src.
     elseif (prefix == "lole_buffs") then
         local buffs = {strsplit(",", message)};
         for key, buff in pairs(buffs) do

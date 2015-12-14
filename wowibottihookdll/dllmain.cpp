@@ -20,8 +20,6 @@ HWND       prnt_hWnd;            //Parent Window Handle
 
 LRESULT CALLBACK DLLWindowProc(HWND, UINT, WPARAM, LPARAM);
 
-static FILE *CTM_debug;
-
 static HANDLE glhProcess;
 
 static const unsigned long DelIgnore_aux = 0x540D10;
@@ -36,8 +34,11 @@ static BYTE original_opcodes[8];
 static int BLAST_ENABLED = 0;
 static int CONSTANT_CTM_TARGET = 0;
 
+typedef unsigned long long GUID_t;
+
 static HRESULT(*EndScene)(void);
-static const int(*LUA_DoString)(const char*, const char*, const char*) = (const int(*)(const char*, const char*, const char*)) 0x706C80;
+static int const (*LUA_DoString)(const char*, const char*, const char*) =  (int const(*)(const char*, const char*, const char*)) 0x706C80;
+static int const (*SelectUnit)(GUID_t) = (int const(*)(GUID_t)) 0x4A6690;
 
 static void __stdcall walk_to_target();
 
@@ -47,10 +48,6 @@ enum {
 	CTM_LOOT = 0x6,
 	CTM_MOVE_AND_ATTACK = 0xA
 };
-
-static int STOP_SIGNALED = 0;
-
-typedef unsigned long long GUID_t;
 
 typedef unsigned int uint; // looks kinda messy with all the "unsigned int"s
 
@@ -151,7 +148,7 @@ public:
 	float get_pos_y() const {
 		float y;
 		readAddr(base + Y, &y, sizeof(y));
-return y;
+		return y;
 	}
 	float get_pos_z() const {
 		float z;
@@ -434,9 +431,8 @@ static void __stdcall walk_to_target() {
 }
 
 
-//Register our windows Class
-BOOL RegisterDLLWindowClass(char szClassName[])
-{
+BOOL RegisterDLLWindowClass(char szClassName[]) {
+
 	WNDCLASSEX wc;
 	wc.hInstance = inj_hModule;
 	wc.lpszClassName = (LPCSTR)szClassName;
@@ -450,13 +446,14 @@ BOOL RegisterDLLWindowClass(char szClassName[])
 	wc.cbClsExtra = 0;
 	wc.cbWndExtra = 0;
 	wc.hbrBackground = (HBRUSH)COLOR_BACKGROUND;
+	
 	if (!RegisterClassEx(&wc))
 		return 0;
 	return 1;
+
 }
-//Creating our windows Menu
-HMENU CreateDLLWindowMenu()
-{
+
+HMENU CreateDLLWindowMenu() {
 	HMENU hMenu;
 	hMenu = CreateMenu();
 	HMENU hMenuPopup;
@@ -523,7 +520,8 @@ HMENU CreateDLLWindowMenu()
 		 return;
 	 }
 
-	 memcpy((LPVOID)PLAYER_TARGET_ADDR, &GUID, sizeof(GUID));
+	// memcpy((LPVOID)PLAYER_TARGET_ADDR, &GUID, sizeof(GUID));
+	 SelectUnit(GUID);
  }
 
 
@@ -750,11 +748,11 @@ DWORD WINAPI ThreadProc(LPVOID lpParam)
 	prepare_DelIgnore_aux_patch();
 	prepare_ClosePetStables_patch();
 	
-	while (GetMessage(&messages, NULL, 0, 0) && !STOP_SIGNALED) {
+	while (GetMessage(&messages, NULL, 0, 0)) {
 		TranslateMessage(&messages);
 		DispatchMessage(&messages);
 	}
-
+	
 	return 1;
 }
 
@@ -816,6 +814,7 @@ LRESULT CALLBACK DLLWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		}
 		break;
 	case WM_DESTROY:
+		printf("WM_DESTROY reached\n");
 		PostQuitMessage(0);
 		break;
 	default:
@@ -856,8 +855,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_PROCESS_DETACH:
 		printf("DLL DETACHED! Unhooking all functions.\n");
 		// might want to suspend the thread :DD
-		STOP_SIGNALED = 1;
-		WaitForSingleObject(windowThread, INFINITE);
+		PostThreadMessage(GetThreadId(windowThread), WM_DESTROY, 0, 0);
+		//WaitForSingleObject(windowThread, INFINITE);
 		unhook_all();
 
 		break;
