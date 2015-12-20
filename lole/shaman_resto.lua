@@ -41,11 +41,11 @@ config_shaman_resto.combat = function()
 	
 	local ESTARGET = "Crq";
 	
-	if not has_buff(ESTARGET, "Earth Shield") then
-		TargetUnit(ESTARGET);
-		CastSpellByName("Earth Shield");
-		return;
-	end
+	--if not has_buff(ESTARGET, "Earth Shield") then
+	--	TargetUnit(ESTARGET);
+	--	CastSpellByName("Earth Shield");
+	--return;
+	--end
 	
 	local lowest = nil;
 	

@@ -34,15 +34,15 @@ local function cipher_GUID(GUID)
 	local part1 = tonumber(string.sub(GUID, 3, 10), 16); -- the GUID string still has the 0x part in it
 	local part2 = tonumber(string.sub(GUID, 11), 16);
 
---	DEFAULT_CHAT_FRAME:AddMessage("part 1: " .. string.format("%X", part1) .. ", part 2: " .. string.format("%X", part2));
+	--DEFAULT_CHAT_FRAME:AddMessage("part 1: " .. string.format("%08X", part1) .. ", part 2: " .. string.format("%08X", part2));
 
 	local XOR_mask1 = 0xAB0AB03F; -- just some arbitrary constants
 	local XOR_mask2 = 0xEBAEBA55;
 
-	local xor1 = string.format("%X", bit.bxor(part1, XOR_mask1));
-	local xor2 = string.format("%X", bit.bxor(part2, XOR_mask2));
+	local xor1 = string.format("%08X", bit.bxor(part1, XOR_mask1));
+	local xor2 = string.format("%08X", bit.bxor(part2, XOR_mask2));
 
-	-- DEFAULT_CHAT_FRAME:AddMessage("XOR'd 1: " .. xor1 .. ", XOR'd 2: " .. xor2);
+	--DEFAULT_CHAT_FRAME:AddMessage("XOR'd 1: " .. xor1 .. ", XOR'd 2: " .. xor2);
 
 	return "0x" .. xor1 .. xor2;
 end
@@ -275,13 +275,13 @@ end
 
 function lole_SlashCommand(args) 
 
-	local target_GUID = UnitGUID("target");
-	
-	if (target_GUID) then
-		local ciphered = cipher_GUID(target_GUID);
-	--DEFAULT_CHAT_FRAME:AddMessage(UnitGUID("target"));
-	
-		SendAddonMessage("lole_target", tostring(ciphered), "PARTY");
+	if (IsRaidLeader("player")) then
+		local target_GUID = UnitGUID("target");
+		if (target_GUID) then
+			local ciphered = cipher_GUID(target_GUID);
+		--DEFAULT_CHAT_FRAME:AddMessage(UnitGUID("target"));
+			SendAddonMessage("lole_target", tostring(ciphered), "PARTY");
+		end
 	end
 	if (not args or args == "") then
         if LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] == 1 then
@@ -327,12 +327,23 @@ local function on_buff_check_event(self, event, ...)
     lole_buffcheck();
 end
 
+local lole_target = "0x0000000000000000";
+
 MISSING_BUFFS = {};
 local function OnMsgEvent(self, event, prefix, message, channel, sender)
 
+	-- ok. so DelIgnore is hooked to do all sorts of cool stuff depending on the arg.
+	-- e.g. LOLE_TARGET_GUID changes the players target to the provided GUID ;) see DLL src.
+
     if (prefix == "lole_target") then
-    	DEFAULT_CHAT_FRAME:AddMessage(decipher_GUID(message));
-		DelIgnore("LOLE_TARGET_GUID:" .. decipher_GUID(message)); -- DelIgnore is hooked to change the players target to the provided GUID ;) see DLL src.
+    --	DEFAULT_CHAT_FRAME:AddMessage(decipher_GUID(message));
+		local GUID_deciphered = decipher_GUID(message);
+		if (lole_target ~= GUID_deciphered) then
+			DelIgnore("LOLE_TARGET_GUID:" .. GUID_deciphered); 
+			lole_target = GUID_deciphered;
+		end
+	elseif (prefix == "lole_blast") then
+		DelIgnore("LOLE_BLAST:" .. message);	
     elseif (prefix == "lole_buffs") then
         local buffs = {strsplit(",", message)};
         for key, buff in pairs(buffs) do
