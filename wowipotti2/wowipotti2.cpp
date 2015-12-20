@@ -181,7 +181,7 @@ int main()
 	
 	for (auto c : wow_handles) {
 		inject_dll(c.window_handle);
-		printf("wowipotti2: injected wowibottihookdll to window %X\n", c.window_handle);
+		printf("wowipotti2: injected wowibottihookdll to window %X\n", (DWORD)c.window_handle);
 	}
 
 	return 0;

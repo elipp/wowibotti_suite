@@ -16,6 +16,7 @@ priest_shadow.lua
 warlock_affli.lua
 warlock_sb.lua
 warrior_prot.lua
+warrior_arms.lua
 
 shaman_common.lua
 shaman_elem.lua

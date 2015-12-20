@@ -27,7 +27,7 @@ local available_configs = {
 	["warlock_affli"] = config_warlock_affli,
 	["warlock_sb"] = config_warlock_sb,
 	["warrior_prot"] = config_warrior_prot,
-	--["warrior_arms"] = config_warrior_arms
+	["warrior_arms"] = config_warrior_arms,
 };
 
 local function cipher_GUID(GUID)
@@ -276,12 +276,13 @@ end
 function lole_SlashCommand(args) 
 
 	local target_GUID = UnitGUID("target");
-	local ciphered = cipher_GUID(target_GUID);
-
-	DEFAULT_CHAT_FRAME:AddMessage(UnitGUID("target"));
 	
-        SendAddonMessage("lole_target", tostring(ciphered), "PARTY");
-
+	if (target_GUID) then
+		local ciphered = cipher_GUID(target_GUID);
+	--DEFAULT_CHAT_FRAME:AddMessage(UnitGUID("target"));
+	
+		SendAddonMessage("lole_target", tostring(ciphered), "PARTY");
+	end
 	if (not args or args == "") then
         if LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] == 1 then
             lole_buffs();

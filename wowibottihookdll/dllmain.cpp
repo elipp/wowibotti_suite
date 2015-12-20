@@ -18,12 +18,52 @@ HWND       prnt_hWnd;            //Parent Window Handle
 
 #define MKEY_G 0x47
 
+struct vec3;
+float dot(const vec3 &a, const vec3 &b);
+
+struct vec3 {
+	float x, y, z;
+	vec3 operator+(const vec3 &p) { return vec3(x + p.x, y + p.y, z + p.z); }
+	vec3 operator-(const vec3 &p) { return vec3(x - p.x, y - p.y, z - p.z); }
+
+	float length() { return sqrt(dot(*this, *this));  };
+
+	vec3(float X, float Y, float Z) : x(X), y(Y), z(Z) {};
+	vec3() : x(0), y(0), z(0) {};
+};
+
+float dot(const vec3 &a, const vec3 &b) {
+	return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
+struct point_timestamp {
+	vec3 p;
+	LARGE_INTEGER ticks;
+	point_timestamp() {};
+	point_timestamp(float x, float y, float z) : p(x, y, z) {
+		QueryPerformanceCounter(&ticks);
+	}
+
+	point_timestamp(vec3 v) : p(v) {
+		QueryPerformanceCounter(&ticks);
+	}
+};
+
+static point_timestamp pt;
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif 
+
 LRESULT CALLBACK DLLWindowProc(HWND, UINT, WPARAM, LPARAM);
 
 static HANDLE glhProcess;
 
-static const unsigned long DelIgnore_aux = 0x540D10;
+static const unsigned long DelIgnore = 0x5BA4B0;
+static const unsigned long DelIgnore_hookaddr = DelIgnore + 0x11;
 static const unsigned long ClosePetStables = 0x4FACA0;
+
+static int face_queued = 0;
 
 static unsigned int * const PLAYER_TARGET_ADDR = (unsigned int* const)0xC6E960;
 static unsigned int * const PLAYER_TARGET_ADDR2 = (unsigned int* const)0xC6E968;
@@ -39,6 +79,7 @@ typedef unsigned long long GUID_t;
 static HRESULT(*EndScene)(void);
 static int const (*LUA_DoString)(const char*, const char*, const char*) =  (int const(*)(const char*, const char*, const char*)) 0x706C80;
 static int const (*SelectUnit)(GUID_t) = (int const(*)(GUID_t)) 0x4A6690;
+
 
 static void __stdcall walk_to_target();
 
@@ -129,6 +170,22 @@ private:
 
 		unsigned int base;
 
+		float get_pos_x() const {
+			float x;
+			readAddr(base + X, &x, sizeof(x));
+			return x;
+		}
+		float get_pos_y() const {
+			float y;
+			readAddr(base + Y, &y, sizeof(y));
+			return y;
+		}
+		float get_pos_z() const {
+			float z;
+			readAddr(base + Z, &z, sizeof(z));
+			return z;
+		}
+	
 public:
 	bool valid() const {
 		return ((this->get_base() != 0) && ((this->get_base() & 1) == 0));
@@ -140,26 +197,17 @@ public:
 		return WowObject(next_base);
 	}
 
-	float get_pos_x() const {
-		float x;
-		readAddr(base + X, &x, sizeof(x));
-		return x;
+	vec3 get_pos() {
+		return vec3(get_pos_x(), get_pos_y(), get_pos_z());
 	}
-	float get_pos_y() const {
-		float y;
-		readAddr(base + Y, &y, sizeof(y));
-		return y;
-	}
-	float get_pos_z() const {
-		float z;
-		readAddr(base + Z, &z, sizeof(z));
-		return z;
-	}
+
 	float get_rot() const {
 		float r;
 		readAddr(base + R, &r, sizeof(r));
 		return r;
 	}
+
+
 	GUID_t get_GUID() {
 		GUID_t g;
 		readAddr(base + GUID, &g, sizeof(g));
@@ -342,7 +390,6 @@ public:
 			next = next.getNextObject();
 		}
 		return next;
-
 	}
 
 	GUID_t get_localGUID() const { return localGUID; }
@@ -350,7 +397,23 @@ public:
 
 };
 
-static void click_to_move(float x, float y, float z, uint action, GUID_t interact_GUID) {
+// this __declspec(noinline) thing has got to do with the msvc optimizer. the inline assembly is discarded when this func is inlined, so we're fucked
+__declspec(noinline) static void set_facing(float x) {
+	void const (*SetFacing)(float) = (void const (*)(float))0x007B9DE0;
+	
+	uint this_ecx = DEREF(0xE29D28) + 0xBE0;
+
+	printf("set_facing: this_ecx: %X\n", this_ecx);
+	// this is due to the fact that SetFacing is uses a __thiscall calling convention, so the base addr needs to be passed in ECX. no idea which base address this is though :D
+
+	__asm push ecx
+	__asm mov ecx, this_ecx
+	SetFacing(x);
+	__asm pop ecx;
+	
+}
+
+static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 	static const uint 
 		CTM_X = 0xD68A18,
 		CTM_Y = 0xD68A1C,
@@ -364,9 +427,9 @@ static void click_to_move(float x, float y, float z, uint action, GUID_t interac
 	// D689A8 and D689AC are weird..
 	// for walking, "mystery" is a constant float 0.5
 
-	writeAddr(CTM_X, &x, sizeof(x));
-	writeAddr(CTM_Y, &y, sizeof(y));
-	writeAddr(CTM_Z, &z, sizeof(z));
+	writeAddr(CTM_X, &point.x, sizeof(point.x));
+	writeAddr(CTM_Y, &point.y, sizeof(point.y));
+	writeAddr(CTM_Z, &point.z, sizeof(point.z));
 
 	if (interact_GUID != 0) {
 		writeAddr(CTM_GUID, &interact_GUID, sizeof(GUID));
@@ -398,8 +461,9 @@ int dump_wowobjects_to_log() {
 		while (next.valid()) {
 
 			if (next.get_type() == 3 || next.get_type() == 4) { // 3 = NPC, 4 = Unit
+				vec3 pos = next.get_pos();
 				fprintf(fp, "object GUID: 0x%llX, base addr = %X, type: %s, coords = (%f, %f, %f), rot: %f\n",
-					next.get_GUID(), next.get_base(), type_names[next.get_type()].c_str(), next.get_pos_x(), next.get_pos_y(), next.get_pos_z(), next.get_rot());
+					next.get_GUID(), next.get_base(), type_names[next.get_type()].c_str(), pos.x, pos.y, pos.z, next.get_rot());
 
 				// print bytes
 				if (next.get_type() == 3) {
@@ -420,15 +484,81 @@ int dump_wowobjects_to_log() {
 
 static void __stdcall walk_to_target() {
 	
-	GUID_t GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
-	if (!GUID) return;
+	GUID_t target_GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
+	if (!target_GUID) return;
 	
 	ObjectManager OM;
-	WowObject t = OM.get_object_by_GUID(GUID);
+	WowObject t = OM.get_object_by_GUID(target_GUID);
 
-	click_to_move(t.get_pos_x(), t.get_pos_y(), t.get_pos_z(), CTM_MOVE, 0);
+	click_to_move(t.get_pos(), CTM_MOVE, 0);
 	
 }
+
+static void __stdcall face_target() {
+	GUID_t target_GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
+	if (!target_GUID) return;
+
+	ObjectManager OM;
+	WowObject t = OM.get_object_by_GUID(target_GUID);
+
+	if (!t.valid()) return;
+	
+	WowObject p = OM.get_object_by_GUID(OM.get_localGUID());
+
+	if (!p.valid()) return;
+
+	vec3 diff = p.get_pos() - t.get_pos();
+	
+	// this formula is for a directed angle (clockwise angle). atan2(det, dot). 
+	// now we're taking the angle with respect to the x axis (north in wow), so the computation becomes simply:
+	float directed_angle = atan2(diff.y, diff.x);
+
+	//printf("player coords: (%f, %f, %f), target coords: (%f, %f, %f), diff = (%f, %f, %f)\nangle = %f, player rot = %f\n", 
+		//pc.x, pc.y, pc.z, tc.x, tc.y, tc.z, diff.x, diff.y, diff.z, directed_angle, p.get_rot());
+
+	// the wow angle system seems to be counter-clockwise
+
+	set_facing(directed_angle + M_PI); 
+
+}
+
+static void __stdcall melee_behind_target() {
+	GUID_t target_GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
+	if (!target_GUID) return;
+
+	ObjectManager OM;
+	WowObject t = OM.get_object_by_GUID(target_GUID);
+
+	if (!t.valid()) return;
+
+	WowObject p = OM.get_object_by_GUID(OM.get_localGUID());
+
+	if (!p.valid()) return;
+
+	float target_rot = t.get_rot();
+
+	// basically rotating the vector (1, 0, 0) target_rot radians anti-clockwise
+	//point rot_unit(1.0 * std::cos(target_rot) - 0.0 * std::sin(target_rot), 1.0 * std::sin(target_rot) + 0.0 * std::cos(target_rot), 0.0);
+	// point rot_unit(std::cos(target_rot), std::sin(target_rot), 0.0);
+	vec3 pc = p.get_pos();
+	vec3 tc = t.get_pos();
+
+	vec3 point_behind(tc.x - std::cos(target_rot), tc.y - std::sin(target_rot), tc.z); 
+
+	vec3 diff = pc - point_behind;
+	
+	printf("melee_behind.. diff.length: %f\n", diff.length());
+
+	if (diff.length() < 1.0) {
+		face_queued = 1;
+		return;
+	}
+	else {
+		click_to_move(point_behind, CTM_MOVE, 0);
+	}
+
+}
+
 
 
 BOOL RegisterDLLWindowClass(char szClassName[]) {
@@ -468,8 +598,8 @@ HMENU CreateDLLWindowMenu() {
 	AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hMenuPopup, TEXT("Dump"));
 
 	hMenuPopup = CreatePopupMenu();
-	AppendMenu(hMenuPopup, MF_STRING, MYMENU_HOOK, TEXT("Patch EndScene/DelIgnore_aux/ClosePetStables"));
-	AppendMenu(hMenuPopup, MF_STRING, MYMENU_UNHOOK, TEXT("UN-patch EndScene/DelIgnore_aux/ClosePetStables"));
+	AppendMenu(hMenuPopup, MF_STRING, MYMENU_HOOK, TEXT("Patch EndScene/DelIgnore/ClosePetStables"));
+	AppendMenu(hMenuPopup, MF_STRING, MYMENU_UNHOOK, TEXT("UN-patch EndScene/DelIgnore/ClosePetStables"));
 	AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hMenuPopup, TEXT("FUNK"));
 
 	hMenuPopup = CreatePopupMenu();
@@ -480,6 +610,38 @@ HMENU CreateDLLWindowMenu() {
 
 	return hMenu;
 }
+
+
+
+static int __stdcall player_is_moving() {
+
+
+	ObjectManager OM;
+	WowObject p = OM.get_object_by_GUID(OM.get_localGUID());
+
+	if (!p.valid()) return -1;
+
+	static const float normal_speed_per_tick = 2.18e-6;
+
+	point_timestamp new_pt = p.get_pos();
+	
+	LONGLONG tick_diff = new_pt.ticks.QuadPart - pt.ticks.QuadPart;
+
+	//if (tick_diff > 500000) { // on my machine, 200000 ticks is (roughly) every third frame, so about 46ms. 
+		// so basically, if the player hasn't moved enough in about 100ms, it can be considered stationary
+		// 100% run speed is about 2.18e-6 units ("yards") per tick
+	
+	vec3 diff = new_pt.p - pt.p;
+		
+	// 0.47 / 216000 is roughly walking speed
+		
+	if (diff.length() > 0.15) { return 1; }
+		
+	pt = new_pt;
+
+	return 1;
+}
+
 
  static void __stdcall hook_func() {
 	 
@@ -494,9 +656,18 @@ HMENU CreateDLLWindowMenu() {
 		 if (CONSTANT_CTM_TARGET) {
 			 walk_to_target();
 		 }
+
+		 player_is_moving(); // this basically updates the static struct point pt for following queries
+
+		 if (face_queued) { // this is a trick to not mess up the main thread
+			 face_target();
+			 face_queued = 0;
+		 }
 	 }
 
 	 every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
+
+
 }
 
  static void __stdcall change_target(const char* GUID_str) {
@@ -536,15 +707,15 @@ HMENU CreateDLLWindowMenu() {
 	 0x90, 0x90
  };
 
- static const BYTE DelIgnore_aux_original[] = {
-	 0x55, // push EBP
-	 0x8B, 0xEC, // mov EBP, ESP
-	 0x8B, 0x45, 0x10, // MOV EAX, DWORD PTR SS:[ARG.3]
+ static const BYTE DelIgnore_original[] = {
+	 0x6A, 0x01, // push 1
+	 0x6A, 0x01, // push 1
+	 0x8D, 0x4D, 0xFC, // LEA ECX, [LOCAL.1]
  };
 
- static BYTE DelIgnore_aux_patch[] = {
+ static BYTE DelIgnore_patch[] = {
 	 0xE9, 0x00, 0x00, 0x00, 0x00, // jmp address to be inserted to bytes 1-5
-	 0xC3 
+	 0x90, 0x90
  };
 
  static const BYTE ClosePetStables_original[] = {
@@ -562,13 +733,13 @@ HMENU CreateDLLWindowMenu() {
 	 WriteProcessMemory(glhProcess, EndScene, EndScene_patch, sizeof(EndScene_patch), &bytes);
 	 printf("OK!\n");
 	
-	 printf("Patching DelIgnore_aux at %p...", (LPVOID)DelIgnore_aux);
-	 WriteProcessMemory(glhProcess, (LPVOID)DelIgnore_aux, DelIgnore_aux_patch, sizeof(DelIgnore_aux_patch), &bytes);
+	 printf("Patching DelIgnore at %p...", (LPVOID)DelIgnore_hookaddr);
+	 WriteProcessMemory(glhProcess, (LPVOID)DelIgnore_hookaddr, DelIgnore_patch, sizeof(DelIgnore_patch), &bytes);
 	 printf("OK!\n");
 	
-	 printf("Patching ClosePetStables at %p...", ClosePetStables);
+	 printf("Patching ClosePetStables at %p...", (LPVOID)ClosePetStables);
 	 WriteProcessMemory(glhProcess, (LPVOID)ClosePetStables, ClosePetStables_patch, sizeof(ClosePetStables_patch), &bytes);
-	 printf("OK!\n", (LPVOID)ClosePetStables);
+	 printf("OK!\n");
 
 	 return 1;
  }
@@ -579,8 +750,8 @@ HMENU CreateDLLWindowMenu() {
 	 WriteProcessMemory(glhProcess, EndScene, EndScene_original, sizeof(EndScene_original), &bytes);
 	 printf("Unpatched EndScene at %p!\n", EndScene);
 	
-	 WriteProcessMemory(glhProcess, (LPVOID)DelIgnore_aux, DelIgnore_aux_original, sizeof(DelIgnore_aux_original), &bytes);
-	 printf("Unpatched DelIgnore_aux at %p!\n", (LPVOID)DelIgnore_aux);
+	 WriteProcessMemory(glhProcess, (LPVOID)DelIgnore_hookaddr, DelIgnore_original, sizeof(DelIgnore_original), &bytes);
+	 printf("Unpatched DelIgnore at %p!\n", (LPVOID)DelIgnore);
 
 	 WriteProcessMemory(glhProcess, (LPVOID)ClosePetStables, ClosePetStables_original, sizeof(ClosePetStables_original), &bytes);
 	 printf("Unpatched ClosePetStables at %p!\n", (LPVOID)ClosePetStables);
@@ -657,38 +828,41 @@ static int prepare_EndScene_patch() {
 static int prepare_DelIgnore_aux_patch() {
 
 	// DelIgnore == 5BA4B0, 
-	// but a more easy-to-hook func is at 540D10 (EAX = string arg passed to DelIgnore). 
-	// This is called at DelIgnore:5BA4D2
+	// but the string appears in EAX after a call to 72DFF0 (called at 5BA4BC)
+	// so hook func at 7BA4C1!
+
+	uint PATCH_ADDR = 0x7BA4C1;
 
 
 	static BYTE DelIgnore_trampoline[] = {
-		// from the original DelIgnore-related func
-		0x55, // push EBP
-		0x8B, 0xEC, // mov EBP, ESP
-		0x8B, 0x45, 0x10, // MOV EAX, DWORD PTR SS:[ARG.3], actually trashes EAX
-		0x68, 0x00, 0x00, 0x00, 0x00, // push return address (540D10 + 6 = 540D16)
+		// from the original DelIgnore func
+		0x6A, 0x01, // push 1
+		0x6A, 0x01, // push 1
+		0x8D, 0x4D, 0xFC, // LEA ECX, [LOCAL.1]
+
+		0x68, 0x00, 0x00, 0x00, 0x00, // push return address (5BA4C1 + 7 = 5BA4C8)
 		0x60, // pushad
-		0x8B, 0x45, 0x08, // this is supposed to load the SS:[ARG.1] to EAX
-		0x50, // push EAX, we know that eax contains string address
+		0x50, // push EAX, we know that eax contains string address at this point
 		0xE8, 0x00, 0x00, 0x00, 0x00, // call targeting function :D loloz
 		0x61, // popad
 		0xC3 //ret
 	};
 
 
-	DWORD tr_offset = ((DWORD)DelIgnore_trampoline - (DWORD)DelIgnore_aux - 5);
-	memcpy(DelIgnore_aux_patch + 1, &tr_offset, sizeof(tr_offset));
+	DWORD tr_offset = ((DWORD)DelIgnore_trampoline - (DWORD)DelIgnore_hookaddr - 5);
+	memcpy(DelIgnore_patch + 1, &tr_offset, sizeof(tr_offset));
 
-	DWORD ret_addr = (DWORD)DelIgnore_aux + 6;
-	memcpy(DelIgnore_trampoline + 7, &ret_addr, sizeof(ret_addr)); // add return address
+	DWORD ret_addr = (DWORD)DelIgnore_hookaddr + 7;
+	memcpy(DelIgnore_trampoline + 8, &ret_addr, sizeof(ret_addr)); // add return address
 
-	DWORD hookfunc_offset = (DWORD)&change_target - (DWORD)DelIgnore_trampoline - 21;
-	memcpy(DelIgnore_trampoline + 17, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
+	DWORD hookfunc_offset = (DWORD)&change_target - (DWORD)DelIgnore_trampoline - 19;
+	memcpy(DelIgnore_trampoline + 15, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
 
 	DWORD oldprotect;
 	VirtualProtect((LPVOID)DelIgnore_trampoline, sizeof(DelIgnore_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
 
-	printf("DelIgnore_aux trampoline: %p\n", &DelIgnore_trampoline);
+	printf("DelIgnore trampoline: %p\n", &DelIgnore_trampoline);
+	printf("change_target: %p\n", &change_target);
 
 	return 1;
 }
@@ -791,7 +965,7 @@ LRESULT CALLBACK DLLWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 			if (!t.valid()) {
 				break;
 			}
-			click_to_move(t.get_pos_x(), t.get_pos_y(), t.get_pos_z(), CTM_MOVE, 0);
+			click_to_move(t.get_pos(), CTM_MOVE, 0);
 
 		   }
 		case MYMENU_CTM_CONSTANT: {
@@ -807,14 +981,16 @@ LRESULT CALLBACK DLLWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 
 		if (lo == MOD_ALT) {
 			if (hi == MKEY_G) {
-				BLAST_ENABLED = !BLAST_ENABLED;
+				//face_target();
+				//player_is_moving();
+				melee_behind_target();
+				//BLAST_ENABLED = !BLAST_ENABLED;
 				printf("G pressed BLAST = %d\n", BLAST_ENABLED);
 				return TRUE;
 			}
 		}
 		break;
 	case WM_DESTROY:
-		printf("WM_DESTROY reached\n");
 		PostQuitMessage(0);
 		break;
 	default:
@@ -844,6 +1020,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		patch_LUA_prot(hProcess);
 		windowThread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
 		inj_hModule = hModule;
+
+		printf("set_facing: %p\n", set_facing);
+
 		break;
 	
 	case DLL_THREAD_ATTACH:
