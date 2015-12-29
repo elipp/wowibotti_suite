@@ -219,11 +219,12 @@ int install_hook(const std::string &funcname, LPVOID hook_func_addr) {
 			return bytes;
 		}
 	}
+	return 0;
 }
 
 int uninstall_hook(const std::string &funcname) {
 	//for (int i = 0; i < sizeof(hookable_functions) / sizeof(hookable_functions[0]); ++i) {
-	for (auto &h : hookable_functions)
+	for (auto &h : hookable_functions) {
 		//	const hookable &h = hookable_functions[i];
 		if (funcname == h.funcname) {
 			DWORD bytes;
@@ -233,5 +234,7 @@ int uninstall_hook(const std::string &funcname) {
 			printf("OK!\n");
 			return bytes;
 		}
+	}
+	return 0;
 }
 

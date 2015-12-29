@@ -7,6 +7,7 @@ config_shaman_elem.MODE_ATTRIBS = {
 
 config_shaman_elem.SELF_BUFFS = {"Water Shield"};
 
+local casting = false;
 
 config_shaman_elem.combat = function()
 

@@ -5,7 +5,6 @@ config_shaman_resto.MODE_ATTRIBS = {
     ["buffmode"] = 0
 };
 
-
 config_shaman_resto.SELF_BUFFS = {"Water Shield"}; -- UNCOMMENT FOR PVP
 
 local function stopfollow()
@@ -13,10 +12,10 @@ local function stopfollow()
 	MoveForwardStop();
 end
 
-
 config_shaman_resto.combat = function()
-
-	if UnitCastingInfo("player") then return; end
+	--DEFAULT_CHAT_FRAME:AddMessage(tostring(cast_state[CS_CASTING]) .. ", " .. cast_state[CS_TIMESTAMP] .. ", " .. cast_state[CS_CASTTIME])
+	
+	if casting_legit_heal() return end
 	
 	if not has_buff("player", "Water Shield") then 
 		CastSpellByName("Water Shield");
@@ -72,24 +71,20 @@ config_shaman_resto.combat = function()
 		cast_if_nocd("Nature's Swiftness");
 		UseInventoryItem(13);
 		UseInventoryItem(14);
-		stopfollow();
-		CastSpellByName("Healing Wave");
+		cast_spell("Healing Wave");
 		return;
 	end
 	
 	if (group_member_hpdeficits[lowest] > 3750) then
-		stopfollow();
-		CastSpellByName("Healing Wave");
+		cast_spell("Healing Wave");
 		return;
 	end
 	
 	if (group_member_hpdeficits[lowest] > 2500) then	
-		stopfollow();
-		CastSpellByName("Chain Heal");
+		cast_spell("Chain Heal");
 		return;
 	else
-		stopfollow();
-		CastSpellByName("Chain Heal");
+		cast_spell("Chain Heal");
 		return;
 	end
 

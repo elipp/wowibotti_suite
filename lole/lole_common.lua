@@ -93,6 +93,11 @@ BUFF_ALIASES = {
     ["Blessing of Might"] = "Greater Blessing of Might",
 };
 
+CS_CASTING, CS_TIMESTAMP, CS_CASTTIME, CS_TARGET = 1, 2, 3, 4
+NOT_CASTING = { false, 0.0, 0.0, "none" };
+cast_state = NOT_CASTING;
+
+
 function cast_if_nocd(spellname)
 	if GetSpellCooldown(spellname) == 0 then
 		CastSpellByName(spellname);
@@ -102,6 +107,33 @@ function cast_if_nocd(spellname)
 	return false;
 end
 
+function cast_spell(spellname)
+	local name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(spellname);
+	cast_state = { true, GetTime(), castTime, UnitName("target") };
+	cast_if_nocd(spellname);
+end
+
+function casting_legit_heal()
+	
+	if UnitCastingInfo("player") then return true; end
+	
+	if cast_state[CS_CASTING] then 
+		if (GetTime() - cast_state[CS_TIMESTAMP])*1000 > (cast_state[CS_CASTTIME]+100) then
+			cast_state = NOT_CASTING;
+			return false;
+		elseif not UnitCastingInfo("player") then
+			cast_state = NOT_CASTING;
+			return false;
+		elseif (UnitHealthMax(cast_state[CS_TARGET]) - UnitHealth(cast_state[CS_TARGET])) < 1000) then
+			SpellStopCasting();
+			cast_state = NOT_CASTING; -- useful when the UnitHealth info lag causes the char to overheal (or any cause)
+			return false;
+		end
+	end
+	
+	return true;
+
+end
 
 function get_num_buff_requests(buffs)
 

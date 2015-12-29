@@ -23,23 +23,23 @@ config_paladin_holy.combat = function()
 			CastSpellByName("Divine Shield");
 		end
 	end
+
+	if casting_legit_heal() return end
 	
-	if UnitCastingInfo("player") then return; end;
-		
 	local health_max = UnitHealthMax("target");
 	local health_cur = UnitHealth("target");
 	
 	if has_debuff("target", "Shadow Word: Pain") then
-		CastSpellByName("Cleanse");
+		cast_spell("Cleanse");
 	end
 	
 	if (health_cur < health_max * 0.60) then
-		CastSpellByName("Holy Light");
+		cast_spell("Holy Light");
 	elseif (health_cur < health_max * 0.88) then
-		CastSpellByName("Flash of Light");
+		cast_spell("Flash of Light");
 	elseif (UnitHealth("player") < UnitHealthMax("player")*0.65) then
 		TargetUnit("player");
-		CastSpellByName("Flash of Light");
+		cast_spell("Flash of Light");
 	end
 	
 

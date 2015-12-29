@@ -38,12 +38,14 @@ config_priest_holy.combat = function()
 		return;
 	end
 	
+	if casting_legit_heal() return end
+	
 	if (health_cur < health_max * 0.60) then
-		CastSpellByName("Greater Heal");
+		cast_spell("Greater Heal");
 	elseif (health_cur < health_max * 0.88) then
-		CastSpellByName("Greater Heal(Rank 4)");
+		cast_spell("Greater Heal(Rank 4)");
 	elseif (UnitHealth("player") < UnitHealthMax("player")*0.65) then
-		CastSpellByName("Binding Heal");
+		cast_spell("Binding Heal");
 	end
 	
 end
