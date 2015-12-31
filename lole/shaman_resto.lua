@@ -15,7 +15,7 @@ end
 config_shaman_resto.combat = function()
 	--DEFAULT_CHAT_FRAME:AddMessage(tostring(cast_state[CS_CASTING]) .. ", " .. cast_state[CS_TIMESTAMP] .. ", " .. cast_state[CS_CASTTIME])
 	
-	if casting_legit_heal() return end
+	if casting_legit_heal() then return end
 	
 	if not has_buff("player", "Water Shield") then 
 		CastSpellByName("Water Shield");

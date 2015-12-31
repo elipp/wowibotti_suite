@@ -38,7 +38,7 @@ config_priest_holy.combat = function()
 		return;
 	end
 	
-	if casting_legit_heal() return end
+	if casting_legit_heal() then return end
 	
 	if (health_cur < health_max * 0.60) then
 		cast_spell("Greater Heal");

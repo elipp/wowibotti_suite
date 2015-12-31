@@ -124,7 +124,7 @@ function casting_legit_heal()
 		elseif not UnitCastingInfo("player") then
 			cast_state = NOT_CASTING;
 			return false;
-		elseif (UnitHealthMax(cast_state[CS_TARGET]) - UnitHealth(cast_state[CS_TARGET])) < 1000) then
+		elseif (UnitHealthMax(cast_state[CS_TARGET]) - UnitHealth(cast_state[CS_TARGET])) < 1000 then
 			SpellStopCasting();
 			cast_state = NOT_CASTING; -- useful when the UnitHealth info lag causes the char to overheal (or any cause)
 			return false;

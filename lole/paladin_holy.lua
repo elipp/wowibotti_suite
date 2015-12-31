@@ -24,7 +24,7 @@ config_paladin_holy.combat = function()
 		end
 	end
 
-	if casting_legit_heal() return end
+	if casting_legit_heal() then return end
 	
 	local health_max = UnitHealthMax("target");
 	local health_cur = UnitHealth("target");
