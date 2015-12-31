@@ -74,7 +74,12 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 		CTM_Z = 0xD68A20,
 		CTM_push = 0xD689BC,
 		CTM_mystery = 0xD689AE,
-		CTM_GUID = 0xD689C0; // this is for interaction
+		CTM_GUID = 0xD689C0, // this is for interaction
+		CTM_MOVE_ATTACK_ZERO = 0xD689CC; // this must be 0 for at least CTM_MOVE_AND_ATTACK, otherwise segfault
+	// explanation: the function 7BCB00 segfaults at 7BCB14, if it's not
+	// can't remember which function calls 7BCB00, but the branch
+	// isn't taken when there's a 0 at D689CC. :D
+
 
 	// seems like addresses D689A0 D689A4 D689A8 are floats, maybe some angles?
 	// A0 = the angle where the character should be walking?
@@ -84,10 +89,16 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 	writeAddr(CTM_X, &point.x, sizeof(point.x));
 	writeAddr(CTM_Y, &point.y, sizeof(point.y));
 	writeAddr(CTM_Z, &point.z, sizeof(point.z));
+	
+	uint zero = 0;
 
 	if (interact_GUID != 0) {
 		writeAddr(CTM_GUID, &interact_GUID, sizeof(GUID));
+		if (action == CTM_MOVE_AND_ATTACK) {
+			writeAddr(CTM_MOVE_ATTACK_ZERO, &zero, sizeof(zero));
+		}
 	}
+
 
 	//	writeAddr(CTM_mystery, &mystery, 2);
 	writeAddr(CTM_push, &action, sizeof(action));
@@ -423,8 +434,8 @@ LRESULT CALLBACK DLLWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 			if (!t.valid()) {
 				break;
 			}
-			click_to_move(t.get_pos(), CTM_MOVE, 0);
-
+			click_to_move(t.get_pos(), CTM_MOVE_AND_ATTACK, t.get_GUID());
+			break;
 		}
 		case MYMENU_CTM_CONSTANT: {
 			CONSTANT_CTM_TARGET = !CONSTANT_CTM_TARGET;

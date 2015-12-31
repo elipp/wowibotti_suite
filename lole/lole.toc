@@ -6,9 +6,10 @@
 lole_common.lua
 
 druid_resto.lua
+druid_balance.lua
 paladin_holy.lua
 paladin_prot.lua
-druid_balance.lua
+paladin_retri.lua
 mage_fire.lua
 mage_frost.lua
 priest_holy.lua
