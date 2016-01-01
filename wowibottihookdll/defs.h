@@ -13,20 +13,29 @@ extern HANDLE glhProcess;
 
 struct vec3;
 inline float dot(const vec3 &a, const vec3 &b);
+inline vec3 operator*(float  f, const vec3 &v);
 
 struct vec3 {
 	float x, y, z;
 	vec3 operator+(const vec3 &p) { return vec3(x + p.x, y + p.y, z + p.z); }
 	vec3 operator-(const vec3 &p) { return vec3(x - p.x, y - p.y, z - p.z); }
 
-	float length() { return sqrt(dot(*this, *this)); };
+	float length() const { return sqrt(dot(*this, *this)); };
 
 	vec3(float X, float Y, float Z) : x(X), y(Y), z(Z) {};
 	vec3() : x(0), y(0), z(0) {};
+	vec3 unit() const { 
+		float l_recip = 1.0/this->length();
+		return l_recip*vec3(*this);
+	}
 };
 
 inline float dot(const vec3 &a, const vec3 &b) {
 	return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
+inline vec3 operator*(float f, const vec3& v) {
+	return vec3(f*v.x, f*v.y, f*v.z);
 }
 
 struct point_timestamp {

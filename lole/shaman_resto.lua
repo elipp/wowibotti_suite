@@ -7,10 +7,6 @@ config_shaman_resto.MODE_ATTRIBS = {
 
 config_shaman_resto.SELF_BUFFS = {"Water Shield"}; -- UNCOMMENT FOR PVP
 
-local function stopfollow()
-	MoveForwardStart();
-	MoveForwardStop();
-end
 
 config_shaman_resto.combat = function()
 	--DEFAULT_CHAT_FRAME:AddMessage(tostring(cast_state[CS_CASTING]) .. ", " .. cast_state[CS_TIMESTAMP] .. ", " .. cast_state[CS_CASTTIME])

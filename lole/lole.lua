@@ -11,6 +11,16 @@ SQUELCH_ECHO = false;
 BUFFS_CHECKED = false;
 LAST_LBUFFCHECK = 0;
 
+-- opcodes for DelIgnore :P
+LOLE_OPCODE_NOP,
+LOLE_OPCODE_TARGET_GUID, 
+LOLE_OPCODE_BLAST, 
+LOLE_OPCODE_HEALER_RANGE_CHECK,
+LOLE_OPCODE_FOLLOW  -- this also includes walking to the target
+
+= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04";
+
+
 local available_configs = {
 	["default"] = DEFAULT_CONFIG,
 	["paladin_prot"] = config_paladin_prot,
@@ -275,12 +285,14 @@ end
 
 function lole_SlashCommand(args) 
 
-	if (IsRaidLeader("player")) then
+	if (IsRaidLeader()) then
 		local target_GUID = UnitGUID("target");
 		if (target_GUID) then
 			local ciphered = cipher_GUID(target_GUID);
 		--DEFAULT_CHAT_FRAME:AddMessage(UnitGUID("target"));
-			SendAddonMessage("lole_target", tostring(ciphered), "PARTY");
+			if UnitReaction("target", "player") < 5 then
+				SendAddonMessage("lole_target", tostring(ciphered), "PARTY");
+			end
 		end
 	end
 	if (not args or args == "") then
@@ -327,23 +339,33 @@ local function on_buff_check_event(self, event, ...)
     lole_buffcheck();
 end
 
-local lole_target = "0x0000000000000000";
 
 MISSING_BUFFS = {};
+
+
+local lole_target = "0x0000000000000000";
+
 local function OnMsgEvent(self, event, prefix, message, channel, sender)
 
-	-- ok. so DelIgnore is hooked to do all sorts of cool stuff depending on the arg.
-	-- e.g. LOLE_TARGET_GUID changes the players target to the provided GUID ;) see DLL src.
+	-- ok. so DelIgnore is hooked to do all sorts of cool stuff depending on the opcode.
+	-- e.g. LOLE_OPCODE_TARGET_GUID changes the players target to the provided GUID ;) see DLL src.
 
     if (prefix == "lole_target") then
-    --	DEFAULT_CHAT_FRAME:AddMessage(decipher_GUID(message));
 		local GUID_deciphered = decipher_GUID(message);
 		if (lole_target ~= GUID_deciphered) then
-			DelIgnore("LOLE_TARGET_GUID:" .. GUID_deciphered); 
+			DelIgnore(LOLE_OPCODE_TARGET_GUID .. ":" .. GUID_deciphered); 
 			lole_target = GUID_deciphered;
 		end
+		
 	elseif (prefix == "lole_blast") then
-		DelIgnore("LOLE_BLAST:" .. message);	
+		DelIgnore(LOLE_OPCODE_BLAST .. ":" .. message);	
+		
+	elseif (prefix == "lole_follow") then
+		DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. message);
+		
+	elseif (prefix == "lole_nofollow") then
+		stopfollow();
+		
     elseif (prefix == "lole_buffs") then
         local buffs = {strsplit(",", message)};
         for key, buff in pairs(buffs) do
@@ -353,6 +375,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
                 MISSING_BUFFS[buff][sender] = true;
             end
         end
+		
     elseif (prefix == "lole_buffcheck") then
         if (time() - LAST_LBUFFCHECK) > 1 then
             if message == "buffcheck" then
@@ -367,6 +390,18 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
     end
 end
 
+function LOLE_EventHandler(self, event, prefix, message, channel, sender) 
+	--DEFAULT_CHAT_FRAME:AddMessage("LOLE_EventHandler: event:" .. event)
+	if event == "PLAYER_REGEN_DISABLED" then
+		SendAddonMessage("lole_nofollow", nil, "PARTY");
+	elseif event == "PLAYER_REGEN_ENABLED" then
+		if IsRaidLeader() then
+			SendAddonMessage("lole_follow", tostring(UnitGUID("player")), "PARTY");
+		end
+	end
+
+end
+
 local buff_check_frame = CreateFrame("Frame");
 buff_check_frame:RegisterEvent("PLAYER_ALIVE");
 buff_check_frame:RegisterEvent("PLAYER_ENTERING_WORLD");
@@ -375,6 +410,11 @@ buff_check_frame:SetScript("OnEvent", on_buff_check_event);
 local msg_frame = CreateFrame("Frame");
 msg_frame:RegisterEvent("CHAT_MSG_ADDON");
 msg_frame:SetScript("OnEvent", OnMsgEvent);
+
+local lole_frame = CreateFrame("Frame");
+lole_frame:RegisterEvent("PLAYER_REGEN_DISABLED"); -- this is fired when player enters combat
+lole_frame:RegisterEvent("PLAYER_REGEN_ENABLED"); -- and when combat is over
+lole_frame:SetScript("OnEvent", LOLE_EventHandler);
 
 local frame = CreateFrame("frame");
 	frame:SetScript("OnEvent", function(self, event, arg1)

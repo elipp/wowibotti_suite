@@ -93,10 +93,9 @@ BUFF_ALIASES = {
     ["Blessing of Might"] = "Greater Blessing of Might",
 };
 
-CS_CASTING, CS_TIMESTAMP, CS_CASTTIME, CS_TARGET = 1, 2, 3, 4
+CS_CASTING, CS_TIMESTAMP, CS_CASTTIME, CS_TARGET = 1, 2, 3, 4;
 NOT_CASTING = { false, 0.0, 0.0, "none" };
 cast_state = NOT_CASTING;
-
 
 function cast_if_nocd(spellname)
 	if GetSpellCooldown(spellname) == 0 then
@@ -131,8 +130,17 @@ function casting_legit_heal()
 		end
 	end
 	
-	return true;
+	return false;
 
+end
+
+function healer_move_into_range() 
+	DelIgnore("LOLE_HEALER_RANGE_CHECK");
+end
+
+function stopfollow()
+	MoveForwardStart();
+	MoveForwardStop();
 end
 
 function get_num_buff_requests(buffs)

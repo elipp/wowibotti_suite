@@ -14,20 +14,13 @@ config_warrior_arms.name = "warrior_arms";
 
 config_warrior_arms.SELF_BUFFS = { "Battle Shout" };
 
-local auto_attack_on = false;
-
 config_warrior_arms.combat = function()
 	
-	ClosePetStables(); -- this is a hooked function that makes the warrior walk behind/toward the target :D
+	ClosePetStables(); -- this is a hooked function that makes the warrior walk behind/toward the target.
+	-- CTM_MOVE_AND_ATTACK is performed, so no need to mess around with StartAttack()
 	
 	if not UnitExists("target") then 
 		return;
-	end
-	
-	if not auto_attack_on then
-		auto_attack_on = true;
-		AttackTarget();
-		DEFAULT_CHAT_FRAME:AddMessage("SHOULD NOW BE ATTACKING");
 	end
 	
 	if (not UnitAffectingCombat("player")) then
@@ -57,10 +50,8 @@ config_warrior_arms.combat = function()
 		return;
 	end
 		
-
 	if not has_debuff("target", "Thunder Clap") then
-		CastSpellByName("Thunder Clap");
-		return;
+		if cast_if_nocd("Thunder Clap") then return; end
 	end
 
 	if not has_debuff("target", "Demoralizing Shout") then
@@ -104,18 +95,6 @@ config_warrior_arms.other = function()
 
 end;
 
-local function OnEvent(self, event, prefix, message, channel, sender)
-	if (event == "PLAYER_ENTER_COMBAT") then
-		auto_attack_on = true;
-	elseif (event == "PLAYER_LEAVE_COMBAT") then
-		auto_attack_on = false;
-	end
-
-end
-
-local arms_frame = CreateFrame("Frame");
-arms_frame:RegisterEvent("PLAYER_ENTER_COMBAT");
-arms_frame:SetScript("OnEvent", OnEvent);
 
 
 

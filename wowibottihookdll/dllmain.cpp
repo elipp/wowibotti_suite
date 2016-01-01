@@ -3,6 +3,7 @@
 
 #include <D3D9.h>
 #include <string>
+#include <vector>
 #include <cstdio>
 
 #include "addrs.h"
@@ -15,7 +16,7 @@
 static int const (*LUA_DoString)(const char*, const char*, const char*) = (int const(*)(const char*, const char*, const char*)) LUA_DoString_addr;
 static int const (*SelectUnit)(GUID_t) = (int const(*)(GUID_t)) SelectUnit_addr;
 
-HINSTANCE  inj_hModule;          //Injected Modules Handle
+HINSTANCE  inj_hModule;          // HANDLE for injected module
 
 HANDLE glhProcess;
 
@@ -23,6 +24,11 @@ static point_timestamp pt;
 
 static int face_queued = 0;
 static int broadcast_blast = 0;
+
+static struct {
+	int close_enough = 1;
+	std::string target_GUID;
+} follow_state;
 
 static BYTE original_opcodes[8];
 
@@ -43,12 +49,15 @@ void __stdcall print_errcode(int code) {
 }
 
 static int patch_LUA_prot(HANDLE hProcess) {
-
+	printf("Patching LUA protection function...");
 	static LPVOID lua_prot_addr = (LPVOID)0x49DBA0;
 	static BYTE patch[] = { 0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3 };
 	WriteProcessMemory(hProcess, lua_prot_addr, patch, sizeof(patch), NULL);
+	printf("OK!\n");
 	return 1;
 }
+
+static void walk_to_unit_with_GUID(const std::string& arg);
 
 // this __declspec(noinline) thing has got to do with the msvc optimizer.
 // seems like the inline assembly is discarded when this func is inlined, in which case were fucked
@@ -57,8 +66,10 @@ __declspec(noinline) static void set_facing(float x) {
 
 	uint this_ecx = DEREF(0xE29D28) + 0xBE0;
 
-	printf("set_facing: this_ecx: %X\n", this_ecx);
-	// this is due to the fact that SetFacing is uses a __thiscall calling convention, so the base addr needs to be passed in ECX. no idea which base address this is though :D
+	// printf("set_facing: this_ecx: %X\n", this_ecx);
+	// this is due to the fact that SetFacing is uses a __thiscall calling convention, 
+	// so the base addr needs to be passed in ECX. no idea which base address this is though,
+	// but it seems to be constant enough :D
 
 	__asm push ecx
 	__asm mov ecx, this_ecx
@@ -105,6 +116,22 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 
 }
 
+static void tokenize_string(const std::string& str, const std::string& delim, std::vector<std::string>& tokens) {
+	size_t start, end = 0;
+	while (end < str.size()) {
+		start = end;
+		while (start < str.size() && (delim.find(str[start]) != std::string::npos)) {
+			start++;  // skip initial whitespace
+		}
+		end = start;
+		while (end < str.size() && (delim.find(str[end]) == std::string::npos)) {
+			end++; // skip to end of word
+		}
+		if (end - start != 0) {  // just ignore zero-length strings.
+			tokens.push_back(std::string(str, start, end - start));
+		}
+	}
+}
 
 int dump_wowobjects_to_log() {
 
@@ -203,13 +230,14 @@ static void __stdcall melee_behind_target() {
 	float target_rot = t.get_rot();
 
 	// basically rotating the vector (1, 0, 0) target_rot radians anti-clockwise
-	//point rot_unit(1.0 * std::cos(target_rot) - 0.0 * std::sin(target_rot), 1.0 * std::sin(target_rot) + 0.0 * std::cos(target_rot), 0.0);
-	// point rot_unit(std::cos(target_rot), std::sin(target_rot), 0.0);
+	//vec3 rot_unit(1.0 * std::cos(target_rot) - 0.0 * std::sin(target_rot), 1.0 * std::sin(target_rot) + 0.0 * std::cos(target_rot), 0.0);
+	
+	vec3 rot_unit = vec3(std::cos(target_rot), std::sin(target_rot), 0.0);
 	vec3 pc = p.get_pos();
 	vec3 tc = t.get_pos();
 
-	vec3 point_behind(tc.x - std::cos(target_rot), tc.y - std::sin(target_rot), tc.z);
-
+	//vec3 point_behind(tc.x - std::cos(target_rot), tc.y - std::sin(target_rot), tc.z);
+	vec3 point_behind = tc - rot_unit;
 	vec3 diff = pc - point_behind;
 
 	//printf("melee_behind.. diff.length: %f\n", diff.length());
@@ -219,7 +247,7 @@ static void __stdcall melee_behind_target() {
 		return;
 	}
 	else {
-		click_to_move(point_behind, CTM_MOVE, 0);
+		click_to_move(point_behind, CTM_MOVE_AND_ATTACK, t.get_GUID());
 	}
 
 }
@@ -258,18 +286,18 @@ static int player_is_moving() {
 static void __stdcall every_frame_hook_func() {
 
 	static int every_third_frame = 0;
-	static const char* script = "RunMacro(\"lole\")";
+	static const char* script = "RunMacroText(\"/lole\")";
 	static const char* n = "";
 
 	if (broadcast_blast) {
 		if (BLAST_ENABLED) {
 			printf("broadcasting BLAST_ON to party members.\n");
-			static const char* blast_on = "SendAddonMessage(\"lole_blast\", \"BLAST_ON\", \"PARTY\")";
+			static const char* blast_on = "SendAddonMessage(\"lole_blast\", \"1\", \"PARTY\")";
 			LUA_DoString(blast_on, blast_on, "");
 		}
 		else {
 			printf("broadcasting BLAST_OFF to party members.\n");
-			static const char* blast_off = "SendAddonMessage(\"lole_blast\", \"BLAST_OFF\", \"PARTY\")";
+			static const char* blast_off = "SendAddonMessage(\"lole_blast\", \"0\", \"PARTY\")";
 			LUA_DoString(blast_off, blast_off, "");
 		}
 		broadcast_blast = 0;
@@ -290,6 +318,10 @@ static void __stdcall every_frame_hook_func() {
 		}
 	}
 
+	if (!follow_state.close_enough) {
+		walk_to_unit_with_GUID(follow_state.target_GUID);
+	}
+
 	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
 
 
@@ -298,14 +330,20 @@ static void __stdcall every_frame_hook_func() {
 
 static void change_target(const std::string &arg) {
 
-	static const std::string prefix = "LOLE_TARGET_GUID:";
+	std::vector<std::string> tokens;
 
-	std::string GUID_numstr(arg.c_str() + 2); // better make a copy of it. the GUID_str still has the "0x" prefix in it 
+	tokenize_string(arg, ",", tokens);
+
+	if (tokens.size() > 1) {
+		printf("change_target (via DelIgnore_hub): expected 1 argument, got %ul! Ignoring rest.\n", tokens.size());
+	}
+
+	std::string GUID_numstr(arg.substr(2, 16)); // better make a copy of it. the GUID_str still has the "0x" prefix in it 
 
 	char *end;
 	GUID_t GUID = strtoull(GUID_numstr.c_str(), &end, 16);
 
-	printf("got LOLE_TARGET_GUID: GUID = %llX\nGUID_str + prefix.length() + 2 = \"%s\"\n", GUID, GUID_numstr.c_str());
+	printf("got LOLE_OPCODE_TARGET_GUID: GUID = %llX\nGUID_str + prefix.length() + 2 = \"%s\"\n", GUID, GUID_numstr.c_str());
 
 	if (end != GUID_numstr.c_str() + GUID_numstr.length()) {
 		printf("[WARNING]: change_target: couldn't wholly convert GUID string argument (strtoull(\"%s\", &end, 16) failed, bailing out\n", GUID_numstr.c_str());
@@ -316,11 +354,11 @@ static void change_target(const std::string &arg) {
 }
 
 static void blast(const std::string &arg) {
-	if (arg == "BLAST_ON") {
+	if (arg == "1") {
 		printf("got BLAST_ON AddonMessage, enabling blast.\n");
 		BLAST_ENABLED = 1;
 	}
-	else if (arg == "BLAST_OFF") {
+	else if (arg == "0") {
 		printf("got BLAST_OFF AddonMessage, disabling blast.\n");
 		BLAST_ENABLED = 0;
 	}
@@ -330,33 +368,148 @@ static void blast(const std::string &arg) {
 	}
 }
 
-typedef void(*hubfunc_t)(const std::string &);
+static void move_into_healing_range(const std::string& arg) {
+	GUID_t target_GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
+	if (!target_GUID) return;
 
-static const struct {
-	std::string prefix;
-	hubfunc_t func;
-} hubfuncs[] = {
-	{"LOLE_TARGET_GUID", change_target},
-	{"LOLE_BLAST", blast}
-};
+	ObjectManager OM;
+	WowObject t = OM.get_object_by_GUID(target_GUID);
 
+	if (!t.valid()) return;
 
-static void __stdcall DelIgnore_hub(const char* arg_) {
-	std::string arg(arg_);
-	auto p = arg.find(':');
+	WowObject p = OM.get_object_by_GUID(OM.get_localGUID());
 
-	if (p == std::string::npos) {
-		printf("Error: DelIgnore_hub: couldn't extract prefix from string \"%s\"; expected to find \':\'!\n", arg_);
+	if (!p.valid()) return;
+
+	vec3 ppos = p.get_pos();
+	vec3 tpos = t.get_pos();
+
+	vec3 diff = tpos - ppos;
+
+	if (diff.length() > 35) {
+		// move in a straight line to a distance of 29 yd from the target. Kinda bug-prone though..
+		vec3 new_point = tpos - 29 * diff.unit(); 
+		click_to_move(new_point, CTM_MOVE, 0x0);
+		return;
+	}
+}
+
+static void walk_to_unit_with_GUID(const std::string& arg) {
+	// the arg should contain host character GUID
+	// CONSIDER: change this to straight up player name and implement a get WowObject by name func?
+	ObjectManager OM;
+
+	char *endptr;
+	GUID_t GUID = strtoull(arg.c_str(), &endptr, 16);
+
+	WowObject o = OM.get_object_by_GUID(GUID);
+	
+	if (!o.valid()) {
+		printf("walk_to_host_char_follow: LOLE_OPCODE_FOLLOW: couldn't find unit with GUID 0x%016llX (doesn't exist?)\n", GUID);
 		return;
 	}
 
-	std::string prefix = arg.substr(0, p);
+	WowObject p = OM.get_object_by_GUID(OM.get_localGUID());
 
-	for (auto &f : hubfuncs) {
-		if (f.prefix == prefix) {
-			f.func(arg.c_str() + f.prefix.length() + 1); // just pass the arg without the prefix and the ':'
-		}
+	if (!p.valid()) {
+		printf("walk_to_host_char_follow: LOLE_OPCODE_FOLLOW: getting local object failed? WTF? XD\n");
+		return;
 	}
+
+	click_to_move(o.get_pos(), CTM_MOVE, 0);
+
+	if ((o.get_pos() - p.get_pos()).length() < 10) {
+		const std::string script = std::string("FollowUnit(\"") + o.unit_get_name() + std::string("\")");
+		LUA_DoString(script.c_str(), script.c_str(), "");
+		follow_state.close_enough = 1;
+		follow_state.target_GUID = "";
+	}
+	else {
+		follow_state.close_enough = 0;
+		follow_state.target_GUID = arg;
+	}
+
+	return;
+
+}
+
+static void lole_nop(const std::string& arg) {
+	return;
+}
+
+
+typedef void(*hubfunc_t)(const std::string &);
+
+// lole opcodes. also defined in lole.lua (let's just hope they match XD)
+// turns this shit into a nice jump table
+
+#define LOLE_OPCODE_NOP 0x0 
+#define LOLE_OPCODE_TARGET_GUID 0x1
+#define LOLE_OPCODE_BLAST 0x2
+#define LOLE_OPCODE_HEALER_RANGE_CHECK 0x3
+#define LOLE_OPCODE_GATHER_FOLLOW 0x4
+
+static const struct {
+	std::string name;
+	hubfunc_t func;
+	uint num_args;
+} hubfuncs[] = {
+	{"LOLE_NOP", NULL, 0},
+	{"LOLE_TARGET_GUID", change_target, 1},
+	{"LOLE_BLAST", blast, 1},
+	{"LOLE_HEALER_RANGE_CHECK", move_into_healing_range, 0},
+	{"LOLE_GATHER_FOLLOW", walk_to_unit_with_GUID, 1}
+};
+
+static const size_t num_hubfuncs = sizeof(hubfuncs) / sizeof(hubfuncs[0]);
+
+static void __stdcall DelIgnore_hub(const char* arg_) {
+	// the opcodes sent by the addon all begin with the sequence "LOP_"
+	static const std::string opcode_prefix("LOP_");
+
+	const std::string arg(arg_);
+
+	if (strncmp(arg.c_str(), opcode_prefix.c_str(), opcode_prefix.length()) != 0) {
+		printf("DelIgnore_hub: invalid opcode \"%s\": DelIgnore_hub opcodes must begin with the sequence \"%s\"\n", arg_, opcode_prefix.c_str());
+		return;
+	}
+
+	if (arg.length() < 6) {
+		printf("DelIgnore_hub: invalid opcode \"%s\"\n", arg.c_str());
+		return;
+	}
+
+	std::string opstr = arg.substr(4, 2);
+	char *endptr;
+	unsigned long op = strtoul(opstr.c_str(), &endptr, 16);
+
+	if (op > num_hubfuncs - 1) {
+		printf("DelIgnore_hub: error: unknown opcode %ul. (valid range: 0 - %ul)\n", op, num_hubfuncs);
+		return;
+	}
+
+	auto func = hubfuncs[op];
+
+	printf("DelIgnore_hub: got opcode %lu -> %s\n", op, func.name.c_str());
+
+	if (func.num_args > 0) {
+		// then we expect to find a ':' and arguments separated by ',':s
+		size_t pos;
+		if ((pos = arg.find(':', 5)) == std::string::npos) {
+			printf("DelIgnore_hub: error: opcode %ul (%s) expects %d arguments, none found! (did you forget ':'?)\n",
+				op, func.name.c_str(), func.num_args);
+			return;
+		}
+		std::string args = arg.substr(pos + 1);
+		printf("DelIgnore_hub: calling func %s with args \"%s\"\n", func.name.c_str(), args.c_str());
+
+		func.func(args); // call the func with args
+	}
+	else {
+		func.func("");
+	}
+
+
 }
 
 
@@ -410,6 +563,7 @@ LRESULT CALLBACK DLLWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		switch (wParam)
 		{
 		case MYMENU_EXIT:
+			unhook_all();
 			SendMessage(hwnd, WM_CLOSE, 0, 0);
 			break;
 		case MYMENU_DUMP:
@@ -475,14 +629,15 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 
 	glhProcess = hProcess;
 
-	AllocConsole();
-	freopen("CONOUT$", "wb", stdout);
-
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH:
+		
 		patch_LUA_prot(hProcess);
 		windowThread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
 		inj_hModule = hModule;
+
+		AllocConsole();
+		freopen("CONOUT$", "wb", stdout);
 		
 		break;
 

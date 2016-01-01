@@ -144,7 +144,7 @@ static int prepare_DelIgnore_patch(LPVOID hook_func_addr, hookable &h) {
 	DWORD tr_offset = ((DWORD)DelIgnore_trampoline - (DWORD)DelIgnore_hookaddr - 5);
 	memcpy(DelIgnore_patch + 1, &tr_offset, sizeof(tr_offset));
 
-	DWORD ret_addr = (DWORD)DelIgnore_hookaddr + 7;
+	DWORD ret_addr = (DWORD)DelIgnore_hookaddr + 0x2B; // jump straight to the end, so we skip the "Player not found."
 	memcpy(DelIgnore_trampoline + 8, &ret_addr, sizeof(ret_addr)); // add return address
 
 	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)DelIgnore_trampoline - 19;
@@ -219,6 +219,9 @@ int install_hook(const std::string &funcname, LPVOID hook_func_addr) {
 			return bytes;
 		}
 	}
+
+	printf("install_hook: error: \"%s\": no such function!\n", funcname.c_str());
+
 	return 0;
 }
 
@@ -228,13 +231,15 @@ int uninstall_hook(const std::string &funcname) {
 		//	const hookable &h = hookable_functions[i];
 		if (funcname == h.funcname) {
 			DWORD bytes;
-			h.prepare_patch(0x0, h);
 			printf("Unpatching func \"%s\" at %X...", funcname.c_str(), (DWORD)h.address);
 			WriteProcessMemory(glhProcess, h.address, h.original_opcodes, h.patch_size, &bytes);
 			printf("OK!\n");
 			return bytes;
 		}
 	}
+
+	printf("uninstall_hook: error: \"%s\": no such function!\n", funcname.c_str());
+
 	return 0;
 }
 
