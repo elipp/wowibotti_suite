@@ -11,6 +11,7 @@ config_shaman_resto.SELF_BUFFS = {"Water Shield"}; -- UNCOMMENT FOR PVP
 config_shaman_resto.combat = function()
 	--DEFAULT_CHAT_FRAME:AddMessage(tostring(cast_state[CS_CASTING]) .. ", " .. cast_state[CS_TIMESTAMP] .. ", " .. cast_state[CS_CASTTIME])
 	
+	
 	if casting_legit_heal() then return end
 	
 	if not has_buff("player", "Water Shield") then 
@@ -34,25 +35,26 @@ config_shaman_resto.combat = function()
 		end
 	end
 	
-	local ESTARGET = "Crq";
+	-- local ESTARGET = "Crq";
 	
 	--if not has_buff(ESTARGET, "Earth Shield") then
 	--	TargetUnit(ESTARGET);
 	--	CastSpellByName("Earth Shield");
 	--return;
 	--end
-	
+
 	local lowest = nil;
 	
 	for name,hp_deficit in pairs(group_member_hpdeficits) do
 		if not lowest then 
 			lowest = name;
 		else
-			if hp_deficit > group_member_hpdeficits[lowest] and UnitInRange(name) == 1 then
+			if hp_deficit > group_member_hpdeficits[lowest] then
 				lowest = name;
 			end
 		end
 	end
+	
 	
 	if not lowest then return; end
 	
@@ -60,9 +62,9 @@ config_shaman_resto.combat = function()
 		return;
 	end
 
-	
 	TargetUnit(lowest);
-	
+	healer_move_into_range();
+
 	if (group_member_hpdeficits[lowest] > 7000) then
 		cast_if_nocd("Nature's Swiftness");
 		UseInventoryItem(13);

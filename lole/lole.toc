@@ -18,10 +18,11 @@ warlock_affli.lua
 warlock_sb.lua
 warrior_prot.lua
 warrior_arms.lua
-shaman_elem.lua
-shaman_resto.lua
 
 shaman_common.lua
+
+shaman_elem.lua
+shaman_resto.lua
 
 lole.xml
 lole.lua

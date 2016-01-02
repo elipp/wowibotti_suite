@@ -19,9 +19,7 @@ config_warrior_arms.combat = function()
 	ClosePetStables(); -- this is a hooked function that makes the warrior walk behind/toward the target.
 	-- CTM_MOVE_AND_ATTACK is performed, so no need to mess around with StartAttack()
 	
-	if not UnitExists("target") then 
-		return;
-	end
+	if UnitIsDead("target") then ClearTarget() end; -- this is probably not good, sometimes follow is lost?
 	
 	if (not UnitAffectingCombat("player")) then
 		RunMacroText("/cast [nostance:1] Battle Stance"); -- charge doesnt work

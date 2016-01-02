@@ -120,22 +120,25 @@ function casting_legit_heal()
 		if (GetTime() - cast_state[CS_TIMESTAMP])*1000 > (cast_state[CS_CASTTIME]+100) then
 			cast_state = NOT_CASTING;
 			return false;
+		
 		elseif not UnitCastingInfo("player") then
 			cast_state = NOT_CASTING;
 			return false;
+		
 		elseif (UnitHealthMax(cast_state[CS_TARGET]) - UnitHealth(cast_state[CS_TARGET])) < 1000 then
-			SpellStopCasting();
+			stopfollow();
 			cast_state = NOT_CASTING; -- useful when the UnitHealth info lag causes the char to overheal (or any cause)
 			return false;
-		end
+		
+		else return true; end
 	end
 	
 	return false;
 
 end
 
-function healer_move_into_range() 
-	DelIgnore("LOLE_HEALER_RANGE_CHECK");
+function healer_move_into_range()
+	DelIgnore(LOLE_OPCODE_HEALER_RANGE_CHECK);
 end
 
 function stopfollow()

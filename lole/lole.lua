@@ -364,7 +364,9 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 		DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. message);
 		
 	elseif (prefix == "lole_nofollow") then
-		stopfollow();
+		if not IsRaidLeader() then
+			stopfollow();
+		end
 		
     elseif (prefix == "lole_buffs") then
         local buffs = {strsplit(",", message)};
@@ -413,7 +415,7 @@ msg_frame:SetScript("OnEvent", OnMsgEvent);
 
 local lole_frame = CreateFrame("Frame");
 lole_frame:RegisterEvent("PLAYER_REGEN_DISABLED"); -- this is fired when player enters combat
-lole_frame:RegisterEvent("PLAYER_REGEN_ENABLED"); -- and when combat is over
+lole_frame:RegisterEvent("PLAYER_REGEN_ENABLED"); -- and this when combat is over
 lole_frame:SetScript("OnEvent", LOLE_EventHandler);
 
 local frame = CreateFrame("frame");

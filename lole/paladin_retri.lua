@@ -8,6 +8,9 @@ config_paladin_retri.MODE_ATTRIBS = {
 config_paladin_retri.SELF_BUFFS = {"Sanctity Aura"}
 
 config_paladin_retri.combat = function()
+	
+	if UnitIsDead("target") then ClearTarget() end;
+	
 	ClosePetStables(); -- this function is hooked, makes melee walk behind target and start pounding
 	
 	if not has_debuff("target", "Judgement of the Crusader") then

@@ -458,7 +458,7 @@ static const struct {
 	{"LOLE_TARGET_GUID", change_target, 1},
 	{"LOLE_BLAST", blast, 1},
 	{"LOLE_HEALER_RANGE_CHECK", move_into_healing_range, 0},
-	{"LOLE_GATHER_FOLLOW", walk_to_unit_with_GUID, 1}
+	{"LOLE_FOLLOW", walk_to_unit_with_GUID, 1}
 };
 
 static const size_t num_hubfuncs = sizeof(hubfuncs) / sizeof(hubfuncs[0]);
