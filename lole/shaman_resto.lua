@@ -19,7 +19,8 @@ config_shaman_resto.combat = function()
 		return;
 	end
 	
-	if recast_totem_if_not_active_or_in_range("Strength of Earth Totem") then return; end
+	--if recast_totem_if_not_active_or_in_range("Strength of Earth Totem") then return; end
+	if recast_totem_if_not_active_or_in_range("Tremor Totem") then return; end
 	if recast_totem_if_not_active_or_in_range("Windfury Totem") then return; end
 	if recast_totem_if_not_active_or_in_range("Mana Spring Totem") then return; end
 	if recast_totem_if_not_active_or_in_range("Frost Resistance Totem") then return; end
@@ -35,13 +36,13 @@ config_shaman_resto.combat = function()
 		end
 	end
 	
-	-- local ESTARGET = "Crq";
+	local ESTARGET = "Adieux";
 	
-	--if not has_buff(ESTARGET, "Earth Shield") then
-	--	TargetUnit(ESTARGET);
-	--	CastSpellByName("Earth Shield");
-	--return;
-	--end
+	if not has_buff(ESTARGET, "Earth Shield") then
+		TargetUnit(ESTARGET);
+		CastSpellByName("Earth Shield");
+		return;
+	end
 
 	local lowest = nil;
 	

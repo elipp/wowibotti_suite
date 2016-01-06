@@ -433,6 +433,10 @@ static void walk_to_unit_with_GUID(const std::string& arg) {
 
 }
 
+static void caster_face_target(const std::string &arg) {
+	face_queued = 1;
+}
+
 static void lole_nop(const std::string& arg) {
 	return;
 }
@@ -448,17 +452,19 @@ typedef void(*hubfunc_t)(const std::string &);
 #define LOLE_OPCODE_BLAST 0x2
 #define LOLE_OPCODE_HEALER_RANGE_CHECK 0x3
 #define LOLE_OPCODE_GATHER_FOLLOW 0x4
+#define LOLE_OPCODE_CASTER_FACE 0x5
 
 static const struct {
 	std::string name;
 	hubfunc_t func;
 	uint num_args;
 } hubfuncs[] = {
-	{"LOLE_NOP", NULL, 0},
+	{"LOLE_NOP", lole_nop, 0},
 	{"LOLE_TARGET_GUID", change_target, 1},
 	{"LOLE_BLAST", blast, 1},
 	{"LOLE_HEALER_RANGE_CHECK", move_into_healing_range, 0},
-	{"LOLE_FOLLOW", walk_to_unit_with_GUID, 1}
+	{"LOLE_FOLLOW", walk_to_unit_with_GUID, 1},
+	{"LOLE_CASTER_FACE", caster_face_target, 0}
 };
 
 static const size_t num_hubfuncs = sizeof(hubfuncs) / sizeof(hubfuncs[0]);
@@ -544,6 +550,9 @@ DWORD WINAPI ThreadProc(LPVOID lpParam) {
 	if (RegisterHotKey(hwnd, 100, MOD_ALT, 'G')) {
 		printf("Registered window %X as blast client!\n", (DWORD)hwnd);
 	}
+	//if (RegisterHotKey(hwnd, 100, MOD_ALT, 'F')) {
+	//	
+	//}
 
 	while (GetMessage(&messages, NULL, 0, 0)) {
 		TranslateMessage(&messages);

@@ -9,7 +9,9 @@ config_paladin_retri.SELF_BUFFS = {"Sanctity Aura"}
 
 config_paladin_retri.combat = function()
 	
-	if UnitIsDead("target") then ClearTarget() end;
+	if not UnitExists("target") then return; end;
+	
+	if UnitIsDead("target") then ClearTarget(); return; end
 	
 	ClosePetStables(); -- this function is hooked, makes melee walk behind target and start pounding
 	

@@ -30,8 +30,11 @@ config_priest_shadow.combat = function()
 	end --]]
 
 	
-	local t = target_mob_with_charm("skull");
-	if (t < 1) then return; end
+	if not UnitExists("target") or UnitIsDead("target") then 
+		return;
+	end
+	
+	DelIgnore(LOLE_OPCODE_CASTER_FACE);
 
 	if (UnitMana("player") < 4000 and UnitHealth("target") > 50000) then if cast_if_nocd("Shadowfiend") then return; end end
 	

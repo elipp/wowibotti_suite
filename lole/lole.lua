@@ -16,9 +16,10 @@ LOLE_OPCODE_NOP,
 LOLE_OPCODE_TARGET_GUID, 
 LOLE_OPCODE_BLAST, 
 LOLE_OPCODE_HEALER_RANGE_CHECK,
-LOLE_OPCODE_FOLLOW  -- this also includes walking to the target
+LOLE_OPCODE_FOLLOW,  -- this also includes walking to the target
+LOLE_OPCODE_CASTER_FACE
 
-= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04";
+= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05";
 
 
 local available_configs = {
@@ -287,12 +288,10 @@ function lole_SlashCommand(args)
 
 	if (IsRaidLeader()) then
 		local target_GUID = UnitGUID("target");
-		if (target_GUID) then
-			local ciphered = cipher_GUID(target_GUID);
-		--DEFAULT_CHAT_FRAME:AddMessage(UnitGUID("target"));
-			if UnitReaction("target", "player") < 5 then
+		if target_GUID and not UnitIsDead("target") and UnitReaction("target", "player") < 5 then
+				--DEFAULT_CHAT_FRAME:AddMessage(UnitGUID("target"));
+				local ciphered = cipher_GUID(target_GUID);
 				SendAddonMessage("lole_target", tostring(ciphered), "PARTY");
-			end
 		end
 	end
 	if (not args or args == "") then
