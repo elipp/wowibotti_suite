@@ -490,7 +490,7 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 	unsigned long op = strtoul(opstr.c_str(), &endptr, 16);
 
 	if (op > num_hubfuncs - 1) {
-		printf("DelIgnore_hub: error: unknown opcode %ul. (valid range: 0 - %ul)\n", op, num_hubfuncs);
+		printf("DelIgnore_hub: error: unknown opcode %lu. (valid range: 0 - %lu)\n", op, num_hubfuncs);
 		return;
 	}
 

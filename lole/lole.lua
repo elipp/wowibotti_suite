@@ -228,6 +228,10 @@ local function get_int_from_strbool(strbool)
 	return rval;
 end
 
+local function lole_followme() 
+	SendAddonMessage("lole_followme", UnitGUID("player"), "PARTY")
+end
+
 local function lole_set(attrib_name, on_off_str) 
 
 	if (attrib_name == nil or attrib_name == "") then
@@ -268,6 +272,7 @@ local lole_subcommands = {
 	["cooldowns"] = lole_cooldowns;
 	["setconfig"] = lole_setconfig;
 	["getconfig"] = lole_getconfig;
+	["followme"] = lole_followme;
 	["set"] = lole_set;
 }
 	
@@ -367,6 +372,9 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 			stopfollow();
 		end
 		
+	elseif (prefix == "lole_followme") then
+		DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. message);
+	
     elseif (prefix == "lole_buffs") then
         local buffs = {strsplit(",", message)};
         for key, buff in pairs(buffs) do
