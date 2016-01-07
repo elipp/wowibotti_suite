@@ -56,9 +56,6 @@ config_warlock_sb.combat = function()
 		end
 	end
 
-	local t = target_mob_with_charm("skull");
-	if (t < 1) then return; end
-
 	if not has_debuff("target", "Curse of the Elements") then
 		CastSpellByName("Curse of the Elements")
 		return;
