@@ -354,7 +354,6 @@ function get_num_paladins()
     local num_paladins = 0;
     local i = 1;
     while GetRaidRosterInfo(i) do
-        echo("jkl");
         local raid_info = {GetRaidRosterInfo(i)};
         if raid_info[3] == 1 or raid_info[3] == 2 then
             if raid_info[5] == "Paladin" then
