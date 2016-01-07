@@ -1,9 +1,5 @@
 function echo(text) 
-    if not SQUELCH_ECHO then
-	    DEFAULT_CHAT_FRAME:AddMessage(text)
-    else
-        SQUELCH_ECHO = false;
-    end
+    DEFAULT_CHAT_FRAME:AddMessage(text)
 end
 
 function shallowcopy(orig)
@@ -18,6 +14,42 @@ function shallowcopy(orig)
         copy = orig
     end
     return copy
+end
+
+function table.val_to_str ( v )
+  if "string" == type( v ) then
+    v = string.gsub( v, "\n", "\\n" )
+    if string.match( string.gsub(v,"[^'\"]",""), '^"+$' ) then
+      return "'" .. v .. "'"
+    end
+    return '"' .. string.gsub(v,'"', '\\"' ) .. '"'
+  else
+    return "table" == type( v ) and table.tostring( v ) or
+      tostring( v )
+  end
+end
+
+function table.key_to_str ( k )
+  if "string" == type( k ) and string.match( k, "^[_%a][_%a%d]*$" ) then
+    return k
+  else
+    return "[" .. table.val_to_str( k ) .. "]"
+  end
+end
+
+function table.tostring( tbl )
+  local result, done = {}, {}
+  for k, v in ipairs( tbl ) do
+    table.insert( result, table.val_to_str( v ) )
+    done[ k ] = true
+  end
+  for k, v in pairs( tbl ) do
+    if not done[ k ] then
+      table.insert( result,
+        table.key_to_str( k ) .. "=" .. table.val_to_str( v ) )
+    end
+  end
+  return "{" .. table.concat( result, "," ) .. "}"
 end
 
 
@@ -78,8 +110,8 @@ BUFF_ALIASES = {
 	["Power Word: Fortitude"] = "Prayer of Fortitude",
 --	["Prayer of Fortitude"] = "Power Word: Fortitude",
 	
-	["Power Word: Spirit"] = "Prayer of Spirit",
---	["Prayer of Spirit"] = "Power Word: Spirit",
+	["Divine Spirit"] = "Prayer of Spirit",
+--	["Prayer of Spirit"] = "Divine Spirit",
 	
 	["Blessing of Kings"] = "Greater Blessing of Kings",
 --	["Greater Blessing of Kings"] = "Blessing of Kings",
@@ -169,15 +201,23 @@ end
 function get_spam_table(buffs, group_buff_map)
     
     local groups = {[1] = {}, [2] = {}};
-    local i = 1;
-    while GetRaidRosterInfo(i) do
-        local raid_info = {GetRaidRosterInfo(i)};
-        if raid_info[3] == 1 then
-            groups[1][raid_info[1]] = true;
-        elseif raid_info[3] == 2 then
-            groups[2][raid_info[1]] = true;
+    if GetNumRaidMembers() == 0 then
+        for buff, chars in pairs(buffs) do
+            for char in pairs(chars) do
+                groups[1][char] = true;
+            end
         end
-        i = i + 1;
+    else
+        local i = 1;
+        while GetRaidRosterInfo(i) do
+            local raid_info = {GetRaidRosterInfo(i)};
+            if raid_info[3] == 1 then
+                groups[1][raid_info[1]] = true;
+            elseif raid_info[3] == 2 then
+                groups[2][raid_info[1]] = true;
+            end
+            i = i + 1;
+        end
     end
 
     local grouped_requests = {};
@@ -263,10 +303,17 @@ end
 function buffs()
 
     if SPAM_TABLE[1] ~= nil then
-        if (GetTime() - BUFF_TIME) < 1.8 then
+        if (GetTime() - TIME_BUFFMODE_ENABLED) < 0.3 or (GetTime() - BUFF_TIME) < 1.8 then
             return false;
         else
             local char, buff = next(SPAM_TABLE[1]);
+            local buff_cd = GetSpellCooldown(buff);
+            -- echo(buff);
+            -- echo(buff_cd);
+            if buff_cd ~= 0 then
+                BUFF_TIME = GetTime();
+                return false;
+            end
             CastSpellByName(buff, char);
             BUFF_TIME = GetTime();
             table.remove(SPAM_TABLE, 1);
