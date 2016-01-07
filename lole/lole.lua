@@ -7,9 +7,9 @@ BUFF_TIME = 0;
 LAST_BUFF_CHECK = 0;
 SPAM_TABLE = {};
 SELF_BUFF_SPAM_TABLE = {};
-SQUELCH_ECHO = false;
 BUFFS_CHECKED = false;
 LAST_LBUFFCHECK = 0;
+TIME_BUFFMODE_ENABLED = 0;
 
 -- opcodes for DelIgnore :P
 LOLE_OPCODE_NOP,
@@ -250,12 +250,13 @@ local function lole_set(attrib_name, on_off_str)
 		LOLE_CLASS_CONFIG.MODE_ATTRIBS[attrib_name] = on_off_bool;
         if attrib_name == "buffmode" then
             BUFF_TABLE_READY = false;
+            if on_off_bool == 1 then
+                TIME_BUFFMODE_ENABLED = GetTime(); 
+            end
         else
 		    LOLE_CLASS_CONFIG_ATTRIBS[attrib_name] = on_off_bool;
         end
-        if not SQUELCH_ECHO then
-		    echo("lole_set: attrib \"" .. attrib_name .. "\" set to " .. on_off_bool);
-        end
+		echo("lole_set: attrib \"" .. attrib_name .. "\" set to " .. on_off_bool);
 		return true;
 		
 	else
@@ -306,7 +307,6 @@ function lole_SlashCommand(args)
             if (time() - LAST_BUFF_CHECK) > 30 then
                 lole_buffcheck();
             elseif BUFFS_CHECKED and (time() - LAST_BUFF_CHECK) > 1 then
-                SQUELCH_ECHO = true;
                 lole_set("buffmode", "on");
                 BUFFS_CHECKED = false;
             end
@@ -376,6 +376,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 		DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. message);
 	
     elseif (prefix == "lole_buffs") then
+        --echo(message .. " -" .. sender .. "-");
         local buffs = {strsplit(",", message)};
         for key, buff in pairs(buffs) do
             if not MISSING_BUFFS[buff] then
