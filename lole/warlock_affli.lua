@@ -1,6 +1,7 @@
 config_warlock_affli = {}
 
 config_warlock_affli.MODE_ATTRIBS = {
+    ["combatbuffmode"] = 0,
     ["buffmode"] = 0,
 	["aoemode"] = 0,
 	["shardmode"] = 0

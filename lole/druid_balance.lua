@@ -2,6 +2,7 @@ config_druid_balance = {}
 config_druid_balance.name = "druid_balance";
 
 config_druid_balance.MODE_ATTRIBS = {
+    ["combatbuffmode"] = 0,
     ["buffmode"] = 0
 };
 

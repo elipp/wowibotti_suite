@@ -2,6 +2,7 @@ config_paladin_holy = {}
 config_paladin_holy.name = "paladin_holy";
 
 config_paladin_holy.MODE_ATTRIBS = {
+    ["combatbuffmode"] = 0,
 	["buffmode"] = 0
 };
 

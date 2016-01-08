@@ -3,6 +3,7 @@ config_mage_fire.name = "mage_fire";
 
 config_mage_fire.MODE_ATTRIBS = {
     ["buffmode"] = 0,
+    ["combatbuffmode"] = 0,
     ["selfbuffmode"] = 0,
 	["scorchmode"] = 0
 };

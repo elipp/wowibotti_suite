@@ -303,17 +303,10 @@ end
 function buffs()
 
     if SPAM_TABLE[1] ~= nil then
-        if (GetTime() - TIME_BUFFMODE_ENABLED) < 0.3 or (GetTime() - BUFF_TIME) < 1.8 then
+        if (GetTime() - BUFF_TIME) < 1.8 then
             return false;
         else
             local char, buff = next(SPAM_TABLE[1]);
-            local buff_cd = GetSpellCooldown(buff);
-            -- echo(buff);
-            -- echo(buff_cd);
-            if buff_cd ~= 0 then
-                BUFF_TIME = GetTime();
-                return false;
-            end
             CastSpellByName(buff, char);
             BUFF_TIME = GetTime();
             table.remove(SPAM_TABLE, 1);
@@ -323,6 +316,7 @@ function buffs()
     else
         MISSING_BUFFS = {};
         LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] = 0;
+        LBUFFCHECK_ISSUED = false;
         echo("lole_set: attrib \"buffmode\" set to 0");
     end
 
@@ -352,15 +346,28 @@ end
 function get_num_paladins()
 
     local num_paladins = 0;
-    local i = 1;
-    while GetRaidRosterInfo(i) do
-        local raid_info = {GetRaidRosterInfo(i)};
-        if raid_info[3] == 1 or raid_info[3] == 2 then
-            if raid_info[5] == "Paladin" then
+
+    if GetNumRaidMembers() == 0 then
+        if UnitClass("player") == "Paladin" then
+            num_paladins = num_paladins + 1;
+        end
+        local num_party_members = GetNumPartyMembers();
+        for i = 1, num_party_members do
+            if UnitClass("party" .. i) == "Paladin" then
                 num_paladins = num_paladins + 1;
             end
         end
-        i = i + 1;
+    else
+        local i = 1;
+        while GetRaidRosterInfo(i) do
+            local raid_info = {GetRaidRosterInfo(i)};
+            if raid_info[3] == 1 or raid_info[3] == 2 then
+                if raid_info[5] == "Paladin" then
+                    num_paladins = num_paladins + 1;
+                end
+            end
+            i = i + 1;
+        end
     end
 
     return num_paladins;

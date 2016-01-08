@@ -2,6 +2,7 @@ config_paladin_prot = {}
 config_paladin_prot.name = "paladin_prot";
 
 config_paladin_prot.MODE_ATTRIBS = {
+    ["combatbuffmode"] = 0,
 	["buffmode"] = 0,
     ["combatmode"] = 1,
 };

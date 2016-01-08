@@ -2,6 +2,7 @@ config_warlock_sb = {}
 config_warlock_sb.name = "warlock_sb";
 
 config_warlock_sb.MODE_ATTRIBS = {
+    ["combatbuffmode"] = 0,
     ["buffmode"] = 0,
 	["aoemode"] = 0,
 	["shardmode"] = 0
