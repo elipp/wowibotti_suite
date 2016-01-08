@@ -9,7 +9,6 @@ SPAM_TABLE = {};
 SELF_BUFF_SPAM_TABLE = {};
 BUFFS_CHECKED = false;
 LAST_LBUFFCHECK = 0;
-TIME_BUFFMODE_ENABLED = 0;
 
 -- opcodes for DelIgnore :P
 LOLE_OPCODE_NOP,
@@ -251,7 +250,7 @@ local function lole_set(attrib_name, on_off_str)
         if attrib_name == "buffmode" then
             BUFF_TABLE_READY = false;
             if on_off_bool == 1 then
-                TIME_BUFFMODE_ENABLED = GetTime(); 
+                BUFF_TIME = GetTime() - 1.5; 
             end
         else
 		    LOLE_CLASS_CONFIG_ATTRIBS[attrib_name] = on_off_bool;

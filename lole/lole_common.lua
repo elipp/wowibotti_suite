@@ -303,7 +303,7 @@ end
 function buffs()
 
     if SPAM_TABLE[1] ~= nil then
-        if (GetTime() - TIME_BUFFMODE_ENABLED) < 0.3 or (GetTime() - BUFF_TIME) < 1.8 then
+        if (GetTime() - BUFF_TIME) < 1.8 then
             return false;
         else
             local char, buff = next(SPAM_TABLE[1]);
