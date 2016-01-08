@@ -307,13 +307,6 @@ function buffs()
             return false;
         else
             local char, buff = next(SPAM_TABLE[1]);
-            local buff_cd = GetSpellCooldown(buff);
-            -- echo(buff);
-            -- echo(buff_cd);
-            if buff_cd ~= 0 then
-                BUFF_TIME = GetTime();
-                return false;
-            end
             CastSpellByName(buff, char);
             BUFF_TIME = GetTime();
             table.remove(SPAM_TABLE, 1);
