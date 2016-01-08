@@ -346,15 +346,28 @@ end
 function get_num_paladins()
 
     local num_paladins = 0;
-    local i = 1;
-    while GetRaidRosterInfo(i) do
-        local raid_info = {GetRaidRosterInfo(i)};
-        if raid_info[3] == 1 or raid_info[3] == 2 then
-            if raid_info[5] == "Paladin" then
+
+    if GetNumRaidMembers() == 0 then
+        if UnitClass("player") == "Paladin" then
+            num_paladins = num_paladins + 1;
+        end
+        local num_party_members = GetNumPartyMembers();
+        for i = 1, num_party_members do
+            if UnitClass("party" .. i) == "Paladin" then
                 num_paladins = num_paladins + 1;
             end
         end
-        i = i + 1;
+    else
+        local i = 1;
+        while GetRaidRosterInfo(i) do
+            local raid_info = {GetRaidRosterInfo(i)};
+            if raid_info[3] == 1 or raid_info[3] == 2 then
+                if raid_info[5] == "Paladin" then
+                    num_paladins = num_paladins + 1;
+                end
+            end
+            i = i + 1;
+        end
     end
 
     return num_paladins;
