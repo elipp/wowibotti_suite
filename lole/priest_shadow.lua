@@ -2,6 +2,7 @@ config_priest_shadow = {}
 config_priest_shadow.name = "priest_shadow";
 
 config_priest_shadow.MODE_ATTRIBS = {
+    ["combatbuffmode"] = 0,
 	["buffmode"] = 0,
     ["selfbuffmode"] = 0
 };

@@ -316,6 +316,7 @@ function buffs()
     else
         MISSING_BUFFS = {};
         LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] = 0;
+        LBUFFCHECK_ISSUED = false;
         echo("lole_set: attrib \"buffmode\" set to 0");
     end
 

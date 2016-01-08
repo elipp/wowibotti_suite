@@ -9,6 +9,7 @@ SPAM_TABLE = {};
 SELF_BUFF_SPAM_TABLE = {};
 BUFFS_CHECKED = false;
 LAST_LBUFFCHECK = 0;
+LBUFFCHECK_ISSUED = false;
 
 -- opcodes for DelIgnore :P
 LOLE_OPCODE_NOP,
@@ -234,7 +235,7 @@ end
 local function lole_set(attrib_name, on_off_str) 
 
 	if (attrib_name == nil or attrib_name == "") then
-		echo("lole_set: no argument! valid modes are: buffmode selfbuffmode aoemode shardmode scorchmode combatmode");
+		echo("lole_set: no argument! valid modes are: buffmode selfbuffmode combatbuffmode aoemode shardmode scorchmode combatmode");
 		return false;
 	end
 	
@@ -285,7 +286,7 @@ local function usage()
 	echo(" setconfig");
 	echo(" getconfig");
 	echo(" set <mode> on|off");
-	echo("   available modes are: buffmode selfbuffmode aoemode shardmode scorchmode combatmode");
+	echo("   available modes are: buffmode combatbuffmode selfbuffmode aoemode shardmode scorchmode combatmode");
 end
 
 
@@ -305,9 +306,10 @@ function lole_SlashCommand(args)
         else
             if (time() - LAST_BUFF_CHECK) > 30 then
                 lole_buffcheck();
-            elseif BUFFS_CHECKED and (time() - LAST_BUFF_CHECK) > 1 then
+            elseif ((LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS["combatbuffmode"] == 1) or LBUFFCHECK_ISSUED) and BUFFS_CHECKED and (time() - LAST_BUFF_CHECK) > 1 then
                 lole_set("buffmode", "on");
                 BUFFS_CHECKED = false;
+                return;
             end
             LOLE_CLASS_CONFIG.combat();
         end
@@ -395,6 +397,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
                 lole_buffcheck("clean");
             end
             LAST_LBUFFCHECK = time();
+            LBUFFCHECK_ISSUED = true;
         end
     end
 end

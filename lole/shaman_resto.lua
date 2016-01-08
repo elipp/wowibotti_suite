@@ -2,6 +2,7 @@ config_shaman_resto = {}
 config_shaman_resto.name = "shaman_resto";
 
 config_shaman_resto.MODE_ATTRIBS = {
+    ["combatbuffmode"] = 0,
     ["buffmode"] = 0
 };
 
