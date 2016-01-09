@@ -4,6 +4,7 @@
 ## Notes: epic
 
 lole_common.lua
+lole_buffs.lua
 
 druid_resto.lua
 druid_balance.lua
