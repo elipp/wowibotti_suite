@@ -232,6 +232,10 @@ local function lole_followme()
 	SendAddonMessage("lole_followme", UnitGUID("player"), "PARTY")
 end
 
+local function lole_stopfollow()
+	SendAddonMessage("lole_stopfollow", nil, "PARTY")
+end
+
 local function lole_set(attrib_name, on_off_str) 
 
 	if (attrib_name == nil or attrib_name == "") then
@@ -274,6 +278,7 @@ local lole_subcommands = {
 	["setconfig"] = lole_setconfig;
 	["getconfig"] = lole_getconfig;
 	["followme"] = lole_followme;
+	["stopfollow"] = lole_stopfollow;
 	["set"] = lole_set;
 }
 	
@@ -368,7 +373,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 	elseif (prefix == "lole_follow") then
 		DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. message);
 		
-	elseif (prefix == "lole_nofollow") then
+	elseif (prefix == "lole_stopfollow") then
 		if not IsRaidLeader() then
 			stopfollow();
 		end

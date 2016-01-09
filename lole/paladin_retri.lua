@@ -65,7 +65,7 @@ end
 
 config_paladin_retri.desired_buffs = function()
 
-    local desired_buffs = get_desired_buffs("healer");
+    local desired_buffs = get_desired_buffs("dps");
     return desired_buffs;
 
 end

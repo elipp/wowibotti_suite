@@ -402,19 +402,29 @@ static void walk_to_unit_with_GUID(const std::string& arg) {
 	char *endptr;
 	GUID_t GUID = strtoull(arg.c_str(), &endptr, 16);
 
-	WowObject o = OM.get_object_by_GUID(GUID);
-	
-	if (!o.valid()) {
-		printf("walk_to_host_char_follow: LOLE_OPCODE_FOLLOW: couldn't find unit with GUID 0x%016llX (doesn't exist?)\n", GUID);
-		return;
-	}
-
 	WowObject p = OM.get_object_by_GUID(OM.get_localGUID());
 
 	if (!p.valid()) {
-		printf("walk_to_host_char_follow: LOLE_OPCODE_FOLLOW: getting local object failed? WTF? XD\n");
+		printf("walk_to_unit_with_GUID: LOLE_OPCODE_FOLLOW: getting local object failed? WTF? XD\n");
 		return;
 	}
+
+	if (GUID == 0) {
+		click_to_move(p.get_pos(), CTM_MOVE, 0);
+		return;
+	}
+
+	WowObject o = OM.get_object_by_GUID(GUID);
+	
+	if (!o.valid()) {
+		printf("walk_to_unit_with_GUID: LOLE_OPCODE_FOLLOW: couldn't find unit with GUID 0x%016llX (doesn't exist?)\n", GUID);
+		return;
+	}
+
+	if (p.get_GUID() == o.get_GUID()) {
+		return;
+	}
+	
 
 	click_to_move(o.get_pos(), CTM_MOVE, 0);
 

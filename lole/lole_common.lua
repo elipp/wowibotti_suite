@@ -174,8 +174,8 @@ function healer_move_into_range()
 end
 
 function stopfollow()
-	MoveForwardStart();
-	MoveForwardStop();
+-- OPCODE_FOLLOW with arg 0 is a special case in walk_to_unit_with_GUID(), just takes a click to move to the player's current loc
+	DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. "0x0000000000000000");
 end
 
 function get_num_buff_requests(buffs)
