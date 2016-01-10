@@ -196,7 +196,7 @@ function lole_SlashCommand(args)
             lole_buffs();
         else
             if (time() - LAST_BUFF_CHECK) > 30 then
-                lole_buffcheck();
+                lole_buffcheck(nil, false);
             elseif ((LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS["combatbuffmode"] == 1) or LBUFFCHECK_ISSUED) and BUFFS_CHECKED and (time() - LAST_BUFF_CHECK) > 1 then
                 lole_set("buffmode", "on");
                 BUFFS_CHECKED = false;
@@ -232,7 +232,7 @@ function lole_SlashCommand(args)
 end
 
 local function on_buff_check_event(self, event, ...)
-    lole_buffcheck();
+    lole_buffcheck(nil, false);
 end
 
 
@@ -281,7 +281,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
         if (time() - LAST_LBUFFCHECK) > 1 then
             if message == "buffcheck" then
                 echo("lole: The raid leader issued a buffcheck.");
-                lole_buffcheck();
+                lole_buffcheck(nil, false);
             elseif message == "buffcheck clean" then
                 echo("lole: The raid leader issued a clean buffcheck.");
                 lole_buffcheck("clean", false);

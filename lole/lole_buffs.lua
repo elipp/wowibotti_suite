@@ -133,6 +133,9 @@ function lole_buffcheck(arg, verbose)
         end
         missing_table = LOLE_CLASS_CONFIG.desired_buffs();
     else
+        if verbose then
+            echo("lole_buffcheck: requested missing/expiring buffs");
+        end
         local desired_buffs = LOLE_CLASS_CONFIG.desired_buffs();
         for i,bname in ipairs(desired_buffs) do
             local bname_alias = BUFF_ALIASES[bname];
