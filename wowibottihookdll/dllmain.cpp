@@ -166,7 +166,7 @@ int dump_wowobjects_to_log() {
 					fprintf(fp, "name: %s, health: %d/%d\n\n", next.NPC_get_name().c_str(), next.NPC_getCurHealth(), next.NPC_getMaxHealth());
 				}
 				else if (next.get_type() == 4) {
-					fprintf(fp, "name: %s, target guid: %llX\n\n", next.unit_get_name().c_str(), next.unit_get_target_GUID());
+					fprintf(fp, "name: %s, target GUID: 0x%016llX\n\n", next.unit_get_name().c_str(), next.unit_get_target_GUID());
 				}
 			}
 
@@ -266,13 +266,16 @@ static void __stdcall broadcast_CTM(float *coords) {
 
 	printf("broadcast_CTM: got CTM coords: (%f, %f %f)\n", x, y, z);
 
-	GUID_t player_target = *(GUID_t*)PLAYER_TARGET_ADDR;
+	ObjectManager OM;
+	WowObject p = OM.get_object_by_GUID(OM.get_localGUID());
 
-	if (!player_target) return;
+	GUID_t GUID = p.unit_get_target_GUID();
+
+	if (!GUID) return;
 
 	static char sprintf_buf[128];
 
-	sprintf(sprintf_buf, "0x%016llX, %.1f, %.1f, %.1f", player_target, x, y, z);
+	sprintf(sprintf_buf, "0x%016llX, %.1f, %.1f, %.1f", GUID, x, y, z);
 
 	DoString("SendAddonMessage(\"lole_CTM_broadcast\", \"" + std::string(sprintf_buf) + "\", \"PARTY\")");
 
@@ -389,7 +392,7 @@ static void blast(const std::string &arg) {
 	}
 }
 
-static void move_into_healing_range(const std::string& arg) {
+static void move_into_casting_range(const std::string& arg) {
 	GUID_t target_GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
 	if (!target_GUID) return;
 
@@ -406,10 +409,13 @@ static void move_into_healing_range(const std::string& arg) {
 	vec3 tpos = t.get_pos();
 
 	vec3 diff = tpos - ppos;
+	
+	char *endptr;
+	float minrange = strtof(arg.c_str(), &endptr);
 
-	if (diff.length() > 35) {
+	if (diff.length() > minrange-1) {
 		// move in a straight line to a distance of 29 yd from the target. Kinda bug-prone though..
-		vec3 new_point = tpos - 29 * diff.unit(); 
+		vec3 new_point = tpos - (minrange - 0.5) * diff.unit(); 
 		click_to_move(new_point, CTM_MOVE, 0x0);
 		return;
 	}
@@ -483,12 +489,12 @@ static void act_on_CTM_broadcast(const std::string &arg) {
 	GUID_t GUID;
 	float x, y, z;
 
-	GUID = strtof(tokens[0].c_str() + 2, &endptr);
+	GUID = strtoull(tokens[0].c_str() + 2, &endptr, 16);
 
 	ObjectManager OM;
 
 	if (GUID != OM.get_localGUID()) {
-		printf("act_on_CTM_broadcast: this CTM_broadcast wasn't directed at us (target 0x%016llX, local = 0x%016llX), exiting.\n", GUID, OM.get_localGUID());
+		printf("act_on_CTM_broadcast: this CTM_broadcast wasn't directed at us (target = 0x%016llX, local = 0x%016llX), exiting.\n", GUID, OM.get_localGUID());
 		return;
 	}
 
@@ -496,7 +502,6 @@ static void act_on_CTM_broadcast(const std::string &arg) {
 	y = strtof(tokens[2].c_str(), &endptr);
 	z = strtof(tokens[3].c_str(), &endptr);
 
-	
 	click_to_move(vec3(x, y, z), CTM_MOVE, 0);
 
 }
@@ -514,7 +519,7 @@ typedef void(*hubfunc_t)(const std::string &);
 #define LOLE_OPCODE_NOP 0x0 
 #define LOLE_OPCODE_TARGET_GUID 0x1
 #define LOLE_OPCODE_BLAST 0x2
-#define LOLE_OPCODE_HEALER_RANGE_CHECK 0x3
+#define LOLE_OPCODE_CASTER_RANGE_CHECK 0x3
 #define LOLE_OPCODE_GATHER_FOLLOW 0x4
 #define LOLE_OPCODE_CASTER_FACE 0x5
 #define LOLE_OPCODE_CTM_BROADCAST 0x6
@@ -527,7 +532,7 @@ static const struct {
 	{"LOLE_NOP", lole_nop, 0},
 	{"LOLE_TARGET_GUID", change_target, 1},
 	{"LOLE_BLAST", blast, 1},
-	{"LOLE_HEALER_RANGE_CHECK", move_into_healing_range, 0},
+	{"LOLE_CASTER_RANGE_CHECK", move_into_casting_range, 1},
 	{"LOLE_FOLLOW", walk_to_unit_with_GUID, 1},
 	{"LOLE_CASTER_FACE", caster_face_target, 0},
 	{"LOLE_CTM_BROADCAST", act_on_CTM_broadcast, 4}
@@ -591,7 +596,7 @@ static int hook_all() {
 	install_hook("DelIgnore", DelIgnore_hub);
 	install_hook("ClosePetStables", melee_behind_target);
 	//install_hook("CTM_aux", broadcast_CTM);
-	install_hook("CTM_main", broadcast_CTM);
+	//install_hook("CTM_main", broadcast_CTM);
 	
 	return 1;
 }

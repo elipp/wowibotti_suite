@@ -173,9 +173,8 @@ function cleanse_party(debuffname)
 	for i=1,4,1 do local exists = GetPartyMember(i)
         local name = "party" .. i;
         if has_debuff(name, debuffname) then
-            SendChatMessage(name .. "'s got " .. debuffname .. ". Dispelling!!!!XD", "YELL")
 			TargetUnit(name);
-          --  CastSpellByName("Cleanse");
+            CastSpellByName("Cleanse");
 			CastSpellByName("Dispel Magic")
             return true;
 		end
@@ -183,12 +182,15 @@ function cleanse_party(debuffname)
 	return false;
 end
 
-function healer_move_into_range()
-	DelIgnore(LOLE_OPCODE_HEALER_RANGE_CHECK);
+function caster_range_check(minrange)
+	DelIgnore(LOLE_OPCODE_CASTER_RANGE_CHECK .. ":" .. tostring(minrange));
+end
+
+function caster_face_target()
+	DelIgnore(LOLE_OPCODE_CASTER_FACE);
 end
 
 function stopfollow()
--- OPCODE_FOLLOW with arg 0 is a special case in walk_to_unit_with_GUID(), just takes a click to move to the player's current loc
 	DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. "0x0000000000000000");
 end
 

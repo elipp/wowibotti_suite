@@ -40,6 +40,9 @@ config_warlock_sb.combat = function()
 	
 	end
 	
+	caster_range_check(30); 
+	caster_face_target();
+	
 	if config_warlock_sb.MODE_ATTRIBS["aoemode"] == 1 then			
 		for i=1,16,1 do 
 			TargetNearestEnemy();

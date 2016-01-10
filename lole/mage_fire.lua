@@ -20,7 +20,7 @@ config_mage_fire.combat = function()
 		CastSpellByName("Conjure Mana Emerald");
 		return;
 	end
-	
+
 	
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
@@ -37,8 +37,9 @@ config_mage_fire.combat = function()
 			CastSpellByName("Evocation");
 		end
 	end
-
-	local t = target_mob_with_charm("skull");
+	
+	caster_range_check(36); 
+	caster_face_target();
 	
 	if config_mage_fire.MODE_ATTRIBS["scorchmode"] == 1 then
 		local num_stacks = get_num_debuff_stacks("target", "Fire Vulnerability");

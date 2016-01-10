@@ -24,8 +24,8 @@ config_shaman_elem.combat = function()
 	if recast_totem_if_not_active_or_in_range("Wrath of Air Totem") then return; end
 	if recast_totem_if_not_active_or_in_range("Mana Spring Totem") then return; end
 	
-	local t = target_mob_with_charm("skull");
-	if (t < 1) then return; end
+	caster_range_check(30); 
+	caster_face_target();
 
 	CastSpellByName("Lightning Bolt");
 	

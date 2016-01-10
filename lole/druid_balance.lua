@@ -12,11 +12,11 @@ config_druid_balance.combat = function()
 
 	if UnitCastingInfo("player") then return; end
 
-	local t = target_mob_with_charm("skull");
-	if (t < 1) then return; end
-
 	if not UnitExists("target") then return; end
 
+	caster_range_check(30); 
+	caster_face_target();
+	
 	if not has_debuff("target", "Insect Swarm") then 
 		CastSpellByName("Insect Swarm"); 
 	-- elseif not target_has_debuff("target", "Moonfire") then CastSpellByName("Moonfire");

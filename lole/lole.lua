@@ -15,7 +15,7 @@ LBUFFCHECK_ISSUED = false;
 LOLE_OPCODE_NOP,
 LOLE_OPCODE_TARGET_GUID, 
 LOLE_OPCODE_BLAST, 
-LOLE_OPCODE_HEALER_RANGE_CHECK,
+LOLE_OPCODE_CASTER_RANGE_CHECK,
 LOLE_OPCODE_FOLLOW,  -- this also includes walking to the target
 LOLE_OPCODE_CASTER_FACE,
 LOLE_OPCODE_CTM_BROADCAST
@@ -413,7 +413,7 @@ end
 function LOLE_EventHandler(self, event, prefix, message, channel, sender) 
 	--DEFAULT_CHAT_FRAME:AddMessage("LOLE_EventHandler: event:" .. event)
 	if event == "PLAYER_REGEN_DISABLED" then
-		SendAddonMessage("lole_nofollow", nil, "PARTY");
+		SendAddonMessage("lole_stopfollow", nil, "PARTY");
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		if IsRaidLeader() then
 			SendAddonMessage("lole_follow", tostring(UnitGUID("player")), "PARTY");
