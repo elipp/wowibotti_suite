@@ -330,8 +330,8 @@ function buff_self()
     else
         CastSpellByName(SELF_BUFF_SPAM_TABLE[1]);
         BUFF_TIME = GetTime();
+        table.remove(SELF_BUFF_SPAM_TABLE, 1);
     end
-    table.remove(SELF_BUFF_SPAM_TABLE, 1);
 
 end
 
