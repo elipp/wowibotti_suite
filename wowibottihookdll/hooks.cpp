@@ -43,14 +43,23 @@ static BYTE ClosePetStables_patch[] = {
 	0xE9, 0x00, 0x00, 0x00, 0x00
 };
 
+static const BYTE CTM_main_original[] = {
+	0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x18
+};
+
+static BYTE CTM_main_patch[] = {
+	0xE9, 0x00, 0x00, 0x00, 0x00, 0x90
+};
+
 static const BYTE CTM_aux_original[] = {
 	0x55, 0x8B, 0xEC, 0x8B, 0x41, 0x38
 };
 
 // this is a patch for func 0x7B8940
 static BYTE CTM_aux_patch[] = {
-	0xE9, 0x00, 0x00, 0x00, 0x00, 0x00
+	0xE9, 0x00, 0x00, 0x00, 0x00, 0x90
 };
+// NOP for padding is a lot better, since the disassembler gets fucked up with 0x00s
 
 
 
@@ -244,12 +253,72 @@ static int prepare_CTM_aux_patch(LPVOID hook_func_addr, hookable &h) {
 	return 1;
 }
 
+static int __stdcall if_have_target() {
+	GUID_t target_GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
+	if (target_GUID != 0) return 1;
+	else return 0;
+}
+
+static int prepare_CTM_main_patch(LPVOID hook_func_addr, hookable &h) {
+	printf("Preparing CTM_main patch...\n");
+
+	static BYTE CTM_main_trampoline[] = {
+		// original opcodes from 0x612A90 "CTM_main"
+		
+		0x55, // PUSH EBP
+		0x8B, 0xEC, // MOV EBP, ESP
+		0x83, 0xEC, 0x18, // SUB ESP, 18
+	
+		0x68, 0x00, 0x00, 0x00, 0x00, // push late return address 
+		0x60,						// pushad
+
+		0xE8, 0x00, 0x00, 0x00, 0x00, // call to if_have_target. eax now has 1 or 0, depending on the env
+		0x85, 0xC0,	// test EAX EAX
+		0x74, 0x0B, // jz, hopefully to the second popad part
+		0x8B, 0x75, 0x10, // MOV ESI, DWORD PTR SS:[ARG.3] (contains the 3 floatz ^^)
+		0x56,			  // PUSH ESI (arg to CTM_broadcast)
+		0xE8, 0x00, 0x00, 0x00, 0x00, // call CTM_broadcast function :D loloz
+		0x61, // popad
+		0xC3, // ret
+
+		0x61, // popad
+		0x83, 0xC4, 0x04, // add esp, 4, to "pop" without screwing up reg values
+		0x68, 0x00, 0x00, 0x00, 0x00, // return address #2 (0x612A90 + 7 = 0x612A97)
+		0xC3 //ret
+	};
+
+	DWORD tr_offset = ((DWORD)CTM_main_trampoline - (DWORD)CTM_main - 5);
+	memcpy(CTM_main_patch + 1, &tr_offset, sizeof(tr_offset));
+
+	DWORD ret_addr1 = 0x612BBE;
+	memcpy(CTM_main_trampoline + 7, &ret_addr1, sizeof(ret_addr1)); // add return address #1
+
+	DWORD if_have_target_offset = (DWORD)if_have_target - (DWORD)CTM_main_trampoline - 17;
+	memcpy(CTM_main_trampoline + 13, &if_have_target_offset, sizeof(if_have_target_offset));
+
+	DWORD ret_addr2 = (DWORD)CTM_main + 6;
+	memcpy(CTM_main_trampoline + 37, &ret_addr2, sizeof(ret_addr2)); // add return address #2
+
+	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)CTM_main_trampoline - 30; 
+	memcpy(CTM_main_trampoline + 26, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
+
+	DWORD oldprotect;
+	VirtualProtect((LPVOID)CTM_main_trampoline, sizeof(CTM_main_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
+
+	printf("OK.\nCTM_main trampoline: %p, hook_func_addr: %p\n", &CTM_main_trampoline, hook_func_addr);
+
+	return 1;
+}
+
 static hookable hookable_functions[] = {
 	{ "EndScene", 0x0, EndScene_original, EndScene_patch, sizeof(EndScene_original), prepare_EndScene_patch},
 	{ "DelIgnore", (LPVOID)DelIgnore_hookaddr, DelIgnore_original, DelIgnore_patch, sizeof(DelIgnore_original), prepare_DelIgnore_patch },
 	{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, sizeof(ClosePetStables_original), prepare_ClosePetStables_patch },
-	{ "CTM_aux", (LPVOID)CTM_aux, CTM_aux_original, CTM_aux_patch, sizeof(CTM_aux_original), prepare_CTM_aux_patch}
+	{ "CTM_aux", (LPVOID)CTM_aux, CTM_aux_original, CTM_aux_patch, sizeof(CTM_aux_original), prepare_CTM_aux_patch},
+	{ "CTM_main", (LPVOID)CTM_main, CTM_main_original, CTM_main_patch, sizeof(CTM_main_original), prepare_CTM_main_patch}
+
 };
+
 
 
 int install_hook(const std::string &funcname, LPVOID hook_func_addr) {

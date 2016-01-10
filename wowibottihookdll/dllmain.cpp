@@ -57,6 +57,10 @@ static int patch_LUA_prot(HANDLE hProcess) {
 	return 1;
 }
 
+static void DoString(const std::string &expr) {
+	LUA_DoString(expr.c_str(), expr.c_str(), "");
+}
+
 static void walk_to_unit_with_GUID(const std::string& arg);
 
 // this __declspec(noinline) thing has got to do with the msvc optimizer.
@@ -252,16 +256,25 @@ static void __stdcall melee_behind_target() {
 
 }
 
-static void __stdcall broadcast_CTM(void *addr) {
-	// addr contains a stack address. at *addr we should have x, *(addr + 4) we should have y, *(addr+8) we should have z.
+static void __stdcall broadcast_CTM(float *coords) {
 
 	float x, y, z;
 
-	x = *(float*)(addr);
-	y = *((float*)(addr)+1); // or minus, since it's in the stack?
-	z = *((float*)(addr)+2); 
+	x = coords[0];
+	y = coords[1]; 
+	z = coords[2]; 
 
 	printf("broadcast_CTM: got CTM coords: (%f, %f %f)\n", x, y, z);
+
+	GUID_t player_target = *(GUID_t*)PLAYER_TARGET_ADDR;
+
+	if (!player_target) return;
+
+	static char sprintf_buf[128];
+
+	sprintf(sprintf_buf, "0x%016llX, %.1f, %.1f, %.1f", player_target, x, y, z);
+
+	DoString("SendAddonMessage(\"lole_CTM_broadcast\", \"" + std::string(sprintf_buf) + "\", \"PARTY\")");
 
 }
 
@@ -298,19 +311,15 @@ static int player_is_moving() {
 static void __stdcall every_frame_hook_func() {
 
 	static int every_third_frame = 0;
-	static const char* script = "RunMacroText(\"/lole\")";
-	static const char* n = "";
 
 	if (broadcast_blast) {
 		if (BLAST_ENABLED) {
 			printf("broadcasting BLAST_ON to party members.\n");
-			static const char* blast_on = "SendAddonMessage(\"lole_blast\", \"1\", \"PARTY\")";
-			LUA_DoString(blast_on, blast_on, "");
+			DoString("SendAddonMessage(\"lole_blast\", \"1\", \"PARTY\")");
 		}
 		else {
 			printf("broadcasting BLAST_OFF to party members.\n");
-			static const char* blast_off = "SendAddonMessage(\"lole_blast\", \"0\", \"PARTY\")";
-			LUA_DoString(blast_off, blast_off, "");
+			DoString("SendAddonMessage(\"lole_blast\", \"0\", \"PARTY\")");
 		}
 		broadcast_blast = 0;
 	}
@@ -318,7 +327,7 @@ static void __stdcall every_frame_hook_func() {
 
 	if (every_third_frame == 0) {
 		if (BLAST_ENABLED) {
-			LUA_DoString(script, script, n);
+			DoString("RunMacroText(\"/lole\")");
 		}
 		if (CONSTANT_CTM_TARGET) {
 			walk_to_target();
@@ -441,8 +450,7 @@ static void walk_to_unit_with_GUID(const std::string& arg) {
 	click_to_move(o.get_pos(), CTM_MOVE, 0);
 
 	if ((o.get_pos() - p.get_pos()).length() < 10) {
-		const std::string script = std::string("FollowUnit(\"") + o.unit_get_name() + std::string("\")");
-		LUA_DoString(script.c_str(), script.c_str(), "");
+		DoString("FollowUnit(\"" + o.unit_get_name() + "\")");
 		follow_state.close_enough = 1;
 		follow_state.target_GUID = "";
 	}
@@ -457,6 +465,40 @@ static void walk_to_unit_with_GUID(const std::string& arg) {
 
 static void caster_face_target(const std::string &arg) {
 	face_queued = 1;
+}
+
+static void act_on_CTM_broadcast(const std::string &arg) {
+	// arg should contain 4 args, <GUID,x,y,z>
+	
+	std::vector<std::string> tokens;
+	tokenize_string(arg, ",", tokens);
+
+	if (tokens.size() != 4) {
+		printf("act_on_CTM_broadcast: error: expected exactly 4 arguments (GUID,x,y,z), got %lu!\n", tokens.size());
+		return;
+	}
+	
+	char *endptr;
+	
+	GUID_t GUID;
+	float x, y, z;
+
+	GUID = strtof(tokens[0].c_str() + 2, &endptr);
+
+	ObjectManager OM;
+
+	if (GUID != OM.get_localGUID()) {
+		printf("act_on_CTM_broadcast: this CTM_broadcast wasn't directed at us (target 0x%016llX, local = 0x%016llX), exiting.\n", GUID, OM.get_localGUID());
+		return;
+	}
+
+	x = strtof(tokens[1].c_str(), &endptr);
+	y = strtof(tokens[2].c_str(), &endptr);
+	z = strtof(tokens[3].c_str(), &endptr);
+
+	
+	click_to_move(vec3(x, y, z), CTM_MOVE, 0);
+
 }
 
 static void lole_nop(const std::string& arg) {
@@ -475,6 +517,7 @@ typedef void(*hubfunc_t)(const std::string &);
 #define LOLE_OPCODE_HEALER_RANGE_CHECK 0x3
 #define LOLE_OPCODE_GATHER_FOLLOW 0x4
 #define LOLE_OPCODE_CASTER_FACE 0x5
+#define LOLE_OPCODE_CTM_BROADCAST 0x6
 
 static const struct {
 	std::string name;
@@ -486,7 +529,8 @@ static const struct {
 	{"LOLE_BLAST", blast, 1},
 	{"LOLE_HEALER_RANGE_CHECK", move_into_healing_range, 0},
 	{"LOLE_FOLLOW", walk_to_unit_with_GUID, 1},
-	{"LOLE_CASTER_FACE", caster_face_target, 0}
+	{"LOLE_CASTER_FACE", caster_face_target, 0},
+	{"LOLE_CTM_BROADCAST", act_on_CTM_broadcast, 4}
 };
 
 static const size_t num_hubfuncs = sizeof(hubfuncs) / sizeof(hubfuncs[0]);
@@ -546,7 +590,8 @@ static int hook_all() {
 	install_hook("EndScene", every_frame_hook_func);
 	install_hook("DelIgnore", DelIgnore_hub);
 	install_hook("ClosePetStables", melee_behind_target);
-	install_hook("CTM_aux", broadcast_CTM);
+	//install_hook("CTM_aux", broadcast_CTM);
+	install_hook("CTM_main", broadcast_CTM);
 	
 	return 1;
 }
