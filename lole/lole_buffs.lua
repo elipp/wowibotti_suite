@@ -89,7 +89,7 @@ function lole_leaderbuffcheck(arg)
     end
 
     if not IsRaidLeader() then
-        echo("lole_leaderbuffcheck: You're not the raid leader, asshole.");
+        echo("lole_leaderbuffcheck: You're not the raid leader.");
         return false;
     end
 
@@ -101,9 +101,13 @@ function lole_leaderbuffcheck(arg)
 
 end
 
-function lole_buffcheck(arg)
+-- verbose: either nil or boolean
+function lole_buffcheck(arg, verbose)
+    if verbose == nil then
+        verbose = true;
+    end
 
-    if arg ~= nil and arg ~= "clean" then 
+    if (arg ~= nil and arg ~= "clean") or type(verbose) ~= type(true) then 
         echo("lole_buffcheck: erroneous argument!");
         return false;
     end
@@ -124,7 +128,9 @@ function lole_buffcheck(arg)
     local missing_table = {};
 
     if arg == "clean" then
-        echo("lole_buffcheck: requested full rebuffage");
+        if verbose then
+            echo("lole_buffcheck: requested full rebuffage");
+        end
         missing_table = LOLE_CLASS_CONFIG.desired_buffs();
     else
         local desired_buffs = LOLE_CLASS_CONFIG.desired_buffs();

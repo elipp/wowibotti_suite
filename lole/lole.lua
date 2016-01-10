@@ -122,7 +122,7 @@ local function lole_stopfollow()
 	SendAddonMessage("lole_stopfollow", nil, "PARTY")
 end
 
-local function lole_set(attrib_name, on_off_str) 
+local function lole_set(attrib_name, on_off_str)
 
 	if (attrib_name == nil or attrib_name == "") then
 		echo("lole_set: no argument! valid modes are: buffmode selfbuffmode combatbuffmode aoemode shardmode scorchmode combatmode");
@@ -284,7 +284,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
                 lole_buffcheck();
             elseif message == "buffcheck clean" then
                 echo("lole: The raid leader issued a clean buffcheck.");
-                lole_buffcheck("clean");
+                lole_buffcheck("clean", false);
             end
             LAST_LBUFFCHECK = time();
             LBUFFCHECK_ISSUED = true;
