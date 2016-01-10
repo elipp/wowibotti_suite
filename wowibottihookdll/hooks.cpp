@@ -43,6 +43,15 @@ static BYTE ClosePetStables_patch[] = {
 	0xE9, 0x00, 0x00, 0x00, 0x00
 };
 
+static const BYTE CTM_aux_original[] = {
+	0x55, 0x8B, 0xEC, 0x8B, 0x41, 0x38
+};
+
+// this is a patch for func 0x7B8940
+static BYTE CTM_aux_patch[] = {
+	0xE9, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
 
 
 static int prepare_EndScene_patch(LPVOID hook_func_addr, hookable &h) {
@@ -199,10 +208,47 @@ static int prepare_ClosePetStables_patch(LPVOID hook_func_addr, hookable &h) {
 
 }
 
+
+static int prepare_CTM_aux_patch(LPVOID hook_func_addr, hookable &h) {
+	printf("Preparing CTM_aux patch...\n");
+
+	static BYTE CTM_aux_trampoline[] = {
+		// original opcodes from 0x7B8940 "CTM_aux"
+		0x55, // PUSH EBP
+		0x8B, 0xEC, // MOV EBP, ESP
+		0x8B, 0x41, 0x38, // MOV EAX, DWORD PTR DS:[ECX+38]
+
+		0x68, 0x00, 0x00, 0x00, 0x00, // push return address (7B8940 + 6 = 7B8946)
+		0x60,					// pushad
+		0x8B, 0x4D, 0x0C,		// MOV ECX, DWORD PTR SS:[ARG.2]
+		0x51,					// PUSH ECX, this is our argument (pointer to CTM coords on stack =))
+		0xE8, 0x00, 0x00, 0x00, 0x00, // call CTM_broadcast function :D loloz
+		0x61, // popad
+		0xC3 //ret
+	};
+	
+	DWORD tr_offset = ((DWORD)CTM_aux_trampoline - (DWORD)CTM_aux - 5);
+	memcpy(CTM_aux_patch + 1, &tr_offset, sizeof(tr_offset));
+
+	DWORD ret_addr = (DWORD)CTM_aux + 6;
+	memcpy(CTM_aux_trampoline + 7, &ret_addr, sizeof(ret_addr)); // add return address
+
+	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)CTM_aux_trampoline - 21; // first byte is at offset 19
+	memcpy(CTM_aux_trampoline + 17, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
+
+	DWORD oldprotect;
+	VirtualProtect((LPVOID)CTM_aux_trampoline, sizeof(CTM_aux_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
+
+	printf("OK.\nCTM_aux trampoline: %p, hook_func_addr: %p\n", &CTM_aux_trampoline, hook_func_addr);
+
+	return 1;
+}
+
 static hookable hookable_functions[] = {
 	{ "EndScene", 0x0, EndScene_original, EndScene_patch, sizeof(EndScene_original), prepare_EndScene_patch},
 	{ "DelIgnore", (LPVOID)DelIgnore_hookaddr, DelIgnore_original, DelIgnore_patch, sizeof(DelIgnore_original), prepare_DelIgnore_patch },
-	{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, sizeof(ClosePetStables_original), prepare_ClosePetStables_patch }
+	{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, sizeof(ClosePetStables_original), prepare_ClosePetStables_patch },
+	{ "CTM_aux", (LPVOID)CTM_aux, CTM_aux_original, CTM_aux_patch, sizeof(CTM_aux_original), prepare_CTM_aux_patch}
 };
 
 

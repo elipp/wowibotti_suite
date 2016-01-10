@@ -252,6 +252,18 @@ static void __stdcall melee_behind_target() {
 
 }
 
+static void __stdcall broadcast_CTM(void *addr) {
+	// addr contains a stack address. at *addr we should have x, *(addr + 4) we should have y, *(addr+8) we should have z.
+
+	float x, y, z;
+
+	x = *(float*)(addr);
+	y = *((float*)(addr)+1); // or minus, since it's in the stack?
+	z = *((float*)(addr)+2); 
+
+	printf("broadcast_CTM: got CTM coords: (%f, %f %f)\n", x, y, z);
+
+}
 
 static int player_is_moving() {
 
@@ -534,6 +546,7 @@ static int hook_all() {
 	install_hook("EndScene", every_frame_hook_func);
 	install_hook("DelIgnore", DelIgnore_hub);
 	install_hook("ClosePetStables", melee_behind_target);
+	install_hook("CTM_aux", broadcast_CTM);
 	
 	return 1;
 }

@@ -30,6 +30,8 @@ config_priest_shadow.combat = function()
 		end
 	end --]]
 
+	if cleanse_party("Enveloping Wind") then return; end
+	if cleanse_party("Lung Burst") then return; end
 	
 	if not UnitExists("target") or UnitIsDead("target") then 
 		return;

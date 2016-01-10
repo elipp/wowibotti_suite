@@ -169,6 +169,20 @@ function casting_legit_heal()
 
 end
 
+function cleanse_party(debuffname) 
+	for i=1,4,1 do local exists = GetPartyMember(i)
+        local name = "party" .. i;
+        if has_debuff(name, debuffname) then
+            SendChatMessage(name .. "'s got " .. debuffname .. ". Dispelling!!!!XD", "YELL")
+			TargetUnit(name);
+          --  CastSpellByName("Cleanse");
+			CastSpellByName("Dispel Magic")
+            return true;
+		end
+	end
+	return false;
+end
+
 function healer_move_into_range()
 	DelIgnore(LOLE_OPCODE_HEALER_RANGE_CHECK);
 end
