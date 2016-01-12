@@ -10,6 +10,8 @@ config_paladin_retri.SELF_BUFFS = {"Sanctity Aura"}
 
 config_paladin_retri.combat = function()
 	
+	if cleanse_party("Arcane Shock") then return; end
+	
 	if not UnitExists("target") then return; end;
 	
 	if UnitIsDead("target") then ClearTarget(); return; end

@@ -414,10 +414,10 @@ function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 	--DEFAULT_CHAT_FRAME:AddMessage("LOLE_EventHandler: event:" .. event)
 	if event == "PLAYER_REGEN_DISABLED" then
 		SendAddonMessage("lole_stopfollow", nil, "PARTY");
-	elseif event == "PLAYER_REGEN_ENABLED" then
-		if IsRaidLeader() then
-			SendAddonMessage("lole_follow", tostring(UnitGUID("player")), "PARTY");
-		end
+	--elseif event == "PLAYER_REGEN_ENABLED" then -- this is kinda crap, remove
+		--if IsRaidLeader() then
+		--	SendAddonMessage("lole_follow", tostring(UnitGUID("player")), "PARTY");
+		--end
 	end
 
 end

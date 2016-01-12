@@ -137,18 +137,15 @@ static void tokenize_string(const std::string& str, const std::string& delim, st
 	}
 }
 
-int dump_wowobjects_to_log() {
+static int dump_wowobjects_to_log() {
 
 	ObjectManager OM;
 
-	if (!OM.valid()) {
-		fprintf(stderr, "WowObject dumping failed: ObjectManager base addr seems to be NULL.\n(Is your character in the world?)\n");
-		return 0;
-	}
-
-	FILE *fp = fopen("C:\\Users\\elias\\Desktop\\out.log", "a");
+	static const char* filename = "C:\\Users\\Elias\\out.log";
+	FILE *fp = fopen(filename, "a");
 
 	if (fp) {
+		printf("Dumping WowObjects to file \"%s\"!\n", filename);
 		WowObject next = OM.getFirstObject();
 		GUID_t target_GUID;
 		readAddr(PLAYER_TARGET_ADDR, &target_GUID, sizeof(target_GUID));
@@ -156,7 +153,8 @@ int dump_wowobjects_to_log() {
 
 		while (next.valid()) {
 
-			if (next.get_type() == 3 || next.get_type() == 4) { // 3 = NPC, 4 = Unit
+			if (!(next.get_type() == 1 || next.get_type() == 2)) {  // filter out items and containers :P
+		//	if (next.get_type() == 3 || next.get_type() == 4) { // 3 = NPC, 4 = Unit
 				vec3 pos = next.get_pos();
 				fprintf(fp, "object GUID: 0x%016llX, base addr = %X, type: %s, coords = (%f, %f, %f), rot: %f\n",
 					next.get_GUID(), next.get_base(), next.get_type_name().c_str(), pos.x, pos.y, pos.z, next.get_rot());
@@ -174,6 +172,9 @@ int dump_wowobjects_to_log() {
 		}
 		fclose(fp);
 
+	}
+	else {
+		printf("Opening file \"%s\" failed!\n", filename);
 	}
 	return 1;
 }
@@ -203,18 +204,21 @@ static void __stdcall face_target() {
 
 	if (!p.valid()) return;
 
-	vec3 diff = p.get_pos() - t.get_pos();
+	vec3 diff = t.get_pos() - p.get_pos();
+	click_to_move(p.get_pos() + diff.unit(), CTM_MOVE, 0); // this is a way to legitimately turn casters toward the enemy.
 
 	// this formula is for a directed angle (clockwise angle). atan2(det, dot). 
 	// now we're taking the angle with respect to the x axis (north in wow), so the computation becomes simply:
-	float directed_angle = atan2(diff.y, diff.x);
+	
+	//vec3 diff = p.get_pos() - t.get_pos(); // OK, THE FOLLOWING CODE WORKS WITH PLAYER - TARGET,
+	//float directed_angle = atan2(diff.y, diff.x);
 
 	//printf("player coords: (%f, %f, %f), target coords: (%f, %f, %f), diff = (%f, %f, %f)\nangle = %f, player rot = %f\n", 
 		//pc.x, pc.y, pc.z, tc.x, tc.y, tc.z, diff.x, diff.y, diff.z, directed_angle, p.get_rot());
 
 	// the wow angle system seems to be counter-clockwise
 
-	set_facing(directed_angle + M_PI);
+	//set_facing(directed_angle + M_PI);
 
 }
 
@@ -247,7 +251,7 @@ static void __stdcall melee_behind_target() {
 	//printf("melee_behind.. diff.length: %f\n", diff.length());
 
 	if (diff.length() < 1.0) {
-		face_queued = 1;
+		face_queued = 1; 
 		return;
 	}
 	else {
@@ -337,6 +341,7 @@ static void __stdcall every_frame_hook_func() {
 		}
 
 		if (face_queued) { // this is a trick to not mess up the main thread
+			// seems to me that the setfacing function is only local, doesn't inform the server of the new orientation
 			face_target();
 			face_queued = 0;
 		}
@@ -445,6 +450,9 @@ static void walk_to_unit_with_GUID(const std::string& arg) {
 	
 	if (!o.valid()) {
 		printf("walk_to_unit_with_GUID: LOLE_OPCODE_FOLLOW: couldn't find unit with GUID 0x%016llX (doesn't exist?)\n", GUID);
+		// not reset
+		follow_state.close_enough = 1;
+		follow_state.target_GUID = "";
 		return;
 	}
 

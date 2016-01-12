@@ -22,6 +22,8 @@ config_shaman_resto.combat = function()
 	
 	--if recast_totem_if_not_active_or_in_range("Strength of Earth Totem") then return; end
 	if recast_totem_if_not_active_or_in_range("Tremor Totem") then return; end
+	--if recast_totem_if_not_active_or_in_range("Stoneskin Totem") then return; end
+
 	if recast_totem_if_not_active_or_in_range("Windfury Totem") then return; end
 	if recast_totem_if_not_active_or_in_range("Mana Spring Totem") then return; end
 	if recast_totem_if_not_active_or_in_range("Frost Resistance Totem") then return; end
@@ -65,7 +67,7 @@ config_shaman_resto.combat = function()
 	end
 
 	TargetUnit(lowest);
-	healer_move_into_range();
+	caster_range_check(35);
 
 	if (group_member_hpdeficits[lowest] > 7000) then
 		cast_if_nocd("Nature's Swiftness");
@@ -76,7 +78,8 @@ config_shaman_resto.combat = function()
 	end
 	
 	if (group_member_hpdeficits[lowest] > 3750) then
-		cast_spell("Healing Wave");
+		--cast_spell("Healing Wave");
+		cast_spell("Chain Heal");
 		return;
 	end
 	
