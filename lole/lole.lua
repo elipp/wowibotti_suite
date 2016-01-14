@@ -192,9 +192,7 @@ function lole_SlashCommand(args)
 		end
 	end
 	if (not args or args == "") then
-        if LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] == 1 then
-            -- pass
-        elseif LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] == 1 then
+        if LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] == 1 then
             lole_buffs();
         else
             if (time() - LAST_BUFF_CHECK) > 30 then
@@ -204,7 +202,9 @@ function lole_SlashCommand(args)
                 BUFFS_CHECKED = false;
                 return;
             end
-            LOLE_CLASS_CONFIG.combat();
+            if not LOLE_CLASS_CONFIG.MODE_ATTRIBS or LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] ~= 1 then
+                LOLE_CLASS_CONFIG.combat();
+            end
         end
         return;
 	end
