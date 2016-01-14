@@ -3,13 +3,6 @@ LOLE_CLASS_CONFIG_ATTRIBS = nil; -- listed in SavedVariablesPerCharacter
 
 local DEFAULT_CONFIG = { name = "default", MODE_ATTRIBS = nil, desired_buffs = function() return {}; end, combat = function() end, buffs = function() end, other = function() end };
 LOLE_CLASS_CONFIG = DEFAULT_CONFIG;
-BUFF_TIME = 0;
-LAST_BUFF_CHECK = 0;
-SPAM_TABLE = {};
-SELF_BUFF_SPAM_TABLE = {};
-BUFFS_CHECKED = false;
-LAST_LBUFFCHECK = 0;
-LBUFFCHECK_ISSUED = false;
 
 -- opcodes for DelIgnore :P
 LOLE_OPCODE_NOP,
@@ -62,113 +55,6 @@ end
 local function decipher_GUID(ciphered)
 -- this works because XOR is reversible ^^
 	return cipher_GUID(ciphered);
-end
-
-
-local function lole_buffs()
-    if LOLE_CLASS_CONFIG.MODE_ATTRIBS["selfbuffmode"] ~= nil and LOLE_CLASS_CONFIG.MODE_ATTRIBS["selfbuffmode"] == 1 then
-        lole_selfbuffs();
-    else
-        if (LOLE_CLASS_CONFIG.buffs ~= nil) then
-            local MISSING_BUFFS_COPY;
-            if not BUFF_TABLE_READY then
-                MISSING_BUFFS_COPY = shallowcopy(MISSING_BUFFS);
-            end
-            LOLE_CLASS_CONFIG.buffs(MISSING_BUFFS_COPY);
-        end
-    end
-end
-
-local function lole_leaderbuffcheck(arg)
-
-    if arg ~= nil and arg ~= "clean" then 
-		echo("lole_leaderbuffcheck: erroneous argument!");
-		return false;
-	end
-
-    if not IsRaidLeader() then
-        echo("lole_leaderbuffcheck: You're not the raid leader, asshole.");
-        return false;
-    end
-
-    local msgstr = "buffcheck";
-    if arg == "clean" then
-        msgstr = msgstr .. " " .. arg;
-    end
-    SendAddonMessage("lole_buffcheck", msgstr, "RAID", UnitName("player"));
-
-end
-
-local function lole_buffcheck(arg)
-
-    if arg ~= nil and arg ~= "clean" then 
-		echo("lole_buffcheck: erroneous argument!");
-		return false;
-	end
-
-    local buffname_timeleft_map = {}
-    
-    for i=1,32 do id,cancel = GetPlayerBuff(i,"HELPFUL") -- |HARMFUL|PASSIVE"); -- not needed really
-        if (id > 0) then
-            local name = GetPlayerBuffName(id);
-            local timeleft = GetPlayerBuffTimeLeft(id);
-            if cancel == 1 then
-                timeleft = 1000;
-            end
-            buffname_timeleft_map[name] = timeleft;
-        end
-    end
-   
-    local missing_table = {};
-
-    if arg == "clean" then
-        echo("lole_buffcheck: requested full rebuffage");
-        missing_table = LOLE_CLASS_CONFIG.desired_buffs();
-    else
-        local desired_buffs = LOLE_CLASS_CONFIG.desired_buffs();
-        for i,bname in ipairs(desired_buffs) do
-            local bname_alias = BUFF_ALIASES[bname];
-            
-            if buffname_timeleft_map[bname] ~= nil then
-                if buffname_timeleft_map[bname] < 180 then
-                    table.insert(missing_table, bname);
-                end
-            elseif bname_alias ~= nil and buffname_timeleft_map[bname_alias] ~= nil then
-                if buffname_timeleft_map[bname_alias] < 180 then
-                    table.insert(missing_table, bname); -- still use base name
-                end
-            else
-                table.insert(missing_table, bname);
-            end
-        end
-    end
-
-    if LOLE_CLASS_CONFIG.SELF_BUFFS ~= nil then
-        SELF_BUFF_SPAM_TABLE = {};
-        for i,bname in ipairs(LOLE_CLASS_CONFIG.SELF_BUFFS) do
-            if arg == "clean" then
-                if buffname_timeleft_map[bname] == 1000 then
-                else 
-                    table.insert(SELF_BUFF_SPAM_TABLE, bname);
-                end
-            else
-                if buffname_timeleft_map[bname] ~= nil then
-                    if buffname_timeleft_map[bname] < 180 then
-                        table.insert(SELF_BUFF_SPAM_TABLE, bname);
-                    end
-                else
-                    table.insert(SELF_BUFF_SPAM_TABLE, bname);
-                end
-            end
-        end
-    end
-	
-	local msgstr = table.concat(missing_table, ",");
-     
-    SendAddonMessage("lole_buffs", msgstr, "RAID", UnitName("player"));
-    LAST_BUFF_CHECK = time();
-    BUFFS_CHECKED = true;
-
 end
 
 local function lole_setconfig(arg, modes) 
@@ -237,7 +123,7 @@ local function lole_stopfollow()
 	SendAddonMessage("lole_stopfollow", nil, "PARTY")
 end
 
-local function lole_set(attrib_name, on_off_str) 
+local function lole_set(attrib_name, on_off_str)
 
 	if (attrib_name == nil or attrib_name == "") then
 		echo("lole_set: no argument! valid modes are: buffmode selfbuffmode combatbuffmode aoemode shardmode scorchmode combatmode");
@@ -310,7 +196,7 @@ function lole_SlashCommand(args)
             lole_buffs();
         else
             if (time() - LAST_BUFF_CHECK) > 30 then
-                lole_buffcheck();
+                lole_buffcheck(nil, false);
             elseif ((LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS["combatbuffmode"] == 1) or LBUFFCHECK_ISSUED) and BUFFS_CHECKED and (time() - LAST_BUFF_CHECK) > 1 then
                 lole_set("buffmode", "on");
                 BUFFS_CHECKED = false;
@@ -346,7 +232,7 @@ function lole_SlashCommand(args)
 end
 
 local function on_buff_check_event(self, event, ...)
-    lole_buffcheck();
+    lole_buffcheck(nil, false);
 end
 
 
@@ -385,7 +271,6 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 		DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. message);
 		
     elseif (prefix == "lole_buffs") then
-        --echo(message .. " -" .. sender .. "-");
         local buffs = {strsplit(",", message)};
         for key, buff in pairs(buffs) do
             if not MISSING_BUFFS[buff] then
@@ -399,10 +284,10 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
         if (time() - LAST_LBUFFCHECK) > 1 then
             if message == "buffcheck" then
                 echo("lole: The raid leader issued a buffcheck.");
-                lole_buffcheck();
+                lole_buffcheck(nil, false);
             elseif message == "buffcheck clean" then
                 echo("lole: The raid leader issued a clean buffcheck.");
-                lole_buffcheck("clean");
+                lole_buffcheck("clean", false);
             end
             LAST_LBUFFCHECK = time();
             LBUFFCHECK_ISSUED = true;
