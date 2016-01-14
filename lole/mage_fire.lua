@@ -5,7 +5,8 @@ config_mage_fire.MODE_ATTRIBS = {
     ["buffmode"] = 0,
     ["combatbuffmode"] = 0,
     ["selfbuffmode"] = 0,
-	["scorchmode"] = 0
+	["scorchmode"] = 0,
+    ["playermode"] = 0
 };
 
 config_mage_fire.SELF_BUFFS = {"Molten Armor"};

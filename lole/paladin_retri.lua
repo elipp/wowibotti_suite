@@ -3,7 +3,8 @@ config_paladin_retri.name = "paladin_retri";
 
 config_paladin_retri.MODE_ATTRIBS = {
     ["combatbuffmode"] = 0,
-	["buffmode"] = 0
+	["buffmode"] = 0,
+    ["playermode"] = 0
 };
 
 config_paladin_retri.SELF_BUFFS = {"Sanctity Aura"}

@@ -3,7 +3,8 @@ config_shaman_resto.name = "shaman_resto";
 
 config_shaman_resto.MODE_ATTRIBS = {
     ["combatbuffmode"] = 0,
-    ["buffmode"] = 0
+    ["buffmode"] = 0,
+    ["playermode"] = 0
 };
 
 config_shaman_resto.SELF_BUFFS = {"Water Shield"}; -- UNCOMMENT FOR PVP

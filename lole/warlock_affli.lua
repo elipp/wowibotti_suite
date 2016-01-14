@@ -4,7 +4,8 @@ config_warlock_affli.MODE_ATTRIBS = {
     ["combatbuffmode"] = 0,
     ["buffmode"] = 0,
 	["aoemode"] = 0,
-	["shardmode"] = 0
+	["shardmode"] = 0,
+    ["playermode"] = 0
 };
 config_warlock_affli.name = "warlock_affli";
 

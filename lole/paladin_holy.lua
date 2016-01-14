@@ -3,7 +3,8 @@ config_paladin_holy.name = "paladin_holy";
 
 config_paladin_holy.MODE_ATTRIBS = {
     ["combatbuffmode"] = 0,
-	["buffmode"] = 0
+	["buffmode"] = 0,
+    ["playermode"] = 0
 };
 
 config_paladin_holy.SELF_BUFFS = {"Concentration Aura"}

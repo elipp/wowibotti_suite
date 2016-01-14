@@ -4,53 +4,50 @@ config_paladin_prot.name = "paladin_prot";
 config_paladin_prot.MODE_ATTRIBS = {
     ["combatbuffmode"] = 0,
 	["buffmode"] = 0,
-    ["combatmode"] = 1,
+    ["playermode"] = 0
 };
 
 config_paladin_prot.SELF_BUFFS = {"Righteous Fury", "Devotion Aura"};
 
 config_paladin_prot.combat = function()
 
-    if config_paladin_prot.MODE_ATTRIBS["combatmode"] == 1 then
-
-        if not UnitExists("target") then
-            TargetNearestEnemy();
-        end
-
-        StartAttack("target");
-
-        if not has_buff("player", "Holy Shield") then		
-            if cast_if_nocd("Holy Shield") then return; end
-        end
-		
-		for i=1,4,1 do local exists = GetPartyMember(i)
-			local name = "party" .. i;
-			if has_debuff(name, "Enveloping Wind") or has_debuff(name, "Lung Burst") then
-				TargetUnit(name);
-				CastSpellByName("Cleanse");
-				TargetUnit("Hydromancer Thespia");
-				return;
-			end
-		end
-
-        if cast_if_nocd("Consecration") then return; end
-        
-        --if not has_debuff("target", "Judgement of the Crusader") then
-        --    if not has_buff("player", "Seal of the Crusader") then
-        --        CastSpellByName("Seal of the Crusader");
-        --    end
-        --    cast_if_nocd("Judgement");
-        --    return;
-        --end
-
-        if not has_buff("player", "Seal of Righteousness") then
-            CastSpellByName("Seal of Righteousness");
-            return;
-        end
-        
-        if cast_if_nocd("Judgement") then return; end
-
+    if not UnitExists("target") then
+        TargetNearestEnemy();
     end
+
+    StartAttack("target");
+
+    if not has_buff("player", "Holy Shield") then		
+        if cast_if_nocd("Holy Shield") then return; end
+    end
+	
+	for i=1,4,1 do local exists = GetPartyMember(i)
+		local name = "party" .. i;
+		if has_debuff(name, "Enveloping Wind") or has_debuff(name, "Lung Burst") then
+			TargetUnit(name);
+			CastSpellByName("Cleanse");
+			TargetUnit("Hydromancer Thespia");
+			return;
+		end
+	end
+
+    if cast_if_nocd("Consecration") then return; end
+    
+    --if not has_debuff("target", "Judgement of the Crusader") then
+    --    if not has_buff("player", "Seal of the Crusader") then
+    --        CastSpellByName("Seal of the Crusader");
+    --    end
+    --    cast_if_nocd("Judgement");
+    --    return;
+    --end
+
+    if not has_buff("player", "Seal of Righteousness") then
+        CastSpellByName("Seal of Righteousness");
+        return;
+    end
+    
+    if cast_if_nocd("Judgement") then return; end
+
 end
 
 config_paladin_prot.buffs = function(MISSING_BUFFS_COPY)

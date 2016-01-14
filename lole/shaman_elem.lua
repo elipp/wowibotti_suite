@@ -3,7 +3,8 @@ config_shaman_elem.name = "shaman_elem";
 
 config_shaman_elem.MODE_ATTRIBS = {
     ["combatbuffmode"] = 0,
-    ["buffmode"] = 0
+    ["buffmode"] = 0,
+    ["playermode"] = 0
 };
 
 config_shaman_elem.SELF_BUFFS = {"Water Shield"};

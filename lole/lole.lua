@@ -126,7 +126,7 @@ end
 local function lole_set(attrib_name, on_off_str)
 
 	if (attrib_name == nil or attrib_name == "") then
-		echo("lole_set: no argument! valid modes are: buffmode selfbuffmode combatbuffmode aoemode shardmode scorchmode combatmode");
+		echo("lole_set: no argument! valid modes are: buffmode selfbuffmode combatbuffmode aoemode shardmode scorchmode playermode");
 		return false;
 	end
 	
@@ -178,7 +178,7 @@ local function usage()
 	echo(" setconfig");
 	echo(" getconfig");
 	echo(" set <mode> on|off");
-	echo("   available modes are: buffmode combatbuffmode selfbuffmode aoemode shardmode scorchmode combatmode");
+	echo("   available modes are: buffmode combatbuffmode selfbuffmode aoemode shardmode scorchmode playermode");
 end
 
 
@@ -192,7 +192,9 @@ function lole_SlashCommand(args)
 		end
 	end
 	if (not args or args == "") then
-        if LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] == 1 then
+        if LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] == 1 then
+            -- pass
+        elseif LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] == 1 then
             lole_buffs();
         else
             if (time() - LAST_BUFF_CHECK) > 30 then
@@ -246,31 +248,34 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 	-- ok. so DelIgnore is hooked to do all sorts of cool stuff depending on the opcode.
 	-- e.g. LOLE_OPCODE_TARGET_GUID changes the players target to the provided GUID ;) see DLL src.
 
-    if (prefix == "lole_target") then
-		local GUID_deciphered = decipher_GUID(message);
-		if (lole_target ~= GUID_deciphered) then
-			DelIgnore(LOLE_OPCODE_TARGET_GUID .. ":" .. GUID_deciphered); 
-			lole_target = GUID_deciphered;
-		end
+    if not LOLE_CLASS_CONFIG.MODE_ATTRIBS or LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] ~= 1 then
+        if (prefix == "lole_target") then
+    		local GUID_deciphered = decipher_GUID(message);
+    		if (lole_target ~= GUID_deciphered) then
+    			DelIgnore(LOLE_OPCODE_TARGET_GUID .. ":" .. GUID_deciphered); 
+    			lole_target = GUID_deciphered;
+    		end
+    		
+    	elseif (prefix == "lole_blast") then
+    		DelIgnore(LOLE_OPCODE_BLAST .. ":" .. message);	
+    		
+    	elseif (prefix == "lole_follow") then
+    		DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. message);
+    		
+    	elseif (prefix == "lole_stopfollow") then
+    		if not IsRaidLeader() then
+    			stopfollow();
+    		end
+    		
+    	elseif (prefix == "lole_followme") then
+    		DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. message);
+    	
+    	elseif (prefix == "lole_CTM_broadcast") then
+    		DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. message);
+        end
+    end
 		
-	elseif (prefix == "lole_blast") then
-		DelIgnore(LOLE_OPCODE_BLAST .. ":" .. message);	
-		
-	elseif (prefix == "lole_follow") then
-		DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. message);
-		
-	elseif (prefix == "lole_stopfollow") then
-		if not IsRaidLeader() then
-			stopfollow();
-		end
-		
-	elseif (prefix == "lole_followme") then
-		DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. message);
-	
-	elseif (prefix == "lole_CTM_broadcast") then
-		DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. message);
-		
-    elseif (prefix == "lole_buffs") then
+    if (prefix == "lole_buffs") then
         local buffs = {strsplit(",", message)};
         for key, buff in pairs(buffs) do
             if not MISSING_BUFFS[buff] then
@@ -293,6 +298,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
             LBUFFCHECK_ISSUED = true;
         end
     end
+
 end
 
 function LOLE_EventHandler(self, event, prefix, message, channel, sender) 
