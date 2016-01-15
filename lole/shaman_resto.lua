@@ -14,7 +14,7 @@ local function refresh_ES(targetname)
 	if not UnitExists(targetname) then return false end
 	
 	if not has_buff(targetname, "Earth Shield") then
-		SpellTargetUnit(targetname);
+		TargetUnit(targetname)
 		CastSpellByName("Earth Shield");
 		return true;
 	end
@@ -42,10 +42,8 @@ end
 local function get_lowest_hp(hp_deficits) 
 	
 	local lowest = nil;
-	local deficit_sum = 0;
 	
 	for name,hp_deficit in pairs(hp_deficits) do
-		deficit_sum = deficit_sum + hp_deficit;
 		
 		if not lowest then 
 			lowest = name;
@@ -61,13 +59,20 @@ local function get_lowest_hp(hp_deficits)
 end
 
 local function get_total_deficit(hp_deficits) 
-
+	local total = 0;
+	
+	for name, deficit in pairs(hp_deficits) do
+		total = total + deficit
+	end
+	
+	return total;
 
 end
 
 local TOTEMS = {
 ["air"] = "Windfury Totem", 
-["earth"] = "Tremor Totem",
+--["earth"] = "Tremor Totem",
+["earth"] = "Strength of Earth Totem",
 ["water"] = "Mana Spring Totem",
 ["fire"] = "Frost Resistance Totem"
 }
@@ -106,24 +111,29 @@ config_shaman_resto.combat = function()
 		return;
 	end
 	
-	SpellTargetUnit(lowest);
 	caster_range_check(35);
+	TargetUnit(lowest);
+	
+	local total_deficit = get_total_deficit(HP_deficits)
 
 	if (HP_deficits[lowest] > 7000) then
 		cast_if_nocd("Nature's Swiftness");
 		UseInventoryItem(13);
 		UseInventoryItem(14);
 		cast_spell("Healing Wave");
+
 		return;
 	end
 	
 	if HP_deficits[lowest] > 4000 then
 		cast_spell("Healing Wave")
+
 		return;
 	end
 	
-	if deficit_sum > 6000 then
+	if total_deficit > 6000 then
 		cast_spell("Chain Heal")
+
 		return;
 	end
 	

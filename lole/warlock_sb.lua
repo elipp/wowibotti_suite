@@ -25,6 +25,9 @@ end
 
 local function vexallus() 
 
+	if tap_if_need_to() then return true; end
+
+
 	TargetUnit("Pure Energy")
 	
 	if UnitExists("target") and UnitName("target") == "Pure Energy" and not UnitIsDead("target") then
@@ -40,6 +43,8 @@ local function vexallus()
 		return true;
 	end
 
+	return false;
+	
 end
 
 config_warlock_sb.combat = function()
@@ -53,6 +58,11 @@ config_warlock_sb.combat = function()
 		end
 	end
 
+	vexallus()
+	
+	if true then return end
+	
+	
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end
 
