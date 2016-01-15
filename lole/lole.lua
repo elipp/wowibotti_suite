@@ -237,16 +237,39 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 	-- ok. so DelIgnore is hooked to do all sorts of cool stuff depending on the opcode.
 	-- e.g. LOLE_OPCODE_TARGET_GUID changes the players target to the provided GUID ;) see DLL src.
 
-    if not LOLE_CLASS_CONFIG.MODE_ATTRIBS or LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] ~= 1 then
+    if (prefix == "lole_blast") then
+        DelIgnore(LOLE_OPCODE_BLAST .. ":" .. message); 
+        
+    elseif (prefix == "lole_buffs") then
+        local buffs = {strsplit(",", message)};
+        for key, buff in pairs(buffs) do
+            if not MISSING_BUFFS[buff] then
+                MISSING_BUFFS[buff] = {[sender] = true};
+            else
+                MISSING_BUFFS[buff][sender] = true;
+            end
+        end
+        
+    elseif (prefix == "lole_buffcheck") then
+        if (time() - LAST_LBUFFCHECK) > 1 then
+            if message == "buffcheck" then
+                echo("lole: The raid leader issued a buffcheck.");
+                lole_buffcheck(nil, false);
+            elseif message == "buffcheck clean" then
+                echo("lole: The raid leader issued a clean buffcheck.");
+                lole_buffcheck("clean", false);
+            end
+            LAST_LBUFFCHECK = time();
+            LBUFFCHECK_ISSUED = true;
+        end
+
+    elseif not LOLE_CLASS_CONFIG.MODE_ATTRIBS or LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] ~= 1 then
         if (prefix == "lole_target") then
     		local GUID_deciphered = decipher_GUID(message);
     		if (lole_target ~= GUID_deciphered) then
     			DelIgnore(LOLE_OPCODE_TARGET_GUID .. ":" .. GUID_deciphered); 
     			lole_target = GUID_deciphered;
     		end
-    		
-    	elseif (prefix == "lole_blast") then
-    		DelIgnore(LOLE_OPCODE_BLAST .. ":" .. message);	
     		
     	elseif (prefix == "lole_follow") then
     		DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. message);
@@ -261,30 +284,6 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
     	
     	elseif (prefix == "lole_CTM_broadcast") then
     		DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. message);
-        end
-    end
-		
-    if (prefix == "lole_buffs") then
-        local buffs = {strsplit(",", message)};
-        for key, buff in pairs(buffs) do
-            if not MISSING_BUFFS[buff] then
-                MISSING_BUFFS[buff] = {[sender] = true};
-            else
-                MISSING_BUFFS[buff][sender] = true;
-            end
-        end
-		
-    elseif (prefix == "lole_buffcheck") then
-        if (time() - LAST_LBUFFCHECK) > 1 then
-            if message == "buffcheck" then
-                echo("lole: The raid leader issued a buffcheck.");
-                lole_buffcheck(nil, false);
-            elseif message == "buffcheck clean" then
-                echo("lole: The raid leader issued a clean buffcheck.");
-                lole_buffcheck("clean", false);
-            end
-            LAST_LBUFFCHECK = time();
-            LBUFFCHECK_ISSUED = true;
         end
     end
 
