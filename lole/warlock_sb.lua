@@ -9,11 +9,38 @@ config_warlock_sb.MODE_ATTRIBS = {
     ["playermode"] = 0
 };
 
-local tap_warning_given = false;
-
 config_warlock_sb.SELF_BUFFS = {"Fel Armor"};
 -- TODO: fel domination->summon succubus->demonic sacrifice
 
+local function tap_if_need_to() 
+	if UnitMana("player") < 2500 then
+		if UnitHealth("player") > 3500 then
+			CastSpellByName("Life Tap");
+			return true;
+		end
+	else 
+		return false;
+	end
+end
+
+local function vexallus() 
+
+	TargetUnit("Pure Energy")
+	
+	if UnitExists("target") and UnitName("target") == "Pure Energy" and not UnitIsDead("target") then
+		CastSpellByName("Searing Pain(Rank 2)")
+		return true;
+	else 
+		if UnitCastingInfo("player") then return; end
+		if UnitChannelInfo("player") then return; end
+		TargetUnit("Vexallus")
+		
+		CastSpellByName("Drain Life")
+		
+		return true;
+	end
+
+end
 
 config_warlock_sb.combat = function()
 
@@ -29,17 +56,7 @@ config_warlock_sb.combat = function()
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end
 
-	if UnitMana("player") < 2500 then
-		if UnitHealth("player") > 3500 then
-			CastSpellByName("Life Tap");
-			return;
-		elseif not tap_warning_given then
-			SendChatMessage("FUCK! Running LOW ON MANA, but too low HP to safely fap. Healz plx!", "YELL");
-			tap_warning_given = true;
-			return;
-		end
-	
-	end
+	if tap_if_need_to() then return; end
 	
 	caster_range_check(30); 
 	caster_face_target();

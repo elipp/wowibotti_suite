@@ -9,10 +9,81 @@ config_shaman_resto.MODE_ATTRIBS = {
 
 config_shaman_resto.SELF_BUFFS = {"Water Shield"}; -- UNCOMMENT FOR PVP
 
+local function refresh_ES(targetname) 
+	
+	if not UnitExists(targetname) then return false end
+	
+	if not has_buff(targetname, "Earth Shield") then
+		SpellTargetUnit(targetname);
+		CastSpellByName("Earth Shield");
+		return true;
+	end
+
+	return false
+	
+end
+
+local function get_group_member_HP_deficits() 
+
+	local group_member_HP_deficits = {};
+
+	group_member_HP_deficits["player"] = UnitHealthMax("player") - UnitHealth("player");
+	for i=1,4,1 do local exists = GetPartyMember(i)
+		local name = "party" .. i;
+		if exists and not UnitIsDead(name) then
+			group_member_HP_deficits[name] = UnitHealthMax(name) - UnitHealth(name);
+		end
+	end
+	
+	return group_member_HP_deficits;
+
+end
+
+local function get_lowest_hp(hp_deficits) 
+	
+	local lowest = nil;
+	local deficit_sum = 0;
+	
+	for name,hp_deficit in pairs(hp_deficits) do
+		deficit_sum = deficit_sum + hp_deficit;
+		
+		if not lowest then 
+			lowest = name;
+		else
+			if hp_deficit > hp_deficits[lowest] then
+				lowest = name;
+			end
+		end
+	end
+	
+	return lowest;
+
+end
+
+local function get_total_deficit(hp_deficits) 
+
+
+end
+
+local TOTEMS = {
+["air"] = "Windfury Totem", 
+["earth"] = "Tremor Totem",
+["water"] = "Mana Spring Totem",
+["fire"] = "Frost Resistance Totem"
+}
+
+
+local function refresh_totems()
+	for slot,name in pairs(TOTEMS) do
+		if recast_totem_if_noexists_or_OOR(name) then return true; end
+	end
+	return false;
+end
+
 
 config_shaman_resto.combat = function()
-	--DEFAULT_CHAT_FRAME:AddMessage(tostring(cast_state[CS_CASTING]) .. ", " .. cast_state[CS_TIMESTAMP] .. ", " .. cast_state[CS_CASTTIME])
 	
+	local ES_TARGET = "Adieux";
 	
 	if casting_legit_heal() then return end
 	
@@ -21,56 +92,24 @@ config_shaman_resto.combat = function()
 		return;
 	end
 	
-	--if recast_totem_if_not_active_or_in_range("Strength of Earth Totem") then return; end
-	if recast_totem_if_not_active_or_in_range("Tremor Totem") then return; end
-	--if recast_totem_if_not_active_or_in_range("Stoneskin Totem") then return; end
-
-	if recast_totem_if_not_active_or_in_range("Windfury Totem") then return; end
-	if recast_totem_if_not_active_or_in_range("Mana Spring Totem") then return; end
-	if recast_totem_if_not_active_or_in_range("Frost Resistance Totem") then return; end
-
+	if refresh_totems() then return; end
 	
-	local group_member_hpdeficits = {};
-
-	group_member_hpdeficits["player"] = UnitHealthMax("player") - UnitHealth("player");
-	for i=1,4,1 do local exists = GetPartyMember(i)
-		local name = "party" .. i;
-		if exists and not UnitIsDead(name) then
-			group_member_hpdeficits[name] = UnitHealthMax(name) - UnitHealth(name);
-		end
-	end
+	if refresh_ES(ES_TARGET) then return end
 	
-	local ESTARGET = "Adieux";
+	local HP_deficits = get_group_member_HP_deficits();
+	if not HP_deficits then return; end
 	
-	if not has_buff(ESTARGET, "Earth Shield") then
-		TargetUnit(ESTARGET);
-		CastSpellByName("Earth Shield");
-		return;
-	end
-
-	local lowest = nil;
-	
-	for name,hp_deficit in pairs(group_member_hpdeficits) do
-		if not lowest then 
-			lowest = name;
-		else
-			if hp_deficit > group_member_hpdeficits[lowest] then
-				lowest = name;
-			end
-		end
-	end
-	
-	
+	local lowest = get_lowest_hp(HP_deficits);
 	if not lowest then return; end
 	
-	if (group_member_hpdeficits[lowest] < 1500) then 
+	if (HP_deficits[lowest] < 1500) then 
 		return;
 	end
-
-	TargetUnit(lowest);
+	
+	SpellTargetUnit(lowest);
 	caster_range_check(35);
 
-	if (group_member_hpdeficits[lowest] > 7000) then
+	if (HP_deficits[lowest] > 7000) then
 		cast_if_nocd("Nature's Swiftness");
 		UseInventoryItem(13);
 		UseInventoryItem(14);
@@ -78,20 +117,16 @@ config_shaman_resto.combat = function()
 		return;
 	end
 	
-	if (group_member_hpdeficits[lowest] > 3750) then
-		--cast_spell("Healing Wave");
-		cast_spell("Chain Heal");
+	if HP_deficits[lowest] > 4000 then
+		cast_spell("Healing Wave")
 		return;
 	end
 	
-	if (group_member_hpdeficits[lowest] > 2500) then	
-		cast_spell("Chain Heal");
-		return;
-	else
-		cast_spell("Chain Heal");
+	if deficit_sum > 6000 then
+		cast_spell("Chain Heal")
 		return;
 	end
-
+	
 
 end
 

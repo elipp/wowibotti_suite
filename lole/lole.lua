@@ -4,17 +4,6 @@ LOLE_CLASS_CONFIG_ATTRIBS = nil; -- listed in SavedVariablesPerCharacter
 local DEFAULT_CONFIG = { name = "default", MODE_ATTRIBS = nil, desired_buffs = function() return {}; end, combat = function() end, buffs = function() end, other = function() end };
 LOLE_CLASS_CONFIG = DEFAULT_CONFIG;
 
--- opcodes for DelIgnore :P
-LOLE_OPCODE_NOP,
-LOLE_OPCODE_TARGET_GUID, 
-LOLE_OPCODE_BLAST, 
-LOLE_OPCODE_CASTER_RANGE_CHECK,
-LOLE_OPCODE_FOLLOW,  -- this also includes walking to the target
-LOLE_OPCODE_CASTER_FACE,
-LOLE_OPCODE_CTM_BROADCAST
-
-= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05", "LOP_06";
-
 
 local available_configs = {
 	["default"] = DEFAULT_CONFIG,
@@ -187,8 +176,8 @@ function lole_SlashCommand(args)
 	if (IsRaidLeader()) then
 		local target_GUID = UnitGUID("target");
 		if target_GUID and not UnitIsDead("target") and UnitReaction("target", "player") < 5 then
-				local ciphered = cipher_GUID(target_GUID);
-				SendAddonMessage("lole_target", tostring(ciphered), "PARTY");
+			local ciphered = cipher_GUID(target_GUID);
+			SendAddonMessage("lole_target", tostring(ciphered), "PARTY");
 		end
 	end
 	if (not args or args == "") then
@@ -304,7 +293,7 @@ end
 function LOLE_EventHandler(self, event, prefix, message, channel, sender) 
 	--DEFAULT_CHAT_FRAME:AddMessage("LOLE_EventHandler: event:" .. event)
 	if event == "PLAYER_REGEN_DISABLED" then
-		SendAddonMessage("lole_stopfollow", nil, "PARTY");
+		SendAddonMessage("lole_opcode", LOLE_OPCODE_FOLLOW, "PARTY");
 	--elseif event == "PLAYER_REGEN_ENABLED" then -- this is kinda crap, remove
 		--if IsRaidLeader() then
 		--	SendAddonMessage("lole_follow", tostring(UnitGUID("player")), "PARTY");

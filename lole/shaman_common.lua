@@ -43,7 +43,7 @@ local totem_name_buffname_map = {
 };
 
 
-function recast_totem_if_not_active_or_in_range(arg_totem)
+function recast_totem_if_noexists_or_OOR(arg_totem)
 	local _, totemName, startTime, duration = GetTotemInfo(totem_name_type_map[arg_totem]);
 	
 	if startTime == 0 and duration == 0 then
@@ -52,6 +52,18 @@ function recast_totem_if_not_active_or_in_range(arg_totem)
 	end
 	
 	-- see if totem in range (doesn't work for tremor totem, mana tide totem, windfury totem etc)
+	
+	local cur_target = UnitName("target");
+	
+	TargetUnit(arg_totem);
+	if IsSpellInRange("Healing Wave", "target") == 0 then
+		CastSpellByName(arg_totem); 
+		ClearTarget();
+		return true; 
+	end
+ -- too bad shamans don't have a 30yd heal
+	
+	ClearTarget()
 	
 	local bname = totem_name_buffname_map[arg_totem];
 	if bname then
