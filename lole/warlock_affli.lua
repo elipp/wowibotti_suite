@@ -114,6 +114,7 @@ config_warlock_affli.buffs = function()
 
     if SELF_BUFF_SPAM_TABLE[1] == nil then
         config_warlock_affli.MODE_ATTRIBS["buffmode"] = 0;
+        SendAddonMessage("lole_bufferstatus", "0", "RAID", UnitName("player")); 
         echo("lole_set: attrib \"buffmode\" set to 0");
     else
         buff_self();

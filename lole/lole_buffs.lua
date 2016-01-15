@@ -5,6 +5,8 @@ SELF_BUFF_SPAM_TABLE = {};
 BUFFS_CHECKED = false;
 LAST_LBUFFCHECK = 0;
 LBUFFCHECK_ISSUED = false;
+BUFFER_STATUSES = {};
+TIME_BUFFS_VALIDATED = 0;
 
 BUFF_ALIASES = {
     ["Arcane Intellect"] = "Arcane Brilliance",
@@ -321,6 +323,7 @@ function buffs()
         MISSING_BUFFS = {};
         LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] = 0;
         LBUFFCHECK_ISSUED = false;
+        SendAddonMessage("lole_bufferstatus", "0", "RAID", UnitName("player")); 
         echo("lole_set: attrib \"buffmode\" set to 0");
     end
 
@@ -343,6 +346,7 @@ function lole_selfbuffs()
         buff_self();
     else
         LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] = 0;
+        SendAddonMessage("lole_bufferstatus", "0", "RAID", UnitName("player")); 
         echo("lole_set: attrib \"buffmode\" set to 0");
     end
 end
@@ -376,4 +380,16 @@ function get_num_paladins()
 
     return num_paladins;
 
+end
+
+function validate_buffs(buffer_statuses)
+    if (time() - TIME_BUFFS_VALIDATED) > 1 then
+        for buffer, buffing in pairs (buffer_statuses) do
+            if buffing == "1" then 
+                return;
+            end
+        end
+        SendAddonMessage("lole_buffcheck", "buffcheck validate", "RAID", UnitName("player"));
+        TIME_BUFFS_VALIDATED = time();
+    end
 end

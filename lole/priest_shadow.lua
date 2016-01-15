@@ -12,6 +12,11 @@ local ve_guard = false;
 
 config_priest_shadow.SELF_BUFFS = {"Inner Fire", "Shadowform"};
 
+config_priest_shadow.CLASS_BUFFS = {
+    "Power World: Fortitude",
+    -- "Divine Spirit", -- shadow priest ain't got one
+    "Shadow Protection"
+}
 
 config_priest_shadow.combat = function()
 

@@ -9,6 +9,14 @@ config_paladin_prot.MODE_ATTRIBS = {
 
 config_paladin_prot.SELF_BUFFS = {"Righteous Fury", "Devotion Aura"};
 
+-- Do not alter the order.
+config_paladin_prot.CLASS_BUFFS = {
+    "Blessing of Kings",
+    "Blessing of Salvation",
+    "Blessing of Wisdom",
+    "Blessing of Might",
+};
+
 config_paladin_prot.combat = function()
 
     if not UnitExists("target") then

@@ -7,7 +7,15 @@ config_paladin_holy.MODE_ATTRIBS = {
     ["playermode"] = 0
 };
 
-config_paladin_holy.SELF_BUFFS = {"Concentration Aura"}
+config_paladin_holy.SELF_BUFFS = {"Concentration Aura"};
+
+-- Do not alter the order.
+config_paladin_holy.CLASS_BUFFS = {
+    "Blessing of Wisdom",
+    "Blessing of Kings",
+    "Blessing of Salvation",
+    "Blessing of Might",
+};
 
 config_paladin_holy.combat = function()
 

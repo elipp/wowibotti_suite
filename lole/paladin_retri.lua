@@ -7,7 +7,15 @@ config_paladin_retri.MODE_ATTRIBS = {
     ["playermode"] = 0
 };
 
-config_paladin_retri.SELF_BUFFS = {"Sanctity Aura"}
+config_paladin_retri.SELF_BUFFS = {"Sanctity Aura"};
+
+-- Do not alter the order.
+config_paladin_retri.CLASS_BUFFS = {
+    "Blessing of Might",
+    "Blessing of Wisdom",
+    "Blessing of Kings",
+    "Blessing of Salvation",
+};
 
 config_paladin_retri.combat = function()
 	

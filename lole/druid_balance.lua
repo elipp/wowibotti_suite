@@ -8,6 +8,7 @@ config_druid_balance.MODE_ATTRIBS = {
 };
 
 config_druid_balance.SELF_BUFFS = {"Moonkin Form"}; 
+config_druid_balance.CLASS_BUFFS = {"Mark of the Wild", "Thorns"};
 
 config_druid_balance.combat = function()
 

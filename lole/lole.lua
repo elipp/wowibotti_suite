@@ -190,6 +190,10 @@ function lole_SlashCommand(args)
 				local ciphered = cipher_GUID(target_GUID);
 				SendAddonMessage("lole_target", tostring(ciphered), "PARTY");
 		end
+        if TIME_BUFFS_VALIDATED ~= 0 and (time() - TIME_BUFFS_VALIDATED) > 1 then
+            --echo(table.tostring(MISSING_BUFFS));
+            TIME_BUFFS_VALIDATED = 0;
+        end
 	end
 	if (not args or args == "") then
         if LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] == 1 then
@@ -199,6 +203,7 @@ function lole_SlashCommand(args)
                 lole_buffcheck(nil, false);
             elseif ((LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS["combatbuffmode"] == 1) or LBUFFCHECK_ISSUED) and BUFFS_CHECKED and (time() - LAST_BUFF_CHECK) > 1 then
                 lole_set("buffmode", "on");
+                SendAddonMessage("lole_bufferstatus", "1", "RAID", UnitName("player")); 
                 BUFFS_CHECKED = false;
                 return;
             end
@@ -266,12 +271,21 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
             if message == "buffcheck" then
                 echo("lole: The raid leader issued a buffcheck.");
                 lole_buffcheck(nil, false);
+                LBUFFCHECK_ISSUED = true;
             elseif message == "buffcheck clean" then
                 echo("lole: The raid leader issued a clean buffcheck.");
                 lole_buffcheck("clean", false);
+                LBUFFCHECK_ISSUED = true;
+            elseif message == "buffcheck validate" then
+                lole_buffcheck(nil, false);
             end
             LAST_LBUFFCHECK = time();
-            LBUFFCHECK_ISSUED = true;
+        end
+
+    elseif (IsRaidLeader() and prefix == "lole_bufferstatus") then
+        BUFFER_STATUSES[sender] = message;
+        if message == "0" then
+            validate_buffs(shallowcopy(BUFFER_STATUSES));
         end
 
     elseif not LOLE_CLASS_CONFIG.MODE_ATTRIBS or LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] ~= 1 then

@@ -10,6 +10,7 @@ config_mage_fire.MODE_ATTRIBS = {
 };
 
 config_mage_fire.SELF_BUFFS = {"Molten Armor"};
+config_mage_fire.CLASS_BUFFS = {"Arcane Intellect"};
 
 config_mage_fire.combat = function()
 
