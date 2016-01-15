@@ -71,8 +71,8 @@ end
 
 local TOTEMS = {
 ["air"] = "Windfury Totem", 
---["earth"] = "Tremor Totem",
-["earth"] = "Strength of Earth Totem",
+["earth"] = "Tremor Totem",
+--["earth"] = "Strength of Earth Totem",
 ["water"] = "Mana Spring Totem",
 ["fire"] = "Frost Resistance Totem"
 }
