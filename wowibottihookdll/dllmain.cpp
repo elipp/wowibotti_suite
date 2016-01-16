@@ -625,14 +625,14 @@ DWORD WINAPI ThreadProc(LPVOID lpParam) {
 	HMENU hMenu = CreateDLLWindowMenu();
 	RegisterDLLWindowClass("DLLWindowClass", inj_hModule);
 
-	HWND hwnd = CreateWindowEx(0, "DLLWindowClass", pString, WS_EX_PALETTEWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 400, 300, NULL, hMenu, inj_hModule, NULL);
-	ShowWindow(hwnd, SW_SHOWNORMAL);
+	//HWND hwnd = CreateWindowEx(0, "DLLWindowClass", pString, WS_EX_PALETTEWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 400, 300, NULL, hMenu, inj_hModule, NULL);
+//	ShowWindow(hwnd, SW_SHOWNORMAL);
 
-	hook_all();
+	//hook_all();
 
-	if (RegisterHotKey(hwnd, 100, MOD_ALT, 'G')) {
-		printf("Registered window %X as blast client!\n", (DWORD)hwnd);
-	}
+	//if (RegisterHotKey(hwnd, 100, MOD_ALT, 'G')) {
+		//printf("Registered window %X as blast client!\n", (DWORD)hwnd);
+	//}
 
 	while (GetMessage(&messages, NULL, 0, 0)) {
 		TranslateMessage(&messages);
@@ -722,11 +722,12 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	case DLL_PROCESS_ATTACH:
 		
 		patch_LUA_prot(hProcess);
-		windowThread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
+		hook_all();
+		// windowThread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
 		inj_hModule = hModule;
 
-		AllocConsole();
-		freopen("CONOUT$", "wb", stdout);
+		//AllocConsole();
+		//freopen("CONOUT$", "wb", stdout);
 		
 		break;
 
