@@ -47,6 +47,13 @@ local function vexallus()
 	
 end
 
+local function delrissa()
+
+	if keep_CCd("Darkspine Myrmidon", "Fear") then return end
+	--if keep_CCd("Yazzai", "Fear") then return end
+
+end
+
 config_warlock_sb.combat = function()
 
 	local mana = UnitMana("player");
@@ -58,9 +65,8 @@ config_warlock_sb.combat = function()
 		end
 	end
 
-	vexallus()
-	
-	if true then return end
+	--vexallus()
+--	if true then return end
 	
 	
 	if UnitCastingInfo("player") then return; end

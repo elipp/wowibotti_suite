@@ -68,6 +68,8 @@ CS_CASTING, CS_TIMESTAMP, CS_CASTTIME, CS_TARGET = 1, 2, 3, 4;
 NOT_CASTING = { false, 0.0, 0.0, "none" };
 cast_state = NOT_CASTING;
 
+
+
 function cast_if_nocd(spellname)
 	if GetSpellCooldown(spellname) == 0 then
 		CastSpellByName(spellname);
@@ -217,5 +219,21 @@ function has_debuff_of_type(targetname, typename)
 	
 	return fnd,timeLeft;
 
+end
+
+function keep_CCd(targetname, spellname)
+	TargetUnit(targetname);
+	if UnitExists("target") then
+		a, d = has_debuff("target", spellname);
+		if not a then
+			CastSpellByName(spellname);
+			return true;
+		elseif d < 6 then
+			CastSpellByName(spellname);
+			return true;
+		end
+	end
+	
+	return false;
 end
 

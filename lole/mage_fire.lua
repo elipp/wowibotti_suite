@@ -11,6 +11,18 @@ config_mage_fire.MODE_ATTRIBS = {
 
 config_mage_fire.SELF_BUFFS = {"Molten Armor"};
 
+local function delrissa()
+	
+	if keep_CCd("JokuHomo", "Polymorph") then return end
+	
+	if has_buff("Priestess Delrissa", "Power Word: Shield") then 
+		TargetUnit("Priestess Delrissa")
+		CastSpellByName("Spellsteal")
+		return;
+	end
+
+end
+
 config_mage_fire.combat = function()
 
 	if UnitCastingInfo("player") then return; end
@@ -38,6 +50,7 @@ config_mage_fire.combat = function()
 			CastSpellByName("Evocation");
 		end
 	end
+
 	
 	caster_range_check(36); 
 	caster_face_target();

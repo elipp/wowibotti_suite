@@ -205,7 +205,7 @@ static void __stdcall face_target() {
 	if (!p.valid()) return;
 
 	vec3 diff = t.get_pos() - p.get_pos();
-	click_to_move(p.get_pos() + diff.unit(), CTM_MOVE, 0); // this is a way to legitimately turn casters toward the enemy.
+	click_to_move(p.get_pos() + 0.5*diff.unit(), CTM_MOVE, 0); // this is a way to legitimately turn casters toward the enemy.
 
 	// this formula is for a directed angle (clockwise angle). atan2(det, dot). 
 	// now we're taking the angle with respect to the x axis (north in wow), so the computation becomes simply:
