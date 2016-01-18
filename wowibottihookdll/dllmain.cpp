@@ -626,9 +626,9 @@ DWORD WINAPI ThreadProc(LPVOID lpParam) {
 	RegisterDLLWindowClass("DLLWindowClass", inj_hModule);
 
 	//HWND hwnd = CreateWindowEx(0, "DLLWindowClass", pString, WS_EX_PALETTEWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 400, 300, NULL, hMenu, inj_hModule, NULL);
-//	ShowWindow(hwnd, SW_SHOWNORMAL);
+	//ShowWindow(hwnd, SW_SHOWNORMAL);
 
-	//hook_all();
+	hook_all();
 
 	//if (RegisterHotKey(hwnd, 100, MOD_ALT, 'G')) {
 		//printf("Registered window %X as blast client!\n", (DWORD)hwnd);
@@ -722,12 +722,12 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	case DLL_PROCESS_ATTACH:
 		
 		patch_LUA_prot(hProcess);
-		hook_all();
-		// windowThread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
+		//hook_all();
+		windowThread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
 		inj_hModule = hModule;
 
-		//AllocConsole();
-		//freopen("CONOUT$", "wb", stdout);
+		AllocConsole();
+		freopen("CONOUT$", "wb", stdout);
 		
 		break;
 
@@ -739,7 +739,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 
 	case DLL_PROCESS_DETACH:
 		printf("DLL DETACHED! Unhooking all functions.\n");
-		// might want to suspend the thread :DD
+
 		PostThreadMessage(GetThreadId(windowThread), WM_DESTROY, 0, 0);
 		//WaitForSingleObject(windowThread, INFINITE);
 		unhook_all();

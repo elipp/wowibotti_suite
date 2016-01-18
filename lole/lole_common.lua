@@ -1,3 +1,11 @@
+-- globals
+
+NOTARGET = "0x0000000000000000";
+
+BLAST_TARGET_GUID = "0x0000000000000000";
+MISSING_BUFFS = {};
+
+
 function echo(text) 
     DEFAULT_CHAT_FRAME:AddMessage(text)
 end
@@ -123,18 +131,6 @@ function cleanse_party(debuffname)
 	return false;
 end
 
-function caster_range_check(minrange)
-	DelIgnore(LOLE_OPCODE_CASTER_RANGE_CHECK .. ":" .. tostring(minrange));
-end
-
-function caster_face_target()
-	DelIgnore(LOLE_OPCODE_CASTER_FACE);
-end
-
-function stopfollow()
-	DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. "0x0000000000000000");
-end
-
 function target_mob_with_charm(index_str)
 
 	local index = raid_target_indices[index_str];
@@ -235,5 +231,45 @@ function keep_CCd(targetname, spellname)
 	end
 	
 	return false;
+end
+
+function validate_target()
+	
+	if BLAST_TARGET_GUID ~= NOTARGET and UnitExists("target") and BLAST_TARGET_GUID == UnitGUID("target") then
+		if not UnitIsDead("target") then
+			return true;
+		else
+			BLAST_TARGET_GUID = NOTARGET;
+			ClearTarget()
+			ClearFocus();
+			return false;
+		end
+	else 
+		return false;
+	end
+
+end
+
+
+function cipher_GUID(GUID)
+	local part1 = tonumber(string.sub(GUID, 3, 10), 16); -- the GUID string still has the 0x part in it
+	local part2 = tonumber(string.sub(GUID, 11), 16);
+
+	--DEFAULT_CHAT_FRAME:AddMessage("part 1: " .. string.format("%08X", part1) .. ", part 2: " .. string.format("%08X", part2));
+
+	local XOR_mask1 = 0xAB0AB03F; -- just some arbitrary constants
+	local XOR_mask2 = 0xEBAEBA55;
+
+	local xor1 = string.format("%08X", bit.bxor(part1, XOR_mask1));
+	local xor2 = string.format("%08X", bit.bxor(part2, XOR_mask2));
+
+	--DEFAULT_CHAT_FRAME:AddMessage("XOR'd 1: " .. xor1 .. ", XOR'd 2: " .. xor2);
+
+	return "0x" .. xor1 .. xor2;
+end
+
+function decipher_GUID(ciphered)
+-- this works because XOR is reversible ^^
+	return cipher_GUID(ciphered);
 end
 

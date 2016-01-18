@@ -24,27 +24,6 @@ local available_configs = {
 	["warrior_arms"] = config_warrior_arms,
 };
 
-local function cipher_GUID(GUID)
-	local part1 = tonumber(string.sub(GUID, 3, 10), 16); -- the GUID string still has the 0x part in it
-	local part2 = tonumber(string.sub(GUID, 11), 16);
-
-	--DEFAULT_CHAT_FRAME:AddMessage("part 1: " .. string.format("%08X", part1) .. ", part 2: " .. string.format("%08X", part2));
-
-	local XOR_mask1 = 0xAB0AB03F; -- just some arbitrary constants
-	local XOR_mask2 = 0xEBAEBA55;
-
-	local xor1 = string.format("%08X", bit.bxor(part1, XOR_mask1));
-	local xor2 = string.format("%08X", bit.bxor(part2, XOR_mask2));
-
-	--DEFAULT_CHAT_FRAME:AddMessage("XOR'd 1: " .. xor1 .. ", XOR'd 2: " .. xor2);
-
-	return "0x" .. xor1 .. xor2;
-end
-
-local function decipher_GUID(ciphered)
--- this works because XOR is reversible ^^
-	return cipher_GUID(ciphered);
-end
 
 local function lole_setconfig(arg, modes) 
 	if (arg == nil or arg == "") then 
@@ -99,13 +78,11 @@ local function get_int_from_strbool(strbool)
 		end
 	end
 	
-	-- rval = -1; -- should already be -1
-	
 	return rval;
 end
 
 local function lole_followme() 
-	SendAddonMessage("lole_followme", UnitGUID("player"), "PARTY")
+	SendAddonMessage("lole_followme", cipher_GUID(UnitGUID("player")), "PARTY")
 end
 
 local function lole_stopfollow()
@@ -159,7 +136,7 @@ local lole_subcommands = {
 }
 	
 local function usage()
-	echo("/lole usage: /lole subcmd subcmd_arg");
+	echo("|cFFFFFF00/lole usage: /lole subcmd subcmd_arg");
 	echo("available subcmds are:");
     echo(" lbuffcheck");
 	echo(" buffcheck");
@@ -167,20 +144,45 @@ local function usage()
 	echo(" setconfig");
 	echo(" getconfig");
 	echo(" set <mode> on|off");
-	echo("   available modes are: buffmode combatbuffmode selfbuffmode aoemode shardmode scorchmode playermode");
+	echo("    available modes are: buffmode combatbuffmode selfbuffmode aoemode shardmode scorchmode playermode");
+	
+	local concatd = "";
+	
+	for config,_ in pairs(available_configs) do
+		concatd = concatd .. config .. " "
+	end
+	
+	echo("    available class configs are: " .. concatd);
+	
 end
 
 
 function lole_SlashCommand(args) 
 
 	if (IsRaidLeader()) then
-		local target_GUID = UnitGUID("target");
-		if target_GUID and not UnitIsDead("target") and UnitReaction("target", "player") < 5 then
-			local ciphered = cipher_GUID(target_GUID);
-			SendAddonMessage("lole_target", tostring(ciphered), "PARTY");
+	  	if UnitExists("focus") and UnitIsDead("focus") then 
+			BLAST_TARGET_GUID = NOTARGET;
+			ClearFocus();
+		end
+	
+		if BLAST_TARGET_GUID == NOTARGET then
+			if not UnitExists("focus") then
+				if UnitExists("target") and not UnitIsDead("target") and UnitReaction("target", "player") < 5 then
+					local target_GUID = UnitGUID("target");
+					BLAST_TARGET_GUID = target_GUID;
+					FocusUnit("target");
+					broadcast_target_GUID(target_GUID);
+				end
+			else 
+				DEFAULT_CHAT_FRAME:AddMessage("setting target to NOTARGET");
+				BLAST_TARGET_GUID = NOTARGET;
+				ClearFocus();
+			end
 		end
 	end
+	
 	if (not args or args == "") then
+	
         if LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] == 1 then
             lole_buffs();
         else
@@ -192,7 +194,10 @@ function lole_SlashCommand(args)
                 return;
             end
             if not LOLE_CLASS_CONFIG.MODE_ATTRIBS or LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] ~= 1 then
-                LOLE_CLASS_CONFIG.combat();
+               	if UnitExists("focus") and UnitIsDead("focus") then 
+					ClearFocus()
+				end
+				LOLE_CLASS_CONFIG.combat();
             end
         end
         return;
@@ -227,20 +232,15 @@ local function on_buff_check_event(self, event, ...)
 end
 
 
-MISSING_BUFFS = {};
-
-
-local lole_target = "0x0000000000000000";
-
 local function OnMsgEvent(self, event, prefix, message, channel, sender)
 
 	-- ok. so DelIgnore is hooked to do all sorts of cool stuff depending on the opcode.
 	-- e.g. LOLE_OPCODE_TARGET_GUID changes the players target to the provided GUID ;) see DLL src.
 
     if (prefix == "lole_blast") then
-        DelIgnore(LOLE_OPCODE_BLAST .. ":" .. message); 
-        
-    elseif (prefix == "lole_buffs") then
+		set_blast(message)
+  
+  elseif (prefix == "lole_buffs") then
         local buffs = {strsplit(",", message)};
         for key, buff in pairs(buffs) do
             if not MISSING_BUFFS[buff] then
@@ -265,26 +265,22 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 
     elseif not LOLE_CLASS_CONFIG.MODE_ATTRIBS or LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] ~= 1 then
         if (prefix == "lole_target") then
-    		local GUID_deciphered = decipher_GUID(message);
-    		if (lole_target ~= GUID_deciphered) then
-    			DelIgnore(LOLE_OPCODE_TARGET_GUID .. ":" .. GUID_deciphered); 
-    			lole_target = GUID_deciphered;
-    		end
+			target_unit_with_GUID(message);
     		
     	elseif (prefix == "lole_follow") then
-    		DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. message);
-    		
+			follow_unit_with_GUID(message);
+			
     	elseif (prefix == "lole_stopfollow") then
     		if not IsRaidLeader() then
     			stopfollow();
     		end
     		
     	elseif (prefix == "lole_followme") then
-    		DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. message);
+    		follow_unit_with_GUID(message);
     	
     	elseif (prefix == "lole_CTM_broadcast") then
-    		DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. message);
-        end
+			act_on_CTM_broadcast(message);
+		end
     end
 
 end

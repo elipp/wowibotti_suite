@@ -13,11 +13,9 @@ config_paladin_retri.combat = function()
 	
 	if cleanse_party("Arcane Shock") then return; end
 	
-	if not UnitExists("target") then return; end;
+	if not validate_target() then return; end
 	
-	if UnitIsDead("target") then ClearTarget(); return; end
-	
-	ClosePetStables(); -- this function is hooked, makes melee walk behind target and start pounding
+	melee_close_in()
 	
 	if not has_debuff("target", "Judgement of the Crusader") then
 		if not has_buff("player", "Seal of the Crusader") then
