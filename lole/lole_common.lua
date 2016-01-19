@@ -250,8 +250,8 @@ function validate_target()
 end
 
 function lole_set_target(target_GUID)
-  	DelIgnore(LOLE_OPCODE_TARGET_GUID .. ":" .. GUID_deciphered); -- this does a targetunit :P
-    BLAST_TARGET_GUID = GUID_deciphered;
+  	DelIgnore(LOLE_OPCODE_TARGET_GUID .. ":" .. target_GUID); -- this does a targetunit :P
+    BLAST_TARGET_GUID = target_GUID;
 	FocusUnit("target")
 end
 

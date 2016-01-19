@@ -176,8 +176,8 @@ function lole_SlashCommand(args)
 		if BLAST_TARGET_GUID == NOTARGET then
 			if not UnitExists("focus") then
 				if UnitExists("target") and not UnitIsDead("target") and UnitReaction("target", "player") < 5 then
-					lole_set_target(UnitGUID("target"))
-					broadcast_target_GUID(target_GUID);
+					--lole_set_target(UnitGUID("target"))
+					broadcast_target_GUID(UnitGUID("target"));
 				end
 			else 
 				-- not sure if this is reachable or not
