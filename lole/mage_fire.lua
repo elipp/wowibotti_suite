@@ -13,13 +13,24 @@ config_mage_fire.SELF_BUFFS = {"Molten Armor"};
 
 local function delrissa()
 	
-	if keep_CCd("JokuHomo", "Polymorph") then return end
+	if keep_CCd("Warlord Salaris", "Polymorph") then return end
 	
-	if has_buff("Priestess Delrissa", "Power Word: Shield") then 
+	if has_buff("Priestess Delrissa", "Power Word: Shield") or 
+	   has_buff("Priestess Delrissa", "Renew") then 
 		TargetUnit("Priestess Delrissa")
 		CastSpellByName("Spellsteal")
 		return;
 	end
+	
+	
+	if not validate_target() then return end;
+	
+	--caster_range_check(36); 
+--	caster_face_target();
+	
+	CastSpellByName("Fireball")
+	
+	
 
 end
 
@@ -28,6 +39,9 @@ config_mage_fire.combat = function()
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end -- mainly in reference to evocation
 	
+	delrissa();
+	
+	if true then return end;
 	
 	if ((GetItemCount(22044) == 0) and (not UnitAffectingCombat("player"))) then
 		CastSpellByName("Conjure Mana Emerald");

@@ -235,13 +235,12 @@ end
 
 function validate_target()
 	
-	if BLAST_TARGET_GUID ~= NOTARGET and UnitExists("target") and BLAST_TARGET_GUID == UnitGUID("target") then
-		if not UnitIsDead("target") then
+	if BLAST_TARGET_GUID ~= NOTARGET and UnitExists("focus") and BLAST_TARGET_GUID == UnitGUID("focus") then
+		if not UnitIsDead("focus") then
+			TargetUnit("focus");
 			return true;
 		else
-			BLAST_TARGET_GUID = NOTARGET;
-			ClearTarget()
-			ClearFocus();
+			lole_clear_target()
 			return false;
 		end
 	else 
@@ -250,6 +249,19 @@ function validate_target()
 
 end
 
+function lole_set_target(target_GUID)
+  	DelIgnore(LOLE_OPCODE_TARGET_GUID .. ":" .. GUID_deciphered); -- this does a targetunit :P
+    BLAST_TARGET_GUID = GUID_deciphered;
+	FocusUnit("target")
+end
+
+function lole_clear_target()
+	DEFAULT_CHAT_FRAME:AddMessage("calling lole_clear_target!");
+	BLAST_TARGET_GUID = NOTARGET;
+	ClearFocus();
+	ClearTarget();
+
+end
 
 function cipher_GUID(GUID)
 	local part1 = tonumber(string.sub(GUID, 3, 10), 16); -- the GUID string still has the 0x part in it

@@ -92,6 +92,7 @@ end
 local function lole_set(attrib_name, on_off_str)
 
 	if (attrib_name == nil or attrib_name == "") then
+		-- TODO: maybe take these directly from the table
 		echo("lole_set: no argument! valid modes are: buffmode selfbuffmode combatbuffmode aoemode shardmode scorchmode playermode");
 		return false;
 	end
@@ -137,22 +138,30 @@ local lole_subcommands = {
 	
 local function usage()
 	echo("|cFFFFFF00/lole usage: /lole subcmd subcmd_arg");
-	echo("available subcmds are:");
-    echo(" lbuffcheck");
-	echo(" buffcheck");
-	echo(" cooldowns");
-	echo(" setconfig");
-	echo(" getconfig");
-	echo(" set <mode> on|off");
-	echo("    available modes are: buffmode combatbuffmode selfbuffmode aoemode shardmode scorchmode playermode");
 	
-	local concatd = "";
+	local subcmds_concatd = "";
 	
-	for config,_ in pairs(available_configs) do
-		concatd = concatd .. config .. " "
+	for subcommand, _ in pairs(lole_subcommands) do
+		subcmds_concatd = subcmds_concatd .. subcommand .. ", "
 	end
 	
-	echo("    available class configs are: " .. concatd);
+	echo(" - Available subcommands are: |cFFFFFF00\n" .. string.sub(subcmds_concatd, 1, -3));
+	
+	local configs_concatd = "";
+	
+	for config,_ in pairs(available_configs) do
+		configs_concatd = configs_concatd .. config .. ", "
+	end
+	
+	echo(" - Available class configs are: |cFFFFFF00\n" .. string.sub(configs_concatd, 1, -3));
+	
+	local modes_concatd = "";
+	
+	for mode, _ in pairs(LOLE_CLASS_CONFIG.MODE_ATTRIBS) do
+		modes_concatd = modes_concatd .. mode .. ", "
+	end
+	
+	echo(" - Available mode attributes for this config (" .. LOLE_CLASS_CONFIG.name .. ") are: |cFFFFFF00\n" .. string.sub(modes_concatd, 1, -3))
 	
 end
 
@@ -161,22 +170,18 @@ function lole_SlashCommand(args)
 
 	if (IsRaidLeader()) then
 	  	if UnitExists("focus") and UnitIsDead("focus") then 
-			BLAST_TARGET_GUID = NOTARGET;
-			ClearFocus();
+			lole_clear_target()
 		end
 	
 		if BLAST_TARGET_GUID == NOTARGET then
 			if not UnitExists("focus") then
 				if UnitExists("target") and not UnitIsDead("target") and UnitReaction("target", "player") < 5 then
-					local target_GUID = UnitGUID("target");
-					BLAST_TARGET_GUID = target_GUID;
-					FocusUnit("target");
+					lole_set_target(UnitGUID("target"))
 					broadcast_target_GUID(target_GUID);
 				end
 			else 
-				DEFAULT_CHAT_FRAME:AddMessage("setting target to NOTARGET");
-				BLAST_TARGET_GUID = NOTARGET;
-				ClearFocus();
+				-- not sure if this is reachable or not
+				lole_clear_target()
 			end
 		end
 	end
@@ -220,7 +225,7 @@ function lole_SlashCommand(args)
 		cmdfunc(a2, a3);
 		return true;
 	else
-		echo("lole: unknown subcommand \"" .. a1 .. "\".");
+		echo("lole: error: unknown subcommand \"" .. a1 .. "\".");
 		usage();
 		return false;
 	end

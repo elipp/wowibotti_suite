@@ -27,6 +27,8 @@ local function vexallus()
 
 	if tap_if_need_to() then return true; end
 
+	caster_range_check(30); 
+	caster_face_target();
 
 	TargetUnit("Pure Energy")
 	
@@ -49,8 +51,13 @@ end
 
 local function delrissa()
 
-	if keep_CCd("Darkspine Myrmidon", "Fear") then return end
-	--if keep_CCd("Yazzai", "Fear") then return end
+	if keep_CCd("Zelfan", "Banish") then return end
+	if keep_CCd("Eramas Brightblaze", "Fear") then return end
+	
+	if not validate_target() then return end
+	
+	CastSpellByName("Shadow Bolt")
+
 
 end
 
@@ -64,9 +71,17 @@ config_warlock_sb.combat = function()
 			CastSpellByName("Life Tap");
 		end
 	end
+	
+	delrissa()
+	
+	if true then return end;
+	
 
+	if not validate_target() then return end
+
+	
 	--vexallus()
---	if true then return end
+	--if true then return end
 	
 	
 	if UnitCastingInfo("player") then return; end
