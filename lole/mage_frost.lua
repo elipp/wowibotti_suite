@@ -1,6 +1,6 @@
 config_mage_frost = {}
 config_mage_frost.name = "mage_frost";
-config_mage_frost.MODE_ATTRIBS = nil;
+config_mage_frost.MODE_ATTRIBS = { ["playermode"] = 0 };
 
 config_mage_frost.SELF_BUFFS = {"Molten Armor"};
 

@@ -13,6 +13,9 @@ config_warrior_arms = {}
 config_warrior_arms.name = "warrior_arms";
 
 config_warrior_arms.SELF_BUFFS = { "Battle Shout" };
+config_warrior_arms.MODE_ATTRIBS = {     
+	["playermode"] = 0
+}
 
 local sw_frame;
 local swing_starttime = 0;

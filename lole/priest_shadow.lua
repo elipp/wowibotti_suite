@@ -18,18 +18,6 @@ config_priest_shadow.combat = function()
 	if UnitChannelInfo("player") then return; end	-- don't clip mind flay
 	if UnitCastingInfo("player") then return; end  
 	
---[[
-	-- shackle berrybuck
-	TargetUnit("Lady Keira Berrybuck");
-	if UnitExists("target") then
-		a, d = has_debuff("target", "Shackle Undead");
-		if not a then
-			CastSpellByName("Shackle Undead");
-			return;
-		elseif d < 10 then
-			CastSpellByName("Shackle Undead");
-		end
-	end --]]
 
 	if cleanse_party("Enveloping Wind") then return; end
 	if cleanse_party("Lung Burst") then return; end

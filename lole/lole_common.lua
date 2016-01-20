@@ -7,7 +7,11 @@ MISSING_BUFFS = {};
 
 
 function echo(text) 
-    DEFAULT_CHAT_FRAME:AddMessage(text)
+    DEFAULT_CHAT_FRAME:AddMessage(tostring(text))
+end
+
+function lole_error(text)
+	DEFAULT_CHAT_FRAME:AddMessage("|cFFFF0000lole: error: " .. tostring(text))
 end
 
 function shallowcopy(orig)
@@ -61,22 +65,37 @@ function table.tostring( tbl )
 end
 
 
-local raid_target_indices = {};
+function get_available_class_configs()
+	return get_list_of_keys(available_configs)
+end
 
-raid_target_indices["star"] = 1;
-raid_target_indices["circle"] = 2;
-raid_target_indices["diamond"] = 3;
-raid_target_indices["triangle"] = 4;
-raid_target_indices["crescent"] = 5;
-raid_target_indices["square"] = 6;
-raid_target_indices["cross"] = 7;
-raid_target_indices["skull"] = 8;
+
+function get_config_mode_attribs(CONFIG)
+	return get_list_of_keys(CONFIG.MODE_ATTRIBS)
+end
+
+
+function get_available_subcommands()
+	return get_list_of_keys(lole_subcommands);
+end
+
+local raid_target_indices = {
+
+["star"] = 1,
+["circle"] = 2,
+["diamond"] = 3,
+["triangle"] = 4,
+["crescent"] = 5,
+["square"] = 6,
+["cross"] = 7,
+["skull"] = 8,
+
+}
 
 CS_CASTING, CS_TIMESTAMP, CS_CASTTIME, CS_TARGET = 1, 2, 3, 4;
 NOT_CASTING = { false, 0.0, 0.0, "none" };
+
 cast_state = NOT_CASTING;
-
-
 
 function cast_if_nocd(spellname)
 	if GetSpellCooldown(spellname) == 0 then
@@ -260,8 +279,12 @@ function lole_clear_target()
 	BLAST_TARGET_GUID = NOTARGET;
 	ClearFocus();
 	ClearTarget();
-
 end
+
+function melee_close_in()
+	ClosePetStables(); -- hooked XD
+end
+
 
 function cipher_GUID(GUID)
 	local part1 = tonumber(string.sub(GUID, 3, 10), 16); -- the GUID string still has the 0x part in it
@@ -299,14 +322,31 @@ function get_int_from_strbool(strbool)
 	return rval;
 end
 
+
+function pairsByKeys (t, f)
+	local a = {}
+		for n in pairs(t) do table.insert(a, n) end
+		table.sort(a, f)
+		local i = 0      -- iterator variable
+		local iter = function ()   -- iterator function
+			i = i + 1
+			if a[i] == nil then return nil
+			else return a[i], t[a[i]]
+			end
+		end
+	return iter
+end
+
 function get_list_of_keys(dict)
-	local concatd = "";
+	local key_tab, n = {}, 1;
 	
-	for key, _ in pairs(dict) do
-		concatd = concatd .. key .. ", "
+	for k, _ in pairsByKeys(dict) do
+		key_tab[n] = k;
+		n = n + 1;
 	end
 	
-	return string.sub(concatd, 1, -3) -- this shaves the last ", "
+	return table.concat(key_tab, ", "); -- alphabetical sort.
+	
 end
 
 
