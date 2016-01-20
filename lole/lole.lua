@@ -52,6 +52,7 @@ local function lole_setconfig(arg, modes)
 	end
 end
 
+
 local function lole_getconfig(arg)
 	local str = "nil";
 	if (LOLE_CLASS_CONFIG.name ~= nil) then str = LOLE_CLASS_CONFIG.name; end
@@ -68,18 +69,34 @@ local function lole_cooldowns()
 	end
 end
 
-local function get_int_from_strbool(strbool)
-	local rval = -1;
-	if strbool ~= nil then
-		if strbool == "on" then
-			rval = 1;
-		elseif strbool == "off" then
-			rval = 0;
-		end
-	end
-	
-	return rval;
+
+local lole_subcommands = {
+    ["lbuffcheck"] = lole_leaderbuffcheck;
+	["buffcheck"] = lole_buffcheck;
+	["cooldowns"] = lole_cooldowns;
+	["setconfig"] = lole_setconfig;
+	["getconfig"] = lole_getconfig;
+	["followme"] = lole_followme;
+	["stopfollow"] = lole_stopfollow;
+	["set"] = lole_set;
+}
+
+local function get_available_class_configs()
+	return get_list_of_keys(available_configs)
 end
+
+
+local function get_current_config_mode_attribs()
+	return get_list_of_keys(LOLE_CLASS_CONFIG.MODE_ATTRIBS)
+end
+
+
+local function get_available_subcommands()
+	return get_list_of_keys(lole_subcommands);
+end
+
+
+
 
 local function lole_followme() 
 	SendAddonMessage("lole_followme", cipher_GUID(UnitGUID("player")), "PARTY")
@@ -92,8 +109,7 @@ end
 local function lole_set(attrib_name, on_off_str)
 
 	if (attrib_name == nil or attrib_name == "") then
-		-- TODO: maybe take these directly from the table
-		echo("lole_set: no argument! valid modes are: buffmode selfbuffmode combatbuffmode aoemode shardmode scorchmode playermode");
+		echo("lole_set: no argument! valid modes for config " .. LOLE_CLASS_CONFIG.name .. " are: " .. get_current_config_mode_attribs());
 		return false;
 	end
 	
@@ -125,43 +141,13 @@ local function lole_set(attrib_name, on_off_str)
 end
 
 
-local lole_subcommands = {
-    ["lbuffcheck"] = lole_leaderbuffcheck;
-	["buffcheck"] = lole_buffcheck;
-	["cooldowns"] = lole_cooldowns;
-	["setconfig"] = lole_setconfig;
-	["getconfig"] = lole_getconfig;
-	["followme"] = lole_followme;
-	["stopfollow"] = lole_stopfollow;
-	["set"] = lole_set;
-}
-	
+
 local function usage()
 	echo("|cFFFFFF00/lole usage: /lole subcmd subcmd_arg");
 	
-	local subcmds_concatd = "";
-	
-	for subcommand, _ in pairs(lole_subcommands) do
-		subcmds_concatd = subcmds_concatd .. subcommand .. ", "
-	end
-	
-	echo(" - Available subcommands are: |cFFFFFF00\n" .. string.sub(subcmds_concatd, 1, -3));
-	
-	local configs_concatd = "";
-	
-	for config,_ in pairs(available_configs) do
-		configs_concatd = configs_concatd .. config .. ", "
-	end
-	
-	echo(" - Available class configs are: |cFFFFFF00\n" .. string.sub(configs_concatd, 1, -3));
-	
-	local modes_concatd = "";
-	
-	for mode, _ in pairs(LOLE_CLASS_CONFIG.MODE_ATTRIBS) do
-		modes_concatd = modes_concatd .. mode .. ", "
-	end
-	
-	echo(" - Available mode attributes for this config (" .. LOLE_CLASS_CONFIG.name .. ") are: |cFFFFFF00\n" .. string.sub(modes_concatd, 1, -3))
+	echo(" - Available subcommands are: |cFFFFFF00\n" .. get_available_subcommands());
+	echo(" - Available class configs are: |cFFFFFF00\n" .. get_available_class_configs());	
+	echo(" - Available mode attributes for this class config (" .. LOLE_CLASS_CONFIG.name .. ") are: |cFFFFFF00\n" .. get_current_config_mode_attribs())
 	
 end
 

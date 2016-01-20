@@ -285,3 +285,29 @@ function decipher_GUID(ciphered)
 	return cipher_GUID(ciphered);
 end
 
+
+function get_int_from_strbool(strbool)
+	local rval = -1;
+	if strbool ~= nil then
+		if strbool == "on" then
+			rval = 1;
+		elseif strbool == "off" then
+			rval = 0;
+		end
+	end
+	
+	return rval;
+end
+
+function get_list_of_keys(dict)
+	local concatd = "";
+	
+	for key, _ in pairs(dict) do
+		concatd = concatd .. key .. ", "
+	end
+	
+	return string.sub(concatd, 1, -3) -- this shaves the last ", "
+end
+
+
+
