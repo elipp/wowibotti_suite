@@ -11,6 +11,8 @@ LOLE_OPCODE_CC
 
 = "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05", "LOP_06", "LOP_07", "LOP_08"
 
+LOLE_DEBUG_OPCODE_DUMP = "LOP_81";
+
 
 function send_opcode_addonmsg(opcode, message)
 	SendAddonMessage("lole_opcode", opcode .. ":" .. message, "PARTY");
@@ -94,3 +96,4 @@ OPCODE_FUNCS = {
 	[LOLE_OPCODE_CTM_BROADCAST] = act_on_CTM_broadcast,
 	[LOLE_OPCODE_COOLDOWNS] = blow_cooldowns
 }
+

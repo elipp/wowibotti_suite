@@ -3,7 +3,7 @@ config_mage_frost.name = "mage_frost";
 config_mage_frost.MODE_ATTRIBS = { ["playermode"] = 0 };
 
 config_mage_frost.SELF_BUFFS = {"Molten Armor"};
-
+config_mage_frost.COLOR = CLASS_COLORS["mage"];
 
 config_mage_frost.combat = function()
 	if UnitCastingInfo("player") then return; end

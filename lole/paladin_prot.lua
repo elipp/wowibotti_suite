@@ -8,6 +8,7 @@ config_paladin_prot.MODE_ATTRIBS = {
 };
 
 config_paladin_prot.SELF_BUFFS = {"Righteous Fury", "Devotion Aura"};
+config_paladin_prot.COLOR = CLASS_COLORS["paladin"];
 
 config_paladin_prot.combat = function()
 

@@ -5,6 +5,8 @@ config_druid_resto.MODE_ATTRIBS = {
 	["playermode"] = 0
 }
 
+config_druid_resto.COLOR = CLASS_COLORS["druid"];
+
 config_druid_resto.combat = function()
 
 	TargetUnit("Raimo");

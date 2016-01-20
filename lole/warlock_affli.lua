@@ -7,9 +7,10 @@ config_warlock_affli.MODE_ATTRIBS = {
 	["shardmode"] = 0,
     ["playermode"] = 0
 };
-config_warlock_affli.name = "warlock_affli";
 
+config_warlock_affli.name = "warlock_affli";
 config_warlock_affli.SELF_BUFFS = {"Fel Armor"};
+config_warlock_affli.COLOR = CLASS_COLORS["warlock"];
 
 
 local tap_warning_given = false;

@@ -16,6 +16,7 @@ config_warrior_arms.SELF_BUFFS = { "Battle Shout" };
 config_warrior_arms.MODE_ATTRIBS = {     
 	["playermode"] = 0
 }
+config_warrior_arms.COLOR = CLASS_COLORS["warrior"];
 
 local sw_frame;
 local swing_starttime = 0;

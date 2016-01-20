@@ -10,6 +10,7 @@ config_mage_fire.MODE_ATTRIBS = {
 };
 
 config_mage_fire.SELF_BUFFS = {"Molten Armor"};
+config_mage_fire.COLOR = CLASS_COLORS["mage"];
 
 local function delrissa()
 	

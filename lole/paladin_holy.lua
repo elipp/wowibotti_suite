@@ -8,6 +8,7 @@ config_paladin_holy.MODE_ATTRIBS = {
 };
 
 config_paladin_holy.SELF_BUFFS = {"Concentration Aura"}
+config_paladin_holy.COLOR = CLASS_COLORS["paladin"];
 
 config_paladin_holy.combat = function()
 

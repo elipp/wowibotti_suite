@@ -10,6 +10,9 @@ config_warlock_sb.MODE_ATTRIBS = {
 };
 
 config_warlock_sb.SELF_BUFFS = {"Fel Armor"};
+
+config_warlock_sb.COLOR = CLASS_COLORS["warlock"];
+
 -- TODO: fel domination->summon succubus->demonic sacrifice
 
 local function tap_if_need_to() 

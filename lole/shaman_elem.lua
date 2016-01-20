@@ -8,6 +8,7 @@ config_shaman_elem.MODE_ATTRIBS = {
 };
 
 config_shaman_elem.SELF_BUFFS = {"Water Shield"};
+config_shaman_elem.COLOR = CLASS_COLORS["shaman"];
 
 local casting = false;
 

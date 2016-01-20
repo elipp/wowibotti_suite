@@ -8,6 +8,7 @@ config_shaman_resto.MODE_ATTRIBS = {
 };
 
 config_shaman_resto.SELF_BUFFS = {"Water Shield"}; -- UNCOMMENT FOR PVP
+config_shaman_resto.COLOR = CLASS_COLORS["shaman"];
 
 local function refresh_ES(targetname) 
 	

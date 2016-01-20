@@ -23,6 +23,8 @@ local function lole_setconfig(arg, modes)
 		--for key,value in pairs(LOLE_CLASS_CONFIG.MODE_ATTRIBS) do echo(key .. value) end
 		echo("lole_setconfig: config set to " .. LOLE_CLASS_CONFIG.name .. ".");
 	end
+	
+	return true;
 end
 
 
@@ -30,25 +32,29 @@ local function lole_getconfig(arg)
 	local str = "nil";
 	if (LOLE_CLASS_CONFIG.name ~= nil) then str = LOLE_CLASS_CONFIG.name; end
 	
-	echo("lole: current config: " .. str);
+	echo("lole: current config: |cFFFFFF00" .. str);
 	echo("mode attribs:");
-	for k,v in pairs(LOLE_CLASS_CONFIG.MODE_ATTRIBS) do echo(k .. ": " .. v); end
-	echo("-----");
+	for k,v in pairs(LOLE_CLASS_CONFIG.MODE_ATTRIBS) do echo("|cFFFFFF00" .. k .. ": " .. v); end
+	
+	return false;
 end
 
 local function lole_cooldowns()
 	if LOLE_CLASS_CONFIG.cooldowns ~= nil then
 		LOLE_CLASS_CONFIG.cooldowns();
 	end
+	return true;
 end
 
 
 local function lole_followme() 
 	send_opcode_addonmsg(LOLE_OPCODE_FOLLOW, cipher_GUID(UnitGUID("player")))
+	return true;
 end
 
 local function lole_stopfollow()
 	send_opcode_addonmsg(LOLE_OPCODE_FOLLOW, NOTARGET)
+	return true;
 end
 
 local function lole_set(attrib_name, on_off_str)
@@ -84,16 +90,26 @@ local function lole_set(attrib_name, on_off_str)
 		return false;
 	end
 
+	return true;
+end
+
+local function lole_debug_dump_wowobjects()
+	DelIgnore(LOLE_DEBUG_OPCODE_DUMP);
+	return true;
 end
 
 
 lole_subcommands = {
-    ["lbuffcheck"] = lole_leaderbuffcheck;
-	["buffcheck"] = lole_buffcheck;
-	["cooldowns"] = lole_cooldowns;
-	["setconfig"] = lole_setconfig;
-	["getconfig"] = lole_getconfig;
-	["followme"] = lole_followme;
-	["stopfollow"] = lole_stopfollow;
-	["set"] = lole_set;
+    lbuffcheck = lole_leaderbuffcheck;
+	buffcheck = lole_buffcheck;
+	cooldowns = lole_cooldowns;
+	setconfig = lole_setconfig;
+	getconfig = lole_getconfig;
+	followme = lole_followme;
+	stopfollow = lole_stopfollow;
+	set = lole_set;
+	
+	dump = lole_debug_dump_wowobjects;
 }
+
+

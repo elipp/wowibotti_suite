@@ -5,6 +5,20 @@ NOTARGET = "0x0000000000000000";
 BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 
+-- http://wowwiki.wikia.com/wiki/Class_colors
+
+CLASS_COLORS = {
+	druid = "FF7D0A",
+	hunter = "ABD473",
+	mage = "69CCF0",
+	paladin = "F58CBA",
+	priest = "FFFFFF",
+	rogue = "FFF569",
+	shaman = "0070DE",
+	warlock = "9482C9",
+	warrior = "C79C6E"
+}
+
 
 function echo(text) 
     DEFAULT_CHAT_FRAME:AddMessage(tostring(text))
@@ -69,6 +83,18 @@ function get_available_class_configs()
 	return get_list_of_keys(available_configs)
 end
 
+function get_available_class_configs_pretty()
+	local key_tab, n = {}, 1;
+	
+	for name, _ in pairsByKeys(available_configs) do
+		key_tab[n] = get_config_name_with_color(name);
+		n = n + 1;
+	end
+	
+	return table.concat(key_tab, ", ");
+	
+end
+
 
 function get_config_mode_attribs(CONFIG)
 	return get_list_of_keys(CONFIG.MODE_ATTRIBS)
@@ -96,6 +122,15 @@ CS_CASTING, CS_TIMESTAMP, CS_CASTTIME, CS_TARGET = 1, 2, 3, 4;
 NOT_CASTING = { false, 0.0, 0.0, "none" };
 
 cast_state = NOT_CASTING;
+
+function get_config_name_with_color(arg_config)
+	if arg_config == "default" then 
+		return "|r|rdefault";
+	else 
+		return "|cFF" .. available_configs[arg_config].COLOR .. available_configs[arg_config].name .. "|r";
+	end
+
+end
 
 function cast_if_nocd(spellname)
 	if GetSpellCooldown(spellname) == 0 then
@@ -282,7 +317,7 @@ function lole_clear_target()
 end
 
 function melee_close_in()
-	ClosePetStables(); -- hooked XD
+	ClosePetStables(); -- hooked XD. could work better.
 end
 
 
@@ -321,7 +356,6 @@ function get_int_from_strbool(strbool)
 	
 	return rval;
 end
-
 
 function pairsByKeys (t, f)
 	local a = {}

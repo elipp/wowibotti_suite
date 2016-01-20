@@ -8,6 +8,7 @@ config_paladin_retri.MODE_ATTRIBS = {
 };
 
 config_paladin_retri.SELF_BUFFS = {"Sanctity Aura"}
+config_paladin_retri.COLOR = CLASS_COLORS["paladin"];
 
 config_paladin_retri.combat = function()
 	

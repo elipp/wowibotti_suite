@@ -9,6 +9,7 @@ config_priest_holy.MODE_ATTRIBS = {
 };
 
 config_priest_holy.SELF_BUFFS = {"Inner Fire"};
+config_priest_holy.COLOR = CLASS_COLORS["priest"];
 
 local pom_time = 0;
 

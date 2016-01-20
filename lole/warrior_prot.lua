@@ -13,6 +13,8 @@ config_warrior_prot = {}
 config_warrior_prot.name = "warrior_prot";
 config_warrior_prot.SELF_BUFFS = {};
 config_warrior_prot.MODE_ATTRIBS = { ["playermode"] = 0 }
+config_warrior_prot.COLOR = CLASS_COLORS["warrior"]
+
 
 config_warrior_prot.combat = function()
 	

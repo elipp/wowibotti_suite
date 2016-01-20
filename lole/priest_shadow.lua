@@ -8,6 +8,8 @@ config_priest_shadow.MODE_ATTRIBS = {
     ["playermode"] = 0
 };
 
+config_priest_shadow.COLOR = CLASS_COLORS["priest"];
+
 local ve_guard = false;
 
 config_priest_shadow.SELF_BUFFS = {"Inner Fire", "Shadowform"};

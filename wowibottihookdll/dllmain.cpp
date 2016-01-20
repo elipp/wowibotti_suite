@@ -5,11 +5,14 @@
 #include <string>
 #include <vector>
 #include <cstdio>
+#include <cstdarg>
 
 #include "addrs.h"
 #include "defs.h"
 #include "ObjectManager.h"
 #include "hooks.h"
+
+#include "timer.h"
 
 #include "window.h"
 
@@ -23,11 +26,23 @@ HANDLE glhProcess;
 static point_timestamp pt;
 
 static int face_queued = 0;
-static int broadcast_blast = 0;
 
-static struct {
+static struct follow_state_t {
 	int close_enough = 1;
+	Timer timer;
 	std::string target_GUID;
+
+	void start(const std::string &GUID) {
+		close_enough = 0;
+		target_GUID = GUID;
+		timer.start();
+	}
+
+	void clear() {
+		close_enough = 1;
+		target_GUID = "";
+	}
+
 } follow_state;
 
 static BYTE original_opcodes[8];
@@ -57,8 +72,15 @@ static int patch_LUA_prot(HANDLE hProcess) {
 	return 1;
 }
 
-static void DoString(const std::string &expr) {
-	LUA_DoString(expr.c_str(), expr.c_str(), "");
+static void DoString(const char* format, ...) {
+	char cmd[1024];
+
+	va_list args;
+	va_start(args, format);
+	vsprintf(cmd, format, args);
+	va_end(args);
+
+	LUA_DoString(cmd, cmd, "");
 }
 
 static void walk_to_unit_with_GUID(const std::string& arg);
@@ -179,6 +201,10 @@ static int dump_wowobjects_to_log() {
 	return 1;
 }
 
+static void dump_wrap_hubfunc(const std::string &arg) {
+	dump_wowobjects_to_log();
+}
+
 static void __stdcall walk_to_target() {
 
 	GUID_t target_GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
@@ -250,7 +276,7 @@ static void __stdcall melee_behind_target() {
 
 	//printf("melee_behind.. diff.length: %f\n", diff.length());
 
-	if (diff.length() < 1.0) {
+	if (diff.length() < 0.3) { // 1.0 sometimes results in some pretty weird shit.. :D
 		face_queued = 1; 
 		return;
 	}
@@ -277,12 +303,12 @@ static void __stdcall broadcast_CTM(float *coords) {
 
 	if (!GUID) return;
 
-	static char sprintf_buf[128];
+	char sprintf_buf[128];
 
 	sprintf(sprintf_buf, "0x%016llX, %.1f, %.1f, %.1f", GUID, x, y, z);
 
-	DoString("SendAddonMessage(\"lole_CTM_broadcast\", \"" + std::string(sprintf_buf) + "\", \"PARTY\")");
-
+	//DoString("SendAddonMessage(\"lole_CTM_broadcast\", \"" + std::string(sprintf_buf) + "\", \"PARTY\")");
+	DoString("SendAddonMessage(\"lole_CTM_broadcast\", \"%s\", \"PARTY\")", sprintf_buf);
 }
 
 static int player_is_moving() {
@@ -319,19 +345,6 @@ static void __stdcall every_frame_hook_func() {
 
 	static int every_third_frame = 0;
 
-	if (broadcast_blast) {
-		if (BLAST_ENABLED) {
-			printf("broadcasting BLAST_ON to party members.\n");
-			DoString("SendAddonMessage(\"lole_blast\", \"1\", \"PARTY\")");
-		}
-		else {
-			printf("broadcasting BLAST_OFF to party members.\n");
-			DoString("SendAddonMessage(\"lole_blast\", \"0\", \"PARTY\")");
-		}
-		broadcast_blast = 0;
-	}
-
-
 	if (every_third_frame == 0) {
 		if (BLAST_ENABLED) {
 			DoString("RunMacroText(\"/lole\")");
@@ -346,6 +359,8 @@ static void __stdcall every_frame_hook_func() {
 			face_queued = 0;
 		}
 	}
+
+	// really should add some kind of timeout to this
 
 	if (!follow_state.close_enough) {
 		walk_to_unit_with_GUID(follow_state.target_GUID);
@@ -451,26 +466,30 @@ static void walk_to_unit_with_GUID(const std::string& arg) {
 	if (!o.valid()) {
 		printf("walk_to_unit_with_GUID: LOLE_OPCODE_FOLLOW: couldn't find unit with GUID 0x%016llX (doesn't exist?)\n", GUID);
 		// not reset
-		follow_state.close_enough = 1;
-		follow_state.target_GUID = "";
+		follow_state.clear();
+
 		return;
 	}
 
 	if (p.get_GUID() == o.get_GUID()) {
 		return;
 	}
-	
 
+	
 	click_to_move(o.get_pos(), CTM_MOVE, 0);
 
 	if ((o.get_pos() - p.get_pos()).length() < 10) {
-		DoString("FollowUnit(\"" + o.unit_get_name() + "\")");
-		follow_state.close_enough = 1;
-		follow_state.target_GUID = "";
+		//DoString("FollowUnit(\"" + o.unit_get_name() + "\")");
+		DoString("FollowUnit(\"%s\")", o.unit_get_name().c_str());
+		follow_state.clear();
 	}
 	else {
-		follow_state.close_enough = 0;
-		follow_state.target_GUID = arg;
+		follow_state.start(arg);
+	}
+
+
+	if (follow_state.timer.get_s() > 10) {
+		follow_state.clear();
 	}
 
 	return;
@@ -531,6 +550,9 @@ typedef void(*hubfunc_t)(const std::string &);
 #define LOLE_OPCODE_GATHER_FOLLOW 0x4
 #define LOLE_OPCODE_CASTER_FACE 0x5
 #define LOLE_OPCODE_CTM_BROADCAST 0x6
+#define LOLE_OPCODE_CC 0x7
+
+#define LOLE_DEBUG_OPCODE_DUMP 0xF1
 
 static const struct {
 	std::string name;
@@ -544,6 +566,15 @@ static const struct {
 	{"LOLE_FOLLOW", walk_to_unit_with_GUID, 1},
 	{"LOLE_CASTER_FACE", caster_face_target, 0},
 	{"LOLE_CTM_BROADCAST", act_on_CTM_broadcast, 4}
+};
+
+static const struct {
+	std::string name;
+	hubfunc_t func;
+	uint num_args;
+} debug_hubfuncs[] = {
+	{ "LOLE_NOP", lole_nop, 0 },
+	{ "LOLE_DEBUG_DUMP", dump_wrap_hubfunc, 0 }
 };
 
 static const size_t num_hubfuncs = sizeof(hubfuncs) / sizeof(hubfuncs[0]);
@@ -567,6 +598,13 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 	std::string opstr = arg.substr(4, 2);
 	char *endptr;
 	unsigned long op = strtoul(opstr.c_str(), &endptr, 16);
+
+	if (op & 0x80) {
+		int debug_op = op & 0x7F;
+		debug_hubfuncs[debug_op].func(arg);
+		printf("DelIgnore_hub: got DEBUG opcode %lu -> %s\n", op, debug_hubfuncs[debug_op].name.c_str());
+		return;
+	}
 
 	if (op > num_hubfuncs - 1) {
 		printf("DelIgnore_hub: error: unknown opcode %lu. (valid range: 0 - %lu)\n", op, num_hubfuncs);
@@ -687,19 +725,7 @@ LRESULT CALLBACK DLLWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		}
 		}
 		break;
-	case WM_HOTKEY:
-		lo = LOWORD(lParam);
-		hi = HIWORD(lParam);
 
-		if (lo == MOD_ALT) {
-			if (hi == MKEY_G) {
-				BLAST_ENABLED = !BLAST_ENABLED;
-				broadcast_blast = 1;
-				printf("G pressed, BLAST = %d\n", BLAST_ENABLED);
-				return TRUE;
-			}
-		}
-		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;

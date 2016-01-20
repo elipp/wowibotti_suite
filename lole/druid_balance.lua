@@ -8,6 +8,7 @@ config_druid_balance.MODE_ATTRIBS = {
 };
 
 config_druid_balance.SELF_BUFFS = {"Moonkin Form"}; 
+config_druid_balance.COLOR = CLASS_COLORS["druid"];
 
 config_druid_balance.combat = function()
 
