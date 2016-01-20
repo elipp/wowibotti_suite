@@ -7,6 +7,8 @@ LAST_LBUFFCHECK = 0;
 LBUFFCHECK_ISSUED = false;
 BUFFER_STATUSES = {};
 TIME_BUFFS_VALIDATED = 0;
+AVAILABLE_BUFFS = {};
+TIME_BUFF_AVAILABILITY_CHECKED = 0;
 
 BUFF_ALIASES = {
     ["Arcane Intellect"] = "Arcane Brilliance",
@@ -384,12 +386,53 @@ end
 
 function validate_buffs(buffer_statuses)
     if (time() - TIME_BUFFS_VALIDATED) > 1 then
-        for buffer, buffing in pairs (buffer_statuses) do
+        for buffer, buffing in pairs(buffer_statuses) do
             if buffing == "1" then 
                 return;
             end
         end
         SendAddonMessage("lole_buffcheck", "buffcheck validate", "RAID", UnitName("player"));
+        request_available_buffs();
         TIME_BUFFS_VALIDATED = time();
+    end
+end
+
+function request_available_buffs()
+    if (time() - TIME_BUFF_AVAILABILITY_CHECKED) < 1 then
+        return false;
+    elseif (time() - TIME_BUFF_AVAILABILITY_CHECKED) > 5 then
+        AVAILABLE_BUFFS = {};
+        SendAddonMessage("lole_available_buffs_request", "", "RAID", UnitName("player"));
+        TIME_BUFF_AVAILABILITY_CHECKED = time();
+        return false;
+    end
+    return shallowcopy(AVAILABLE_BUFFS);
+end
+
+function report_available_buffs()
+    if LOLE_CLASS_CONFIG.CLASS_BUFFS then
+        local msgstr = table.concat(LOLE_CLASS_CONFIG.CLASS_BUFFS, ",");
+        SendAddonMessage("lole_available_buffs_report", msgstr, "RAID", UnitName("player"));
+    end
+end
+
+function echo_missing_buffs(available_buffs, missing_buffs)
+    missing_buffs[""] = nil;
+    for buff, chars in pairs(missing_buffs) do
+        if not available_buffs[buff] then
+            missing_buffs[buff] = nil;
+        end
+    end
+    if next(missing_buffs) == nil then
+        echo("No missing buffs! Bitch ass, voi varmaa pullaa.");
+    else
+        echo("Missing buffs found!");
+        for buff, chars in pairs(missing_buffs) do
+            local report = buff .. ":";
+            for char in pairs(chars) do
+                report = report .. " " .. char .. ",";
+            end
+            echo(string.sub(report, 1, -2));
+        end
     end
 end

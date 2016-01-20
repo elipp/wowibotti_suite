@@ -191,8 +191,11 @@ function lole_SlashCommand(args)
 				SendAddonMessage("lole_target", tostring(ciphered), "PARTY");
 		end
         if TIME_BUFFS_VALIDATED ~= 0 and (time() - TIME_BUFFS_VALIDATED) > 1 then
-            --echo(table.tostring(MISSING_BUFFS));
-            TIME_BUFFS_VALIDATED = 0;
+            local available_buffs = request_available_buffs();
+            if available_buffs then
+                echo_missing_buffs(available_buffs, shallowcopy(MISSING_BUFFS));
+                TIME_BUFFS_VALIDATED = 0;
+            end
         end
 	end
 	if (not args or args == "") then
@@ -282,10 +285,20 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
             LAST_LBUFFCHECK = time();
         end
 
-    elseif (IsRaidLeader() and prefix == "lole_bufferstatus") then
-        BUFFER_STATUSES[sender] = message;
-        if message == "0" then
-            validate_buffs(shallowcopy(BUFFER_STATUSES));
+    elseif prefix == "lole_available_buffs_request" then
+        report_available_buffs();
+
+    elseif (IsRaidLeader()) then
+        if prefix == "lole_bufferstatus" then
+            BUFFER_STATUSES[sender] = message;
+            if message == "0" then
+                validate_buffs(shallowcopy(BUFFER_STATUSES));
+            end
+        elseif prefix == "lole_available_buffs_report" then
+            local buffs = {strsplit(",", message)};
+            for key, buff in pairs(buffs) do
+                AVAILABLE_BUFFS[buff] = true;
+            end
         end
 
     elseif not LOLE_CLASS_CONFIG.MODE_ATTRIBS or LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] ~= 1 then
