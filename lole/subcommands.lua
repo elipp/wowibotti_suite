@@ -95,6 +95,7 @@ end
 
 local function lole_debug_dump_wowobjects()
 	DelIgnore(LOLE_DEBUG_OPCODE_DUMP);
+	echo("|cFF00FF96Dumped WowObjects to <DESKTOPDIR>\\wodump.log! ;)")
 	return true;
 end
 

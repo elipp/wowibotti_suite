@@ -372,6 +372,10 @@ function pairsByKeys (t, f)
 end
 
 function get_list_of_keys(dict)
+	if not dict or next(dict) == nil then
+		return "-none-"
+	end
+
 	local key_tab, n = {}, 1;
 	
 	for k, _ in pairsByKeys(dict) do

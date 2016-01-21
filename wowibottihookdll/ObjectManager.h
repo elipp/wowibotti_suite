@@ -65,11 +65,17 @@ public:
 	int NPC_getMaxFocus() const;
 
 	std::string NPC_get_name() const;
+
+	GUID_t NPC_get_target_GUID() const;
+
 	std::string unit_get_name() const;
 
 	GUID_t unit_get_target_GUID() const;
 
 	std::string get_type_name() const;
+
+	int DO_get_spellID() const;
+	vec3 DO_get_pos() const;
 
 	WowObject(unsigned int addr);
 	WowObject();

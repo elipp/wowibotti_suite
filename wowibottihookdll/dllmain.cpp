@@ -1,6 +1,9 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "stdafx.h"
 
+#include <Shlobj.h>
+
+
 #include <D3D9.h>
 #include <string>
 #include <vector>
@@ -162,12 +165,19 @@ static void tokenize_string(const std::string& str, const std::string& delim, st
 static int dump_wowobjects_to_log() {
 
 	ObjectManager OM;
+	
+	char desktop_path[MAX_PATH];
 
-	static const char* filename = "C:\\Users\\Elias\\out.log";
-	FILE *fp = fopen(filename, "a");
+	if (!SUCCEEDED(SHGetFolderPath(NULL, CSIDL_DESKTOPDIRECTORY | CSIDL_FLAG_CREATE, NULL, SHGFP_TYPE_CURRENT, desktop_path))) {
+		printf("SHGetFolderPath for CSIDL_DESKTOPDIRECTORY failed, errcode %d\n", GetLastError());
+		return 0;
+	}
+
+	static const std::string log_path = std::string(desktop_path) + "\\wodump.log";
+	FILE *fp = fopen(log_path.c_str(), "w");
 
 	if (fp) {
-		printf("Dumping WowObjects to file \"%s\"!\n", filename);
+		printf("Dumping WowObjects to file \"%s\"!\n", log_path.c_str());
 		WowObject next = OM.getFirstObject();
 		GUID_t target_GUID;
 		readAddr(PLAYER_TARGET_ADDR, &target_GUID, sizeof(target_GUID));
@@ -176,27 +186,32 @@ static int dump_wowobjects_to_log() {
 		while (next.valid()) {
 
 			if (!(next.get_type() == 1 || next.get_type() == 2)) {  // filter out items and containers :P
-		//	if (next.get_type() == 3 || next.get_type() == 4) { // 3 = NPC, 4 = Unit
-				vec3 pos = next.get_pos();
-				fprintf(fp, "object GUID: 0x%016llX, base addr = %X, type: %s, coords = (%f, %f, %f), rot: %f\n",
-					next.get_GUID(), next.get_base(), next.get_type_name().c_str(), pos.x, pos.y, pos.z, next.get_rot());
+				fprintf(fp, "object GUID: 0x%016llX, base addr = %X, type: %s\n", next.get_GUID(), next.get_base(), next.get_type_name().c_str());
+				
+				if (next.get_type() == 3 || next.get_type() == 4) { // 3 = NPC, 4 = Unit
+					vec3 pos = next.get_pos();
+					 fprintf(fp, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, next.get_rot());
 
-				// print bytes
-				if (next.get_type() == 3) {
-					fprintf(fp, "name: %s, health: %d/%d\n\n", next.NPC_get_name().c_str(), next.NPC_getCurHealth(), next.NPC_getMaxHealth());
+					if (next.get_type() == 3) {
+						fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX\n\n", next.NPC_get_name().c_str(), next.NPC_getCurHealth(), next.NPC_getMaxHealth(), next.NPC_get_target_GUID());
+					}
+					else if (next.get_type() == 4) {
+						fprintf(fp, "name: %s, target GUID: 0x%016llX\n\n", next.unit_get_name().c_str(), next.unit_get_target_GUID());
+					}
 				}
-				else if (next.get_type() == 4) {
-					fprintf(fp, "name: %s, target GUID: 0x%016llX\n\n", next.unit_get_name().c_str(), next.unit_get_target_GUID());
+				else if (next.get_type() == 6) {
+					vec3 DO_pos = next.DO_get_pos();
+					fprintf(fp, "position: (%f, %f, %f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, next.DO_get_spellID());
 				}
+				
 			}
-
 			next = next.getNextObject();
 		}
 		fclose(fp);
 
 	}
 	else {
-		printf("Opening file \"%s\" failed!\n", filename);
+		printf("Opening file \"%s\" failed!\n", log_path.c_str());
 	}
 	return 1;
 }
@@ -565,7 +580,8 @@ static const struct {
 	{"LOLE_CASTER_RANGE_CHECK", move_into_casting_range, 1},
 	{"LOLE_FOLLOW", walk_to_unit_with_GUID, 1},
 	{"LOLE_CASTER_FACE", caster_face_target, 0},
-	{"LOLE_CTM_BROADCAST", act_on_CTM_broadcast, 4}
+	{"LOLE_CTM_BROADCAST", act_on_CTM_broadcast, 4},
+	{"LOLE_CC", NULL, 3} // nyi
 };
 
 static const struct {
@@ -752,8 +768,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		windowThread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
 		inj_hModule = hModule;
 
-		//AllocConsole();
-		//freopen("CONOUT$", "wb", stdout);
+		AllocConsole();
+		freopen("CONOUT$", "wb", stdout);
 		
 		break;
 
