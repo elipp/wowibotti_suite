@@ -31,4 +31,7 @@ shaman_resto.lua
 lole.xml
 lole.lua
 
+frame.lua
+
+
 ##SavedVariablesPerCharacter: LOLE_CLASS_CONFIG_NAME LOLE_CLASS_CONFIG_ATTRIBS

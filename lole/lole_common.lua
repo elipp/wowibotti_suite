@@ -357,7 +357,7 @@ function get_int_from_strbool(strbool)
 	return rval;
 end
 
-function pairsByKeys (t, f)
+function pairsByKey(t, f)
 	local a = {}
 		for n in pairs(t) do table.insert(a, n) end
 		table.sort(a, f)
@@ -378,7 +378,7 @@ function get_list_of_keys(dict)
 
 	local key_tab, n = {}, 1;
 	
-	for k, _ in pairsByKeys(dict) do
+	for k, _ in pairsByKey(dict) do
 		key_tab[n] = k;
 		n = n + 1;
 	end

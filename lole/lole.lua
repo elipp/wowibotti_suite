@@ -4,6 +4,7 @@ LOLE_CLASS_CONFIG_ATTRIBS = nil; -- listed in SavedVariablesPerCharacter
 local DEFAULT_CONFIG = { name = "default", COLOR = "|r|r", MODE_ATTRIBS = {}, desired_buffs = function() return {}; end, combat = function() end, buffs = function() end, other = function() end };
 LOLE_CLASS_CONFIG = DEFAULT_CONFIG;
 
+LOLE_BLAST_STATE = nil;
 
 available_configs = {
 	default = DEFAULT_CONFIG,
@@ -174,38 +175,8 @@ local msg_frame = CreateFrame("Frame");
 msg_frame:RegisterEvent("CHAT_MSG_ADDON");
 msg_frame:SetScript("OnEvent", OnMsgEvent);
 
-local lole_frame = CreateFrame("Frame");
-lole_frame:RegisterEvent("ADDON_LOADED");
-lole_frame:RegisterEvent("PLAYER_REGEN_DISABLED"); -- this is fired when player enters combat
-lole_frame:RegisterEvent("PLAYER_REGEN_ENABLED"); -- and this when combat is over
-lole_frame:RegisterEvent("PLAYER_DEAD");
 
-local function LOLE_EventHandler(self, event, prefix, message, channel, sender) 
-	--DEFAULT_CHAT_FRAME:AddMessage("LOLE_EventHandler: event:" .. event)
-	
-	if event == "ADDON_LOADED" then
-		if prefix ~= "lole" then return end
 
-		if LOLE_CLASS_CONFIG_NAME ~= nil then
-			lole_subcommands.setconfig(LOLE_CLASS_CONFIG_NAME, LOLE_CLASS_CONFIG_ATTRIBS);
-		else
-			lole_subcommands.setconfig("default");
-		end
-		
-		lole_frame:UnregisterEvent("ADDON_LOADED");
-		
-	elseif event == "PLAYER_DEAD" then
-		lole_clear_target();
-	
-	elseif event == "PLAYER_REGEN_DISABLED" then
-		if IsRaidLeader() then
-			send_opcode_addonmsg(LOLE_OPCODE_FOLLOW, NOTARGET);
-		end
-	end
-	
-end
-
-lole_frame:SetScript("OnEvent", LOLE_EventHandler);
 
 function lole_OnLoad()
 	SLASH_LOLEXDD1= "/lole";

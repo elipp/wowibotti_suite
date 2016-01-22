@@ -12,6 +12,8 @@ local function lole_setconfig(arg, modes)
 	
 		LOLE_CLASS_CONFIG = conf;
 		LOLE_CLASS_CONFIG_NAME = arg;
+
+		set_visible_dropdown_config(arg) -- gui stuff
 		
 		if modes then
 			LOLE_CLASS_CONFIG_ATTRIBS = shallowcopy(modes);

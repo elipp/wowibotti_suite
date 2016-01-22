@@ -361,9 +361,9 @@ static void __stdcall every_frame_hook_func() {
 	static int every_third_frame = 0;
 
 	if (every_third_frame == 0) {
-		if (BLAST_ENABLED) {
-			DoString("RunMacroText(\"/lole\")");
-		}
+		//if (BLAST_ENABLED) {
+			//DoString("RunMacroText(\"/lole\")");
+		//}
 		if (CONSTANT_CTM_TARGET) {
 			walk_to_target();
 		}
@@ -375,10 +375,8 @@ static void __stdcall every_frame_hook_func() {
 		}
 	}
 
-	// really should add some kind of timeout to this
-
 	if (!follow_state.close_enough) {
-		walk_to_unit_with_GUID(follow_state.target_GUID);
+		walk_to_unit_with_GUID(follow_state.target_GUID); // this has a timeout of 10s.
 	}
 
 	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
@@ -415,15 +413,15 @@ static void change_target(const std::string &arg) {
 static void blast(const std::string &arg) {
 	if (arg == "1") {
 		printf("got BLAST_ON AddonMessage, enabling blast.\n");
-		BLAST_ENABLED = 1;
+		//BLAST_ENABLED = 1;
 	}
 	else if (arg == "0") {
 		printf("got BLAST_OFF AddonMessage, disabling blast.\n");
-		BLAST_ENABLED = 0;
+		//BLAST_ENABLED = 0;
 	}
 	else {
 		printf("blast (from DelIgnore_hub): warning: unknown argument \"%s\"\n", arg.c_str());
-		BLAST_ENABLED = 0;
+		//BLAST_ENABLED = 0;
 	}
 }
 

@@ -1,7 +1,7 @@
 -- opcodes for DelIgnore :P
 LOLE_OPCODE_NOP,
 LOLE_OPCODE_TARGET_GUID, 
-LOLE_OPCODE_BLAST, 
+LOLE_OPCODE_BLAST,   -- this is basically deprecated now
 LOLE_OPCODE_CASTER_RANGE_CHECK,
 LOLE_OPCODE_FOLLOW,  -- this also includes walking to the target
 LOLE_OPCODE_CASTER_FACE,
@@ -54,7 +54,14 @@ end
 
 local function set_blast(mode)
 -- don't ignore even when playermode is on, since it's required for buffs
-    DelIgnore(LOLE_OPCODE_BLAST .. ":" .. mode); 
+ --  DelIgnore(LOLE_OPCODE_BLAST .. ":" .. mode); 
+	if mode == "1" then 
+		LOLE_BLAST_STATE = true;
+		blast_checkbutton:SetChecked(true)
+	else 
+		LOLE_BLAST_STATE = nil;
+		blast_checkbutton:SetChecked(false)
+	end
 end
 
 local function act_on_CTM_broadcast(args)
