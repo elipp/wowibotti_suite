@@ -22,10 +22,12 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 			lole_subcommands.setconfig("default");
 		end
 		
+		clear_target()
+		
 		lole_frame:UnregisterEvent("ADDON_LOADED");
 		
 	elseif event == "PLAYER_DEAD" then
-		lole_clear_target();
+		clear_target();
 	
 	elseif event == "PLAYER_REGEN_DISABLED" then
 		if IsRaidLeader() then
@@ -33,8 +35,9 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		end
 	end
 	
+	 -- necessary for the 
+	
 end
-
 
 lole_frame:SetScript("OnEvent", LOLE_EventHandler);
 
@@ -42,19 +45,7 @@ lole_frame:SetHeight(300)
 lole_frame:SetWidth(250)
 lole_frame:SetPoint("RIGHT")
 
-blast_checkbutton = CreateFrame("CheckButton", "blast_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
-blast_checkbutton:SetPoint("TOPLEFT", 15, -30);
 
-getglobal(blast_checkbutton:GetName() .. "Text"):SetText(" BLAST enabled")
-
-blast_checkbutton.tooltip = "Whether BLAST is on or off.";
-
-blast_checkbutton:SetScript("OnClick", 
-  function()
-	LOLE_BLAST_STATE = blast_checkbutton:GetChecked()
-	--echo(tostring(LOLE_BLAST_STATE))
-  end
-);
 
 local backdrop = {
 bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",  
@@ -94,11 +85,52 @@ header_texture:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Header")
 header_texture:SetWidth(315)
 header_texture:SetHeight(64)
 header_texture:SetPoint("TOP", 0, 12)
+
 local header_text = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 header_text:SetPoint("TOP", header_texture, "TOP", 0, -14)
 header_text:SetText("LOLEXDDD")
 
- 
+blast_checkbutton = CreateFrame("CheckButton", "blast_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
+blast_checkbutton:SetPoint("TOPLEFT", 15, -30);
+
+
+blast_disabled_string = " BLAST disabled"
+blast_enabled_string = " BLAST enabled!"
+
+
+function blast_check_settext(text)
+	getglobal(blast_checkbutton:GetName() .. "Text"):SetText(text)
+end
+
+blast_check_settext(blast_disabled_string)
+
+blast_checkbutton.tooltip = "Whether BLAST is on or off.";
+
+blast_checkbutton:SetScript("OnClick", 
+  function()
+	local arg = blast_checkbutton:GetChecked() and "1" or "0"; -- this is the lua equivalent of '?' in C :D
+	lole_subcommands.blast(arg)
+	send_opcode_addonmsg(LOLE_OPCODE_BLAST, arg)
+  end
+);
+
+
+local static_target_text = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+static_target_text:SetPoint("TOPLEFT", 18, -55);
+static_target_text:SetText("Current blast target:")
+
+local target_text = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+target_text:SetPoint("TOPLEFT", 120, -55);
+target_text:SetText("")
+
+local target_GUID_text = lole_frame:CreateFontString(nil, "OVERLAY")
+target_GUID_text:SetPoint("TOPLEFT", 120, -65);
+target_GUID_text:SetFont("Fonts\\FRIZQT__.TTF", 9);
+
+function update_target_text(name, GUID)
+	target_text:SetText(name)
+	target_GUID_text:SetText(GUID)
+end
 
 --local edit = CreateFrame("EditBox", "edit1", lole_frame);
 --edit:SetPoint("TOPLEFT", 10, -30);
@@ -129,7 +161,7 @@ config_text:SetText("Config:")
 
 
 local function drop_onClick(name)
-	lole_subcommands.setconfig(name);
+	lole_subcommands.setconfig(string.sub(name, 11)); -- these have the color string in front of them, length 10 
 end
  
 local drop_formatted_configs = {}
@@ -138,7 +170,7 @@ local drop_formatted_config_indices = {}
 local i = 1;
 
 for k, v in pairsByKey(available_configs) do
-	drop_formatted_configs[i] = k
+	drop_formatted_configs[i] = "|cFF" .. v.COLOR .. k
 	drop_formatted_config_indices[k] = i -- XD
 	i = i + 1;
 end
@@ -162,4 +194,26 @@ local function drop_initialize()
  
 UIDropDownMenu_Initialize(config_dropdown, drop_initialize)
 
+local follow_button = CreateFrame("Button", "follow_button", lole_frame, "UIPanelButtonTemplate")
 
+follow_button:SetPoint("TOPLEFT", 20, -82);
+follow_button:SetHeight(30)
+follow_button:SetWidth(100)
+
+follow_button:SetText("Follow me!");
+
+follow_button:SetScript("OnClick", function()
+	lole_subcommands.followme()
+end)
+
+local stopfollow_button = CreateFrame("Button", "stopfollow_button", lole_frame, "UIPanelButtonTemplate")
+
+stopfollow_button:SetPoint("TOPLEFT", 132, -82);
+stopfollow_button:SetHeight(30)
+stopfollow_button:SetWidth(100)
+
+stopfollow_button:SetText("Stopfollow");
+
+stopfollow_button:SetScript("OnClick", function()
+	lole_subcommands.stopfollow()
+end)

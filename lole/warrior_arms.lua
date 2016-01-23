@@ -79,8 +79,6 @@ config_warrior_arms.combat = function()
 		return;
 	end
 
-
-	
 	RunMacroText("/cast [nostance:3] Berserker Stance"); -- overall, its probably better to be in zerg stance :D
 
 	

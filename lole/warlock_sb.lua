@@ -30,7 +30,7 @@ local function vexallus()
 
 	if tap_if_need_to() then return true; end
 
-	caster_range_check(30); 
+	lole_opcode_funcs[LOLE_OPCODE_RANGE_CHECK](20); 
 	caster_face_target();
 
 	TargetUnit("Pure Energy")

@@ -32,12 +32,12 @@ local function target_unit_with_GUID(GUID_str_ciphered)
 	local GUID_deciphered = decipher_GUID(GUID_str_ciphered);
 	
 	if GUID_deciphered == NOTARGET then
-		lole_clear_target()
+		clear_target()
 		return
 	end
 	
    	if (BLAST_TARGET_GUID ~= GUID_deciphered) then
-    	lole_set_target(GUID_deciphered)
+    	set_target(GUID_deciphered)
 		return
     end
 
@@ -55,12 +55,15 @@ end
 local function set_blast(mode)
 -- don't ignore even when playermode is on, since it's required for buffs
  --  DelIgnore(LOLE_OPCODE_BLAST .. ":" .. mode); 
-	if mode == "1" then 
+	if mode == 1 or mode == "1" then 
 		LOLE_BLAST_STATE = true;
 		blast_checkbutton:SetChecked(true)
+		blast_check_settext(blast_enabled_string);
 	else 
 		LOLE_BLAST_STATE = nil;
 		blast_checkbutton:SetChecked(false)
+		blast_check_settext(blast_disabled_string);
+		clear_target();
 	end
 end
 
@@ -93,7 +96,7 @@ local function blow_cooldowns()
 end
 
 
-OPCODE_FUNCS = {
+lole_opcode_funcs = {
 	[LOLE_OPCODE_NOP] = nop,
 	[LOLE_OPCODE_TARGET_GUID] = target_unit_with_GUID,
 	[LOLE_OPCODE_BLAST] = set_blast,

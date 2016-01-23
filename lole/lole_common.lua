@@ -86,7 +86,7 @@ end
 function get_available_class_configs_pretty()
 	local key_tab, n = {}, 1;
 	
-	for name, _ in pairsByKeys(available_configs) do
+	for name, _ in pairsByKey(available_configs) do
 		key_tab[n] = get_config_name_with_color(name);
 		n = n + 1;
 	end
@@ -294,7 +294,7 @@ function validate_target()
 			TargetUnit("focus");
 			return true;
 		else
-			lole_clear_target()
+			clear_target()
 			return false;
 		end
 	else 
@@ -303,17 +303,22 @@ function validate_target()
 
 end
 
-function lole_set_target(target_GUID)
-  	DelIgnore(LOLE_OPCODE_TARGET_GUID .. ":" .. target_GUID); -- this does a targetunit :P
+function set_target(target_GUID)
+	echo("calling set_target")
+  	DelIgnore(LOLE_OPCODE_TARGET_GUID .. ":" .. target_GUID); -- this does a C TargetUnit call :P
     BLAST_TARGET_GUID = target_GUID;
 	FocusUnit("target")
+	update_target_text(UnitName("target"), UnitGUID("target"));
+	
 end
 
-function lole_clear_target()
-	DEFAULT_CHAT_FRAME:AddMessage("calling lole_clear_target!");
+function clear_target()
+	echo("calling clear_target!");
 	BLAST_TARGET_GUID = NOTARGET;
 	ClearFocus();
 	ClearTarget();
+	update_target_text("-none-", "");
+
 end
 
 function melee_close_in()

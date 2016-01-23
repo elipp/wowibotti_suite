@@ -55,7 +55,7 @@ local function lole_followme()
 end
 
 local function lole_stopfollow()
-	send_opcode_addonmsg(LOLE_OPCODE_FOLLOW, NOTARGET)
+	send_opcode_addonmsg(LOLE_OPCODE_FOLLOW, cipher_GUID(NOTARGET)) -- still needs the cipher.. :D
 	return true;
 end
 
@@ -101,6 +101,17 @@ local function lole_debug_dump_wowobjects()
 	return true;
 end
 
+local function lole_blast(arg)
+	if (arg == "on" or arg == "1") then
+		send_opcode_addonmsg(LOLE_OPCODE_BLAST, "1");
+	elseif (arg == "off" or arg == "0") then
+ 		send_opcode_addonmsg(LOLE_OPCODE_BLAST, "0");
+	else
+		lole_error("lole_blast: need an argument (valid arguments: \"on\" / \"1\" or \"off\" / \"0\")");
+	end
+
+end
+
 
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
@@ -111,6 +122,7 @@ lole_subcommands = {
 	followme = lole_followme;
 	stopfollow = lole_stopfollow;
 	set = lole_set;
+	blast = lole_blast;
 	
 	dump = lole_debug_dump_wowobjects;
 }

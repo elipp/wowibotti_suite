@@ -1,7 +1,7 @@
 LOLE_CLASS_CONFIG_NAME = "default";
 LOLE_CLASS_CONFIG_ATTRIBS = nil; -- listed in SavedVariablesPerCharacter
 
-local DEFAULT_CONFIG = { name = "default", COLOR = "|r|r", MODE_ATTRIBS = {}, desired_buffs = function() return {}; end, combat = function() end, buffs = function() end, other = function() end };
+local DEFAULT_CONFIG = { name = "default", COLOR = "FFFFFF", MODE_ATTRIBS = {}, desired_buffs = function() return {}; end, combat = function() end, buffs = function() end, other = function() end };
 LOLE_CLASS_CONFIG = DEFAULT_CONFIG;
 
 LOLE_BLAST_STATE = nil;
@@ -92,18 +92,19 @@ function lole_main(args)
 		
 	if (IsRaidLeader()) then
 		if UnitExists("focus") and UnitIsDead("focus") then 
-			lole_clear_target()
+			clear_target()
+			broadcast_target_GUID(NOTARGET)
 		end
 	
 		if BLAST_TARGET_GUID == NOTARGET then
 			if not UnitExists("focus") then
 				if UnitExists("target") and not UnitIsDead("target") and UnitReaction("target", "player") < 5 then
-					lole_set_target(UnitGUID("target"))
+					set_target(UnitGUID("target"))
 					broadcast_target_GUID(UnitGUID("target"));
 				end
 			else 
 					-- not sure if this is reachable or not
-				lole_clear_target()
+				clear_target()
 			end
 		end
 	end
@@ -126,12 +127,12 @@ local function handle_opcode(arg)
 
 	local opcode, message = strsplit(":", arg);
 	
-	if not OPCODE_FUNCS[opcode] then
+	if not lole_opcode_funcs[opcode] then
 		lole_error("unknown opcode " .. tostring(opcode))
 		return false;
 	end
 	
-	OPCODE_FUNCS[opcode](message);
+	lole_opcode_funcs[opcode](message);
 	
 	return true;
 
@@ -176,8 +177,6 @@ buff_check_frame:SetScript("OnEvent", on_buff_check_event);
 local msg_frame = CreateFrame("Frame");
 msg_frame:RegisterEvent("CHAT_MSG_ADDON");
 msg_frame:SetScript("OnEvent", OnMsgEvent);
-
-
 
 
 function lole_OnLoad()
