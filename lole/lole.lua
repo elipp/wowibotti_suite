@@ -65,9 +65,7 @@ local function handle_subcommand(args)
 
 end
 
-
-local function lole_SlashCommand(args) 
-
+function lole_main(args)
 	if args and args ~= "" then
 		handle_subcommand(args)
 		return;
@@ -111,7 +109,11 @@ local function lole_SlashCommand(args)
 	end
 
     return;
-	
+
+end
+
+local function lole_SlashCommand(args) 
+	lole_main(args)	
 end
 
 local function on_buff_check_event(self, event, ...)
