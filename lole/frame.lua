@@ -196,11 +196,13 @@ UIDropDownMenu_Initialize(config_dropdown, drop_initialize)
 
 local follow_button = CreateFrame("Button", "follow_button", lole_frame, "UIPanelButtonTemplate")
 
-follow_button:SetPoint("TOPLEFT", 20, -82);
-follow_button:SetHeight(30)
-follow_button:SetWidth(100)
+follow_button:SetPoint("TOPLEFT", 22, -100);
+follow_button:SetHeight(27)
+follow_button:SetWidth(85)
 
 follow_button:SetText("Follow me!");
+
+follow_button:SetScale(0.75)
 
 follow_button:SetScript("OnClick", function()
 	lole_subcommands.followme()
@@ -208,12 +210,61 @@ end)
 
 local stopfollow_button = CreateFrame("Button", "stopfollow_button", lole_frame, "UIPanelButtonTemplate")
 
-stopfollow_button:SetPoint("TOPLEFT", 132, -82);
-stopfollow_button:SetHeight(30)
-stopfollow_button:SetWidth(100)
+stopfollow_button:SetPoint("TOPLEFT", 22, -130);
+stopfollow_button:SetHeight(27)
+stopfollow_button:SetWidth(85)
+
+stopfollow_button:SetScale(0.75)
 
 stopfollow_button:SetText("Stopfollow");
 
 stopfollow_button:SetScript("OnClick", function()
 	lole_subcommands.stopfollow()
 end)
+
+
+local ctm_host = { title = "CTM mode:", title_fontstr = nil, buttons = {}, checkedID = 0, num_buttons = 0, first_pos_x = 150, first_pos_y = -102, increment = -18 }
+
+ctm_host.exclusive_onclick = function(self, button, down)
+	
+	for k, b in pairs(ctm_host.buttons) do
+		if (b:GetID() ~= self:GetID()) then
+			b:SetChecked(nil);
+		else
+			b:SetChecked(true);
+			ctm_host.checkedID = b:GetID();
+		end
+	end
+	
+end
+
+
+function ctm_host:add_button(button_text)
+	self.num_buttons = self.num_buttons + 1;
+	self.buttons[self.num_buttons] = CreateFrame("CheckButton", "ctm_radio" .. tostring(self.num_buttons), lole_frame, "UIRadioButtonTemplate")
+	
+	local button = self.buttons[self.num_buttons];
+
+	getglobal(button:GetName() .. "Text"):SetText(button_text);
+	button:SetID(self.num_buttons);
+	button:SetPoint("TOPLEFT", self.first_pos_x, self.first_pos_y + self.increment*self.num_buttons);
+	button:SetScript("OnClick", ctm_host.exclusive_onclick)
+	
+	if self.num_buttons == 1 then
+		button:SetChecked(true)
+	end
+	
+end
+
+ctm_host.title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal");
+ctm_host.title_fontstr:SetPoint("TOPLEFT", ctm_host.first_pos_x-15, ctm_host.first_pos_y);
+ctm_host.title_fontstr:SetText(ctm_host.title)
+
+ctm_host:add_button("Local");
+ctm_host:add_button("Target");
+ctm_host:add_button("Everyone");
+ctm_host:add_button("Healers");
+ctm_host:add_button("Casters");
+ctm_host:add_button("Melee");
+
+
