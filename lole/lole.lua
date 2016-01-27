@@ -77,7 +77,7 @@ function lole_main(args)
         if (time() - LAST_BUFF_CHECK) > 30 then
             lole_buffcheck(nil, false);
         elseif (LOLE_CLASS_CONFIG.MODE_ATTRIBS["combatbuffmode"] == 1 or LBUFFCHECK_ISSUED) and BUFFS_CHECKED and (time() - LAST_BUFF_CHECK) > 1 then
-            lole_set("buffmode", "on");
+            lole_subcommands.set("buffmode", "on");
             BUFFS_CHECKED = false;
 			return;
         end
