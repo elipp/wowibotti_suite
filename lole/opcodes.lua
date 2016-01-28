@@ -44,7 +44,7 @@ local function target_unit_with_GUID(GUID_str_ciphered)
 end
 
 local function follow_unit_with_GUID(GUID_str_ciphered)
-	if IsRaidLeader() then return end
+	--if IsRaidLeader() then return end
 	
 	local GUID_deciphered = decipher_GUID(GUID_str_ciphered);
 	DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. GUID_deciphered);
@@ -53,7 +53,6 @@ end
 
 
 local function set_blast(mode)
--- don't ignore even when playermode is on, since it's required for buffs
  --  DelIgnore(LOLE_OPCODE_BLAST .. ":" .. mode); 
 	if mode == 1 or mode == "1" then 
 		LOLE_BLAST_STATE = true;
@@ -67,10 +66,44 @@ local function set_blast(mode)
 	end
 end
 
+
+
+
 local function act_on_CTM_broadcast(args)
-	if LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] == 0 then
-		DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. args);
+
+	local modestr,GUID,x,y,z = unpack(tokenize_string(args, ","))
+
+	if LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] == 1 then
+		return;
 	end
+	
+	local coords = x .. "," .. y .. "," .. z
+	
+	local mode = tonumber(modestr)
+
+	if mode == CTM_MODES.LOCAL then
+		if GUID == UnitGUID("player") then
+			DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. coords);
+		end
+	elseif mode == CTM_MODES.TARGET then
+		if GUID == UnitGUID("player") then
+			DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. coords);
+		end
+	
+	elseif mode == CTM_MODES.EVERYONE then
+		DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. coords)
+	
+	elseif mode == CTM_MODES.HEALERS then
+		return
+	elseif mode == CTM_MODES.CASTERS then
+		return
+	elseif mode == CTM_MODES.MELEE then
+		return
+	else 
+		lole_error("act_on_CTM_broadcast: invalid mode " .. modestr);
+	end
+	
+	
 end
 
 local function caster_range_check(minrange)

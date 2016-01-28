@@ -108,8 +108,48 @@ local function lole_blast(arg)
  		send_opcode_addonmsg(LOLE_OPCODE_BLAST, "0");
 	else
 		lole_error("lole_blast: need an argument (valid arguments: \"on\" / \"1\" or \"off\" / \"0\")");
+		return false;
 	end
 
+	return true;
+	
+end
+
+local function lole_ctm(arg)
+	local mode = get_CTM_mode();
+	
+	echo("calling lole ctm with arg " .. arg)
+	
+	-- could consider a jump table here
+	
+	if mode == CTM_MODES.LOCAL then
+		DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. arg);	
+				
+	elseif mode == CTM_MODES.TARGET then
+		local target_GUID = UnitGUID("target")
+		if not target_GUID then return end
+		
+		echo("sending to target " .. target_GUID)
+		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. target_GUID .. "," .. arg)
+	
+	elseif mode == CTM_MODES.EVERYONE then
+		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
+	
+	elseif mode == CTM_MODES.HEALERS then
+		--nyi
+	
+	elseif mode == CTM_MODES.CASTERS then
+		--nyi
+	
+	elseif mode == CTM_MODES.MELEE then
+		--nyi
+	
+	else
+		lole_error("lole_ctm: invalid mode: " .. tostring(mode));
+		return false;
+	end
+	
+	return true;
 end
 
 
@@ -123,6 +163,7 @@ lole_subcommands = {
 	stopfollow = lole_stopfollow;
 	set = lole_set;
 	blast = lole_blast;
+	ctm = lole_ctm;
 	
 	dump = lole_debug_dump_wowobjects;
 }

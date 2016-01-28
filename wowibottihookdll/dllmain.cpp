@@ -55,12 +55,7 @@ static int CONSTANT_CTM_TARGET = 0;
 
 static void __stdcall walk_to_target();
 
-enum {
-	CTM_MOVE = 0x4,
-	CTM_TALK_NPC = 0x5,
-	CTM_LOOT = 0x6,
-	CTM_MOVE_AND_ATTACK = 0xA
-};
+
 
 void __stdcall print_errcode(int code) {
 	printf("Spell cast failed, errcode %d\n", code);
@@ -86,7 +81,7 @@ static void DoString(const char* format, ...) {
 	LUA_DoString(cmd, cmd, "");
 }
 
-static void walk_to_unit_with_GUID(const std::string& arg);
+static void follow_unit_with_GUID(const std::string& arg);
 
 // this __declspec(noinline) thing has got to do with the msvc optimizer.
 // seems like the inline assembly is discarded when this func is inlined, in which case were fucked
@@ -113,12 +108,21 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 		CTM_Y = 0xD68A1C,
 		CTM_Z = 0xD68A20,
 		CTM_push = 0xD689BC,
-		CTM_mystery = 0xD689AE,
 		CTM_GUID = 0xD689C0, // this is for interaction
-		CTM_MOVE_ATTACK_ZERO = 0xD689CC; // this must be 0 for at least CTM_MOVE_AND_ATTACK, otherwise segfault
+		CTM_MOVE_ATTACK_ZERO = 0xD689CC,
+
+		CTM_walking_angle = 0xD689A0,
+		CTM_const_float_9A4 = 0xD689A4,
+		CTM_const_float_9A8 = 0xD689A8,
+		CTM_const_float_9AC = 0xD689AC;
+
+	// CTM_MOVE_ATTACK_ZERO must be 0 for at least CTM_MOVE_AND_ATTACK, otherwise segfault
 	// explanation: the function 7BCB00 segfaults at 7BCB14, if it's not
 	// can't remember which function calls 7BCB00, but the branch
 	// isn't taken when there's a 0 at D689CC. :D
+
+	// at Wow.exe:612A53 we can see that when the player is done CTMing,
+	// addresses D689C0-D689C8, D68998, D6899C are set to 0.0, and "CTM_push" to 0D
 
 
 	// seems like addresses D689A0 D689A4 D689A8 are floats, maybe some angles?
@@ -126,21 +130,135 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 	// D689A8 and D689AC are weird..
 	// for walking, "mystery" is a constant float 0.5
 
+	// based on my testing, the addresses that change upon a legit CTM are:
+	// D6896C, D689A0:AC, D689B8:BC, D689C8, D68A0C:20, D68A90:94
+
+	// here's a memdump diff for evidence (range was D68800 - D68B00 i think):
+
+	/* $ diff pre-ctm.txt mid-ctm.txt
+		94c94
+		< 00D6896C   00000000
+		-- -
+		> 00D6896C   40E00000
+		107, 110c107, 110
+		< 00D689A0   00000000
+		< 00D689A4   00000000
+		< 00D689A8   00000000
+		< 00D689AC   00000000
+		-- -
+		> 00D689A0   3F588DE2
+		> 00D689A4   415F66F3
+		> 00D689A8   3E800000
+		> 00D689AC   3F000000
+		113, 114c113, 114
+		< 00D689B8   00000000
+		< 00D689BC   0000000D
+		-- -
+		> 00D689B8   3D3E07D9
+		> 00D689BC   00000004
+		117c117
+		< 00D689C8   00000000
+		-- -
+		> 00D689C8   00000002
+		134, 139c134, 139
+		< 00D68A0C   00000000
+		< 00D68A10   00000000
+		< 00D68A14   00000000
+		< 00D68A18   00000000
+		< 00D68A1C   00000000
+		< 00D68A20   00000000
+		-- -
+		> 00D68A0C   C3F6F64F
+		> 00D68A10   C584BEC0
+		> 00D68A14   423572C4
+		> 00D68A18   C3F5789C
+		> 00D68A1C   C584A3D1
+		> 00D68A20   4239D718
+		167, 168c167, 168
+		< 00D68A90   00000000
+		< 00D68A94   00000000
+		-- -
+		> 00D68A90   3F7FF605
+		> 00D68A94   00000001
+
+	*/
+
+	// D689A0 is the walking direction.
+
+	ObjectManager OM;
+
+	auto p = OM.get_object_by_GUID(OM.get_localGUID());
+
+	vec3 diff = p.get_pos() - point; // OK, THE FOLLOWING CODE WORKS WITH PLAYER - TARGET,
+	float directed_angle = atan2(diff.y, diff.x);
+
+	writeAddr(CTM_walking_angle, &directed_angle, sizeof(directed_angle));
+
+
+	static const uint
+		ALL_9A4 = 0x415F66F3;
+
+	static const uint
+		MOVE_9A8 = 0x3E800000,
+		MOVE_9AC = 0x3F000000;
+
+	static const uint
+		FOLLOW_9A8 = 0x41100000,
+		FOLLOW_9AC = 0x40400000;
+
+	static const uint
+		MOVE_AND_ATTACK_9A8 = 0x41571C71,
+		MOVE_AND_ATTACK_9AC = 0x406AAAAA;
+
+	writeAddr(CTM_const_float_9A4, &ALL_9A4, sizeof(ALL_9A4));
+
+	if (action == CTM_MOVE) {
+		writeAddr(CTM_const_float_9A8, &MOVE_9A8, sizeof(MOVE_9A8));
+		writeAddr(CTM_const_float_9AC, &MOVE_9AC, sizeof(MOVE_9AC));
+	}
+
+	else if (action == CTM_FOLLOW) {
+		writeAddr(CTM_const_float_9A8, &FOLLOW_9A8, sizeof(FOLLOW_9A8));
+		writeAddr(CTM_const_float_9AC, &FOLLOW_9AC, sizeof(FOLLOW_9AC));
+	}
+	else if (action == CTM_MOVE_AND_ATTACK) {
+		if (interact_GUID != 0) {
+			const uint zero = 0;
+			writeAddr(CTM_GUID, &interact_GUID, sizeof(GUID));
+			writeAddr(CTM_MOVE_ATTACK_ZERO, &zero, sizeof(zero));
+		}
+		writeAddr(CTM_const_float_9A8, &MOVE_AND_ATTACK_9A8, sizeof(MOVE_AND_ATTACK_9A8));
+		writeAddr(CTM_const_float_9AC, &MOVE_AND_ATTACK_9AC, sizeof(MOVE_AND_ATTACK_9AC));
+	}
+
+
+	// the value of 0xD689B8 seems to be incremented with every step CTM'd.
+
+	float b8val = 0;
+	readAddr(0xD689B8, &b8val, sizeof(b8val));
+
+	if (b8val == 0) {
+		static const float B8 = 0.045;
+		writeAddr(0xD689B8, &B8, sizeof(B8));
+	}
+
+	// 0xD689C8 usually gets the value 2.
+	static const uint C8 = 0x2;
+	writeAddr(0xD689C8, &C8, sizeof(C8));
+
+	// 0xD68A0C:14 contain the player's current position, probably updated even when the CTM is not legit??
+
+	// 0xD68A90 is a constant 0x3F7FF605 (float ~0.9998, or perhaps not a float at all. who knows?)
+	static const uint A90 = 0x3F7FF605;
+	static const uint A94 = 0x1;
+
+	writeAddr(0xD68A90, &A90, sizeof(A90));
+	writeAddr(0xD68A94, &A94, sizeof(A94));
+
 	writeAddr(CTM_X, &point.x, sizeof(point.x));
 	writeAddr(CTM_Y, &point.y, sizeof(point.y));
 	writeAddr(CTM_Z, &point.z, sizeof(point.z));
 	
-	uint zero = 0;
-
-	if (interact_GUID != 0) {
-		writeAddr(CTM_GUID, &interact_GUID, sizeof(GUID));
-		if (action == CTM_MOVE_AND_ATTACK) {
-			writeAddr(CTM_MOVE_ATTACK_ZERO, &zero, sizeof(zero));
-		}
-	}
-
-
-	//	writeAddr(CTM_mystery, &mystery, 2);
 	writeAddr(CTM_push, &action, sizeof(action));
 
 }
@@ -233,6 +351,7 @@ static void __stdcall walk_to_target() {
 }
 
 static void __stdcall face_target() {
+
 	GUID_t target_GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
 	if (!target_GUID) return;
 
@@ -246,7 +365,11 @@ static void __stdcall face_target() {
 	if (!p.valid()) return;
 
 	vec3 diff = t.get_pos() - p.get_pos();
-	click_to_move(p.get_pos() + 0.5*diff.unit(), CTM_MOVE, 0); // this is a way to legitimately turn casters toward the enemy.
+	click_to_move(p.get_pos() + 0.5*diff.unit(), CTM_MOVE, 0); 
+
+	// The SetFacing function is effective on the local client level, 
+	// as it seems like the server still thinks the character is facing 
+	// the way it was before the call to SetFacing. So use CTM magic.
 
 	// this formula is for a directed angle (clockwise angle). atan2(det, dot). 
 	// now we're taking the angle with respect to the x axis (north in wow), so the computation becomes simply:
@@ -301,7 +424,8 @@ static void __stdcall melee_behind_target() {
 
 }
 
-static void __stdcall broadcast_CTM(float *coords) {
+
+static void __stdcall broadcast_CTM(float *coords, int action) {
 
 	float x, y, z;
 
@@ -309,21 +433,15 @@ static void __stdcall broadcast_CTM(float *coords) {
 	y = coords[1]; 
 	z = coords[2]; 
 
-	printf("broadcast_CTM: got CTM coords: (%f, %f %f)\n", x, y, z);
-
-	ObjectManager OM;
-	WowObject p = OM.get_object_by_GUID(OM.get_localGUID());
-
-	GUID_t GUID = p.unit_get_target_GUID();
-
-	if (!GUID) return;
+	printf("broadcast_CTM: got CTM coords: (%f, %f %f), action = %d\n", x, y, z, action);
 
 	char sprintf_buf[128];
 
-	sprintf(sprintf_buf, "0x%016llX, %.1f, %.1f, %.1f", GUID, x, y, z);
+	sprintf(sprintf_buf, "%.1f,%.1f,%.1f", x, y, z);
 
-	//DoString("SendAddonMessage(\"lole_CTM_broadcast\", \"" + std::string(sprintf_buf) + "\", \"PARTY\")");
-	DoString("SendAddonMessage(\"lole_CTM_broadcast\", \"%s\", \"PARTY\")", sprintf_buf);
+	// the CTM mode is determined in the LUA logic, in the subcommand handler.
+
+	DoString("RunMacroText(\"/lole ctm %s\")", sprintf_buf); 
 }
 
 static int player_is_moving() {
@@ -376,7 +494,7 @@ static void __stdcall every_frame_hook_func() {
 	}
 
 	if (!follow_state.close_enough) {
-		walk_to_unit_with_GUID(follow_state.target_GUID); // this has a timeout of 10s.
+		follow_unit_with_GUID(follow_state.target_GUID); // this has a timeout of 10s.
 	}
 
 	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
@@ -454,7 +572,7 @@ static void move_into_casting_range(const std::string& arg) {
 	}
 }
 
-static void walk_to_unit_with_GUID(const std::string& arg) {
+static void follow_unit_with_GUID(const std::string& arg) {
 	// the arg should contain host character GUID
 	// CONSIDER: change this to straight up player name and implement a get WowObject by name func?
 	ObjectManager OM;
@@ -465,7 +583,7 @@ static void walk_to_unit_with_GUID(const std::string& arg) {
 	WowObject p = OM.get_object_by_GUID(OM.get_localGUID());
 
 	if (!p.valid()) {
-		printf("walk_to_unit_with_GUID: LOLE_OPCODE_FOLLOW: getting local object failed? WTF? XD\n");
+		printf("follow_unit_with_GUID: LOLE_OPCODE_FOLLOW: getting local object failed? WTF? XD\n");
 		return;
 	}
 
@@ -477,7 +595,7 @@ static void walk_to_unit_with_GUID(const std::string& arg) {
 	WowObject o = OM.get_object_by_GUID(GUID);
 	
 	if (!o.valid()) {
-		printf("walk_to_unit_with_GUID: LOLE_OPCODE_FOLLOW: couldn't find unit with GUID 0x%016llX (doesn't exist?)\n", GUID);
+		printf("follow_unit_with_GUID: LOLE_OPCODE_FOLLOW: couldn't find unit with GUID 0x%016llX (doesn't exist?)\n", GUID);
 		// not reset
 		follow_state.clear();
 
@@ -488,11 +606,11 @@ static void walk_to_unit_with_GUID(const std::string& arg) {
 		return;
 	}
 
-	
 	click_to_move(o.get_pos(), CTM_MOVE, 0);
 
 	if ((o.get_pos() - p.get_pos()).length() < 10) {
 		//DoString("FollowUnit(\"" + o.unit_get_name() + "\")");
+		printf("follow difference < 10! calling WOWAPI FollowUnit()\n");
 		DoString("FollowUnit(\"%s\")", o.unit_get_name().c_str());
 		follow_state.clear();
 	}
@@ -514,33 +632,23 @@ static void caster_face_target(const std::string &arg) {
 }
 
 static void act_on_CTM_broadcast(const std::string &arg) {
-	// arg should contain 4 args, <GUID,x,y,z>
+	// arg should contain 3 args, <x,y,z>
 	
 	std::vector<std::string> tokens;
 	tokenize_string(arg, ",", tokens);
 
-	if (tokens.size() != 4) {
-		printf("act_on_CTM_broadcast: error: expected exactly 4 arguments (GUID,x,y,z), got %lu!\n", tokens.size());
+	if (tokens.size() != 3) {
+		printf("act_on_CTM_broadcast: error: expected exactly 3 arguments (x,y,z), got %lu!\n", tokens.size());
 		return;
 	}
 	
 	char *endptr;
 	
-	GUID_t GUID;
 	float x, y, z;
 
-	GUID = strtoull(tokens[0].c_str() + 2, &endptr, 16);
-
-	ObjectManager OM;
-
-	if (GUID != OM.get_localGUID()) {
-		printf("act_on_CTM_broadcast: this CTM_broadcast wasn't directed at us (target = 0x%016llX, local = 0x%016llX), exiting.\n", GUID, OM.get_localGUID());
-		return;
-	}
-
-	x = strtof(tokens[1].c_str(), &endptr);
-	y = strtof(tokens[2].c_str(), &endptr);
-	z = strtof(tokens[3].c_str(), &endptr);
+	x = strtof(tokens[0].c_str(), &endptr);
+	y = strtof(tokens[1].c_str(), &endptr);
+	z = strtof(tokens[2].c_str(), &endptr);
 
 	click_to_move(vec3(x, y, z), CTM_MOVE, 0);
 
@@ -576,9 +684,9 @@ static const struct {
 	{"LOLE_TARGET_GUID", change_target, 1},
 	{"LOLE_BLAST", blast, 1},
 	{"LOLE_CASTER_RANGE_CHECK", move_into_casting_range, 1},
-	{"LOLE_FOLLOW", walk_to_unit_with_GUID, 1},
+	{"LOLE_FOLLOW", follow_unit_with_GUID, 1},
 	{"LOLE_CASTER_FACE", caster_face_target, 0},
-	{"LOLE_CTM_BROADCAST", act_on_CTM_broadcast, 4},
+	{"LOLE_CTM_BROADCAST", act_on_CTM_broadcast, 3},
 	{"LOLE_CC", NULL, 3} // nyi
 };
 
@@ -633,7 +741,7 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 		// then we expect to find a ':' and arguments separated by ',':s
 		size_t pos;
 		if ((pos = arg.find(':', 5)) == std::string::npos) {
-			printf("DelIgnore_hub: error: opcode %ul (%s) expects %d arguments, none found! (did you forget ':'?)\n",
+			printf("DelIgnore_hub: error: opcode %lu (%s) expects %d arguments, none found! (did you forget ':'?)\n",
 				op, func.name.c_str(), func.num_args);
 			return;
 		}
@@ -656,7 +764,7 @@ static int hook_all() {
 	install_hook("DelIgnore", DelIgnore_hub);
 	install_hook("ClosePetStables", melee_behind_target);
 	//install_hook("CTM_aux", broadcast_CTM);
-	//install_hook("CTM_main", broadcast_CTM);
+	install_hook("CTM_main", broadcast_CTM);
 	
 	return 1;
 }

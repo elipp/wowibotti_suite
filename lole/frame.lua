@@ -31,7 +31,7 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 	
 	elseif event == "PLAYER_REGEN_DISABLED" then
 		if IsRaidLeader() then
-			send_opcode_addonmsg(LOLE_OPCODE_FOLLOW, NOTARGET);
+			send_opcode_addonmsg(LOLE_OPCODE_FOLLOW, cipher_GUID(NOTARGET));
 		end
 	end
 	
@@ -223,7 +223,16 @@ stopfollow_button:SetScript("OnClick", function()
 end)
 
 
-local ctm_host = { title = "CTM mode:", title_fontstr = nil, buttons = {}, checkedID = 0, num_buttons = 0, first_pos_x = 150, first_pos_y = -102, increment = -18 }
+local ctm_host = { title = "CTM mode:", title_fontstr = nil, buttons = {}, num_buttons = 0, first_pos_x = 150, first_pos_y = -102, increment = -18 }
+
+CTM_MODES = { 
+	LOCAL = 1, TARGET = 2, EVERYONE = 3, HEALERS = 4, CASTERS = 5, MELEE = 6 
+}
+
+
+function get_CTM_mode()
+	return ctm_host.checkedID;
+end
 
 ctm_host.exclusive_onclick = function(self, button, down)
 	
@@ -250,8 +259,11 @@ function ctm_host:add_button(button_text)
 	button:SetPoint("TOPLEFT", self.first_pos_x, self.first_pos_y + self.increment*self.num_buttons);
 	button:SetScript("OnClick", ctm_host.exclusive_onclick)
 	
+	-- this is really bad, but the intention is that the first one is default
+	
 	if self.num_buttons == 1 then
 		button:SetChecked(true)
+		self.checkedID = 1
 	end
 	
 end
@@ -259,6 +271,8 @@ end
 ctm_host.title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal");
 ctm_host.title_fontstr:SetPoint("TOPLEFT", ctm_host.first_pos_x-15, ctm_host.first_pos_y);
 ctm_host.title_fontstr:SetText(ctm_host.title)
+
+-- TODO: look into whether this really needs to be exclusive
 
 ctm_host:add_button("Local");
 ctm_host:add_button("Target");

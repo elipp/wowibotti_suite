@@ -253,54 +253,75 @@ static int prepare_CTM_aux_patch(LPVOID hook_func_addr, hookable &h) {
 	return 1;
 }
 
-static int __stdcall if_have_target() {
-	GUID_t target_GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
-	if (target_GUID != 0) return 1;
-	else return 0;
+static int __stdcall get_CTM_retaddr(int action) {
+	static const uint ret_early = 0, ret_late = 1;
+	
+	printf("get_CTM_retaddr: action = %X\n", action);
+
+	switch (action) {
+	case CTM_MOVE: 
+		return ret_late;
+		break;
+
+	default:
+		return ret_early;
+		break;
+
+	}
+
 }
+
+
 
 static int prepare_CTM_main_patch(LPVOID hook_func_addr, hookable &h) {
 	printf("Preparing CTM_main patch...\n");
 
 	static BYTE CTM_main_trampoline[] = {
 		// original opcodes from 0x612A90 "CTM_main"
-		
+
 		0x55, // PUSH EBP
 		0x8B, 0xEC, // MOV EBP, ESP
 		0x83, 0xEC, 0x18, // SUB ESP, 18
-	
-		0x68, 0x00, 0x00, 0x00, 0x00, // push late return address 
+
+		0x68, 0x00, 0x00, 0x00, 0x00, // push early return address (performs the 612A90 function normally)
 		0x60,						// pushad
 
-		0xE8, 0x00, 0x00, 0x00, 0x00, // call to if_have_target. eax now has 1 or 0, depending on the env
+		0x8B, 0x75, 0x8, // MOV ESI, DWORD PTR SS:[ARG.2] CTM_"push" or "action"
+		0x56,			// PUSH ESI
+
+		0xE8, 0x00, 0x00, 0x00, 0x00, // call to get_CTM_retaddr. eax now has 1 or 0, depending on the env
 		0x85, 0xC0,	// test EAX EAX
-		0x74, 0x0B, // jz, hopefully to the second popad part
+		0x74, 0x0F, // jz, hopefully to the second popad part
+		0x8B, 0x75, 0x8, // MOV ESI, DWORD PTR SS:[ARG.2] CTM_"push" or "action"
+		0x56,
 		0x8B, 0x75, 0x10, // MOV ESI, DWORD PTR SS:[ARG.3] (contains the 3 floatz ^^)
 		0x56,			  // PUSH ESI (arg to CTM_broadcast)
 		0xE8, 0x00, 0x00, 0x00, 0x00, // call CTM_broadcast function :D loloz
 		0x61, // popad
 		0xC3, // ret
+		
+		// branch #2
 
 		0x61, // popad
 		0x83, 0xC4, 0x04, // add esp, 4, to "pop" without screwing up reg values
-		0x68, 0x00, 0x00, 0x00, 0x00, // return address #2 (0x612A90 + 7 = 0x612A97)
+		0x68, 0x00, 0x00, 0x00, 0x00, // push return late late
 		0xC3 //ret
 	};
+
+	static const uint retaddr_early = CTM_main + 0x6, retaddr_late = CTM_main + 0x12E;
 
 	DWORD tr_offset = ((DWORD)CTM_main_trampoline - (DWORD)CTM_main - 5);
 	memcpy(CTM_main_patch + 1, &tr_offset, sizeof(tr_offset));
 
-	DWORD ret_addr1 = 0x612BBE;
-	memcpy(CTM_main_trampoline + 7, &ret_addr1, sizeof(ret_addr1)); // add return address #1
+	memcpy(CTM_main_trampoline + 7, &retaddr_late, sizeof(retaddr_late));
 
-	DWORD if_have_target_offset = (DWORD)if_have_target - (DWORD)CTM_main_trampoline - 17;
-	memcpy(CTM_main_trampoline + 13, &if_have_target_offset, sizeof(if_have_target_offset));
+	DWORD get_CTM_retaddr_offset = (DWORD)get_CTM_retaddr - (DWORD)CTM_main_trampoline - 21;
+	memcpy(CTM_main_trampoline + 17, &get_CTM_retaddr_offset, sizeof(get_CTM_retaddr_offset));
 
-	DWORD ret_addr2 = (DWORD)CTM_main + 6;
-	memcpy(CTM_main_trampoline + 37, &ret_addr2, sizeof(ret_addr2)); // add return address #2
+	memcpy(CTM_main_trampoline + 45, &retaddr_early, sizeof(retaddr_early));
 
-	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)CTM_main_trampoline - 30; 
-	memcpy(CTM_main_trampoline + 26, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
+	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)CTM_main_trampoline - 38;
+	memcpy(CTM_main_trampoline + 34, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
 
 	DWORD oldprotect;
 	VirtualProtect((LPVOID)CTM_main_trampoline, sizeof(CTM_main_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);

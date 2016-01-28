@@ -7,6 +7,16 @@ typedef unsigned int uint; // looks kinda messy with all the "unsigned int"s
 
 #define MKEY_G 0x47
 
+enum {
+	CTM_HUNTER_AIMED = 0x0,
+	CTM_FOLLOW = 0x3,
+	CTM_MOVE = 0x4,
+	CTM_TALK_NPC = 0x5,
+	CTM_LOOT = 0x6,
+	CTM_MOVE_AND_ATTACK = 0xA,
+	CTM_DONE = 0xD // methinks
+};
+
 extern HANDLE glhProcess;
 
 #define DEREF(x) *(uint*)(x)
@@ -58,7 +68,7 @@ inline SIZE_T readAddr(unsigned int mem, void *to, size_t bytes) {
 	return read;
 }
 
-inline SIZE_T writeAddr(unsigned int mem, void *data, size_t bytes) {
+inline SIZE_T writeAddr(unsigned int mem, const void *data, size_t bytes) {
 	SIZE_T read;
 	WriteProcessMemory(glhProcess, (LPVOID)mem, data, bytes, &read);
 	return read;

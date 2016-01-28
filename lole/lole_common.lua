@@ -304,7 +304,7 @@ function validate_target()
 end
 
 function set_target(target_GUID)
-	echo("calling set_target")
+	--echo("calling set_target")
   	DelIgnore(LOLE_OPCODE_TARGET_GUID .. ":" .. target_GUID); -- this does a C TargetUnit call :P
     BLAST_TARGET_GUID = target_GUID;
 	FocusUnit("target")
@@ -313,7 +313,7 @@ function set_target(target_GUID)
 end
 
 function clear_target()
-	echo("calling clear_target!");
+	--echo("calling clear_target!");
 	BLAST_TARGET_GUID = NOTARGET;
 	ClearFocus();
 	ClearTarget();
@@ -390,6 +390,13 @@ function get_list_of_keys(dict)
 	
 	return table.concat(key_tab, ", "); -- alphabetical sort.
 	
+end
+
+function tokenize_string(str, sep)
+        local sep, fields = sep or ":", {}
+        local pattern = string.format("([^%s]+)", sep)
+        str:gsub(pattern, function(c) fields[#fields+1] = c end)
+        return fields
 end
 
 
