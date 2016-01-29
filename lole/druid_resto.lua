@@ -12,12 +12,19 @@ config_druid_resto.COLOR = CLASS_COLORS["druid"];
 
 config_druid_resto.combat = function()
 
-	TargetUnit("Raimo");
+	TargetUnit("Josp");
 	local health_max = UnitHealthMax("target");
 	local health_cur = UnitHealth("target");
 	
+	local own_hp_max = UnitHealthMax("player");
+	local own_hp_cur = UnitHealth("player");
+	
 	if GetSpellCooldown("Remove Curse") > 0 then -- dont waste cycles on GCD
 		return;
+	end
+	
+	if own_hp_max - own_hp_cur < 5500 then 
+		TargetUnit("player")
 	end
 	
 	--if not has_buff("player", "Tree of Life") then
@@ -35,13 +42,7 @@ config_druid_resto.combat = function()
 		return;
 	end
 	
-	if (health_cur < health_max * 0.60) then
-		if GetSpellCooldown("Swiftment") == 0 then
-			CastSpellByName("Swiftmend");
-		else
-			CastSpellByName("Regrowth");
-		end
-	elseif (health_cur < health_max * 0.88) then
+	if (health_cur < health_max * 0.88) then
 		if not has_buff("target", "Rejuvenation") then
 			CastSpellByName("Rejuvenation");
 		end
