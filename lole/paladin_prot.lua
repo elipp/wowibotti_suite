@@ -1,6 +1,9 @@
 config_paladin_prot = {}
 config_paladin_prot.name = "paladin_prot";
 
+config_paladin_prot.role = ROLES.TANK;
+
+
 config_paladin_prot.MODE_ATTRIBS = {
     ["combatbuffmode"] = 0,
 	["buffmode"] = 0,

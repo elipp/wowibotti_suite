@@ -94,11 +94,17 @@ local function act_on_CTM_broadcast(args)
 		DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. coords)
 	
 	elseif mode == CTM_MODES.HEALERS then
-		return
+		if LOLE_CLASS_CONFIG.role == ROLES.HEALER then
+			DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. coords);
+		end
 	elseif mode == CTM_MODES.CASTERS then
-		return
+		if LOLE_CLASS_CONFIG.role == ROLES.CASTER then
+			DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. coords);
+		end
 	elseif mode == CTM_MODES.MELEE then
-		return
+		if LOLE_CLASS_CONFIG.role == ROLES.MELEE then
+			DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. coords);
+		end
 	else 
 		lole_error("act_on_CTM_broadcast: invalid mode " .. modestr);
 	end

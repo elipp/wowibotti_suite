@@ -1,6 +1,9 @@
 config_druid_resto = {}
 config_druid_resto.name = "druid_resto";
 
+config_druid_resto.role = ROLES.HEALER;
+
+
 config_druid_resto.MODE_ATTRIBS = {
 	["playermode"] = 0
 }

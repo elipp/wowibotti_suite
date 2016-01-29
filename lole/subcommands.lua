@@ -132,18 +132,18 @@ local function lole_ctm(arg)
 		echo("sending to target " .. target_GUID)
 		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. target_GUID .. "," .. arg)
 	
+		-- kinda redundant.
 	elseif mode == CTM_MODES.EVERYONE then
 		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
 	
 	elseif mode == CTM_MODES.HEALERS then
-		--nyi
+		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
 	
 	elseif mode == CTM_MODES.CASTERS then
-		--nyi
-	
+		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
+
 	elseif mode == CTM_MODES.MELEE then
-		--nyi
-	
+		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
 	else
 		lole_error("lole_ctm: invalid mode: " .. tostring(mode));
 		return false;

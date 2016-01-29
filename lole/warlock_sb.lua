@@ -1,6 +1,9 @@
 config_warlock_sb = {}
 config_warlock_sb.name = "warlock_sb";
 
+config_warlock_sb.role = ROLES.CASTER;
+
+
 config_warlock_sb.MODE_ATTRIBS = {
     ["combatbuffmode"] = 0,
     ["buffmode"] = 0,

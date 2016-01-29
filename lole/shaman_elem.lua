@@ -1,6 +1,9 @@
 config_shaman_elem = {}
 config_shaman_elem.name = "shaman_elem";
 
+config_shaman_elem.role = ROLES.CASTER;
+
+
 config_shaman_elem.MODE_ATTRIBS = {
     ["combatbuffmode"] = 0,
     ["buffmode"] = 0,

@@ -1,5 +1,7 @@
 config_warlock_affli = {}
 
+config_warlock_affli.role = ROLES.CASTER;
+
 config_warlock_affli.MODE_ATTRIBS = {
     ["combatbuffmode"] = 0,
     ["buffmode"] = 0,

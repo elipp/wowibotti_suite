@@ -13,6 +13,9 @@ config_warrior_arms = {}
 config_warrior_arms.name = "warrior_arms";
 
 config_warrior_arms.SELF_BUFFS = { "Battle Shout" };
+
+config_warrior_arms.role = ROLES.MELEE;
+
 config_warrior_arms.MODE_ATTRIBS = {     
 	["playermode"] = 0
 }

@@ -1,6 +1,9 @@
 config_mage_fire = {}
 config_mage_fire.name = "mage_fire";
 
+config_mage_fire.role = ROLES.CASTER;
+
+
 config_mage_fire.MODE_ATTRIBS = {
     ["buffmode"] = 0,
     ["combatbuffmode"] = 0,
