@@ -23,11 +23,11 @@ CLASS_COLORS = {
 
 
 function echo(text) 
-    DEFAULT_CHAT_FRAME:AddMessage(tostring(text))
+    DEFAULT_CHAT_FRAME:AddMessage("lole: " .. tostring(text))
 end
 
 function lole_error(text)
-	DEFAULT_CHAT_FRAME:AddMessage("|cFFFF0000lole: error: " .. tostring(text))
+	DEFAULT_CHAT_FRAME:AddMessage("|cFFFF3300lole: error: " .. tostring(text))
 end
 
 function shallowcopy(orig)

@@ -152,6 +152,9 @@ local function lole_ctm(arg)
 	return true;
 end
 
+local function lole_gui()
+	main_frame_show()
+end
 
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
@@ -164,6 +167,8 @@ lole_subcommands = {
 	set = lole_set;
 	blast = lole_blast;
 	ctm = lole_ctm;
+	
+	gui = lole_gui;
 	
 	dump = lole_debug_dump_wowobjects;
 }

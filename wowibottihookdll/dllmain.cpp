@@ -112,9 +112,11 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 		CTM_MOVE_ATTACK_ZERO = 0xD689CC,
 
 		CTM_walking_angle = 0xD689A0,
-		CTM_const_float_9A4 = 0xD689A4,
+		CTM_const_float_9A4 = 0xD689A4, 
 		CTM_const_float_9A8 = 0xD689A8,
-		CTM_const_float_9AC = 0xD689AC;
+		CTM_const_float_9AC = 0xD689AC; 
+	// at least for CTM_MOVE and probably MOVE_ATTACK, D689AC contains the minimum distance you need to be 
+	// until you're considered done with the CTM. max distance in 9A8??
 
 	// CTM_MOVE_ATTACK_ZERO must be 0 for at least CTM_MOVE_AND_ATTACK, otherwise segfault
 	// explanation: the function 7BCB00 segfaults at 7BCB14, if it's not
@@ -199,8 +201,8 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 		ALL_9A4 = 0x415F66F3;
 
 	static const uint
-		MOVE_9A8 = 0x3E800000,
-		MOVE_9AC = 0x3F000000;
+		MOVE_9A8 = 0x3E800000, // 0.25, don't really know what this is
+		MOVE_9AC = 0x3F000000; // this is 0.5, minimum distance from exact point
 
 	static const uint
 		FOLLOW_9A8 = 0x41100000,
@@ -365,7 +367,7 @@ static void __stdcall face_target() {
 	if (!p.valid()) return;
 
 	vec3 diff = t.get_pos() - p.get_pos();
-	click_to_move(p.get_pos() + 0.5*diff.unit(), CTM_MOVE, 0); 
+	click_to_move(p.get_pos() + 0.4*diff.unit(), CTM_MOVE, 0); 
 
 	// The SetFacing function is effective on the local client level, 
 	// as it seems like the server still thinks the character is facing 
@@ -588,7 +590,9 @@ static void follow_unit_with_GUID(const std::string& arg) {
 	}
 
 	if (GUID == 0) {
-		click_to_move(p.get_pos(), CTM_MOVE, 0);
+		float prot = p.get_rot();
+		vec3 rot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
+		click_to_move(p.get_pos() + 0.51*rot_unit, CTM_MOVE, 0);
 		return;
 	}
 

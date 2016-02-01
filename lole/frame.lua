@@ -88,7 +88,7 @@ header_texture:SetPoint("TOP", 0, 12)
 
 local header_text = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 header_text:SetPoint("TOP", header_texture, "TOP", 0, -14)
-header_text:SetText("LOLEXDDD")
+header_text:SetText("LOLEXD")
 
 blast_checkbutton = CreateFrame("CheckButton", "blast_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
 blast_checkbutton:SetPoint("TOPLEFT", 15, -30);
@@ -120,16 +120,27 @@ static_target_text:SetPoint("TOPLEFT", 18, -55);
 static_target_text:SetText("Current blast target:")
 
 local target_text = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-target_text:SetPoint("TOPLEFT", 120, -55);
+target_text:SetPoint("TOPLEFT", 123, -55);
 target_text:SetText("")
 
 local target_GUID_text = lole_frame:CreateFontString(nil, "OVERLAY")
-target_GUID_text:SetPoint("TOPLEFT", 120, -65);
+target_GUID_text:SetPoint("TOPLEFT", 123, -65);
 target_GUID_text:SetFont("Fonts\\FRIZQT__.TTF", 9);
 
 function update_target_text(name, GUID)
 	target_text:SetText(name)
 	target_GUID_text:SetText(GUID)
+end
+
+local close_button = CreateFrame("Button", "close_button", lole_frame, "UIPanelCloseButton");
+close_button:SetPoint("TOPRIGHT", 0, 0);
+
+close_button:SetScript("OnClick", function()
+	lole_frame:Hide();
+end)
+
+function main_frame_show()
+	lole_frame:Show();
 end
 
 --local edit = CreateFrame("EditBox", "edit1", lole_frame);
@@ -222,6 +233,41 @@ stopfollow_button:SetScript("OnClick", function()
 	lole_subcommands.stopfollow()
 end)
 
+local update_target_button = CreateFrame("Button", "stopfollow_button", lole_frame, "UIPanelButtonTemplate")
+
+update_target_button:SetPoint("TOPLEFT", 120, -100);
+update_target_button:SetHeight(27)
+update_target_button:SetWidth(158)
+
+update_target_button:SetScale(0.75)
+
+update_target_button:SetText("Update BLAST target");
+
+update_target_button:SetScript("OnClick", function()
+	
+	if not IsRaidLeader() then
+		lole_error("Couldn't update BLAST target (you are not the raid leader!)");
+		return;
+	end
+	
+	if not UnitExists("target") then 
+		lole_error("Couldn't update BLAST target (no valid mob selected!)");
+		return;
+	end
+	
+	local target_GUID = UnitGUID("target");
+	
+	if target_GUID ~= BLAST_TARGET_GUID then
+		if string.sub(target_GUID, 3, 6) == "F130" and (not UnitIsDead("target")) and UnitReaction("target", "player") < 5 then
+			broadcast_target_GUID(UnitGUID("target"));
+			return;
+		else
+			lole_error("Invalid target! Select an attackable NPC mob.")
+			return;
+		end
+	end
+end)
+
 
 local ctm_host = { title = "CTM mode:", title_fontstr = nil, buttons = {}, num_buttons = 0, first_pos_x = 150, first_pos_y = -102, increment = -18 }
 
@@ -233,6 +279,9 @@ CTM_MODES = {
 function get_CTM_mode()
 	return ctm_host.checkedID;
 end
+
+-- TODO: look into whether this really needs to be exclusive (!!)
+
 
 ctm_host.exclusive_onclick = function(self, button, down)
 	
@@ -271,8 +320,6 @@ end
 ctm_host.title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal");
 ctm_host.title_fontstr:SetPoint("TOPLEFT", ctm_host.first_pos_x-15, ctm_host.first_pos_y);
 ctm_host.title_fontstr:SetText(ctm_host.title)
-
--- TODO: look into whether this really needs to be exclusive
 
 ctm_host:add_button("Local");
 ctm_host:add_button("Target");
