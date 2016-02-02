@@ -115,8 +115,9 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 		CTM_const_float_9A4 = 0xD689A4, 
 		CTM_const_float_9A8 = 0xD689A8,
 		CTM_const_float_9AC = 0xD689AC; 
-	// at least for CTM_MOVE and probably MOVE_ATTACK, D689AC contains the minimum distance you need to be 
-	// until you're considered done with the CTM. max distance in 9A8??
+
+	// at least for CTM_MOVE and CTM_MOVE_AND_ATTACK, D689AC contains the minimum distance you need to be 
+	// until you're considered done with the CTM. 9A8 is something i've not yet figured out, but it doesn't seem to really affect anything
 
 	// CTM_MOVE_ATTACK_ZERO must be 0 for at least CTM_MOVE_AND_ATTACK, otherwise segfault
 	// explanation: the function 7BCB00 segfaults at 7BCB14, if it's not
@@ -124,7 +125,7 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 	// isn't taken when there's a 0 at D689CC. :D
 
 	// at Wow.exe:612A53 we can see that when the player is done CTMing,
-	// addresses D689C0-D689C8, D68998, D6899C are set to 0.0, and "CTM_push" to 0D
+	// addresses D689C0-D689C8, D68998, D6899C are set to 0.0, and CTM_action to 0D
 
 
 	// seems like addresses D689A0 D689A4 D689A8 are floats, maybe some angles?
@@ -191,7 +192,7 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 
 	auto p = OM.get_object_by_GUID(OM.get_localGUID());
 
-	vec3 diff = p.get_pos() - point; // OK, THE FOLLOWING CODE WORKS WITH PLAYER - TARGET,
+	vec3 diff = p.get_pos() - point; // this is kinda weird, since usually one would take dest - current_loc, but np
 	float directed_angle = atan2(diff.y, diff.x);
 
 	writeAddr(CTM_walking_angle, &directed_angle, sizeof(directed_angle));
@@ -209,8 +210,8 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 		FOLLOW_9AC = 0x40400000;
 
 	static const uint
-		MOVE_AND_ATTACK_9A8 = 0x41571C71,
-		MOVE_AND_ATTACK_9AC = 0x406AAAAA;
+		MOVE_AND_ATTACK_9A8 = 0x41571C71, // for M&A its something like 13.444
+		MOVE_AND_ATTACK_9AC = 0x406AAAAA; // 3.6666 (melee range?)
 
 	writeAddr(CTM_const_float_9A4, &ALL_9A4, sizeof(ALL_9A4));
 
@@ -234,13 +235,13 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 	}
 
 
-	// the value of 0xD689B8 seems to be incremented with every step CTM'd.
+	// the value of 0xD689B8 seems to be incremented with every step CTM'd, but it seems to be working after the first 
 
 	float b8val = 0;
 	readAddr(0xD689B8, &b8val, sizeof(b8val));
 
 	if (b8val == 0) {
-		static const float B8 = 0.045;
+		static const float B8 = 0.01;
 		writeAddr(0xD689B8, &B8, sizeof(B8));
 	}
 
@@ -367,7 +368,8 @@ static void __stdcall face_target() {
 	if (!p.valid()) return;
 
 	vec3 diff = t.get_pos() - p.get_pos();
-	click_to_move(p.get_pos() + 0.4*diff.unit(), CTM_MOVE, 0); 
+	click_to_move(p.get_pos() + 0.3*diff.unit(), CTM_MOVE, 0); 
+	// less than 0.5 is good for just changing orientation (without walking). see walk_to_unit_with_GUID
 
 	// The SetFacing function is effective on the local client level, 
 	// as it seems like the server still thinks the character is facing 

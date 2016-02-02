@@ -324,7 +324,7 @@ function clear_target()
 end
 
 function melee_close_in()
-	ClosePetStables(); -- hooked XD. could work better.
+	ClosePetStables(); -- hooked XD
 end
 
 

@@ -3,11 +3,10 @@ config_druid_balance.name = "druid_balance";
 
 config_druid_balance.role = ROLES.CASTER;
 
-
 config_druid_balance.MODE_ATTRIBS = {
     ["combatbuffmode"] = 0,
     ["buffmode"] = 0,
-    ["playermode"] = 0
+    ["playermode"] = 0,
 };
 
 config_druid_balance.SELF_BUFFS = {"Moonkin Form"}; 
@@ -15,12 +14,18 @@ config_druid_balance.COLOR = CLASS_COLORS["druid"];
 
 config_druid_balance.combat = function()
 
+-- seems to not work otherwise O_O fucking lua...
+	if not config_druid_balance.MODE_ATTRIBS["playermode"] then 
+		config_druid_balance.MODE_ATTRIBS["playermode"] = 0;
+	end
+
+	lole_opcode_funcs[LOLE_OPCODE_CASTER_RANGE_CHECK](35);
+	lole_opcode_funcs[LOLE_OPCODE_CASTER_FACE]();
+	
 	if UnitCastingInfo("player") then return; end
 
 	if not UnitExists("target") then return; end
 
-	caster_range_check(30); 
-	caster_face_target();
 	
 	if not has_debuff("target", "Insect Swarm") then 
 		CastSpellByName("Insect Swarm"); 

@@ -69,6 +69,10 @@ end
 
 config_warlock_sb.combat = function()
 
+	if not config_warlock_sb.MODE_ATTRIBS["playermode"] then 
+		config_warlock_sb.MODE_ATTRIBS["playermode"] = 0;
+	end
+
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
 	
@@ -78,26 +82,24 @@ config_warlock_sb.combat = function()
 		end
 	end
 	
-	delrissa()
+	--delrissa()
 	
-	if true then return end;
+	--if true then return end;
 	
-
 	if not validate_target() then return end
-
 	
 	--vexallus()
 	--if true then return end
+	
+	lole_opcode_funcs[LOLE_OPCODE_CASTER_RANGE_CHECK](35);
+	lole_opcode_funcs[LOLE_OPCODE_CASTER_FACE]();
 	
 	
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end
 
 	if tap_if_need_to() then return; end
-	
-	caster_range_check(30); 
-	caster_face_target();
-	
+		
 	if config_warlock_sb.MODE_ATTRIBS["aoemode"] == 1 then			
 		for i=1,16,1 do 
 			TargetNearestEnemy();

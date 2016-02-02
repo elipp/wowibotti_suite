@@ -161,17 +161,15 @@ end
 
 local config_dropdown = CreateFrame("Frame", "config_dropdown", lole_frame, "UIDropDownMenuTemplate");
 config_dropdown:SetPoint("BOTTOMLEFT", 60, 10);
-config_dropdown:Show();
 
 UIDropDownMenu_SetWidth(100, config_dropdown)
-
 
 local config_text = config_dropdown:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 config_text:SetPoint("LEFT", -23, 3);
 config_text:SetText("Config:")
 
 
-local function drop_onClick(name)
+local function config_drop_onClick(name)
 	lole_subcommands.setconfig(string.sub(name, 11)); -- these have the color string in front of them, length 10 
 end
  
@@ -191,19 +189,27 @@ function set_visible_dropdown_config(configname)
 end
 
 
-local function drop_initialize()
-   local info = {}
-   for n = 1, #drop_formatted_configs do
-     info.text = drop_formatted_configs[n];
-	 info.value = n;
-	 info.arg1 = info.text;
-	 info.checked = nil
-     info.func = drop_onClick;
-     UIDropDownMenu_AddButton(info)
-   end
- end
+local function config_drop_initialize()
+	local info = {}
+	
+	for n = 1, #drop_formatted_configs do
+		info.text = drop_formatted_configs[n];
+		info.value = n;
+		info.arg1 = info.text;
+		
+		if n == drop_formatted_config_indices[LOLE_CLASS_CONFIG.name] then
+			info.checked = 1
+		else
+			info.checked = nil;
+		end
+		
+		info.func = config_drop_onClick;
+		UIDropDownMenu_AddButton(info)
+	end
+end
  
-UIDropDownMenu_Initialize(config_dropdown, drop_initialize)
+UIDropDownMenu_Initialize(config_dropdown, config_drop_initialize)
+
 
 local follow_button = CreateFrame("Button", "follow_button", lole_frame, "UIPanelButtonTemplate")
 
@@ -259,6 +265,7 @@ update_target_button:SetScript("OnClick", function()
 	
 	if target_GUID ~= BLAST_TARGET_GUID then
 		if string.sub(target_GUID, 3, 6) == "F130" and (not UnitIsDead("target")) and UnitReaction("target", "player") < 5 then
+			set_target(UnitGUID("target"))
 			broadcast_target_GUID(UnitGUID("target"));
 			return;
 		else
@@ -308,8 +315,7 @@ function ctm_host:add_button(button_text)
 	button:SetPoint("TOPLEFT", self.first_pos_x, self.first_pos_y + self.increment*self.num_buttons);
 	button:SetScript("OnClick", ctm_host.exclusive_onclick)
 	
-	-- this is really bad, but the intention is that the first one is default
-	
+	-- this is really bad..	
 	if self.num_buttons == 1 then
 		button:SetChecked(true)
 		self.checkedID = 1
@@ -321,11 +327,63 @@ ctm_host.title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNo
 ctm_host.title_fontstr:SetPoint("TOPLEFT", ctm_host.first_pos_x-15, ctm_host.first_pos_y);
 ctm_host.title_fontstr:SetText(ctm_host.title)
 
+-- first one is default :P
+
 ctm_host:add_button("Local");
 ctm_host:add_button("Target");
 ctm_host:add_button("Everyone");
 ctm_host:add_button("Healers");
 ctm_host:add_button("Casters");
 ctm_host:add_button("Melee");
+
+
+
+-- local cc_dropdown = CreateFrame("Frame", "cc_dropdown", lole_frame, "UIDropDownMenuTemplate");
+-- cc_dropdown:SetPoint("TOPLEFT", 10, -200);
+
+-- cc_dropdown:SetScale(0.75);
+
+-- UIDropDownMenu_SetWidth(100, cc_dropdown)
+
+-- local function cc_drop_onClick(name, GUID)
+	-- echo("mu ballir " .. name .. " " .. GUID)
+-- end
+ 
+-- local function cc_drop_initialize()
+	
+	-- local info = {}
+	-- local n = 1;
+   
+	-- for i=1,4,1 do 
+		-- local exists = GetPartyMember(i)
+	 
+		-- if exists then
+			-- local id = "party" .. tostring(i)
+			-- local _, class, _ = UnitClass(id);
+			
+			-- if class == "MAGE" or
+			   -- class == "WARLOCK" or
+			   -- class == "DRUID" or
+			   -- class == "ROGUE" then
+				-- -- no other classes can CC, since we don't have a hunter or a rogue
+				-- info.text = UnitName(id);
+				-- info.value = n;
+				-- info.arg1 = info.text;
+				-- info.arg2 = UnitGUID(id);
+				-- info.checked = nil
+				-- info.func = cc_drop_onClick;
+				-- UIDropDownMenu_AddButton(info)
+				-- n = n + 1
+			-- end
+		-- end
+	-- end
+	
+-- end
+ 
+-- --UIDropDownMenu_Initialize(cc_dropdown, cc_drop_initialize)
+-- UIDropDownMenu_SetSelectedID(cc_dropdown, nil)
+
+
+
 
 

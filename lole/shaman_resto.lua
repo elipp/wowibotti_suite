@@ -117,7 +117,7 @@ config_shaman_resto.combat = function()
 		return;
 	end
 	
-	caster_range_check(35);
+	lole_opcode_funcs[LOLE_OPCODE_CASTER_RANGE_CHECK](35);
 	TargetUnit(lowest);
 	
 	local total_deficit = get_total_deficit(HP_deficits)

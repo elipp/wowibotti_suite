@@ -7,7 +7,7 @@ config_priest_holy.MODE_ATTRIBS = {
     ["combatbuffmode"] = 0,
 	["buffmode"] = 0,
     ["selfbuffmode"] = 0,
-    ["playermode"] = 0
+    ["playermode"] = 0,
 };
 
 config_priest_holy.SELF_BUFFS = {"Inner Fire"};
