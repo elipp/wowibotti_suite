@@ -369,7 +369,7 @@ static void __stdcall face_target() {
 
 	vec3 diff = t.get_pos() - p.get_pos();
 	click_to_move(p.get_pos() + 0.3*diff.unit(), CTM_MOVE, 0); 
-	// less than 0.5 is good for just changing orientation (without walking). see walk_to_unit_with_GUID
+	// less than 0.5 is good for just changing orientation (without walking). see click_to_move()
 
 	// The SetFacing function is effective on the local client level, 
 	// as it seems like the server still thinks the character is facing 

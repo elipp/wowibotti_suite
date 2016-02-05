@@ -112,13 +112,13 @@ local function act_on_CTM_broadcast(args)
 	
 end
 
-local function caster_range_check(minrange)
+function caster_range_check(minrange)
 	if LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] == 0 then
 		DelIgnore(LOLE_OPCODE_CASTER_RANGE_CHECK .. ":" .. tostring(minrange));
 	end
 end
 
-local function caster_face_target()
+function caster_face_target()
 	if LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] == 0 then
 		DelIgnore(LOLE_OPCODE_CASTER_FACE);
 	end

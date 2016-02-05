@@ -3,11 +3,18 @@ config_druid_balance.name = "druid_balance";
 
 config_druid_balance.role = ROLES.CASTER;
 
-config_druid_balance.MODE_ATTRIBS = {
-    ["combatbuffmode"] = 0,
-    ["buffmode"] = 0,
-    ["playermode"] = 0,
-};
+-- config_druid_balance.MODE_ATTRIBS = {
+    -- ["combatbuffmode"] = 0,
+    -- ["buffmode"] = 0,
+    -- ["playermode"] = 0,
+-- };
+
+config_druid_balance.MODE_ATTRIBS = {}
+
+config_druid_balance.MODE_ATTRIBS.buffmode = 0;
+config_druid_balance.MODE_ATTRIBS.combatbuffmode = 0;
+config_druid_balance.MODE_ATTRIBS.playermode = 0;
+
 
 config_druid_balance.SELF_BUFFS = {"Moonkin Form"}; 
 config_druid_balance.COLOR = CLASS_COLORS["druid"];
@@ -19,8 +26,8 @@ config_druid_balance.combat = function()
 		config_druid_balance.MODE_ATTRIBS["playermode"] = 0;
 	end
 
-	lole_opcode_funcs[LOLE_OPCODE_CASTER_RANGE_CHECK](35);
-	lole_opcode_funcs[LOLE_OPCODE_CASTER_FACE]();
+	caster_range_check(35);
+	caster_face_target();
 	
 	if UnitCastingInfo("player") then return; end
 

@@ -33,7 +33,7 @@ local function vexallus()
 
 	if tap_if_need_to() then return true; end
 
-	lole_opcode_funcs[LOLE_OPCODE_RANGE_CHECK](20); 
+	caster_range_check(30);
 	caster_face_target();
 
 	TargetUnit("Pure Energy")
@@ -91,9 +91,9 @@ config_warlock_sb.combat = function()
 	--vexallus()
 	--if true then return end
 	
-	lole_opcode_funcs[LOLE_OPCODE_CASTER_RANGE_CHECK](35);
-	lole_opcode_funcs[LOLE_OPCODE_CASTER_FACE]();
-	
+	caster_range_check(30);
+	caster_face_target();
+
 	
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end
