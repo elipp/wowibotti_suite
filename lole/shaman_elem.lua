@@ -1,21 +1,19 @@
-config_shaman_elem = {}
-config_shaman_elem.name = "shaman_elem";
 
-config_shaman_elem.role = ROLES.CASTER;
+local TOTEMS = {
+--["air"] = "Windfury Totem",
+["air"] = "Wrath of Air Totem",
+
+["earth"] = "Tremor Totem",
+--["earth"] = "Strength of Earth Totem",
+--["earth"] = "Stoneskin Totem",
+
+["water"] = "Mana Spring Totem",
+
+["fire"] = "Totem of Wrath"
+}
 
 
-config_shaman_elem.MODE_ATTRIBS = {
-    ["combatbuffmode"] = 0,
-    ["buffmode"] = 0,
-    ["playermode"] = 0
-};
-
-config_shaman_elem.SELF_BUFFS = {"Water Shield"};
-config_shaman_elem.COLOR = CLASS_COLORS["shaman"];
-
-local casting = false;
-
-config_shaman_elem.combat = function()
+config_shaman_elem_combat = function()
 
 	if UnitCastingInfo("player") then return; end
 
@@ -24,10 +22,8 @@ config_shaman_elem.combat = function()
 		return;
 	end
 	
-	if recast_totem_if_not_active_or_in_range("Tremor Totem") then return; end
-	if recast_totem_if_not_active_or_in_range("Totem of Wrath") then return; end
-	if recast_totem_if_not_active_or_in_range("Wrath of Air Totem") then return; end
-	if recast_totem_if_not_active_or_in_range("Mana Spring Totem") then return; end
+	if refresh_totems(TOTEMS) then return; end
+
 	
 	caster_range_check(30); 
 	caster_face_target();
@@ -36,22 +32,11 @@ config_shaman_elem.combat = function()
 	
 end
 
-config_shaman_elem.cooldowns = function() 
-
-	UseInventoryItem(13);
-	UseInventoryItem(14);
-	
-	cast_if_nocd("Elemental Mastery");
-	cast_if_nocd("Blood Fury");
-	cast_if_nocd("Bloodlust");
-	
-end
 
 config_shaman_elem.buffs = function()
 
     if SELF_BUFF_SPAM_TABLE[1] == nil then
-        config_shaman_elem.MODE_ATTRIBS["buffmode"] = 0;
-        echo("lole_set: attrib \"buffmode\" set to 0");
+        lole_subcommands.set("buffmode", 0)
     else
         buff_self();
     end
@@ -65,6 +50,3 @@ config_shaman_elem.desired_buffs = function()
 
 end
 
-config_shaman_elem.other = function()
-
-end;

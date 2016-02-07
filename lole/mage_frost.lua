@@ -1,20 +1,12 @@
-config_mage_frost = {}
-config_mage_frost.name = "mage_frost";
 
-config_mage_frost.role = ROLES.CASTER;
-
-
-config_mage_frost.MODE_ATTRIBS = { ["playermode"] = 0 };
-
-config_mage_frost.SELF_BUFFS = {"Molten Armor"};
-config_mage_frost.COLOR = CLASS_COLORS["mage"];
-
-config_mage_frost.combat = function()
+config_mage_frost_combat = function()
+	
+	caster_range_check(36); 
+	caster_face_target();
+	
 	if UnitCastingInfo("player") then return; end
-	local t = target_mob_with_charm("skull");
-	if (t < 1) then return; end
-
 	CastSpellByName("Frostbolt");
+
 end
 
 config_mage_frost.cooldowns = function() 
@@ -41,7 +33,3 @@ config_mage_frost.desired_buffs = function()
     return desired_buffs;
 
 end
-
-config_mage_frost.other = function()
-
-end;

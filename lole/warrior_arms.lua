@@ -9,18 +9,6 @@ local function auto_stancedance()
 
 end
 
-config_warrior_arms = {}
-config_warrior_arms.name = "warrior_arms";
-
-config_warrior_arms.SELF_BUFFS = { "Battle Shout" };
-
-config_warrior_arms.role = ROLES.MELEE;
-
-config_warrior_arms.MODE_ATTRIBS = {     
-	["playermode"] = 0
-}
-config_warrior_arms.COLOR = CLASS_COLORS["warrior"];
-
 local sw_frame;
 local swing_starttime = 0;
 local swing_duration = 0;
@@ -60,6 +48,7 @@ local function slam()
 	echo("dt: " .. tostring(dt) .. ", optimal_slam = " .. tostring(optimal_slam));
 
 	-- this margin is just arbitrary, not tested! also, on feenix the slam mechanic doesn't seem to be working as it should be..
+	-- ie. the swing timer is always reset when you start casting slam.
 	
 	if dt > optimal_slam + 0.2 and dt < optimal_slam + 0.3 then
 		if cast_if_nocd("Slam") then return end;
@@ -67,14 +56,14 @@ local function slam()
 	
 end
 
-config_warrior_arms.combat = function()
+config_warrior_arms_combat = function()
 		
 	if not validate_target() then return end
 	
 	melee_close_in() -- this is a hooked function that makes the warrior walk behind/toward the target.
 	-- CTM_MOVE_AND_ATTACK is performed, so no need to mess around with StartAttack()
 	
-	if UnitIsDead("target") then ClearTarget() end; -- this is probably not good, sometimes follow is lost?
+	if UnitIsDead("target") then ClearTarget() end; 
 	
 	if (not UnitAffectingCombat("player")) then
 		RunMacroText("/cast [nostance:1] Battle Stance"); -- charge doesnt work
@@ -123,15 +112,6 @@ config_warrior_arms.combat = function()
 	
 end
 
-config_warrior_arms.cooldowns = function() 
-
-end
-
-
-config_warrior_arms.buffs = function()
-
-end
-
 config_warrior_arms.desired_buffs = function()
 
     local desired_buffs = {
@@ -150,11 +130,7 @@ config_warrior_arms.desired_buffs = function()
     return desired_buffs;
 
 end
-
-config_warrior_arms.other = function()
-
-end;
-
+s
 
 
 

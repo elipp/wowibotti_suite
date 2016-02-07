@@ -1,14 +1,3 @@
-config_shaman_resto = {}
-config_shaman_resto.name = "shaman_resto";
-
-config_shaman_resto.MODE_ATTRIBS = {
-    ["combatbuffmode"] = 0,
-    ["buffmode"] = 0,
-    ["playermode"] = 0
-};
-
-config_shaman_resto.SELF_BUFFS = {"Water Shield"}; -- UNCOMMENT FOR PVP
-config_shaman_resto.COLOR = CLASS_COLORS["shaman"];
 
 local function refresh_ES(targetname) 
 	
@@ -84,15 +73,10 @@ local TOTEMS = {
 }
 
 
-local function refresh_totems()
-	for slot,name in pairs(TOTEMS) do
-		if recast_totem_if_noexists_or_OOR(name) then return true; end
-	end
-	return false;
-end
 
 
-config_shaman_resto.combat = function()
+
+function shaman_resto_combat = function()
 	
 	local ES_TARGET = "Adieux";
 	
@@ -103,7 +87,7 @@ config_shaman_resto.combat = function()
 		return;
 	end
 	
-	if refresh_totems() then return; end
+	if refresh_totems(TOTEMS) then return; end
 	
 	if refresh_ES(ES_TARGET) then return end
 	
@@ -146,15 +130,10 @@ config_shaman_resto.combat = function()
 
 end
 
-config_shaman_resto.cooldowns = function() 
-
-end
-
 config_shaman_resto.buffs = function()
 
     if SELF_BUFF_SPAM_TABLE[1] == nil then
-        config_shaman_resto.MODE_ATTRIBS["buffmode"] = 0;
-        echo("lole_set: attrib \"buffmode\" set to 0");
+        lole_subcommands.set("buffmode", 0)
     else
         buff_self();
     end
@@ -167,7 +146,3 @@ config_shaman_resto.desired_buffs = function()
     return desired_buffs;
 
 end
-
-config_shaman_resto.other = function()
-
-end;

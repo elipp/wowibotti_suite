@@ -1,21 +1,3 @@
-config_warlock_sb = {}
-config_warlock_sb.name = "warlock_sb";
-
-config_warlock_sb.role = ROLES.CASTER;
-
-
-config_warlock_sb.MODE_ATTRIBS = {
-    ["combatbuffmode"] = 0,
-    ["buffmode"] = 0,
-	["aoemode"] = 0,
-	["shardmode"] = 0,
-    ["playermode"] = 0
-};
-
-config_warlock_sb.SELF_BUFFS = {"Fel Armor"};
-
-config_warlock_sb.COLOR = CLASS_COLORS["warlock"];
-
 -- TODO: fel domination->summon succubus->demonic sacrifice
 
 local function tap_if_need_to() 
@@ -67,11 +49,7 @@ local function delrissa()
 
 end
 
-config_warlock_sb.combat = function()
-
-	if not config_warlock_sb.MODE_ATTRIBS["playermode"] then 
-		config_warlock_sb.MODE_ATTRIBS["playermode"] = 0;
-	end
+config_warlock_sb_combat = function()
 
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
@@ -100,7 +78,7 @@ config_warlock_sb.combat = function()
 
 	if tap_if_need_to() then return; end
 		
-	if config_warlock_sb.MODE_ATTRIBS["aoemode"] == 1 then			
+	if lole_subcommands.get("aoemode") == 1 then			
 		for i=1,16,1 do 
 			TargetNearestEnemy();
 			if (UnitExists("target") and not has_debuff_by_self("target", "Seed of Corruption")) then
@@ -109,13 +87,16 @@ config_warlock_sb.combat = function()
 			end
 		end
 		return;
-	elseif config_warlock_sb.MODE_ATTRIBS["shardmode"] == 1 then
-	    if (UnitExists("target") and not UnitIsDead("target") and UnitHealth("target") < 20000) then
-			--SpellStopCasting();
-			CastSpellByName("Drain Soul");
-			return;
-		end
 	end
+	-- same here, soul drain if less than N shards; TODO
+	
+	-- elseif config_warlock_sb.MODE_ATTRIBS["shardmode"] == 1 then
+	    -- if (UnitExists("target") and not UnitIsDead("target") and UnitHealth("target") < 20000) then
+			-- --SpellStopCasting();
+			-- CastSpellByName("Drain Soul");
+			-- return;
+		-- end
+	-- end
 
 	if not has_debuff("target", "Curse of the Elements") then
 		CastSpellByName("Curse of the Elements")
@@ -129,18 +110,11 @@ config_warlock_sb.combat = function()
 
 end
 
-config_warlock_sb.cooldowns = function() 
-
-	UseInventoryItem(13);
-	UseInventoryItem(14);
-
-end
 
 config_warlock_sb.buffs = function()
 
     if SELF_BUFF_SPAM_TABLE[1] == nil then
-        config_warlock_sb.MODE_ATTRIBS["buffmode"] = 0;
-        echo("lole_set: attrib \"buffmode\" set to 0");
+		lole_subcommands.set("buffmode", 0);
     else
         buff_self();
     end
@@ -154,6 +128,3 @@ config_warlock_sb.desired_buffs = function()
 
 end
 
-config_warlock_sb.other = function()
-
-end;

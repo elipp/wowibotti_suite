@@ -1,18 +1,4 @@
-config_paladin_retri = {}
-config_paladin_retri.name = "paladin_retri";
-
-config_paladin_retri.role = ROLES.MELEE;
-
-config_paladin_retri.MODE_ATTRIBS = {
-    ["combatbuffmode"] = 0,
-	["buffmode"] = 0,
-    ["playermode"] = 0
-};
-
-config_paladin_retri.SELF_BUFFS = {"Sanctity Aura"}
-config_paladin_retri.COLOR = CLASS_COLORS["paladin"];
-
-config_paladin_retri.combat = function()
+config_paladin_retri_combat = function()
 	
 	if cleanse_party("Arcane Shock") then return; end
 	
@@ -74,6 +60,3 @@ config_paladin_retri.desired_buffs = function()
 
 end
 
-config_paladin_retri.other = function()
-
-end;

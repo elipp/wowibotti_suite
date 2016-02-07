@@ -1,25 +1,5 @@
-config_paladin_prot = {}
-config_paladin_prot.name = "paladin_prot";
 
-config_paladin_prot.role = ROLES.TANK;
-
-
-config_paladin_prot.MODE_ATTRIBS = {
-    ["combatbuffmode"] = 0,
-	["buffmode"] = 0,
-    ["playermode"] = 0
-};
-
-config_paladin_prot.SELF_BUFFS = {"Righteous Fury", "Devotion Aura"};
-config_paladin_prot.COLOR = CLASS_COLORS["paladin"];
-
-config_paladin_prot.combat = function()
-
-    if not UnitExists("target") then
-        TargetNearestEnemy();
-    end
-
-    StartAttack("target");
+config_paladin_prot_combat = function()
 
     if not has_buff("player", "Holy Shield") then		
         if cast_if_nocd("Holy Shield") then return; end
@@ -101,6 +81,3 @@ config_paladin_prot.desired_buffs = function()
 
 end
 
-config_paladin_prot.other = function()
-
-end;

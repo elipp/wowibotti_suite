@@ -5,7 +5,7 @@ NOTARGET = "0x0000000000000000";
 BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 
-ROLES = { HEALER, CASTER, MELEE, TANK }
+ROLES = { healer, caster, melee, tank }
 
 -- http://wowwiki.wikia.com/wiki/Class_colors
 
@@ -99,7 +99,7 @@ end
 
 
 function get_config_mode_attribs(CONFIG)
-	return get_list_of_keys(CONFIG.MODE_ATTRIBS)
+	return get_list_of_keys(lole_subcommands.get())
 end
 
 

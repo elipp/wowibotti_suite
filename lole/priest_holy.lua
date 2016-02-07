@@ -1,21 +1,6 @@
-config_priest_holy = {}
-config_priest_holy.name = "priest_holy";
-
-config_priest_holy.role = ROLES.HEALER;
-
-config_priest_holy.MODE_ATTRIBS = {
-    ["combatbuffmode"] = 0,
-	["buffmode"] = 0,
-    ["selfbuffmode"] = 0,
-    ["playermode"] = 0,
-};
-
-config_priest_holy.SELF_BUFFS = {"Inner Fire"};
-config_priest_holy.COLOR = CLASS_COLORS["priest"];
-
 local pom_time = 0;
 
-config_priest_holy.combat = function()
+config_priest_holy_combat = function()
 
 	if UnitCastingInfo("player") then return; end;
 	
@@ -55,10 +40,6 @@ config_priest_holy.combat = function()
 	
 end
 
-config_priest_holy.cooldowns = function()
-
-end
-
 config_priest_holy.buffs = function(MISSING_BUFFS_COPY)
 
     if not BUFF_TABLE_READY then
@@ -93,6 +74,3 @@ config_priest_holy.desired_buffs = function()
 
 end
 
-config_priest_holy.other = function()
-
-end

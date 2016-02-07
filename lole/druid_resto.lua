@@ -1,18 +1,6 @@
-config_druid_resto = {}
-config_druid_resto.name = "druid_resto";
+config_druid_resto_combat = function()
 
-config_druid_resto.role = ROLES.HEALER;
-
-
-config_druid_resto.MODE_ATTRIBS = {
-	["playermode"] = 0
-}
-
-config_druid_resto.COLOR = CLASS_COLORS["druid"];
-
-config_druid_resto.combat = function()
-
-	TargetUnit("Josp");
+	TargetUnit("Josp"); 
 	local health_max = UnitHealthMax("target");
 	local health_cur = UnitHealth("target");
 	
@@ -87,6 +75,3 @@ config_druid_resto.desired_buffs = function()
 
 end
 
-config_druid_resto.other = function()
-
-end;

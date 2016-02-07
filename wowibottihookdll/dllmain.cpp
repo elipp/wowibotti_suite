@@ -211,7 +211,8 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 
 	static const uint
 		MOVE_AND_ATTACK_9A8 = 0x41571C71, // for M&A its something like 13.444
-		MOVE_AND_ATTACK_9AC = 0x406AAAAA; // 3.6666 (melee range?)
+	//	MOVE_AND_ATTACK_9AC = 0x406AAAAA; // 3.6666 (melee range?)
+		MOVE_AND_ATTACK_9AC = 0x3FC00000; // use 1.5 for this (test!) seems to work:P http://www.h-schmidt.net/FloatConverter/IEEE754.html
 
 	writeAddr(CTM_const_float_9A4, &ALL_9A4, sizeof(ALL_9A4));
 
@@ -880,8 +881,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		windowThread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
 		inj_hModule = hModule;
 
-		AllocConsole();
-		freopen("CONOUT$", "wb", stdout);
+		//AllocConsole();
+		//freopen("CONOUT$", "wb", stdout);
 		
 		break;
 

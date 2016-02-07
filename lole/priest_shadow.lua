@@ -1,21 +1,6 @@
-config_priest_shadow = {}
-config_priest_shadow.name = "priest_shadow";
-
-config_priest_shadow.MODE_ATTRIBS = {
-    ["combatbuffmode"] = 0,
-	["buffmode"] = 0,
-    ["selfbuffmode"] = 0,
-    ["playermode"] = 0
-};
-
-config_priest_shadow.COLOR = CLASS_COLORS["priest"];
-
 local ve_guard = false;
 
-config_priest_shadow.SELF_BUFFS = {"Inner Fire", "Shadowform"};
-
-
-config_priest_shadow.combat = function()
+config_priest_shadow_combat = function()
 
 	if UnitChannelInfo("player") then return; end	-- don't clip mind flay
 	if UnitCastingInfo("player") then return; end  
@@ -53,11 +38,6 @@ config_priest_shadow.combat = function()
 
 end
 
-config_priest_shadow.cooldowns = function()
-	UseInventoryItem(13);
-	UseInventoryItem(14);
-end
-
 config_priest_shadow.buffs = function(MISSING_BUFFS_COPY)
 
     if not BUFF_TABLE_READY then
@@ -90,6 +70,3 @@ config_priest_shadow.desired_buffs = function()
 
 end
 
-config_priest_shadow.other = function()
-
-end

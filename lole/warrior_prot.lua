@@ -9,16 +9,7 @@ local function auto_stancedance()
 
 end
 
-config_warrior_prot = {}
-config_warrior_prot.name = "warrior_prot";
-config_warrior_prot.SELF_BUFFS = {};
-config_warrior_prot.MODE_ATTRIBS = { ["playermode"] = 0 }
-config_warrior_prot.COLOR = CLASS_COLORS["warrior"]
-
-config_warrior_prot.role = ROLES.TANK;
-
-
-config_warrior_prot.combat = function()
+config_warrior_prot_combat = function()
 	
 	CastSpellByName("Heroic Strike");
 
@@ -55,14 +46,6 @@ config_warrior_prot.combat = function()
 
 end
 
-config_warrior_prot.cooldowns = function() 
-
-end
-
-
-config_warrior_prot.buffs = function()
-
-end
 
 config_warrior_prot.desired_buffs = function()
 
@@ -82,7 +65,3 @@ config_warrior_prot.desired_buffs = function()
     return desired_buffs;
 
 end
-
-config_warrior_prot.other = function()
-
-end;

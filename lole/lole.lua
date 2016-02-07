@@ -1,30 +1,9 @@
-LOLE_CLASS_CONFIG_NAME = "default";
-LOLE_CLASS_CONFIG_ATTRIBS = nil; -- listed in SavedVariablesPerCharacter
+LOLE_CLASS_CONFIG_NAME_SAVED = "default";
+LOLE_CLASS_CONFIG_ATTRIBS_SAVED = nil; -- listed in SavedVariablesPerCharacter
 
-local DEFAULT_CONFIG = { name = "default", COLOR = "FFFFFF", MODE_ATTRIBS = {}, desired_buffs = function() return {}; end, combat = function() end, buffs = function() end, other = function() end };
-LOLE_CLASS_CONFIG = DEFAULT_CONFIG;
+LOLE_CLASS_CONFIG = nil;
 
 LOLE_BLAST_STATE = nil;
-
-available_configs = {
-	default = DEFAULT_CONFIG,
-	druid_resto = config_druid_resto,
-	druid_balance = config_druid_balance,
-	mage_fire = config_mage_fire,
-	mage_frost = config_mage_frost,
-	paladin_prot = config_paladin_prot,
-	paladin_holy = config_paladin_holy,
-	paladin_retri = config_paladin_retri,
-    priest_holy = config_priest_holy,
-	priest_shadow = config_priest_shadow,
-	shaman_elem = config_shaman_elem,
-    shaman_resto = config_shaman_resto,
-	warlock_affli = config_warlock_affli,
-	warlock_sb = config_warlock_sb,
-	warrior_prot = config_warrior_prot,
-	warrior_arms = config_warrior_arms
-};
-
 
 
 local function usage()
@@ -71,17 +50,17 @@ function lole_main(args)
 		return;
 	end
 	
-    if LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] == 1 then
+    if lole_subcommands.get("playermode") == 1 then
         lole_buffs();
     else
         if (time() - LAST_BUFF_CHECK) > 30 then
             lole_buffcheck(nil, false);
-        elseif (LOLE_CLASS_CONFIG.MODE_ATTRIBS["combatbuffmode"] == 1 or LBUFFCHECK_ISSUED) and BUFFS_CHECKED and (time() - LAST_BUFF_CHECK) > 1 then
+        elseif (lole_subcommands.get("combatbuffmode") == 1 or LBUFFCHECK_ISSUED) and BUFFS_CHECKED and (time() - LAST_BUFF_CHECK) > 1 then
             lole_subcommands.set("buffmode", "on");
             BUFFS_CHECKED = false;
 			return;
         end
-        if LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] ~= 1 then
+        if lole_subcommands.get("playermode") ~= 1 then
             if UnitExists("focus") and UnitIsDead("focus") then 
 				ClearFocus()
 			end

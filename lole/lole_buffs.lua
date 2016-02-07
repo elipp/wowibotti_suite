@@ -68,7 +68,7 @@ function get_desired_buffs(role)
 end
 
 function lole_buffs()
-    if LOLE_CLASS_CONFIG.MODE_ATTRIBS["selfbuffmode"] ~= nil and LOLE_CLASS_CONFIG.MODE_ATTRIBS["selfbuffmode"] == 1 then
+    if lole_subcommands.get("selfbuffmode") == 1 then
         lole_selfbuffs();
     else
         if (LOLE_CLASS_CONFIG.buffs ~= nil) then
@@ -319,9 +319,8 @@ function buffs()
         buff_self();
     else
         MISSING_BUFFS = {};
-        LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] = 0;
+        lole_subcommands.get("playermode") = 0;
         LBUFFCHECK_ISSUED = false;
-        echo("lole_set: attrib \"buffmode\" set to 0");
     end
 
 end
@@ -342,8 +341,7 @@ function lole_selfbuffs()
     if SELF_BUFF_SPAM_TABLE[1] ~= nil then
         buff_self();
     else
-        LOLE_CLASS_CONFIG.MODE_ATTRIBS["buffmode"] = 0;
-        echo("lole_set: attrib \"buffmode\" set to 0");
+        lole_subcommands.get("playermode") = 0;
     end
 end
 

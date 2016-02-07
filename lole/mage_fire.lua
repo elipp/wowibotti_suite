@@ -1,20 +1,3 @@
-config_mage_fire = {}
-config_mage_fire.name = "mage_fire";
-
-config_mage_fire.role = ROLES.CASTER;
-
-
-config_mage_fire.MODE_ATTRIBS = {
-    ["buffmode"] = 0,
-    ["combatbuffmode"] = 0,
-    ["selfbuffmode"] = 0,
-	["scorchmode"] = 0,
-    ["playermode"] = 0
-};
-
-config_mage_fire.SELF_BUFFS = {"Molten Armor"};
-config_mage_fire.COLOR = CLASS_COLORS["mage"];
-
 local function delrissa()
 	
 	if keep_CCd("Warlord Salaris", "Polymorph") then return end
@@ -38,7 +21,7 @@ local function delrissa()
 
 end
 
-config_mage_fire.combat = function()
+config_mage_fire_combat = function()
 
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end -- mainly in reference to evocation
@@ -73,33 +56,26 @@ config_mage_fire.combat = function()
 	caster_range_check(36); 
 	caster_face_target();
 	
-	if config_mage_fire.MODE_ATTRIBS["scorchmode"] == 1 then
-		local num_stacks = get_num_debuff_stacks("target", "Fire Vulnerability");
-
-		if num_stacks < 5 then
-			CastSpellByName("Scorch");
-			return;
-		end
+	-- replace this shit with gettalentinfo :D
 	
-		local hasdebuff, timeleft = has_debuff("target", "Fire Vulnerability");
+	-- if <HAVE TALENT:IMPROVED SCORCH> then
+		-- local num_stacks = get_num_debuff_stacks("target", "Fire Vulnerability");
+
+		-- if num_stacks < 5 then
+			-- CastSpellByName("Scorch");
+			-- return;
+		-- end
+	
+		-- local hasdebuff, timeleft = has_debuff("target", "Fire Vulnerability");
 		
-		if (hasdebuff and timeleft < 8) then
-			CastSpellByName("Scorch");
-			return;
-		end
-	end
+		-- if (hasdebuff and timeleft < 8) then
+			-- CastSpellByName("Scorch");
+			-- return;
+		-- end
+	-- end
 	
 	CastSpellByName("Fireball");	
 		
-end
-
-config_mage_fire.cooldowns = function() 
-	UseInventoryItem(13);
-	UseInventoryItem(14);
-
-	cast_if_nocd("Berserking");
-	cast_if_nocd("Combustion");
-	cast_if_nocd("Icy Veins");
 end
 
 config_mage_fire.buffs = function(MISSING_BUFFS_COPY)
@@ -132,6 +108,3 @@ config_mage_fire.desired_buffs = function()
 
 end
 
-config_mage_fire.other = function()
-
-end;

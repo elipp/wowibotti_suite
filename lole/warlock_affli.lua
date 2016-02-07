@@ -1,25 +1,8 @@
-config_warlock_affli = {}
-
-config_warlock_affli.role = ROLES.CASTER;
-
-config_warlock_affli.MODE_ATTRIBS = {
-    ["combatbuffmode"] = 0,
-    ["buffmode"] = 0,
-	["aoemode"] = 0,
-	["shardmode"] = 0,
-    ["playermode"] = 0
-};
-
-config_warlock_affli.name = "warlock_affli";
-config_warlock_affli.SELF_BUFFS = {"Fel Armor"};
-config_warlock_affli.COLOR = CLASS_COLORS["warlock"];
-
-
 local tap_warning_given = false;
 local ua_guard = true;
 local immolate_guard = true;
 
-config_warlock_affli.combat = function()
+config_warlock_affli_combat = function()
 	
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
@@ -35,7 +18,7 @@ config_warlock_affli.combat = function()
 	if UnitChannelInfo("player") then return; end
 	if GetSpellCooldown("Corruption") > 0 then return; end -- check gcd. this could add unnecessary latency to spam though
 	
-	if config_warlock_affli.MODE_ATTRIBS["aoemode"] == 1 then
+	if lole_subcommands.get("aoemode") == 1 then
 		for i=1,16,1 do 
 			TargetNearestEnemy();
 			if (UnitExists("target") and not has_debuff_by_self("target", "Seed of Corruption")) then
@@ -43,13 +26,15 @@ config_warlock_affli.combat = function()
 				return;
 			end
 		end
-	elseif config_warlock_affli.MODE_ATTRIBS["shardmode"] == 1 then
-	    if (UnitExists("target") and not UnitIsDead("target") and UnitHealth("target") < 20000) then
-			--SpellStopCasting();
-			CastSpellByName("Drain Soul");
-			return;
-		end
 	end
+	-- REPLACE THIS WITH IF LESS THAN N SHARDS, SOUL DRAIN!
+	-- --elseif  == 1 then
+	    -- if (UnitExists("target") and not UnitIsDead("target") and UnitHealth("target") < 20000) then
+			-- --SpellStopCasting();
+			-- CastSpellByName("Drain Soul");
+			-- return;
+		-- end
+	-- end
 	
 	if mana < 2500 then
 		if UnitHealth("player") > 3500 then
@@ -103,21 +88,12 @@ config_warlock_affli.combat = function()
 	
 end
 
-config_warlock_affli.cooldowns = function()
+local BUFF_TABLE_READY = true;
 
-	UseInventoryItem(13);
-	UseInventoryItem(14);
-	
-	cast_if_nocd("Blood Fury");
-
-end
-
-BUFF_TABLE_READY = true;
 config_warlock_affli.buffs = function()
 
     if SELF_BUFF_SPAM_TABLE[1] == nil then
-        config_warlock_affli.MODE_ATTRIBS["buffmode"] = 0;
-        echo("lole_set: attrib \"buffmode\" set to 0");
+		lole_subcommands.set("buffmode", 0);
     else
         buff_self();
     end
@@ -131,6 +107,3 @@ config_warlock_affli.desired_buffs = function()
 
 end
 
-config_warlock_affli.other = function()
-
-end;

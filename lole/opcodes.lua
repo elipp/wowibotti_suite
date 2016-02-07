@@ -27,7 +27,7 @@ end
 
 local function target_unit_with_GUID(GUID_str_ciphered)
 
-	if LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] == 1 then return; end
+	if lole_subcommands.get("playermode") == 1 then return; end
 
 	local GUID_deciphered = decipher_GUID(GUID_str_ciphered);
 	
@@ -73,7 +73,7 @@ local function act_on_CTM_broadcast(args)
 
 	local modestr,GUID,x,y,z = unpack(tokenize_string(args, ","))
 
-	if LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] == 1 then
+	if lole_subcommands.get("playermode") == 1 then
 		return;
 	end
 	
@@ -113,19 +113,19 @@ local function act_on_CTM_broadcast(args)
 end
 
 function caster_range_check(minrange)
-	if LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] == 0 then
+	if lole_subcommands.get("playermode") == 0 then
 		DelIgnore(LOLE_OPCODE_CASTER_RANGE_CHECK .. ":" .. tostring(minrange));
 	end
 end
 
 function caster_face_target()
-	if LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] == 0 then
+	if lole_subcommands.get("playermode") == 0 then
 		DelIgnore(LOLE_OPCODE_CASTER_FACE);
 	end
 end
 
 local function stopfollow()
-	if LOLE_CLASS_CONFIG.MODE_ATTRIBS["playermode"] == 0 then
+	if lole_subcommands.get("playermode") == 0 then
 		DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. NOTARGET);
 	end
 end

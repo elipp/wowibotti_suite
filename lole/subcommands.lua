@@ -1,3 +1,30 @@
+local available_configs = {
+	default = create_class_config("default", {}, "FFFFFF", function() end, {}, 0),
+	druid_resto = create_class_config("druid_resto", {}, CLASS_COLORS["druid"], druid_resto_combat, {}, ROLES.caster),
+	druid_balance = create_class_config("druid_balance", {"Moonkin Form"}, CLASS_COLORS["druid"], druid_balance_combat, {"Barkskin"}, ROLES.caster),
+	mage_fire = create_class_config("mage_fire", {"Molten Armor"}, CLASS_COLORS["mage"], mage_fire_combat, {"Icy Veins", "Combustion"}, ROLES.caster),
+	mage_frost = create_class_config("mage_frost", {"Molten Armor"}, CLASS_COLORS["mage"], mage_frost_combat, {"Icy Veins"}, ROLES.caster),
+	paladin_prot = create_class_config("paladin_prot", {"Devotion Aura", "Righteous Fury"}, CLASS_COLORS["paladin"], paladin_prot_combat, {"Avenging Wrath"}, ROLES.tank),
+	paladin_holy = create_class_config("paladin_holy", {"Concentration Aura"}, CLASS_COLORS["paladin"], paladin_holy_combat, {"Divine Favor", "Divine Illumination"}, ROLES.healer),
+	paladin_retri = create_class_config("paladin_retri", {"Sanctity Aura"}, CLASS_COLORS["paladin"], paladin_retri_combat, {"Avenging Wrath"}, ROLES.melee),
+    priest_holy = create_class_config("priest_holy", {"Inner Fire"}, CLASS_COLORS["priest"], priest_holy_combat, {"Inner Focus"}, ROLES.healer),
+	priest_shadow = create_class_config("priest_shadow", {"Shadow Form", "Inner Fire"}, CLASS_COLORS["priest"], priest_shadow_combat, {"Inner Focus"}, ROLES.caster),
+	shaman_elem = create_class_config("shaman_elem", {"Water Shield"}, CLASS_COLORS["shaman"], shaman_elem_combat, {"Bloodlust", "Elemental Mastery"}, ROLES.caster),
+    shaman_resto = create_class_config("shaman_resto", {"Water Shield"}, CLASS_COLORS["shaman"], shaman_resto_combat, {"Bloodlust"}, ROLES.healer),
+	warlock_affli = create_class_config("warlock_affli", {"Fel Armor"}, CLASS_COLORS["warlock"], warlock_affli_combat, {}, ROLES.caster),
+	warlock_sb = create_class_config("warlock_sb", {"Fel Armor"}, CLASS_COLORS["warlock"], warlock_sb_combat, {}, ROLES.caster),
+	warrior_prot = create_class_config("warrior_prot", {"Commanding Shout"}, CLASS_COLORS["warrior"], warrior_prot_combat, {"Last Stand"}, ROLES.tank),
+	warrior_arms = create_class_config("warrior_arms", {"Battle Shout"}, CLASS_COLORS["warrior"], warrior_arms_combat, {"Death Wish"}, ROLES.melee),
+};
+
+
+local mode_attribs = {
+	playermode = 0,
+	buffmode = 0,
+	combatbuffmode = 0,
+	aoemode = 0
+}
+
 local function lole_setconfig(arg, modes) 
 	if (arg == nil or arg == "") then 
 		echo("lole_setconfig: erroneous argument!");
@@ -16,13 +43,12 @@ local function lole_setconfig(arg, modes)
 		set_visible_dropdown_config(arg) -- gui stuff
 		
 		if modes then
-			LOLE_CLASS_CONFIG_ATTRIBS = shallowcopy(modes);
-			LOLE_CLASS_CONFIG.MODE_ATTRIBS = shallowcopy(modes);
+			LOLE_CLASS_CONFIG_ATTRIBS_SAVED = shallowcopy(modes);
+			LOLE_CLASS_CONFIG = shallowcopy(modes);
 		else -- copy defaults
-			LOLE_CLASS_CONFIG_ATTRIBS = shallowcopy(LOLE_CLASS_CONFIG.MODE_ATTRIBS);
+			LOLE_CLASS_CONFIG_ATTRIBS_SAVED = shallowcopy(mode_attribs);
 		end
 		
-		--for key,value in pairs(LOLE_CLASS_CONFIG.MODE_ATTRIBS) do echo(key .. value) end
 		echo("lole_setconfig: config set to " .. LOLE_CLASS_CONFIG.name .. ".");
 	end
 	
@@ -36,18 +62,10 @@ local function lole_getconfig(arg)
 	
 	echo("lole: current config: |cFFFFFF00" .. str);
 	echo("mode attribs:");
-	for k,v in pairs(LOLE_CLASS_CONFIG.MODE_ATTRIBS) do echo("|cFFFFFF00" .. k .. ": " .. v); end
+	for k,v in pairs(mode_attribs) do echo("|cFFFFFF00" .. k .. ": " .. v); end
 	
 	return false;
 end
-
-local function lole_cooldowns()
-	if LOLE_CLASS_CONFIG.cooldowns ~= nil then
-		LOLE_CLASS_CONFIG.cooldowns();
-	end
-	return true;
-end
-
 
 local function lole_followme() 
 	send_opcode_addonmsg(LOLE_OPCODE_FOLLOW, cipher_GUID(UnitGUID("player")))
@@ -66,7 +84,7 @@ local function lole_set(attrib_name, on_off_str)
 		return false;
 	end
 	
-	if (LOLE_CLASS_CONFIG.MODE_ATTRIBS and LOLE_CLASS_CONFIG.MODE_ATTRIBS[attrib_name]) then
+	if modes[attrib_name] then
 		
 		local on_off_bool = get_int_from_strbool(on_off_str);
 		if on_off_bool < 0 then
@@ -74,7 +92,7 @@ local function lole_set(attrib_name, on_off_str)
 			return false;
 		end
 	
-		LOLE_CLASS_CONFIG.MODE_ATTRIBS[attrib_name] = on_off_bool;
+		modes[attrib_name] = on_off_bool;
         if attrib_name == "buffmode" then
             BUFF_TABLE_READY = false;
             if on_off_bool == 1 then
@@ -95,9 +113,22 @@ local function lole_set(attrib_name, on_off_str)
 	return true;
 end
 
+local function lole_get(attrib_name)
+	
+	if not attrib_name or attrib_name == "" then
+		return mode_attribs; -- return all attribs
+		
+	elseif (mode_attribs[attrib_name])
+		return mode_attribs[attrib_name];
+	end
+	
+	return nil;
+
+end
+
 local function lole_debug_dump_wowobjects()
 	DelIgnore(LOLE_DEBUG_OPCODE_DUMP);
-	echo("|cFF00FF96Dumped WowObjects to <DESKTOPDIR>\\wodump.log! ;)")
+	echo("|cFF00FF96Dumped WowObjects to <DESKTOPDIR>\\wodump.log (if you're injected!) ;)")
 	return true;
 end
 
@@ -156,6 +187,26 @@ local function lole_gui()
 	main_frame_show()
 end
 
+local function lole_cooldowns()
+	UseInventoryItem(13);
+	UseInventoryItem(14);
+	
+	local _, race = UnitRace("player");
+	
+	if race == "Orc" then
+		CastSpellByName("Blood Fury")
+	elseif race == "Troll" then
+		CastSpellByName("Berserking")
+	end
+	
+	for spell in LOLE_CLASS_CONFIG.cooldowns do
+		SpellStopCasting()
+		CastSpellByName(spell);
+	end
+	
+end
+
+
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
 	buffcheck = lole_buffcheck;
@@ -165,8 +216,10 @@ lole_subcommands = {
 	followme = lole_followme;
 	stopfollow = lole_stopfollow;
 	set = lole_set;
+	get = lole_get;
 	blast = lole_blast;
 	ctm = lole_ctm;
+	cooldowns = lole_cooldowns;
 	
 	gui = lole_gui;
 	

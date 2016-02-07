@@ -1,10 +1,4 @@
-local function cooldowns()
-	UseInventoryItem(13);
-	UseInventoryItem(14);
-end
-
-
-local function class_config_create(name, mode_attribs, self_buffs, color, combatfunc, cooldown_spells, buff_pref)
+local function class_config_create(name, self_buffs, color, combatfunc, cooldown_spells, role)
 	local config = {}
 	config.name = name;
 	config.mode_attribs = mode_attribs;
@@ -12,6 +6,7 @@ local function class_config_create(name, mode_attribs, self_buffs, color, combat
 	config.color = color;
 	config.combat = combatfunc;
 	config.cooldowns = cooldown_spells;
+	config.role = role;
 
 	return config;	
 end

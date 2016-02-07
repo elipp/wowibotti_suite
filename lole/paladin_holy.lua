@@ -1,19 +1,4 @@
-config_paladin_holy = {}
-config_paladin_holy.name = "paladin_holy";
-
-config_paladin_holy.role = ROLES.HEALER;
-
-
-config_paladin_holy.MODE_ATTRIBS = {
-    ["combatbuffmode"] = 0,
-	["buffmode"] = 0,
-    ["playermode"] = 0
-};
-
-config_paladin_holy.SELF_BUFFS = {"Concentration Aura"}
-config_paladin_holy.COLOR = CLASS_COLORS["paladin"];
-
-config_paladin_holy.combat = function()
+config_paladin_holy_combat = function()
 
 	TargetUnit("focus");
 	local mana_left = UnitMana("player");
@@ -85,6 +70,3 @@ config_paladin_holy.desired_buffs = function()
 
 end
 
-config_paladin_holy.other = function()
-
-end;

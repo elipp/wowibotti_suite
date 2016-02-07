@@ -4,9 +4,18 @@ lole_frame:RegisterEvent("PLAYER_REGEN_DISABLED"); -- this is fired when player 
 lole_frame:RegisterEvent("PLAYER_REGEN_ENABLED"); -- and this when combat is over
 lole_frame:RegisterEvent("PLAYER_DEAD");
 
+local every_nth_frame = 4
+local frame_modulo = 0
+
 lole_frame:SetScript("OnUpdate", function()
-	if LOLE_BLAST_STATE then
+	if LOLE_BLAST_STATE and frame_modulo == 0 then
 		lole_main();
+	end
+	
+	if frame_modulo >= every_nth_frame then -- mod would be better, but,
+		frame_modulo = 0
+	else
+		frame_modulo = frame_modulo + 1
 	end
 end);
 
@@ -16,8 +25,8 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 	if event == "ADDON_LOADED" then
 		if prefix ~= "lole" then return end
 
-		if LOLE_CLASS_CONFIG_NAME ~= nil then
-			lole_subcommands.setconfig(LOLE_CLASS_CONFIG_NAME, LOLE_CLASS_CONFIG_ATTRIBS);
+		if LOLE_CLASS_CONFIG_NAME_SAVED ~= nil then
+			lole_subcommands.setconfig(LOLE_CLASS_CONFIG_NAME_SAVED, LOLE_CLASS_CONFIG_ATTRIBS_SAVED);
 		else
 			lole_subcommands.setconfig("default");
 		end

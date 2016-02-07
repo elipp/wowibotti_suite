@@ -9,6 +9,8 @@ lole_buffs.lua
 opcodes.lua
 subcommands.lua
 
+class_config.lua
+
 druid_resto.lua
 druid_balance.lua
 paladin_holy.lua
@@ -34,4 +36,4 @@ lole.lua
 frame.lua
 
 
-##SavedVariablesPerCharacter: LOLE_CLASS_CONFIG_NAME LOLE_CLASS_CONFIG_ATTRIBS
+##SavedVariablesPerCharacter: LOLE_CLASS_CONFIG_NAME_SAVED LOLE_CLASS_CONFIG_ATTRIBS_SAVED
