@@ -73,9 +73,6 @@ local TOTEMS = {
 }
 
 
-
-
-
 function shaman_resto_combat = function()
 	
 	local ES_TARGET = "Adieux";
@@ -101,7 +98,7 @@ function shaman_resto_combat = function()
 		return;
 	end
 	
-	lole_opcode_funcs[LOLE_OPCODE_CASTER_RANGE_CHECK](35);
+	caster_range_check(35);
 	TargetUnit(lowest);
 	
 	local total_deficit = get_total_deficit(HP_deficits)
