@@ -1,4 +1,4 @@
-config_druid_resto_combat = function()
+combat_druid_resto = function()
 
 	TargetUnit("Josp"); 
 	local health_max = UnitHealthMax("target");
@@ -41,37 +41,6 @@ config_druid_resto_combat = function()
 		end
 	end
 	
-
-end
-
-config_druid_resto.buffs = function(MISSING_BUFFS_COPY)
-
-    if not BUFF_TABLE_READY then
-        local GROUP_BUFF_MAP = { 
-            ["Mark of the Wild"] = "Gift of the Wild",
-        };
-
-        local buffs = {
-            ["Mark of the Wild"] = MISSING_BUFFS_COPY["Mark of the Wild"],
-            ["Thorns"] = MISSING_BUFFS_COPY["Thorns"],
-        };
-        
-        local num_requests = get_num_buff_requests(buffs);
-        
-        if num_requests > 0 then
-            SPAM_TABLE = get_spam_table(buffs, GROUP_BUFF_MAP);
-            BUFF_TABLE_READY = true;
-        end
-    end
-
-    buffs();
-
-end
-
-config_druid_resto.desired_buffs = function()
-
-    local desired_buffs = get_desired_buffs("healer");
-    return desired_buffs;
 
 end
 

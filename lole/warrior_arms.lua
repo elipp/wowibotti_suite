@@ -56,7 +56,7 @@ local function slam()
 	
 end
 
-config_warrior_arms_combat = function()
+combat_warrior_arms = function()
 		
 	if not validate_target() then return end
 	
@@ -112,25 +112,6 @@ config_warrior_arms_combat = function()
 	
 end
 
-config_warrior_arms.desired_buffs = function()
-
-    local desired_buffs = {
-        "Blessing of Kings",
-        "Blessing of Might",
-        "Power Word: Fortitude",
-        "Divine Spirit",
-        "Mark of the Wild",
-        "Thorns",
-    }
-
-    if get_num_paladins() < 2 then
-        table.remove(desired_buffs, 2);
-    end
-
-    return desired_buffs;
-
-end
-s
 
 
 

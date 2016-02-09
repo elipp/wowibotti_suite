@@ -1,10 +1,7 @@
 LOLE_CLASS_CONFIG_NAME_SAVED = "default";
 LOLE_CLASS_CONFIG_ATTRIBS_SAVED = nil; -- listed in SavedVariablesPerCharacter
 
-LOLE_CLASS_CONFIG = nil;
-
 LOLE_BLAST_STATE = nil;
-
 
 local function usage()
 	echo("|cFFFFFF00/lole usage: /lole subcmd subcmd_arg");
@@ -12,8 +9,7 @@ local function usage()
 	echo(" - Available subcommands are: |cFFFFFF00\n" .. get_available_subcommands());
 	echo(" - Available class configs are: |cFFFFFF00\n" .. get_available_class_configs_pretty());	
 	
-	echo(" - Available mode attributes for this class config (" 
-	.. LOLE_CLASS_CONFIG.name .. ") are: |cFFFFFF00\n" .. get_config_mode_attribs(LOLE_CLASS_CONFIG))
+	echo(" - Available mode attributes (for /lole set) are: |cFFFFFF00\n" .. get_mode_attribs())
 	
 end
 
@@ -64,7 +60,8 @@ function lole_main(args)
             if UnitExists("focus") and UnitIsDead("focus") then 
 				ClearFocus()
 			end
-			LOLE_CLASS_CONFIG.combat();
+			--get_current_config().combat();--
+			combat_warrior_arms()
         end
     end
 		

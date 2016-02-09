@@ -1,20 +1,53 @@
+local LOLE_CLASS_CONFIG = nil;
+
 local available_configs = {
-	default = create_class_config("default", {}, "FFFFFF", function() end, {}, 0),
-	druid_resto = create_class_config("druid_resto", {}, CLASS_COLORS["druid"], druid_resto_combat, {}, ROLES.caster),
-	druid_balance = create_class_config("druid_balance", {"Moonkin Form"}, CLASS_COLORS["druid"], druid_balance_combat, {"Barkskin"}, ROLES.caster),
-	mage_fire = create_class_config("mage_fire", {"Molten Armor"}, CLASS_COLORS["mage"], mage_fire_combat, {"Icy Veins", "Combustion"}, ROLES.caster),
-	mage_frost = create_class_config("mage_frost", {"Molten Armor"}, CLASS_COLORS["mage"], mage_frost_combat, {"Icy Veins"}, ROLES.caster),
-	paladin_prot = create_class_config("paladin_prot", {"Devotion Aura", "Righteous Fury"}, CLASS_COLORS["paladin"], paladin_prot_combat, {"Avenging Wrath"}, ROLES.tank),
-	paladin_holy = create_class_config("paladin_holy", {"Concentration Aura"}, CLASS_COLORS["paladin"], paladin_holy_combat, {"Divine Favor", "Divine Illumination"}, ROLES.healer),
-	paladin_retri = create_class_config("paladin_retri", {"Sanctity Aura"}, CLASS_COLORS["paladin"], paladin_retri_combat, {"Avenging Wrath"}, ROLES.melee),
-    priest_holy = create_class_config("priest_holy", {"Inner Fire"}, CLASS_COLORS["priest"], priest_holy_combat, {"Inner Focus"}, ROLES.healer),
-	priest_shadow = create_class_config("priest_shadow", {"Shadow Form", "Inner Fire"}, CLASS_COLORS["priest"], priest_shadow_combat, {"Inner Focus"}, ROLES.caster),
-	shaman_elem = create_class_config("shaman_elem", {"Water Shield"}, CLASS_COLORS["shaman"], shaman_elem_combat, {"Bloodlust", "Elemental Mastery"}, ROLES.caster),
-    shaman_resto = create_class_config("shaman_resto", {"Water Shield"}, CLASS_COLORS["shaman"], shaman_resto_combat, {"Bloodlust"}, ROLES.healer),
-	warlock_affli = create_class_config("warlock_affli", {"Fel Armor"}, CLASS_COLORS["warlock"], warlock_affli_combat, {}, ROLES.caster),
-	warlock_sb = create_class_config("warlock_sb", {"Fel Armor"}, CLASS_COLORS["warlock"], warlock_sb_combat, {}, ROLES.caster),
-	warrior_prot = create_class_config("warrior_prot", {"Commanding Shout"}, CLASS_COLORS["warrior"], warrior_prot_combat, {"Last Stand"}, ROLES.tank),
-	warrior_arms = create_class_config("warrior_arms", {"Battle Shout"}, CLASS_COLORS["warrior"], warrior_arms_combat, {"Death Wish"}, ROLES.melee),
+	default = 
+	class_config_create("default", {}, {}, "FFFFFF", function() end, {}, 0),
+	
+	druid_resto = 
+	class_config_create("druid_resto", {"Mark of the Wild", "Thorns"}, {}, CLASS_COLORS["druid"], combat_druid_resto, {}, ROLES.caster),
+	
+	druid_balance = 
+	class_config_create("druid_balance", {"Mark of the Wild", "Thorns"}, {"Moonkin Form"}, CLASS_COLORS["druid"], combat_druid_balance, {"Barkskin"}, ROLES.caster),
+	
+	mage_fire = 
+	class_config_create("mage_fire", {"Arcane Intellect"}, {"Molten Armor"}, CLASS_COLORS["mage"], combat_mage_fire, {"Icy Veins", "Combustion"}, ROLES.caster),
+	
+	mage_frost = 
+	class_config_create("mage_frost", {"Arcane Intellect"}, {"Molten Armor"}, CLASS_COLORS["mage"], combat_mage_frost, {"Icy Veins"}, ROLES.caster),
+	
+	paladin_prot = 
+	class_config_create("paladin_prot", {}, {"Devotion Aura", "Righteous Fury"}, CLASS_COLORS["paladin"], combat_paladin_prot, {"Avenging Wrath"}, ROLES.tank),
+	
+	paladin_holy = 
+	class_config_create("paladin_holy", {}, {"Concentration Aura"}, CLASS_COLORS["paladin"], combat_paladin_holy, {"Divine Favor", "Divine Illumination"}, ROLES.healer),
+	
+	paladin_retri = 
+	class_config_create("paladin_retri", {}, {"Sanctity Aura"}, CLASS_COLORS["paladin"], combat_paladin_retri, {"Avenging Wrath"}, ROLES.melee),
+   
+	priest_holy = 
+	class_config_create("priest_holy", {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection"}, {"Inner Fire"}, CLASS_COLORS["priest"], combat_priest_holy, {"Inner Focus"}, ROLES.healer),
+	
+	priest_shadow = 
+	class_config_create("priest_shadow", {"Power Word: Fortitude", "Shadow Protection"}, {"Shadow Form", "Inner Fire"}, CLASS_COLORS["priest"], combat_priest_shadow, {"Inner Focus"}, ROLES.caster),
+	
+	shaman_elem = 
+	class_config_create("shaman_elem", {}, {"Water Shield"}, CLASS_COLORS["shaman"], combat_shaman_elem, {"Bloodlust", "Elemental Mastery"}, ROLES.caster),
+   
+	shaman_resto = 
+	class_config_create("shaman_resto", {}, {"Water Shield"}, CLASS_COLORS["shaman"], combat_shaman_resto, {"Bloodlust"}, ROLES.healer),
+	
+	warlock_affli = 
+	class_config_create("warlock_affli", {}, {"Fel Armor"}, CLASS_COLORS["warlock"], combat_warlock_affli, {}, ROLES.caster),
+	
+	warlock_sb = 
+	class_config_create("warlock_sb", {}, {"Fel Armor"}, CLASS_COLORS["warlock"], combat_warlock_sb, {}, ROLES.caster),
+	
+	warrior_prot = 
+	class_config_create("warrior_prot", {}, {"Commanding Shout"}, CLASS_COLORS["warrior"], combat_warrior_prot, {"Last Stand"}, ROLES.tank),
+	
+	warrior_arms = 
+	class_config_create("warrior_arms", {}, {"Battle Shout"}, CLASS_COLORS["warrior"], combat_warrior_arms, {"Death Wish"}, ROLES.melee),
 };
 
 
@@ -25,6 +58,14 @@ local mode_attribs = {
 	aoemode = 0
 }
 
+function get_available_configs() 
+	return available_configs;
+end
+
+function get_current_config()
+	return LOLE_CLASS_CONFIG
+end
+
 local function lole_setconfig(arg, modes) 
 	if (arg == nil or arg == "") then 
 		echo("lole_setconfig: erroneous argument!");
@@ -33,18 +74,20 @@ local function lole_setconfig(arg, modes)
 	
 	conf = available_configs[arg];
 	
-	if conf == nil then
+	if not conf then
 		echo("lole_setconfig: invalid config option \"" .. arg .. "\"! See lole.lua.");
+		return false;
 	else
 	
 		LOLE_CLASS_CONFIG = conf;
-		LOLE_CLASS_CONFIG_NAME = arg;
+		LOLE_CLASS_CONFIG_NAME_SAVED = arg;
 
 		set_visible_dropdown_config(arg) -- gui stuff
 		
 		if modes then
+			mode_attribs = shallowcopy(modes);
 			LOLE_CLASS_CONFIG_ATTRIBS_SAVED = shallowcopy(modes);
-			LOLE_CLASS_CONFIG = shallowcopy(modes);
+
 		else -- copy defaults
 			LOLE_CLASS_CONFIG_ATTRIBS_SAVED = shallowcopy(mode_attribs);
 		end
@@ -84,24 +127,26 @@ local function lole_set(attrib_name, on_off_str)
 		return false;
 	end
 	
-	if modes[attrib_name] then
+	if mode_attribs[attrib_name] then
 		
 		local on_off_bool = get_int_from_strbool(on_off_str);
 		if on_off_bool < 0 then
-			echo("lole_set: invalid argument \"" .. on_off_str .. "\" for attrib " .. attrib_name .. "! (use on/off)");
+			echo("lole_set: invalid argument \"" .. on_off_str .. "\" for attrib " .. attrib_name .. "! (use 1/on | 0/off)");
 			return false;
 		end
 	
-		modes[attrib_name] = on_off_bool;
+		mode_attribs[attrib_name] = on_off_bool;
         if attrib_name == "buffmode" then
             BUFF_TABLE_READY = false;
             if on_off_bool == 1 then
                 BUFF_TIME = GetTime();
             end
         else
-		    LOLE_CLASS_CONFIG_ATTRIBS[attrib_name] = on_off_bool;
+		    LOLE_CLASS_CONFIG_ATTRIBS_SAVED[attrib_name] = on_off_bool;
         end
+		
 		echo("lole_set: attrib \"" .. attrib_name .. "\" set to " .. on_off_bool);
+		
 		return true;
 		
 	else
@@ -118,7 +163,7 @@ local function lole_get(attrib_name)
 	if not attrib_name or attrib_name == "" then
 		return mode_attribs; -- return all attribs
 		
-	elseif (mode_attribs[attrib_name])
+	elseif (mode_attribs[attrib_name]) then
 		return mode_attribs[attrib_name];
 	end
 	
@@ -206,6 +251,106 @@ local function lole_cooldowns()
 	
 end
 
+local function lole_buffs()
+
+
+	if not BUFF_TABLE_READY then
+        local GROUP_BUFF_MAP, buffs = {}, {}
+		
+		
+		
+		for k, buff in pairs(get_current_config().buffs) do
+			if BUFF_ALIASES[buff] then
+				GROUP_BUFF_MAP[buff] = BUFF_ALIASES[buff];
+			end
+			if MISSING_BUFFS_COPY[buff] then
+				buffs[buff] = MISSING_BUFFS_COPY[buff]
+			end
+		end
+
+		-- a block like this can be found in druid_balance.lua, in the middle of the "usual" buffs() for classes that have an actual groupbuff
+		
+		-- if buffs["Mark of the Wild"] ~= nil then
+            -- SELF_BUFF_SPAM_TABLE[1] = "Moonkin Form";
+        -- end
+		
+		-- shaman_elem, shaman_resto, warlock_sb, warlock_affli had (only) this:
+		
+		-- if SELF_BUFF_SPAM_TABLE[1] == nil then
+			-- lole_subcommands.set("buffmode", 0);
+		-- else
+			-- buff_self();
+		-- end
+		
+		-- additionally, warlock_affli had this:
+		-- globally: BUFF_TABLE_READY = true (hmm?:D)
+		
+		
+		-- warrior_prot had this to remove additional blessings from its custom list of desired_buffs, if only 1 paladin:
+		
+		-- if get_num_paladins() < 2 then
+			-- table.remove(desired_buffs, 2);
+		-- end
+
+	
+        local num_requests = get_num_buff_requests(buffs);
+        
+        if num_requests > 0 then
+            SPAM_TABLE = get_spam_table(buffs, GROUP_BUFF_MAP);
+            BUFF_TABLE_READY = true;
+        end
+    end
+	
+	-- buffs() for paladin_holy and paladin_retri:
+	
+	-- if not BUFF_TABLE_READY then
+        -- local buffs = {
+            -- ["Greater Blessing of Salvation"] = MISSING_BUFFS_COPY["Blessing of Salvation"],
+            -- ["Greater Blessing of Wisdom"] = MISSING_BUFFS_COPY["Blessing of Wisdom"],
+            -- ["Greater Blessing of Might"] = MISSING_BUFFS_COPY["Blessing of Might"]
+        -- };
+
+        -- local num_paladins = get_num_paladins();
+        
+        -- if num_paladins < 2 then
+            -- buffs["Greater Blessing of Kings"] = MISSING_BUFFS_COPY["Blessing of Kings"];
+        -- end
+
+		-- local num_requests = get_num_buff_requests(buffs);		
+
+        -- if num_requests > 0 then
+            -- SPAM_TABLE = get_paladin_spam_table(buffs, num_requests);
+            -- BUFF_TABLE_READY = true;
+        -- end
+    -- end
+	
+	-- and for paladin_prot, its basically those buffs[] assignment blocks swapped
+	
+	-- if not BUFF_TABLE_READY then
+        -- local buffs = {
+            -- ["Greater Blessing of Kings"] = MISSING_BUFFS_COPY["Blessing of Kings"]
+        -- };
+
+        -- local num_paladins = get_num_paladins();
+
+        -- if num_paladins < 2 then
+            -- buffs["Greater Blessing of Salvation"] = MISSING_BUFFS_COPY["Blessing of Salvation"];
+            -- buffs["Greater Blessing of Wisdom"] = MISSING_BUFFS_COPY["Blessing of Wisdom"];
+            -- buffs["Greater Blessing of Might"] = MISSING_BUFFS_COPY["Blessing of Might"];
+        -- end
+
+        -- local num_requests = get_num_buff_requests(buffs);
+
+        -- if num_requests > 0 then
+            -- SPAM_TABLE = get_paladin_spam_table(buffs, num_requests);
+            -- BUFF_TABLE_READY = true;
+        -- end
+    -- end
+	
+
+    buffs();
+
+end
 
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
@@ -220,7 +365,7 @@ lole_subcommands = {
 	blast = lole_blast;
 	ctm = lole_ctm;
 	cooldowns = lole_cooldowns;
-	
+	buffs = lole_buffs;
 	gui = lole_gui;
 	
 	dump = lole_debug_dump_wowobjects;

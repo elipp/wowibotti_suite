@@ -6,10 +6,10 @@
 lole_common.lua
 lole_buffs.lua
 
+class_config.lua
+
 opcodes.lua
 subcommands.lua
-
-class_config.lua
 
 druid_resto.lua
 druid_balance.lua

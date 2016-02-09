@@ -88,7 +88,7 @@ end
 function get_available_class_configs_pretty()
 	local key_tab, n = {}, 1;
 	
-	for name, _ in pairsByKey(available_configs) do
+	for name, _ in pairsByKey(get_available_configs()) do
 		key_tab[n] = get_config_name_with_color(name);
 		n = n + 1;
 	end
@@ -98,7 +98,7 @@ function get_available_class_configs_pretty()
 end
 
 
-function get_config_mode_attribs(CONFIG)
+function get_mode_attribs()
 	return get_list_of_keys(lole_subcommands.get())
 end
 
@@ -129,7 +129,8 @@ function get_config_name_with_color(arg_config)
 	if arg_config == "default" then 
 		return "|r|rdefault";
 	else 
-		return "|cFF" .. available_configs[arg_config].COLOR .. available_configs[arg_config].name .. "|r";
+		local avconf = get_available_configs()
+		return "|cFF" .. avconf[arg_config].color .. avconf[arg_config].name .. "|r";
 	end
 
 end
@@ -354,9 +355,9 @@ end
 function get_int_from_strbool(strbool)
 	local rval = -1;
 	if strbool ~= nil then
-		if strbool == "on" then
+		if strbool == "on" or strbool == "1" or strbool == 1 then
 			rval = 1;
-		elseif strbool == "off" then
+		elseif strbool == "off" or strbool == "0" or strbool == 0 then
 			rval = 0;
 		end
 	end

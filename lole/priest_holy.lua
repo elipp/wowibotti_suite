@@ -1,6 +1,6 @@
 local pom_time = 0;
 
-config_priest_holy_combat = function()
+combat_priest_holy = function()
 
 	if UnitCastingInfo("player") then return; end;
 	
@@ -40,37 +40,4 @@ config_priest_holy_combat = function()
 	
 end
 
-config_priest_holy.buffs = function(MISSING_BUFFS_COPY)
-
-    if not BUFF_TABLE_READY then
-        local GROUP_BUFF_MAP = { 
-            ["Power Word: Fortitude"] = "Prayer of Fortitude",
-            ["Divine Spirit"] = "Prayer of Spirit",
-            ["Shadow Protection"] = "Prayer of Shadow Protection"
-        };
-
-        local buffs = {
-            ["Power Word: Fortitude"] = MISSING_BUFFS_COPY["Power Word: Fortitude"],
-            ["Divine Spirit"] = MISSING_BUFFS_COPY["Divine Spirit"],
-            ["Shadow Protection"] = MISSING_BUFFS_COPY["Shadow Protection"],
-        };
-
-        local num_requests = get_num_buff_requests(buffs);
-        
-        if num_requests > 0 then
-            SPAM_TABLE = get_spam_table(buffs, GROUP_BUFF_MAP);
-            BUFF_TABLE_READY = true;
-        end
-    end
-
-    buffs();
-
-end
-
-config_priest_holy.desired_buffs = function()
-
-    local desired_buffs = get_desired_buffs("healer");
-    return desired_buffs;
-
-end
 

@@ -33,7 +33,7 @@ BUFF_ALIASES = {
 
 function get_desired_buffs(role)
 
-    local dps_buffs = {
+    local caster_buffs = {
         "Blessing of Salvation",
         "Blessing of Kings",
         "Power Word: Fortitude",
@@ -50,14 +50,25 @@ function get_desired_buffs(role)
         "Arcane Intellect",
         "Mark of the Wild"
     };
+	
+	local melee_buffs = { -- from warrior_arms
+		"Blessing of Kings",
+        "Blessing of Might",
+        "Power Word: Fortitude",
+        "Divine Spirit",
+        "Mark of the Wild",
+        "Thorns"
+	}
 
     local desired_buffs;
-    if role == "dps" then
-        desired_buffs = dps_buffs;
-    elseif role == "healer" then
+    if role == ROLES.caster then
+        desired_buffs = caster_buffs;
+	elseif role == ROLES.melee then
+		desired_buffs = melee_buffs;
+    elseif role == ROLES.healer then
         desired_buffs = healer_buffs;
     else
-        return false;
+        return {};
     end
 
     if get_num_paladins() < 2 then
@@ -71,12 +82,12 @@ function lole_buffs()
     if lole_subcommands.get("selfbuffmode") == 1 then
         lole_selfbuffs();
     else
-        if (LOLE_CLASS_CONFIG.buffs ~= nil) then
+        if (get_current_config().buffs ~= nil) then
             local MISSING_BUFFS_COPY;
             if not BUFF_TABLE_READY then
                 MISSING_BUFFS_COPY = shallowcopy(MISSING_BUFFS);
             end
-            LOLE_CLASS_CONFIG.buffs(MISSING_BUFFS_COPY);
+			lole_subcommands.buffs(MISSING_BUFFS_COPY);
         end
     end
 end
@@ -136,7 +147,7 @@ function lole_buffcheck(arg, verbose)
         if verbose then
             echo("lole_buffcheck: requested missing/expiring buffs");
         end
-        local desired_buffs = LOLE_CLASS_CONFIG.desired_buffs();
+        local desired_buffs = get_desired_buffs(get_current_config().role);
         for i,bname in ipairs(desired_buffs) do
             local bname_alias = BUFF_ALIASES[bname];
             
@@ -154,9 +165,9 @@ function lole_buffcheck(arg, verbose)
         end
     end
 
-    if LOLE_CLASS_CONFIG.SELF_BUFFS ~= nil then
+    if get_current_config().self_buffs ~= nil then
         SELF_BUFF_SPAM_TABLE = {};
-        for i,bname in ipairs(LOLE_CLASS_CONFIG.SELF_BUFFS) do
+        for i,bname in ipairs(get_current_config().self_buffs) do
             if arg == "clean" then
                 if buffname_timeleft_map[bname] == 1000 then
                 else 
@@ -319,7 +330,7 @@ function buffs()
         buff_self();
     else
         MISSING_BUFFS = {};
-        lole_subcommands.get("playermode") = 0;
+        lole_subcommands.set("playermode", 0);
         LBUFFCHECK_ISSUED = false;
     end
 
@@ -341,7 +352,7 @@ function lole_selfbuffs()
     if SELF_BUFF_SPAM_TABLE[1] ~= nil then
         buff_self();
     else
-        lole_subcommands.get("playermode") = 0;
+        lole_subcommands.set("playermode", 0);
     end
 end
 

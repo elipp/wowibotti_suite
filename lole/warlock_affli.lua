@@ -88,22 +88,4 @@ config_warlock_affli_combat = function()
 	
 end
 
-local BUFF_TABLE_READY = true;
-
-config_warlock_affli.buffs = function()
-
-    if SELF_BUFF_SPAM_TABLE[1] == nil then
-		lole_subcommands.set("buffmode", 0);
-    else
-        buff_self();
-    end
-
-end
-
-config_warlock_affli.desired_buffs = function()
-
-    local desired_buffs = get_desired_buffs("dps");
-    return desired_buffs;
-
-end
 

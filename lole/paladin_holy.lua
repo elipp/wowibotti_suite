@@ -1,4 +1,4 @@
-config_paladin_holy_combat = function()
+combat_paladin_holy = function()
 
 	TargetUnit("focus");
 	local mana_left = UnitMana("player");
@@ -33,40 +33,6 @@ config_paladin_holy_combat = function()
 		cast_spell("Flash of Light");
 	end
 	
-
-end
-
-config_paladin_holy.buffs = function(MISSING_BUFFS_COPY)
-
-    if not BUFF_TABLE_READY then
-        local buffs = {
-            ["Greater Blessing of Salvation"] = MISSING_BUFFS_COPY["Blessing of Salvation"],
-            ["Greater Blessing of Wisdom"] = MISSING_BUFFS_COPY["Blessing of Wisdom"],
-            ["Greater Blessing of Might"] = MISSING_BUFFS_COPY["Blessing of Might"]
-        };
-
-        local num_paladins = get_num_paladins();
-        
-        if num_paladins < 2 then
-            buffs["Greater Blessing of Kings"] = MISSING_BUFFS_COPY["Blessing of Kings"];
-        end
-
-		local num_requests = get_num_buff_requests(buffs);		
-
-        if num_requests > 0 then
-            SPAM_TABLE = get_paladin_spam_table(buffs, num_requests);
-            BUFF_TABLE_READY = true;
-        end
-    end
-
-    buffs();
-
-end
-
-config_paladin_holy.desired_buffs = function()
-
-    local desired_buffs = get_desired_buffs("healer");
-    return desired_buffs;
 
 end
 

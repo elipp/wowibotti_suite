@@ -73,7 +73,7 @@ local TOTEMS = {
 }
 
 
-function shaman_resto_combat = function()
+combat_shaman_resto = function()
 	
 	local ES_TARGET = "Adieux";
 	
@@ -127,19 +127,3 @@ function shaman_resto_combat = function()
 
 end
 
-config_shaman_resto.buffs = function()
-
-    if SELF_BUFF_SPAM_TABLE[1] == nil then
-        lole_subcommands.set("buffmode", 0)
-    else
-        buff_self();
-    end
-
-end
-
-config_shaman_resto.desired_buffs = function()
-
-    local desired_buffs = get_desired_buffs("healer");
-    return desired_buffs;
-
-end

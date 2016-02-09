@@ -49,7 +49,7 @@ local function delrissa()
 
 end
 
-config_warlock_sb_combat = function()
+combat_warlock_sb = function()
 
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
@@ -110,21 +110,4 @@ config_warlock_sb_combat = function()
 
 end
 
-
-config_warlock_sb.buffs = function()
-
-    if SELF_BUFF_SPAM_TABLE[1] == nil then
-		lole_subcommands.set("buffmode", 0);
-    else
-        buff_self();
-    end
-
-end
-
-config_warlock_sb.desired_buffs = function()
-
-    local desired_buffs = get_desired_buffs("dps");
-    return desired_buffs;
-
-end
 

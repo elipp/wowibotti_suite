@@ -131,7 +131,7 @@ local function stopfollow()
 end
 
 local function blow_cooldowns()
-	lole_subcommands["lole_cooldowns"]()
+	lole_subcommands.lole_cooldowns()
 end
 
 

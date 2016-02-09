@@ -9,7 +9,7 @@ local function auto_stancedance()
 
 end
 
-config_warrior_prot_combat = function()
+combat_warrior_prot = function()
 	
 	CastSpellByName("Heroic Strike");
 
@@ -47,21 +47,3 @@ config_warrior_prot_combat = function()
 end
 
 
-config_warrior_prot.desired_buffs = function()
-
-    local desired_buffs = {
-        "Blessing of Kings",
-        "Blessing of Might",
-        "Power Word: Fortitude",
-        "Divine Spirit",
-        "Mark of the Wild",
-        "Thorns",
-    }
-
-    if get_num_paladins() < 2 then
-        table.remove(desired_buffs, 2);
-    end
-
-    return desired_buffs;
-
-end

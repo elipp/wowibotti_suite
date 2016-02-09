@@ -44,7 +44,6 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		end
 	end
 	
-	 -- necessary for the 
 	
 end
 
@@ -187,8 +186,8 @@ local drop_formatted_config_indices = {}
 
 local i = 1;
 
-for k, v in pairsByKey(available_configs) do
-	drop_formatted_configs[i] = "|cFF" .. v.COLOR .. k
+for k, v in pairsByKey(get_available_configs()) do
+	drop_formatted_configs[i] = "|cFF" .. v.color .. k
 	drop_formatted_config_indices[k] = i -- XD
 	i = i + 1;
 end
@@ -199,6 +198,8 @@ end
 
 
 local function config_drop_initialize()
+	if not get_current_config() then return end
+	
 	local info = {}
 	
 	for n = 1, #drop_formatted_configs do
@@ -206,7 +207,7 @@ local function config_drop_initialize()
 		info.value = n;
 		info.arg1 = info.text;
 		
-		if n == drop_formatted_config_indices[LOLE_CLASS_CONFIG.name] then
+		if n == drop_formatted_config_indices[get_current_config().name] then
 			info.checked = 1
 		else
 			info.checked = nil;

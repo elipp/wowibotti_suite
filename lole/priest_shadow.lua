@@ -1,6 +1,6 @@
 local ve_guard = false;
 
-config_priest_shadow_combat = function()
+combat_priest_shadow = function()
 
 	if UnitChannelInfo("player") then return; end	-- don't clip mind flay
 	if UnitCastingInfo("player") then return; end  
@@ -13,8 +13,8 @@ config_priest_shadow_combat = function()
 		return;
 	end
 	
-	lole_opcode_funcs[LOLE_OPCODE_CASTER_RANGE_CHECK](20); -- 20 yd on mind flay
-	lole_opcode_funcs[LOLE_OPCODE_CASTER_FACE]();
+	caster_range_check(20); -- 20 yd on mind flay  :()
+	caster_face();
 
 	if (UnitMana("player") < 4000 and UnitHealth("target") > 50000) then if cast_if_nocd("Shadowfiend") then return; end end
 	
@@ -35,38 +35,6 @@ config_priest_shadow_combat = function()
 		ve_guard = false;
 	end
 	
-
-end
-
-config_priest_shadow.buffs = function(MISSING_BUFFS_COPY)
-
-    if not BUFF_TABLE_READY then
-        local GROUP_BUFF_MAP = { 
-            ["Power Word: Fortitude"] = "Prayer of Fortitude",
-            ["Shadow Protection"] = "Prayer of Shadow Protection"
-        };
-
-        local buffs = {
-            ["Power Word: Fortitude"] = MISSING_BUFFS_COPY["Power Word: Fortitude"],
-            ["Shadow Protection"] = MISSING_BUFFS_COPY["Shadow Protection"],
-        };
-
-        local num_requests = get_num_buff_requests(buffs);
-        
-        if num_requests > 0 then
-            SPAM_TABLE = get_spam_table(buffs, GROUP_BUFF_MAP);
-            BUFF_TABLE_READY = true;
-        end
-    end
-
-    buffs();
-
-end
-
-config_priest_shadow.desired_buffs = function()
-
-    local desired_buffs = get_desired_buffs("dps");
-    return desired_buffs;
 
 end
 

@@ -13,7 +13,7 @@ local TOTEMS = {
 }
 
 
-config_shaman_elem_combat = function()
+combat_shaman_elem = function()
 
 	if UnitCastingInfo("player") then return; end
 
@@ -30,23 +30,5 @@ config_shaman_elem_combat = function()
 
 	CastSpellByName("Lightning Bolt");
 	
-end
-
-
-config_shaman_elem.buffs = function()
-
-    if SELF_BUFF_SPAM_TABLE[1] == nil then
-        lole_subcommands.set("buffmode", 0)
-    else
-        buff_self();
-    end
-
-end
-
-config_shaman_elem.desired_buffs = function()
-
-    local desired_buffs = get_desired_buffs("dps");
-    return desired_buffs;
-
 end
 
