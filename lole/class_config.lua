@@ -2,13 +2,14 @@ function class_config_create(name, buffs, self_buffs, color, combatfunc, cooldow
 	
 	local config = {}
 	config.name = name;
-	config.mode_attribs = mode_attribs;
 	config.buffs = buffs;
 	config.self_buffs = self_buffs;
 	config.color = color;
 	config.combat = combatfunc;
 	config.cooldowns = cooldown_spells;
 	config.role = role;
+	
+	echo(role)
 
 	return config;	
 end

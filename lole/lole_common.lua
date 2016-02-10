@@ -5,7 +5,7 @@ NOTARGET = "0x0000000000000000";
 BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 
-ROLES = { healer, caster, melee, tank }
+ROLES = { healer = 1, caster = 2, melee = 3, tank = 4 }
 
 -- http://wowwiki.wikia.com/wiki/Class_colors
 

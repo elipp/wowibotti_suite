@@ -46,7 +46,7 @@ function lole_main(args)
 		return;
 	end
 	
-    if lole_subcommands.get("playermode") == 1 then
+    if lole_subcommands.get("buffmode") == 1 then
         lole_buffs();
     else
         if (time() - LAST_BUFF_CHECK) > 30 then
@@ -60,8 +60,8 @@ function lole_main(args)
             if UnitExists("focus") and UnitIsDead("focus") then 
 				ClearFocus()
 			end
-			--get_current_config().combat();--
-			combat_warrior_arms()
+			get_current_config().combat();
+			
         end
     end
 		

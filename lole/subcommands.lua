@@ -205,7 +205,7 @@ local function lole_ctm(arg)
 		local target_GUID = UnitGUID("target")
 		if not target_GUID then return end
 		
-		echo("sending to target " .. target_GUID)
+		echo("sending CTM to target " .. target_GUID)
 		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. target_GUID .. "," .. arg)
 	
 		-- kinda redundant.
@@ -251,7 +251,7 @@ local function lole_cooldowns()
 	
 end
 
-local function lole_buffs()
+local function do_buffs()
 
 
 	if not BUFF_TABLE_READY then
@@ -365,7 +365,7 @@ lole_subcommands = {
 	blast = lole_blast;
 	ctm = lole_ctm;
 	cooldowns = lole_cooldowns;
-	buffs = lole_buffs;
+	buffs = do_buffs;
 	gui = lole_gui;
 	
 	dump = lole_debug_dump_wowobjects;

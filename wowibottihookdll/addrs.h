@@ -13,3 +13,11 @@
 #define LUA_DoString_addr 0x706C80
 #define SelectUnit_addr 0x4A6690
 
+// just as an intrigue, seems like the player's spellbook spells are at C6FB00 + 4*n :)
+
+// function at Wow.exe:7D8560 is of interest to clickable AOE spells. the aoe coordinates are at 7D85F3 (ESI+3C), where ESI seems to be mostly E1D828
+// E1D734 contains a mask. for aoe its 40.
+
+// 4D8450 seems to be a kind of input handler function :P
+
+// 6FAD80 is where the AOE coordinates are inserted into those addresses (the float array is passed as argument to this func, ARG.1)

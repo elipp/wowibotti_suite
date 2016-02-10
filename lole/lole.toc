@@ -8,9 +8,6 @@ lole_buffs.lua
 
 class_config.lua
 
-opcodes.lua
-subcommands.lua
-
 druid_resto.lua
 druid_balance.lua
 paladin_holy.lua
@@ -29,6 +26,9 @@ shaman_common.lua
 
 shaman_elem.lua
 shaman_resto.lua
+
+opcodes.lua
+subcommands.lua
 
 lole.xml
 lole.lua
