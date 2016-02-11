@@ -306,23 +306,7 @@ function validate_target()
 
 end
 
-function set_target(target_GUID)
-	--echo("calling set_target")
-  	DelIgnore(LOLE_OPCODE_TARGET_GUID .. ":" .. target_GUID); -- this does a C TargetUnit call :P
-    BLAST_TARGET_GUID = target_GUID;
-	FocusUnit("target")
-	update_target_text(UnitName("target"), UnitGUID("target"));
-	
-end
 
-function clear_target()
-	--echo("calling clear_target!");
-	BLAST_TARGET_GUID = NOTARGET;
-	ClearFocus();
-	ClearTarget();
-	update_target_text("-none-", "");
-
-end
 
 function melee_close_in()
 	ClosePetStables(); -- hooked XD

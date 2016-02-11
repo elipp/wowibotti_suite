@@ -142,7 +142,7 @@ function lole_buffcheck(arg, verbose)
         if verbose then
             echo("lole_buffcheck: requested full rebuffage");
         end
-        missing_table = LOLE_CLASS_CONFIG.desired_buffs();
+        missing_table = get_desired_buffs(get_current_config().role);
     else
         if verbose then
             echo("lole_buffcheck: requested missing/expiring buffs");

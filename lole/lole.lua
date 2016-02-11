@@ -1,8 +1,6 @@
 LOLE_CLASS_CONFIG_NAME_SAVED = "default";
 LOLE_CLASS_CONFIG_ATTRIBS_SAVED = nil; -- listed in SavedVariablesPerCharacter
 
-LOLE_BLAST_STATE = nil;
-
 local function usage()
 	echo("|cFFFFFF00/lole usage: /lole subcmd subcmd_arg");
 	

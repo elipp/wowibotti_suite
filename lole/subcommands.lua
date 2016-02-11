@@ -1,5 +1,7 @@
 local LOLE_CLASS_CONFIG = "default";
 
+local LOLE_BLAST_STATE = nil;
+
 local available_configs = {
 	default = 
 	class_config_create("default", {}, {}, "FFFFFF", function() end, {}, 0),
@@ -66,6 +68,14 @@ function get_current_config()
 	return available_configs[LOLE_CLASS_CONFIG]
 end
 
+function get_blast_state()
+	return LOLE_BLAST_STATE
+end
+
+function set_blast_state(state)
+	LOLE_BLAST_STATE = state
+end
+
 local function lole_setconfig(arg, modes) 
 	if (arg == nil or arg == "") then 
 		echo("lole_setconfig: erroneous argument!");
@@ -111,12 +121,12 @@ local function lole_getconfig(arg)
 end
 
 local function lole_followme() 
-	send_opcode_addonmsg(LOLE_OPCODE_FOLLOW, cipher_GUID(UnitGUID("player")))
+	broadcast_follow_target(UnitGUID("player"))
 	return true;
 end
 
 local function lole_stopfollow()
-	send_opcode_addonmsg(LOLE_OPCODE_FOLLOW, cipher_GUID(NOTARGET)) -- still needs the cipher.. :D
+	broadcast_follow_target(NOTARGET) -- still needs the cipher.. :D
 	return true;
 end
 
@@ -179,9 +189,9 @@ end
 
 local function lole_blast(arg)
 	if (arg == "on" or arg == "1") then
-		send_opcode_addonmsg(LOLE_OPCODE_BLAST, "1");
+		broadcast_blast_state("1");
 	elseif (arg == "off" or arg == "0") then
- 		send_opcode_addonmsg(LOLE_OPCODE_BLAST, "0");
+ 		broadcast_blast_state("0");
 	else
 		lole_error("lole_blast: need an argument (valid arguments: \"on\" / \"1\" or \"off\" / \"0\")");
 		return false;
@@ -193,37 +203,8 @@ end
 
 local function lole_ctm(arg)
 	local mode = get_CTM_mode();
-	
-	echo("calling lole ctm with arg " .. arg)
-	
-	-- could consider a jump table here
-	
-	if mode == CTM_MODES.LOCAL then
-		DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. arg);	
-				
-	elseif mode == CTM_MODES.TARGET then
-		local target_GUID = UnitGUID("target")
-		if not target_GUID then return end
 		
-		echo("sending CTM to target " .. target_GUID)
-		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. target_GUID .. "," .. arg)
-	
-		-- kinda redundant.
-	elseif mode == CTM_MODES.EVERYONE then
-		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
-	
-	elseif mode == CTM_MODES.HEALERS then
-		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
-	
-	elseif mode == CTM_MODES.CASTERS then
-		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
-
-	elseif mode == CTM_MODES.MELEE then
-		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
-	else
-		lole_error("lole_ctm: invalid mode: " .. tostring(mode));
-		return false;
-	end
+	send_CTM_broadcast(mode, arg)
 	
 	return true;
 end
@@ -256,8 +237,6 @@ local function do_buffs()
 
 	if not BUFF_TABLE_READY then
         local GROUP_BUFF_MAP, buffs = {}, {}
-		
-		
 		
 		for k, buff in pairs(get_current_config().buffs) do
 			if BUFF_ALIASES[buff] then

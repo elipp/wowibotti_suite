@@ -8,7 +8,7 @@ local every_nth_frame = 4
 local frame_modulo = 0
 
 lole_frame:SetScript("OnUpdate", function()
-	if LOLE_BLAST_STATE and frame_modulo == 0 then
+	if get_blast_state() and frame_modulo == 0 then
 		lole_main();
 	end
 	
@@ -40,7 +40,7 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 	
 	elseif event == "PLAYER_REGEN_DISABLED" then
 		if IsRaidLeader() then
-			send_opcode_addonmsg(LOLE_OPCODE_FOLLOW, cipher_GUID(NOTARGET));
+			broadcast_follow_target(NOTARGET);
 		end
 	end
 	
@@ -118,7 +118,6 @@ blast_checkbutton:SetScript("OnClick",
   function()
 	local arg = blast_checkbutton:GetChecked() and "1" or "0"; -- this is the lua equivalent of '?' in C :D
 	lole_subcommands.blast(arg)
-	send_opcode_addonmsg(LOLE_OPCODE_BLAST, arg)
   end
 );
 
