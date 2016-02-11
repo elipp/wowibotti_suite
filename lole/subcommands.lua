@@ -181,12 +181,6 @@ local function lole_get(attrib_name)
 
 end
 
-local function lole_debug_dump_wowobjects()
-	DelIgnore(LOLE_DEBUG_OPCODE_DUMP);
-	echo("|cFF00FF96Dumped WowObjects to <DESKTOPDIR>\\wodump.log (if you're injected!) ;)")
-	return true;
-end
-
 local function lole_blast(arg)
 	if (arg == "on" or arg == "1") then
 		broadcast_blast_state("1");

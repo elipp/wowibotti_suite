@@ -201,3 +201,8 @@ lole_opcode_funcs = {
 	[LOLE_OPCODE_COOLDOWNS] = blow_cooldowns
 }
 
+function lole_debug_dump_wowobjects()
+	DelIgnore(LOLE_DEBUG_OPCODE_DUMP);
+	echo("|cFF00FF96Dumped WowObjects to <DESKTOPDIR>\\wodump.log (if you're injected!) ;)")
+	return true;
+end

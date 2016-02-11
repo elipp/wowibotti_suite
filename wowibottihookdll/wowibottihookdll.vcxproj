@@ -145,6 +145,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="addrs.h" />
+    <ClInclude Include="automation.h" />
     <ClInclude Include="defs.h" />
     <ClInclude Include="hooks.h" />
     <ClInclude Include="ObjectManager.h" />
@@ -154,6 +155,7 @@
     <ClInclude Include="window.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="automation.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="hooks.cpp" />
     <ClCompile Include="ObjectManager.cpp" />
