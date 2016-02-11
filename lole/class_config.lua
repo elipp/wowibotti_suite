@@ -9,7 +9,5 @@ function class_config_create(name, buffs, self_buffs, color, combatfunc, cooldow
 	config.cooldowns = cooldown_spells;
 	config.role = role;
 	
-	echo(role)
-
 	return config;	
 end

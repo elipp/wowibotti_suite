@@ -1,4 +1,4 @@
-local LOLE_CLASS_CONFIG = nil;
+local LOLE_CLASS_CONFIG = "default";
 
 local available_configs = {
 	default = 
@@ -63,7 +63,7 @@ function get_available_configs()
 end
 
 function get_current_config()
-	return LOLE_CLASS_CONFIG
+	return available_configs[LOLE_CLASS_CONFIG]
 end
 
 local function lole_setconfig(arg, modes) 
@@ -79,7 +79,7 @@ local function lole_setconfig(arg, modes)
 		return false;
 	else
 	
-		LOLE_CLASS_CONFIG = conf;
+		LOLE_CLASS_CONFIG = arg;
 		LOLE_CLASS_CONFIG_NAME_SAVED = arg;
 
 		set_visible_dropdown_config(arg) -- gui stuff
@@ -92,7 +92,7 @@ local function lole_setconfig(arg, modes)
 			LOLE_CLASS_CONFIG_ATTRIBS_SAVED = shallowcopy(mode_attribs);
 		end
 		
-		echo("lole_setconfig: config set to " .. LOLE_CLASS_CONFIG.name .. ".");
+		echo("lole_setconfig: config set to " .. get_current_config().name .. ".");
 	end
 	
 	return true;
