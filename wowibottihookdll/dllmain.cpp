@@ -19,8 +19,8 @@
 
 #include "window.h"
 
-static int const (*LUA_DoString)(const char*, const char*, const char*) = (int const(*)(const char*, const char*, const char*)) LUA_DoString_addr;
-static int const (*SelectUnit)(GUID_t) = (int const(*)(GUID_t)) SelectUnit_addr;
+int const (*LUA_DoString)(const char*, const char*, const char*) = (int const(*)(const char*, const char*, const char*)) LUA_DoString_addr;
+int const (*SelectUnit)(GUID_t) = (int const(*)(GUID_t)) SelectUnit_addr;
 
 HINSTANCE  inj_hModule;          // HANDLE for injected module
 
@@ -70,7 +70,7 @@ static int patch_LUA_prot(HANDLE hProcess) {
 	return 1;
 }
 
-static void DoString(const char* format, ...) {
+void DoString(const char* format, ...) {
 	char cmd[1024];
 
 	va_list args;
@@ -267,23 +267,6 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 
 }
 
-static void tokenize_string(const std::string& str, const std::string& delim, std::vector<std::string>& tokens) {
-	size_t start, end = 0;
-	while (end < str.size()) {
-		start = end;
-		while (start < str.size() && (delim.find(str[start]) != std::string::npos)) {
-			start++;  // skip initial whitespace
-		}
-		end = start;
-		while (end < str.size() && (delim.find(str[end]) == std::string::npos)) {
-			end++; // skip to end of word
-		}
-		if (end - start != 0) {  // just ignore zero-length strings.
-			tokens.push_back(std::string(str, start, end - start));
-		}
-	}
-}
-
 static int dump_wowobjects_to_log() {
 
 	ObjectManager OM;
@@ -307,21 +290,26 @@ static int dump_wowobjects_to_log() {
 
 		while (next.valid()) {
 
-			if (!(next.get_type() == 1 || next.get_type() == 2)) {  // filter out items and containers :P
+			if (!(next.get_type() == OBJECT_TYPE_ITEM || next.get_type() == OBJECT_TYPE_CONTAINER)) {  // filter out items and containers :P
 				fprintf(fp, "object GUID: 0x%016llX, base addr = %X, type: %s\n", next.get_GUID(), next.get_base(), next.get_type_name().c_str());
 				
-				if (next.get_type() == 3 || next.get_type() == 4) { // 3 = NPC, 4 = Unit
+				if (next.get_type() == OBJECT_TYPE_NPC || next.get_type() == OBJECT_TYPE_UNIT) { 
 					vec3 pos = next.get_pos();
 					 fprintf(fp, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, next.get_rot());
 
-					if (next.get_type() == 3) {
-						fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX\n\n", next.NPC_get_name().c_str(), next.NPC_getCurHealth(), next.NPC_getMaxHealth(), next.NPC_get_target_GUID());
+					if (next.get_type() == OBJECT_TYPE_NPC) {
+						fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", next.NPC_get_name().c_str(), next.NPC_getCurHealth(), next.NPC_getMaxHealth(), next.NPC_get_target_GUID(), next.in_combat());
 					}
-					else if (next.get_type() == 4) {
-						fprintf(fp, "name: %s, target GUID: 0x%016llX\n\n", next.unit_get_name().c_str(), next.unit_get_target_GUID());
+					else if (next.get_type() == OBJECT_TYPE_UNIT) {
+						fprintf(fp, "name: %s, target GUID: 0x%016llX, combat = %d\n", next.unit_get_name().c_str(), next.unit_get_target_GUID(), next.in_combat());
+						fprintf(fp, "buffs:\n");
+						for (int n = 1; n <= 16; ++n) {
+							int spellID = next.unit_get_buff(n);
+							if (spellID) fprintf(fp, "%d: spellID = %u\n", n, spellID);
+						}
 					}
 				}
-				else if (next.get_type() == 6) {
+				else if (next.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
 					vec3 DO_pos = next.DO_get_pos();
 					fprintf(fp, "position: (%f, %f, %f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, next.DO_get_spellID());
 				}
@@ -508,7 +496,7 @@ static void __stdcall every_frame_hook_func() {
 }
 
 
-static void change_target(const std::string &arg) {
+void change_target(const std::string &arg) {
 
 	std::vector<std::string> tokens;
 
@@ -665,6 +653,9 @@ static void lole_nop(const std::string& arg) {
 	return;
 }
 
+static void lole_dungeon_script(const std::string &arg) {
+
+}
 
 typedef void(*hubfunc_t)(const std::string &);
 
@@ -678,7 +669,9 @@ typedef void(*hubfunc_t)(const std::string &);
 #define LOLE_OPCODE_GATHER_FOLLOW 0x4
 #define LOLE_OPCODE_CASTER_FACE 0x5
 #define LOLE_OPCODE_CTM_BROADCAST 0x6
-#define LOLE_OPCODE_CC 0x7
+#define LOLE_OPCODE_COOLDOWNS 0x7
+#define LOLE_OPCODE_CC 0x8
+#define LOLE_OPCODE_DUNGEON_SCRIPT 0x9
 
 #define LOLE_DEBUG_OPCODE_DUMP 0xF1
 
@@ -694,7 +687,9 @@ static const struct {
 	{"LOLE_FOLLOW", follow_unit_with_GUID, 1},
 	{"LOLE_CASTER_FACE", caster_face_target, 0},
 	{"LOLE_CTM_BROADCAST", act_on_CTM_broadcast, 3},
-	{"LOLE_CC", NULL, 3} // nyi
+	{"LOLE_COOLDOWNS", lole_nop, 3}, // nyi
+	{"LOLE_CC", lole_nop, 3},
+	{"LOLE_DUNGEON_SCRIPT", lole_dungeon_script, 1}
 };
 
 static const struct {
@@ -881,8 +876,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		windowThread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
 		inj_hModule = hModule;
 
-		//AllocConsole();
-		//freopen("CONOUT$", "wb", stdout);
+		AllocConsole();
+		freopen("CONOUT$", "wb", stdout);
 		
 		break;
 

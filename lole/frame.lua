@@ -3,6 +3,7 @@ lole_frame:RegisterEvent("ADDON_LOADED");
 lole_frame:RegisterEvent("PLAYER_REGEN_DISABLED"); -- this is fired when player enters combat
 lole_frame:RegisterEvent("PLAYER_REGEN_ENABLED"); -- and this when combat is over
 lole_frame:RegisterEvent("PLAYER_DEAD");
+lole_frame:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
 
 local every_nth_frame = 4
 local frame_modulo = 0
@@ -42,6 +43,8 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		if IsRaidLeader() then
 			broadcast_follow_target(NOTARGET);
 		end
+	elseif event == "UPDATE_BATTLEFIELD_STATUS" then
+		
 	end
 	
 	

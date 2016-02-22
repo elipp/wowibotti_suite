@@ -1,6 +1,8 @@
 #pragma once
 
 #include <Windows.h>
+#include <string>
+#include <vector>
 
 typedef unsigned long long GUID_t;
 typedef unsigned int uint; // looks kinda messy with all the "unsigned int"s
@@ -74,6 +76,22 @@ inline SIZE_T writeAddr(unsigned int mem, const void *data, size_t bytes) {
 	return read;
 }
 
+inline void tokenize_string(const std::string& str, const std::string& delim, std::vector<std::string>& tokens) {
+	size_t start, end = 0;
+	while (end < str.size()) {
+		start = end;
+		while (start < str.size() && (delim.find(str[start]) != std::string::npos)) {
+			start++;  // skip initial whitespace
+		}
+		end = start;
+		while (end < str.size() && (delim.find(str[end]) == std::string::npos)) {
+			end++; // skip to end of word
+		}
+		if (end - start != 0) {  // just ignore zero-length strings.
+			tokens.push_back(std::string(str, start, end - start));
+		}
+	}
+}
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

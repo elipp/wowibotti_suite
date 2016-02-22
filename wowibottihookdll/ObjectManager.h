@@ -4,6 +4,20 @@
 
 #include "defs.h"
 
+enum {
+	OBJECT_TYPE_OBJECT = 0,
+	OBJECT_TYPE_ITEM = 1,
+	OBJECT_TYPE_CONTAINER = 2,
+	OBJECT_TYPE_NPC = 3,
+	OBJECT_TYPE_UNIT = 4,
+	OBJECT_TYPE_GAMEOBJECT = 5,
+	OBJECT_TYPE_DYNAMICOBJECT = 6,
+	OBJECT_TYPE_CORPSE = 7,
+	OBJECT_TYPE_AREATRIGGER = 8,
+	OBJECT_TYPE_SCENEOBJECT = 9
+};
+
+
 class WowObject {
 private:
 	// these are offsets from the base addr of the object
@@ -16,7 +30,7 @@ private:
 		Y = X + 4,
 		Z = X + 8,
 		R = X + 12,
-		Field = 0x120,
+		info_field = 0x120,
 		Name = 0xDB8,
 		NPCcurrentHealth = 0x11E8,
 		NPCcurrentMana = 0x11EC,
@@ -71,6 +85,10 @@ public:
 	std::string unit_get_name() const;
 
 	GUID_t unit_get_target_GUID() const;
+
+	int in_combat() const;
+
+	uint unit_get_buff(int index) const;
 
 	std::string get_type_name() const;
 

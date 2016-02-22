@@ -9,9 +9,10 @@ LOLE_OPCODE_FOLLOW,  -- this also includes walking to the target
 LOLE_OPCODE_CASTER_FACE,
 LOLE_OPCODE_CTM_BROADCAST,
 LOLE_OPCODE_COOLDOWNS,
-LOLE_OPCODE_CC
+LOLE_OPCODE_CC,
+LOLE_OPCODE_DUNGEON_SCRIPT
 
-= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05", "LOP_06", "LOP_07", "LOP_08"
+= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05", "LOP_06", "LOP_07", "LOP_08", "LOP_09"
 
 local LOLE_DEBUG_OPCODE_DUMP = "LOP_81";
 
@@ -189,6 +190,9 @@ local function blow_cooldowns()
 	lole_subcommands.lole_cooldowns()
 end
 
+local function load_dungeon_script(script)
+
+end
 
 lole_opcode_funcs = {
 	[LOLE_OPCODE_NOP] = nop,
@@ -198,7 +202,9 @@ lole_opcode_funcs = {
 	[LOLE_OPCODE_FOLLOW] = follow_unit_with_GUID,
 	[LOLE_OPCODE_CASTER_FACE] = caster_face_target,
 	[LOLE_OPCODE_CTM_BROADCAST] = act_on_CTM_broadcast,
-	[LOLE_OPCODE_COOLDOWNS] = blow_cooldowns
+	[LOLE_OPCODE_COOLDOWNS] = blow_cooldowns,
+	[LOLE_OPCODE_CC] = set_cc_target,
+	[LOLE_OPCODE_DUNGEON_SCRIPT] = load_dungeon_script
 }
 
 function lole_debug_dump_wowobjects()

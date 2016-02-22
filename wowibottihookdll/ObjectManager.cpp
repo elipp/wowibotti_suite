@@ -1,10 +1,13 @@
 #include "ObjectManager.h"
 
+extern int const (*SelectUnit)(GUID_t);
+extern void DoString(const char* format, ...);
+
 static const std::string type_names[] = {
 	"0 : OBJECT",
 	"1 : ITEM",
 	"2 : CONTAINER",
-	"3 : UNIT",
+	"3 : NPC",
 	"4 : PLAYER",
 	"5 : GAMEOBJECT",
 	"6 : DYNAMICOBJECT",
@@ -185,6 +188,45 @@ GUID_t WowObject::unit_get_target_GUID() const {
 	readAddr(base + UnitTargetGUID, &target_GUID, sizeof(target_GUID));
 	return target_GUID;
 }
+
+uint WowObject::unit_get_buff(int index) const {
+
+	//static const void(*buff_init)(void *) = (const void(*)(void*))0x615D40;
+
+	if (!(DEREF(base + 0xF18) & 0x40000)) {
+		// the function 615D40 will set up this flag. The first time one calls WOWAPI UnitBuff(), this is called. 
+		// Segfault otherwise (ie. doing this without the flag 40000 set)
+		GUID_t GUID = get_GUID();
+		SelectUnit(GUID);
+		DoString("UnitBuff(\"target\", 1)"); // this should call the initialization function XDD
+		
+											 //return 0;
+	}
+
+	uint edx = DEREF(base + 0x1150);
+	uint al = 0xFF & DEREF(edx + (index - 1));
+
+	if (al == 0xFF) {
+		printf("no buff at index %d!\n", index);
+		return 0;
+	}
+
+
+	uint buff_spellid = DEREF(al * 4 + DEREF(base + 0x120) + 0xA8);
+
+	// ok, it's not this straight forward. the function 616000 (called at 546603) needs to be reversed. affects the index*4 part.
+
+	//printf("info = %X, buff_spellid should be at %p\n", info, *(uint*)info + index*4 + 0xA8);
+
+	return buff_spellid;
+}
+
+int WowObject::in_combat() const {
+	uint mask = (DEREF(DEREF(base + 0x120) + 0xA0)) >> 0x13; // ref: 544BA0 (WOWAPI UnitAffectingCombat): 544BE0 onwards
+	return mask & 0x1;
+}
+
+
 
 WowObject::WowObject(unsigned int addr) : base(addr) {};
 WowObject::WowObject() {};
