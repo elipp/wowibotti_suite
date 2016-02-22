@@ -98,11 +98,11 @@ config_warrior_arms.combat = function()
 	if cast_if_nocd("Mortal Strike") then return; end
 	if cast_if_nocd("Whirlwind") then return; end
 	
-	--if UnitRage("player") > 60 then
+	if UnitMana("player") > 60 then
 		--if GetTime() - swing_starttime < 1.5 then
-		--	if cast_if_nocd("Slam") then return end;
+		if cast_if_nocd("Slam") then return end;
 		--end
-	--end
+	end
 	
 	if not has_buff("player", "Battle Shout") then
 		CastSpellByName("Battle Shout");
