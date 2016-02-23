@@ -57,24 +57,22 @@ lole_frame:SetWidth(250)
 lole_frame:SetPoint("RIGHT")
 
 
-
 local backdrop = {
-bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",  
-edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-  -- true to repeat the background texture to fill the frame, false to scale it
-tile = false,
-  -- size (width or height) of the square repeating background tiles (in pixels)
-tileSize = 32,
-  -- thickness of edge segments and square size of edge corners (in pixels)
-edgeSize = 12,
-  -- distance from the edges of the frame to those of the background texture (in pixels)
-insets = {
-	left = 0,
-	right = 0,
-	top = 0,
-	bottom = 0
-}
-
+	bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",  
+	edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+	  -- true to repeat the background texture to fill the frame, false to scale it
+	tile = false,
+	  -- size (width or height) of the square repeating background tiles (in pixels)
+	tileSize = 32,
+	  -- thickness of edge segments and square size of edge corners (in pixels)
+	edgeSize = 12,
+	  -- distance from the edges of the frame to those of the background texture (in pixels)
+	insets = {
+		left = 0,
+		right = 0,
+		top = 0,
+		bottom = 0
+	}
 }
 
 lole_frame:SetBackdrop(backdrop)
@@ -276,7 +274,8 @@ update_target_button:SetScript("OnClick", function()
 	local target_GUID = UnitGUID("target");
 	
 	if target_GUID ~= BLAST_TARGET_GUID then
-		if string.sub(target_GUID, 3, 6) == "F130" and (not UnitIsDead("target")) and UnitReaction("target", "player") < 5 then
+		-- mob GUIDs always start with 0xF130
+		if string.sub(target_GUID, 1, 6) == "0xF130" and (not UnitIsDead("target")) and UnitReaction("target", "player") < 5 then
 			set_target(UnitGUID("target"))
 			broadcast_target_GUID(UnitGUID("target"));
 			return;
@@ -348,54 +347,318 @@ ctm_host:add_button("Healers");
 ctm_host:add_button("Casters");
 ctm_host:add_button("Melee");
 
-
-
--- local cc_dropdown = CreateFrame("Frame", "cc_dropdown", lole_frame, "UIDropDownMenuTemplate");
--- cc_dropdown:SetPoint("TOPLEFT", 10, -200);
-
--- cc_dropdown:SetScale(0.75);
-
--- UIDropDownMenu_SetWidth(100, cc_dropdown)
-
--- local function cc_drop_onClick(name, GUID)
-	-- echo("mu ballir " .. name .. " " .. GUID)
--- end
- 
--- local function cc_drop_initialize()
+local function get_available_CC()
+	local CC_table = nil
 	
-	-- local info = {}
-	-- local n = 1;
-   
-	-- for i=1,4,1 do 
-		-- local exists = GetPartyMember(i)
-	 
-		-- if exists then
-			-- local id = "party" .. tostring(i)
-			-- local _, class, _ = UnitClass(id);
+	for i=1,4,1 do 
+		local exists = GetPartyMember(i)
+		if exists then
+			if not CC_table then CC_table = {} end
 			
-			-- if class == "MAGE" or
-			   -- class == "WARLOCK" or
-			   -- class == "DRUID" or
-			   -- class == "ROGUE" then
-				-- -- no other classes can CC, since we don't have a hunter or a rogue
-				-- info.text = UnitName(id);
+			local id = "party" .. tostring(i)
+			local name = UnitName(id)
+			local _, class, _ = UnitClass(id);
+			
+			if class == "MAGE" then
+				CC_table[name] = { "Polymorph" }
+			elseif class == "WARLOCK" then
+				CC_table[name] = { "Fear", "Banish" }
+			elseif class == "DRUID" then
+				CC_table[name] = { "Cyclone", "Hibernate", "Entangling Roots" }
+			end
+		end
+	end
+	
+	return CC_table;
+end
+
+local CC_state = {}
+local num_CC_targets = 0
+local CC_base_y = -140
+
+local function delete_CC_entry(CC_entry)
+	local CC_host = CC_entry:GetParent()
+
+	if CC_host.ID > num_CC_targets then
+		lole_error("attempting to delete CC entry " .. CC_host.ID  .. " (index too damn high!)")
+		return false
+	end
+	
+	-- if it's the last one that's being deleted, it's easy.
+	
+	if CC_host.ID  == num_CC_targets then
+		table.remove(CC_state)
+		num_CC_targets = num_CC_targets - 1
+		CC_host:Hide() -- there's no way to really destroy a Frame in wow LUA
+		return
+	end
+
+	--local num_relocate = num_CC_targets - CC_host.ID;
+	--echo("need to relocate " .. num_relocate .. " CC entries.")
+	
+	local hostID = CC_host.ID
+	
+	CC_host:Hide()
+	table.remove(CC_state, hostID);
+	num_CC_targets = num_CC_targets - 1
+	
+	for i = hostID, num_CC_targets do 
+		CC_state[i]:SetPoint("TOPLEFT", 18, CC_base_y - 20*i)
+		CC_state[i].ID = i;
+	end
+		
+end
+
+local CC_spells = {
+	Polymorph = 118,
+	Sheep = 118,
+	Cyclone = 33786,
+	["Entangling Roots"] = 26989,
+	Roots = 26989,
+	Banish = 18647,
+	Fear = 6215,
+	Shackle = 10955,
+	["Shackle Undead"] = 10955
+}
+
+local CC_frame_backdrop = {
+	--bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",  
+	edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+	  -- true to repeat the background texture to fill the frame, false to scale it
+	tile = false,
+	  -- size (width or height) of the square repeating background tiles (in pixels)
+	tileSize = 32,
+	  -- thickness of edge segments and square size of edge corners (in pixels)
+	edgeSize = 8,
+	  -- distance from the edges of the frame to those of the background texture (in pixels)
+	insets = {
+		left = 0,
+		right = 0,
+		top = 0,
+		bottom = 0
+	}
+}
+
+local function new_CC(char, spell, marker)
+	-- echo("Asking " .. trim_string(char) .. " to do " .. trim_string(spell) .. " on " .. trim_string(marker) .. "!")
+
+	if not UnitExists(char) then
+		lole_error("Character " .. char .. " doesn't appear to exist!")
+		return false
+	end
+	
+	local spellID = CC_spells[spell]
+	
+	if not spellID then 
+		lole_error("Unknown spell " .. spell .. "!");
+		return false
+	end
+	
+	local name, rank, icon, castTime, minRange, maxRange = GetSpellInfo(spellID)
+
+	if not get_marker_index(marker) then
+		lole_error("Invalid marker name " .. marker .. "!")
+		return false
+	end
+		
+	num_CC_targets = num_CC_targets + 1
+		
+	local CC_host = CreateFrame("Frame", nil, lole_frame);
+	
+	CC_host:SetWidth(100)
+	CC_host:SetHeight(22)
+	
+	CC_host:SetBackdrop(CC_frame_backdrop)
+	
+	local y = CC_base_y - (num_CC_targets*20)
+	
+	CC_host:SetPoint("TOPLEFT", 18, y)
+	
+	CC_host.ID = num_CC_targets;
+	
+	local icon_frame = CreateFrame("Frame", nil, CC_host)
+	icon_frame:SetWidth(16)
+	icon_frame:SetHeight(16)
+
+	local icon_texture = icon_frame:CreateTexture(nil,"BACKGROUND")
+	icon_texture:SetTexture(icon)
+	icon_texture:SetAllPoints(icon_frame)
+	
+	icon_frame.texture = icon_texture
+
+	local y = -140 - (num_CC_targets*20)
+	
+	icon_frame:SetPoint("TOPLEFT", 60, -3)
+	icon_frame:Show()
+	
+	local caster_char_text = CC_host:CreateFontString(nil, "OVERLAY")
+	caster_char_text:SetFont("Fonts\\FRIZQT__.TTF", 9);
+	
+	caster_char_text:SetPoint("TOPLEFT", 3, -6);
+	caster_char_text:SetText("|cFF" .. class_color(UnitClass(char)) .. char)
+	
+	local marker_frame = CreateFrame("Frame", nil, CC_host)
+	marker_frame:SetWidth(16)
+	marker_frame:SetHeight(16)
+	
+	local marker_texture = marker_frame:CreateTexture(nil, "BACKGROUND");
+	marker_texture:SetTexture("Interface\\TARGETINGFRAME\\UI-RaidTargetingIcon_" .. get_marker_index(marker))
+	marker_texture:SetAllPoints(marker_frame)
+	
+	marker_frame.texture = marker_texture
+	
+	marker_frame:SetPoint("TOPLEFT", 80, -3);
+	marker_frame:Show()
+	
+	local delete_button = CreateFrame("Button", nil, CC_host)
+	
+	delete_button:SetWidth(12)
+	delete_button:SetHeight(12)
+	
+	delete_button:SetPoint("TOPLEFT", -12, -4);
+	
+	delete_button:SetNormalTexture("Interface\\Buttons\\UI-MinusButton-Up");
+	--delete_button:SetHighlightTexture("Interface\\Buttons\\UI-MinusButton-Highlight"
+	delete_button:SetPushedTexture("Interface\\Buttons\\UI-MinusButton-Down");
+	
+	delete_button:SetScript("OnClick", function(self) delete_CC_entry(self) end)
+	
+	CC_state[num_CC_targets] = CC_host;
+	
+end
+
+StaticPopupDialogs["ADD_CC_DIALOG"] = {
+	text = "CC syntax: <char>, <spell>, <marker>",
+	button1 = "OK",
+	button2 = "Cancel",
+
+	timeout = 0,
+	whileDead = 1,
+	hideOnEscape = 1,
+	hasEditBox = 1,
+	hasWideEditBox = 1,
+	
+	OnShow = function()
+		getglobal(this:GetName().."WideEditBox"):SetText("")
+	end,
+	
+	OnAccept = function()
+		local text = getglobal(this:GetParent():GetName().."WideEditBox"):GetText()
+		local char, spell, marker = strsplit(",", text);
+		new_CC(trim_string(char), trim_string(spell), trim_string(marker))
+	end,
+  
+};
+
+
+-- spare these in case ;P
+
+
+-- local cc_dropdowns = {}
+-- local num_cc_dropdowns = 0
+	
+-- local cc_drop_onClick = function(name, GUID)
+	-- echo("clicked on  " .. name .. " " .. GUID)
+	-- UIDropDownMenu_SetSelectedID(cc_dropdowns[1], 2)
+-- end
+
+-- local function create_cc_dropdown()
+	
+	-- num_cc_dropdowns = num_cc_dropdowns + 1
+	
+	-- local y = -260 - (num_cc_dropdowns * 30)
+	
+	-- local cc_dropdown = CreateFrame("Frame", "cc_dropdown" .. tostring(num_cc_dropdowns), lole_frame, "UIDropDownMenuTemplate");
+	-- cc_dropdown:SetScale(0.55);
+	-- cc_dropdown:SetPoint("TOPLEFT", 10, y);
+	-- UIDropDownMenu_SetWidth(100, cc_dropdown)
+	
+	-- local available_CC = get_available_CC();
+
+	-- local cc_drop_initialize = function()
+	
+		-- local info = {}
+		-- local n = 1;
+	   
+	   	-- info.text = "Select char";
+		-- info.value = n;
+	
+		-- UIDropDownMenu_AddButton(info)
+		-- n = n + 1
+	   
+		-- if not available_CC then
+			-- info.text = "CC N/A"
+			-- info.value = 1;
+			-- info.checked = nil;
+			-- UIDropDownMenu_AddButton(info)
+		-- else
+			-- for name, spells in pairs(available_CC) do
+			
+				-- info.text = name;
 				-- info.value = n;
-				-- info.arg1 = info.text;
-				-- info.arg2 = UnitGUID(id);
+				-- info.arg1 = name;
+				-- info.arg2 = UnitGUID(name);
 				-- info.checked = nil
 				-- info.func = cc_drop_onClick;
 				-- UIDropDownMenu_AddButton(info)
 				-- n = n + 1
+				
 			-- end
 		-- end
 	-- end
 	
+	-- UIDropDownMenu_Initialize(cc_dropdown, cc_drop_initialize)
+	-- UIDropDownMenu_SetSelectedID(cc_dropdown, 1)
+
+	-- local cc_spell_dropdown_initialize = function()
+		
+		-- local selected_id = UIDropDownMenu_GetSelectedValue(cc_dropdown);
+		-- local m = 1;
+		
+		-- echo(tostring(selected_id))
+		
+		-- if not selected_id then
+			-- echo("pillu.")
+			-- info.text = "NO CHAR YET"
+			-- info.value = 1;
+			-- info.checked = true
+			-- UIDropDownMenu_AddButton(info);
+			-- m = m + 1
+			-- return
+		-- else 
+			-- local selected_name = UIDropDownMenu_GetSelectedName(cc_dropdown);
+			-- for i, spell in pairs(available_CC[selected_name]) do
+				-- info.text = spell
+				-- info.value = m;
+				-- info.checked = nil
+				-- UIDropDownMenu_AddButton(info);
+				-- m = m + 1
+			-- end
+		-- end
+	-- end
+
+	-- local cc_spell_dropdown = CreateFrame("Frame", "cc_spell_dropdown" .. tostring(num_cc_dropdowns), cc_dropdown, "UIDropDownMenuTemplate");
+	-- cc_spell_dropdown:SetPoint("TOPLEFT", 120, 0);
+	-- UIDropDownMenu_SetWidth(100, cc_spell_dropdown)
+
+	-- UIDropDownMenu_Initialize(cc_spell_dropdown, cc_spell_dropdown_initialize)
+	-- UIDropDownMenu_SetSelectedID(cc_spell_dropdown, 1)
+
+	-- cc_dropdowns[num_cc_dropdowns] = cc_dropdown
+
 -- end
- 
--- --UIDropDownMenu_Initialize(cc_dropdown, cc_drop_initialize)
--- UIDropDownMenu_SetSelectedID(cc_dropdown, nil)
 
 
+local add_cc_button = CreateFrame("Button", "add_cc_button", lole_frame, "UIPanelButtonTemplate")
+add_cc_button:SetScale(0.75)
 
+add_cc_button:SetPoint("TOPLEFT", 22, -175);
+add_cc_button:SetHeight(27)
+add_cc_button:SetWidth(85)
 
+add_cc_button:SetText("Add CC...");
+
+add_cc_button:SetScript("OnClick", function()
+	StaticPopup_Show("ADD_CC_DIALOG")
+end)
 

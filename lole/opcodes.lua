@@ -21,6 +21,9 @@ function send_opcode_addonmsg(opcode, message)
 	SendAddonMessage("lole_opcode", opcode .. ":" .. message, "PARTY");
 end
 
+function send_opcode_addonmsg_to(opcode, message, to)
+	SendAddonMessage("lole_opcode", opcode .. ":" .. message, "WHISPER", to)
+end
 
 local function nop() return end
 
@@ -188,6 +191,18 @@ end
 
 local function blow_cooldowns()
 	lole_subcommands.lole_cooldowns()
+end
+
+local function set_cc_target()
+	-- this assings the CC request into a static var or something like that :D
+end
+
+function enable_cc_target(name, spell, marker)
+	send_opcode_addonmsg_to(LOLE_OPCODE_CC, "1" .. "," .. spell .. "," .. marker, name)
+end
+
+function disable_cc_target(name, marker)
+	send_opcode_addonmsg_to(LOLE_OPCODE_CC, "0" .. "," .. marker, name)
 end
 
 local function load_dungeon_script(script)

@@ -267,6 +267,12 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 
 }
 
+static GUID_t get_raid_target_GUID(int index) {
+	GUID_t GUID;
+	readAddr(0xC6F700 + index * 8, &GUID, sizeof(GUID)); // these are stored at the static address C6F700 until C6F764
+	return GUID;
+}
+
 static int dump_wowobjects_to_log() {
 
 	ObjectManager OM;

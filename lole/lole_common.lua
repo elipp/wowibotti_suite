@@ -9,18 +9,48 @@ ROLES = { healer = 1, caster = 2, melee = 3, tank = 4 }
 
 -- http://wowwiki.wikia.com/wiki/Class_colors
 
-CLASS_COLORS = {
+local CLASS_COLORS = {
 	druid = "FF7D0A",
+	DRUID = "FF7D0A",
+	Druid = "FF7D0A",
+	
 	hunter = "ABD473",
+	HUNTER = "ABD473",
+	Hunter = "ABD473",
+	
 	mage = "69CCF0",
+	MAGE = "69CCF0",
+	Mage = "69CCF0",
+	
 	paladin = "F58CBA",
+	PALADIN = "F58CBA",
+	Paladin = "F58CBA",
+	
 	priest = "FFFFFF",
+	PRIEST = "FFFFFF",
+	Priest = "FFFFFF",
+	
 	rogue = "FFF569",
+	ROGUE = "FFF569",
+	Rogue = "FFF569",
+	
 	shaman = "0070DE",
+	SHAMAN = "0070DE",
+	Shaman = "0070DE",
+	
 	warlock = "9482C9",
-	warrior = "C79C6E"
+	WARLOCK = "9482C9",
+	Warlock = "9482C9",
+	
+	warrior = "C79C6E",
+	WARRIOR = "C79C6E",
+	Warrior = "C79C6E",
 }
 
+
+function class_color(class)
+	return CLASS_COLORS[class]
+end
 
 function echo(text) 
     DEFAULT_CHAT_FRAME:AddMessage("lole: " .. tostring(text))
@@ -110,15 +140,37 @@ end
 local raid_target_indices = {
 
 ["star"] = 1,
+["Star"] = 1,
+
 ["circle"] = 2,
+["Circle"] = 2,
+
 ["diamond"] = 3,
+["Diamond"] = 3,
+
 ["triangle"] = 4,
+["Triangle"] = 4,
+
 ["crescent"] = 5,
+["Crescent"] = 5,
+
+["moon"] = 5,
+["Moon"] = 5,
+
 ["square"] = 6,
+["Square"] = 6,
+
 ["cross"] = 7,
+["Cross"] = 7,
+
 ["skull"] = 8,
+["Skull"] = 8
 
 }
+
+function get_marker_index(name)
+	return raid_target_indices[name]
+end
 
 CS_CASTING, CS_TIMESTAMP, CS_CASTTIME, CS_TARGET = 1, 2, 3, 4;
 NOT_CASTING = { false, 0.0, 0.0, "none" };
@@ -386,5 +438,8 @@ function tokenize_string(str, sep)
         return fields
 end
 
+function trim_string(s)
+  return (s:gsub("^%s*(.-)%s*$", "%1"))
+end
 
 
