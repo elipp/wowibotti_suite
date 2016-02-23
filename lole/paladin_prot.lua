@@ -1,5 +1,5 @@
 
-paladin_prot_combat = function()
+combat_paladin_prot = function()
 
     if not has_buff("player", "Holy Shield") then		
         if cast_if_nocd("Holy Shield") then return; end

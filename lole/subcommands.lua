@@ -19,13 +19,13 @@ local available_configs = {
 	class_config_create("mage_frost", {"Arcane Intellect"}, {"Molten Armor"}, class_color("mage"), combat_mage_frost, {"Icy Veins"}, ROLES.caster),
 	
 	paladin_prot = 
-	class_config_create("paladin_prot", {}, {"Devotion Aura", "Righteous Fury"}, class_color("paladin"), combat_paladin_prot, {"Avenging Wrath"}, ROLES.tank),
+	class_config_create("paladin_prot", {}, {"Devotion Aura", "Righteous Fury"}, class_color("paladin"), combat_paladin_prot, {"Avenging Wrath"}, ROLES.paladin_tank),
 	
 	paladin_holy = 
 	class_config_create("paladin_holy", {}, {"Concentration Aura"}, class_color("paladin"), combat_paladin_holy, {"Divine Favor", "Divine Illumination"}, ROLES.healer),
 	
 	paladin_retri = 
-	class_config_create("paladin_retri", {}, {"Sanctity Aura"}, class_color("paladin"), combat_paladin_retri, {"Avenging Wrath"}, ROLES.melee),
+	class_config_create("paladin_retri", {}, {"Sanctity Aura"}, class_color("paladin"), combat_paladin_retri, {"Avenging Wrath"}, ROLES.caster),
    
 	priest_holy = 
 	class_config_create("priest_holy", {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection"}, {"Inner Fire"}, class_color("priest"), combat_priest_holy, {"Inner Focus"}, ROLES.healer),
@@ -46,10 +46,10 @@ local available_configs = {
 	class_config_create("warlock_sb", {}, {"Fel Armor"}, class_color("warlock"), combat_warlock_sb, {}, ROLES.caster),
 	
 	warrior_prot = 
-	class_config_create("warrior_prot", {}, {"Commanding Shout"}, class_color("warrior"), combat_warrior_prot, {"Last Stand"}, ROLES.tank),
+	class_config_create("warrior_prot", {}, {"Commanding Shout"}, class_color("warrior"), combat_warrior_prot, {"Last Stand"}, ROLES.warrior_tank),
 	
 	warrior_arms = 
-	class_config_create("warrior_arms", {}, {"Battle Shout"}, class_color("warrior"), combat_warrior_arms, {"Death Wish"}, ROLES.melee),
+	class_config_create("warrior_arms", {}, {"Battle Shout"}, class_color("warrior"), combat_warrior_arms, {"Death Wish"}, ROLES.warrior_tank),
 };
 
 
@@ -226,102 +226,69 @@ local function lole_cooldowns()
 	
 end
 
-local function do_buffs()
-
+local function do_buffs(missing_buffs)
 
 	if not BUFF_TABLE_READY then
         local GROUP_BUFF_MAP, buffs = {}, {}
-		
-		for k, buff in pairs(get_current_config().buffs) do
-			if BUFF_ALIASES[buff] then
-				GROUP_BUFF_MAP[buff] = BUFF_ALIASES[buff];
-			end
-			if MISSING_BUFFS_COPY[buff] then
-				buffs[buff] = MISSING_BUFFS_COPY[buff]
-			end
-		end
+		local config_name = get_current_config().name;
 
-		-- a block like this can be found in druid_balance.lua, in the middle of the "usual" buffs() for classes that have an actual groupbuff
-		
-		-- if buffs["Mark of the Wild"] ~= nil then
-            -- SELF_BUFF_SPAM_TABLE[1] = "Moonkin Form";
-        -- end
-		
-		-- shaman_elem, shaman_resto, warlock_sb, warlock_affli had (only) this:
-		
-		-- if SELF_BUFF_SPAM_TABLE[1] == nil then
-			-- lole_subcommands.set("buffmode", 0);
-		-- else
-			-- buff_self();
-		-- end
-		
-		-- additionally, warlock_affli had this:
-		-- globally: BUFF_TABLE_READY = true (hmm?:D)
-		
-		
-		-- warrior_prot had this to remove additional blessings from its custom list of desired_buffs, if only 1 paladin:
-		
-		-- if get_num_paladins() < 2 then
-			-- table.remove(desired_buffs, 2);
-		-- end
+        if string.find(config_name, "paladin") then
+		    local num_paladins = get_num_paladins();
+		    if num_paladins < 2 then
+		        buffs["Greater Blessing of Kings"] = missing_buffs["Blessing of Kings"];
+	            buffs["Greater Blessing of Salvation"] = missing_buffs["Blessing of Salvation"];
+	            buffs["Greater Blessing of Wisdom"] = missing_buffs["Blessing of Wisdom"];
+	            buffs["Greater Blessing of Might"] = missing_buffs["Blessing of Might"];
+	        elseif config_name == "paladin_prot" then
+	        	buffs["Greater Blessing of Kings"] = missing_buffs["Blessing of Kings"];
+	        else
+	            buffs["Greater Blessing of Salvation"] = missing_buffs["Blessing of Salvation"];
+	            buffs["Greater Blessing of Wisdom"] = missing_buffs["Blessing of Wisdom"];
+	            buffs["Greater Blessing of Might"] = missing_buffs["Blessing of Might"];
+	        end
+       	else
+			for k, buff in pairs(get_current_config().buffs) do
+				if BUFF_ALIASES[buff] then
+					GROUP_BUFF_MAP[buff] = BUFF_ALIASES[buff];
+				end
+				if missing_buffs[buff] then
+					buffs[buff] = missing_buffs[buff]
+				end
+			end
+			
+			if config_name == "druid_balance" and buffs["Mark of the Wild"] ~= nil then
+	            SELF_BUFF_SPAM_TABLE[1] = "Moonkin Form";
+	        end
+	    end
 
-	
         local num_requests = get_num_buff_requests(buffs);
-        
         if num_requests > 0 then
-            SPAM_TABLE = get_spam_table(buffs, GROUP_BUFF_MAP);
-            BUFF_TABLE_READY = true;
+        	if string.find(config_name, "paladin") then	
+        		SPAM_TABLE = get_paladin_spam_table(buffs, num_requests);
+        	else
+            	SPAM_TABLE = get_spam_table(buffs, GROUP_BUFF_MAP);
+            end
         end
+
+		BUFF_TABLE_READY = true;
     end
 	
-	-- buffs() for paladin_holy and paladin_retri:
-	
-	-- if not BUFF_TABLE_READY then
-        -- local buffs = {
-            -- ["Greater Blessing of Salvation"] = MISSING_BUFFS_COPY["Blessing of Salvation"],
-            -- ["Greater Blessing of Wisdom"] = MISSING_BUFFS_COPY["Blessing of Wisdom"],
-            -- ["Greater Blessing of Might"] = MISSING_BUFFS_COPY["Blessing of Might"]
-        -- };
-
-        -- local num_paladins = get_num_paladins();
-        
-        -- if num_paladins < 2 then
-            -- buffs["Greater Blessing of Kings"] = MISSING_BUFFS_COPY["Blessing of Kings"];
-        -- end
-
-		-- local num_requests = get_num_buff_requests(buffs);		
-
-        -- if num_requests > 0 then
-            -- SPAM_TABLE = get_paladin_spam_table(buffs, num_requests);
-            -- BUFF_TABLE_READY = true;
-        -- end
-    -- end
-	
-	-- and for paladin_prot, its basically those buffs[] assignment blocks swapped
-	
-	-- if not BUFF_TABLE_READY then
-        -- local buffs = {
-            -- ["Greater Blessing of Kings"] = MISSING_BUFFS_COPY["Blessing of Kings"]
-        -- };
-
-        -- local num_paladins = get_num_paladins();
-
-        -- if num_paladins < 2 then
-            -- buffs["Greater Blessing of Salvation"] = MISSING_BUFFS_COPY["Blessing of Salvation"];
-            -- buffs["Greater Blessing of Wisdom"] = MISSING_BUFFS_COPY["Blessing of Wisdom"];
-            -- buffs["Greater Blessing of Might"] = MISSING_BUFFS_COPY["Blessing of Might"];
-        -- end
-
-        -- local num_requests = get_num_buff_requests(buffs);
-
-        -- if num_requests > 0 then
-            -- SPAM_TABLE = get_paladin_spam_table(buffs, num_requests);
-            -- BUFF_TABLE_READY = true;
-        -- end
-    -- end
-	
-
-    buffs();
+    if SPAM_TABLE[1] ~= nil then
+        if (GetTime() - BUFF_TIME) < 1.8 then
+            return false;
+        else
+            local char, buff = next(SPAM_TABLE[1]);
+            CastSpellByName(buff, char);
+            BUFF_TIME = GetTime();
+            table.remove(SPAM_TABLE, 1);
+        end
+    elseif SELF_BUFF_SPAM_TABLE[1] ~= nil then
+        buff_self();
+    else
+        MISSING_BUFFS = {};
+        lole_set("buffmode", 0);
+        LBUFFCHECK_ISSUED = false;
+    end
 
 end
 
