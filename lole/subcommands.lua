@@ -31,7 +31,7 @@ local available_configs = {
 	class_config_create("priest_holy", {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection"}, {"Inner Fire"}, CLASS_COLORS["priest"], combat_priest_holy, {"Inner Focus"}, ROLES.healer),
 	
 	priest_shadow = 
-	class_config_create("priest_shadow", {"Power Word: Fortitude", "Shadow Protection"}, {"Shadow Form", "Inner Fire"}, CLASS_COLORS["priest"], combat_priest_shadow, {"Inner Focus"}, ROLES.caster),
+	class_config_create("priest_shadow", {"Power Word: Fortitude", "Shadow Protection"}, {"Shadowform", "Inner Fire"}, CLASS_COLORS["priest"], combat_priest_shadow, {"Inner Focus"}, ROLES.caster),
 	
 	shaman_elem = 
 	class_config_create("shaman_elem", {}, {"Water Shield"}, CLASS_COLORS["shaman"], combat_shaman_elem, {"Bloodlust", "Elemental Mastery"}, ROLES.caster),
