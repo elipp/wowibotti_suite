@@ -33,46 +33,63 @@ BUFF_ALIASES = {
 
 function get_desired_buffs(role)
 
+    local common_buffs = {
+        "Power Word: Fortitude",
+        "Divine Spirit",
+        "Mark of the Wild"
+    };
+
     local caster_buffs = {
         "Blessing of Salvation",
         "Blessing of Kings",
-        "Power Word: Fortitude",
-        "Divine Spirit",
         "Arcane Intellect",
-        "Mark of the Wild"
     };
 
     local healer_buffs = {
         "Blessing of Kings",
         "Blessing of Wisdom",
-        "Power Word: Fortitude",
-        "Divine Spirit",
         "Arcane Intellect",
-        "Mark of the Wild"
     };
 	
-	local melee_buffs = { -- from warrior_arms
+	local warrior_tank_buffs = {
 		"Blessing of Kings",
         "Blessing of Might",
-        "Power Word: Fortitude",
-        "Divine Spirit",
-        "Mark of the Wild",
         "Thorns"
 	}
+
+    local paladin_tank_buffs = {
+        "Blessing of Kings",
+        "Blessing of Wisdom",
+        "Arcane Intellect",
+        "Thorns"
+    }
+
+    local melee_buffs = {
+        "Blessing of Salvation",
+        "Blessing of Kings",
+    }
 
     local desired_buffs;
     if role == ROLES.caster then
         desired_buffs = caster_buffs;
-	elseif role == ROLES.melee then
-		desired_buffs = melee_buffs;
     elseif role == ROLES.healer then
         desired_buffs = healer_buffs;
+    elseif role == ROLES.warrior_tank then
+        desired_buffs = warrior_tank_buffs;
+    elseif role == ROLES.paladin_tank then
+        desired_buffs = paladin_tank_buffs;
+    elseif role == ROLES.melee then
+        desired_buffs = melee_buffs;
     else
         return {};
     end
 
     if get_num_paladins() < 2 then
         table.remove(desired_buffs, 2);
+    end
+
+    for key, buff in pairs(common_buffs) do 
+        table.insert(desired_buffs, buff);
     end
 
     return desired_buffs;
@@ -82,13 +99,11 @@ function lole_buffs()
     if lole_subcommands.get("selfbuffmode") == 1 then
         lole_selfbuffs();
     else
-        if (get_current_config().buffs ~= nil) then
-            local MISSING_BUFFS_COPY;
-            if not BUFF_TABLE_READY then
-                MISSING_BUFFS_COPY = shallowcopy(MISSING_BUFFS);
-            end
-			lole_subcommands.buffs(MISSING_BUFFS_COPY);
+        local missing_buffs_copy;
+        if not BUFF_TABLE_READY then
+            missing_buffs_copy = shallowcopy(MISSING_BUFFS);
         end
+		lole_subcommands.buffs(missing_buffs_copy);
     end
 end
 
@@ -315,27 +330,6 @@ function get_paladin_spam_table(buffs, num_requests)
 
 end
 
-function buffs()
-
-    if SPAM_TABLE[1] ~= nil then
-        if (GetTime() - BUFF_TIME) < 1.8 then
-            return false;
-        else
-            local char, buff = next(SPAM_TABLE[1]);
-            CastSpellByName(buff, char);
-            BUFF_TIME = GetTime();
-            table.remove(SPAM_TABLE, 1);
-        end
-    elseif SELF_BUFF_SPAM_TABLE[1] ~= nil then
-        buff_self();
-    else
-        MISSING_BUFFS = {};
-        lole_subcommands.set("playermode", 0);
-        LBUFFCHECK_ISSUED = false;
-    end
-
-end
-
 function buff_self()
 
     if (GetTime() - BUFF_TIME) < 1.8 then
@@ -352,7 +346,7 @@ function lole_selfbuffs()
     if SELF_BUFF_SPAM_TABLE[1] ~= nil then
         buff_self();
     else
-        lole_subcommands.set("playermode", 0);
+        lole_subcommands.set("buffmode", 0);
     end
 end
 
