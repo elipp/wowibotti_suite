@@ -10,6 +10,7 @@ local frame_modulo = 0
 
 lole_frame:SetScript("OnUpdate", function()
 	if get_blast_state() and frame_modulo == 0 then
+		do_CC_jobs()
 		lole_main();
 	end
 	
@@ -347,7 +348,8 @@ ctm_host:add_button("Healers");
 ctm_host:add_button("Casters");
 ctm_host:add_button("Melee");
 
-local function get_available_CC()
+local function get_available_CC() ---- unnecessary for now
+
 	local CC_table = nil
 	
 	for i=1,4,1 do 
@@ -451,7 +453,7 @@ local CC_frame_backdrop = {
 	}
 }
 
-local function new_CC(char, _spell, marker)
+local function new_CC(char, spellID, marker)
 	-- echo("Asking " .. trim_string(char) .. " to do " .. trim_string(spell) .. " on " .. trim_string(marker) .. "!")
 
 	if not UnitExists(char) then
@@ -459,15 +461,13 @@ local function new_CC(char, _spell, marker)
 		return false
 	end
 	
-	local spellID = CC_spells[_spell]
-	
 	if not spellID then 
-		lole_error("Unknown spell " .. spell .. "!");
+		lole_error("Unknown CC spell!");
 		return false
 	end
 	
 	local spell = CC_spellnames[spellID]; -- get the spellname in a CastSpellByName-able format
-	
+		
 	local name, rank, icon, castTime, minRange, maxRange = GetSpellInfo(spellID)
 
 	if not get_marker_index(marker) then
@@ -564,7 +564,11 @@ StaticPopupDialogs["ADD_CC_DIALOG"] = {
 		local text = getglobal(this:GetParent():GetName().."WideEditBox"):GetText()
 		local _char, _spell, _marker = strsplit(",", text);
 		local char, spell, marker = trim_string(_char), trim_string(_spell), trim_string(_marker)
-		new_CC(char, spell, marker)
+		
+		local spellID = CC_spells[spell] 
+		new_CC(char, spellID, marker)
+		
+		local spell = CC_spellnames[spellID];
 		enable_cc_target(char, spell, marker)
 	end,
   
