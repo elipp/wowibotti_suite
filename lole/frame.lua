@@ -251,7 +251,7 @@ end)
 
 local update_target_button = CreateFrame("Button", "stopfollow_button", lole_frame, "UIPanelButtonTemplate")
 
-update_target_button:SetPoint("TOPLEFT", 120, -100);
+update_target_button:SetPoint("TOPLEFT", 128, -100);
 update_target_button:SetHeight(27)
 update_target_button:SetWidth(158)
 
@@ -390,6 +390,7 @@ local function delete_CC_entry(CC_entry)
 		table.remove(CC_state)
 		num_CC_targets = num_CC_targets - 1
 		CC_host:Hide() -- there's no way to really destroy a Frame in wow LUA
+		disable_cc_target(CC_host.char, CC_host.marker);
 		return
 	end
 
@@ -465,6 +466,10 @@ local function new_CC(char, spell, marker)
 		
 	local CC_host = CreateFrame("Frame", nil, lole_frame);
 	
+	CC_host.char = char
+	CC_host.spell = spell
+	CC_host.marker = marker
+	
 	CC_host:SetWidth(100)
 	CC_host:SetHeight(22)
 	
@@ -474,7 +479,7 @@ local function new_CC(char, spell, marker)
 	
 	CC_host:SetPoint("TOPLEFT", 18, y)
 	
-	CC_host.ID = num_CC_targets;
+	CC_host.ID = num_CC_targets
 	
 	local icon_frame = CreateFrame("Frame", nil, CC_host)
 	icon_frame:SetWidth(16)
@@ -515,7 +520,7 @@ local function new_CC(char, spell, marker)
 	delete_button:SetWidth(12)
 	delete_button:SetHeight(12)
 	
-	delete_button:SetPoint("TOPLEFT", -12, -4);
+	delete_button:SetPoint("TOPLEFT", 100, -4);
 	
 	delete_button:SetNormalTexture("Interface\\Buttons\\UI-MinusButton-Up");
 	--delete_button:SetHighlightTexture("Interface\\Buttons\\UI-MinusButton-Highlight"
@@ -544,8 +549,10 @@ StaticPopupDialogs["ADD_CC_DIALOG"] = {
 	
 	OnAccept = function()
 		local text = getglobal(this:GetParent():GetName().."WideEditBox"):GetText()
-		local char, spell, marker = strsplit(",", text);
-		new_CC(trim_string(char), trim_string(spell), trim_string(marker))
+		local _char, _spell, _marker = strsplit(",", text);
+		local char, spell, marker = trim_string(_char), trim_string(_spell), trim_string(_marker)
+		new_CC(char, spell, marker)
+		enable_cc_target(char, spell, marker)
 	end,
   
 };

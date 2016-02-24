@@ -193,8 +193,13 @@ local function blow_cooldowns()
 	lole_subcommands.lole_cooldowns()
 end
 
-local function set_cc_target()
+local function set_cc_target(arg)
 	-- this assings the CC request into a static var or something like that :D
+	local _enabled, _spell, _marker = strsplit(",", arg);
+	local enabled, spell, marker = tonumber(_enabled), trim_string(_spell), trim_string(_marker)
+	
+	
+	
 end
 
 function enable_cc_target(name, spell, marker)

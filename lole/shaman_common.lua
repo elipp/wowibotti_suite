@@ -43,9 +43,7 @@ local totem_name_buffname_map = {
 };
 
 
-
-
-function recast_totem_if_noexists_or_OOR(arg_totem)
+local function recast_totem_if_noexists_or_OOR(arg_totem)
 	local _, totemName, startTime, duration = GetTotemInfo(totem_name_type_map[arg_totem]);
 	
 	if startTime == 0 and duration == 0 then
@@ -78,7 +76,7 @@ function recast_totem_if_noexists_or_OOR(arg_totem)
 	return false;
 end
 
-local function refresh_totems(TOTEMS)
+function refresh_totems(TOTEMS)
 	for slot,name in pairs(TOTEMS) do
 		if recast_totem_if_noexists_or_OOR(name) then return true; end
 	end
