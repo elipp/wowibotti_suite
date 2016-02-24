@@ -5,14 +5,15 @@ LOLE_OPCODE_NOP,
 LOLE_OPCODE_TARGET_GUID, 
 LOLE_OPCODE_BLAST,   -- this is basically deprecated now
 LOLE_OPCODE_CASTER_RANGE_CHECK,
-LOLE_OPCODE_FOLLOW,  -- this also includes walking to the target
+LOLE_OPCODE_FOLLOW,  -- this also includes walking to/towards the target
 LOLE_OPCODE_CASTER_FACE,
 LOLE_OPCODE_CTM_BROADCAST,
 LOLE_OPCODE_COOLDOWNS,
 LOLE_OPCODE_CC,
-LOLE_OPCODE_DUNGEON_SCRIPT
+LOLE_OPCODE_DUNGEON_SCRIPT,
+LOLE_OPCODE_TARGET_CHARM
 
-= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05", "LOP_06", "LOP_07", "LOP_08", "LOP_09"
+= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05", "LOP_06", "LOP_07", "LOP_08", "LOP_09", "LOP_0A"
 
 local LOLE_DEBUG_OPCODE_DUMP = "LOP_81";
 
@@ -195,19 +196,33 @@ end
 
 local function set_cc_target(arg)
 	-- this assings the CC request into a static var or something like that :D
+	echo(arg)
+	
 	local _enabled, _spell, _marker = strsplit(",", arg);
 	local enabled, spell, marker = tonumber(_enabled), trim_string(_spell), trim_string(_marker)
 	
+	if (enabled == 1) then
+		set_CC_job(spell, marker)
+	elseif (enabled == 0) then
+		unset_CC_job(marker)
+	else
+		lole_error("set_cc_target: invalid enabled argument!");
+		return false
+	end
 	
-	
+	return false;
 end
 
 function enable_cc_target(name, spell, marker)
 	send_opcode_addonmsg_to(LOLE_OPCODE_CC, "1" .. "," .. spell .. "," .. marker, name)
 end
 
-function disable_cc_target(name, marker)
-	send_opcode_addonmsg_to(LOLE_OPCODE_CC, "0" .. "," .. marker, name)
+function disable_cc_target(name, spell, marker)
+	send_opcode_addonmsg_to(LOLE_OPCODE_CC, "0" .. "," .. spell .. "," .. marker, name)
+end
+
+function target_unit_with_charm(marker)
+	DelIgnore(LOLE_OPCODE_TARGET_CHARM .. ":" .. marker);
 end
 
 local function load_dungeon_script(script)

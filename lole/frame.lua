@@ -383,24 +383,14 @@ local function delete_CC_entry(CC_entry)
 		lole_error("attempting to delete CC entry " .. CC_host.ID  .. " (index too damn high!)")
 		return false
 	end
-	
-	-- if it's the last one that's being deleted, it's easy.
-	
-	if CC_host.ID  == num_CC_targets then
-		table.remove(CC_state)
-		num_CC_targets = num_CC_targets - 1
-		CC_host:Hide() -- there's no way to really destroy a Frame in wow LUA
-		disable_cc_target(CC_host.char, CC_host.marker);
-		return
-	end
-
-	--local num_relocate = num_CC_targets - CC_host.ID;
-	--echo("need to relocate " .. num_relocate .. " CC entries.")
-	
+		
 	local hostID = CC_host.ID
 	
 	CC_host:Hide()
+	disable_cc_target(CC_host.char, CC_host.spell, CC_host.marker);
+	
 	table.remove(CC_state, hostID);
+
 	num_CC_targets = num_CC_targets - 1
 	
 	for i = hostID, num_CC_targets do 
@@ -413,13 +403,34 @@ end
 local CC_spells = {
 	Polymorph = 118,
 	Sheep = 118,
+	sheep = 118,
+	
 	Cyclone = 33786,
+	cyclone = 33786,
+	
 	["Entangling Roots"] = 26989,
 	Roots = 26989,
+	roots = 26989,
+	root = 26989,
+	
 	Banish = 18647,
+	ban = 18647,
+	
 	Fear = 6215,
+	fear = 6215,
+	
+	["Shackle Undead"] = 10955,
 	Shackle = 10955,
-	["Shackle Undead"] = 10955
+	shackle = 10955
+}
+
+local CC_spellnames = { -- in a CastSpellByName-able format
+	[118] = "Polymorph",
+	[33786] = "Cyclone",
+	[26989] = "Entangling Roots",
+	[18647] = "Banish",
+	[6215] = "Fear",
+	[10955] = "Shackle Undead"
 }
 
 local CC_frame_backdrop = {
@@ -440,7 +451,7 @@ local CC_frame_backdrop = {
 	}
 }
 
-local function new_CC(char, spell, marker)
+local function new_CC(char, _spell, marker)
 	-- echo("Asking " .. trim_string(char) .. " to do " .. trim_string(spell) .. " on " .. trim_string(marker) .. "!")
 
 	if not UnitExists(char) then
@@ -448,12 +459,14 @@ local function new_CC(char, spell, marker)
 		return false
 	end
 	
-	local spellID = CC_spells[spell]
+	local spellID = CC_spells[_spell]
 	
 	if not spellID then 
 		lole_error("Unknown spell " .. spell .. "!");
 		return false
 	end
+	
+	local spell = CC_spellnames[spellID]; -- get the spellname in a CastSpellByName-able format
 	
 	local name, rank, icon, castTime, minRange, maxRange = GetSpellInfo(spellID)
 
@@ -500,7 +513,7 @@ local function new_CC(char, spell, marker)
 	caster_char_text:SetFont("Fonts\\FRIZQT__.TTF", 9);
 	
 	caster_char_text:SetPoint("TOPLEFT", 3, -6);
-	caster_char_text:SetText("|cFF" .. class_color(UnitClass(char)) .. char)
+	caster_char_text:SetText("|cFF" .. get_class_color(UnitClass(char)) .. char)
 	
 	local marker_frame = CreateFrame("Frame", nil, CC_host)
 	marker_frame:SetWidth(16)
@@ -556,104 +569,6 @@ StaticPopupDialogs["ADD_CC_DIALOG"] = {
 	end,
   
 };
-
-
--- spare these in case ;P
-
-
--- local cc_dropdowns = {}
--- local num_cc_dropdowns = 0
-	
--- local cc_drop_onClick = function(name, GUID)
-	-- echo("clicked on  " .. name .. " " .. GUID)
-	-- UIDropDownMenu_SetSelectedID(cc_dropdowns[1], 2)
--- end
-
--- local function create_cc_dropdown()
-	
-	-- num_cc_dropdowns = num_cc_dropdowns + 1
-	
-	-- local y = -260 - (num_cc_dropdowns * 30)
-	
-	-- local cc_dropdown = CreateFrame("Frame", "cc_dropdown" .. tostring(num_cc_dropdowns), lole_frame, "UIDropDownMenuTemplate");
-	-- cc_dropdown:SetScale(0.55);
-	-- cc_dropdown:SetPoint("TOPLEFT", 10, y);
-	-- UIDropDownMenu_SetWidth(100, cc_dropdown)
-	
-	-- local available_CC = get_available_CC();
-
-	-- local cc_drop_initialize = function()
-	
-		-- local info = {}
-		-- local n = 1;
-	   
-	   	-- info.text = "Select char";
-		-- info.value = n;
-	
-		-- UIDropDownMenu_AddButton(info)
-		-- n = n + 1
-	   
-		-- if not available_CC then
-			-- info.text = "CC N/A"
-			-- info.value = 1;
-			-- info.checked = nil;
-			-- UIDropDownMenu_AddButton(info)
-		-- else
-			-- for name, spells in pairs(available_CC) do
-			
-				-- info.text = name;
-				-- info.value = n;
-				-- info.arg1 = name;
-				-- info.arg2 = UnitGUID(name);
-				-- info.checked = nil
-				-- info.func = cc_drop_onClick;
-				-- UIDropDownMenu_AddButton(info)
-				-- n = n + 1
-				
-			-- end
-		-- end
-	-- end
-	
-	-- UIDropDownMenu_Initialize(cc_dropdown, cc_drop_initialize)
-	-- UIDropDownMenu_SetSelectedID(cc_dropdown, 1)
-
-	-- local cc_spell_dropdown_initialize = function()
-		
-		-- local selected_id = UIDropDownMenu_GetSelectedValue(cc_dropdown);
-		-- local m = 1;
-		
-		-- echo(tostring(selected_id))
-		
-		-- if not selected_id then
-			-- echo("pillu.")
-			-- info.text = "NO CHAR YET"
-			-- info.value = 1;
-			-- info.checked = true
-			-- UIDropDownMenu_AddButton(info);
-			-- m = m + 1
-			-- return
-		-- else 
-			-- local selected_name = UIDropDownMenu_GetSelectedName(cc_dropdown);
-			-- for i, spell in pairs(available_CC[selected_name]) do
-				-- info.text = spell
-				-- info.value = m;
-				-- info.checked = nil
-				-- UIDropDownMenu_AddButton(info);
-				-- m = m + 1
-			-- end
-		-- end
-	-- end
-
-	-- local cc_spell_dropdown = CreateFrame("Frame", "cc_spell_dropdown" .. tostring(num_cc_dropdowns), cc_dropdown, "UIDropDownMenuTemplate");
-	-- cc_spell_dropdown:SetPoint("TOPLEFT", 120, 0);
-	-- UIDropDownMenu_SetWidth(100, cc_spell_dropdown)
-
-	-- UIDropDownMenu_Initialize(cc_spell_dropdown, cc_spell_dropdown_initialize)
-	-- UIDropDownMenu_SetSelectedID(cc_spell_dropdown, 1)
-
-	-- cc_dropdowns[num_cc_dropdowns] = cc_dropdown
-
--- end
 
 
 local add_cc_button = CreateFrame("Button", "add_cc_button", lole_frame, "UIPanelButtonTemplate")

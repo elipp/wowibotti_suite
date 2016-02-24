@@ -198,27 +198,28 @@ uint WowObject::unit_get_buff(int index) const {
 		// Segfault otherwise (ie. doing this without the flag 40000 set)
 		GUID_t GUID = get_GUID();
 		SelectUnit(GUID);
-		DoString("UnitBuff(\"target\", 1)"); // this should call the initialization function XDD
-		
-											 //return 0;
+
+		DoString("UnitBuff(\"target\", 1)"); // this should call the initialization function XDD Same with UnitDebuff
+											
 	}
 
 	uint edx = DEREF(base + 0x1150);
 	uint al = 0xFF & DEREF(edx + (index - 1));
 
 	if (al == 0xFF) {
-		printf("no buff at index %d!\n", index);
 		return 0;
 	}
 
 
 	uint buff_spellid = DEREF(al * 4 + DEREF(base + 0x120) + 0xA8);
 
-	// ok, it's not this straight forward. the function 616000 (called at 546603) needs to be reversed. affects the index*4 part.
-
 	//printf("info = %X, buff_spellid should be at %p\n", info, *(uint*)info + index*4 + 0xA8);
 
 	return buff_spellid;
+}
+
+uint WowObject::unit_get_debuff(int index) const {
+	return unit_get_buff(index + 0x28); // these appear to be stored in sequence with buffs, starting from 0x29
 }
 
 int WowObject::in_combat() const {

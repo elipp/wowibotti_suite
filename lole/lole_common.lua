@@ -47,9 +47,43 @@ local CLASS_COLORS = {
 	Warrior = "C79C6E",
 }
 
-
-function class_color(class)
+function get_class_color(class)
 	return CLASS_COLORS[class]
+end
+
+local raid_target_indices = {
+
+["star"] = 1,
+["Star"] = 1,
+
+["circle"] = 2,
+["Circle"] = 2,
+
+["diamond"] = 3,
+["Diamond"] = 3,
+
+["triangle"] = 4,
+["Triangle"] = 4,
+
+["crescent"] = 5,
+["Crescent"] = 5,
+
+["moon"] = 5,
+["Moon"] = 5,
+
+["square"] = 6,
+["Square"] = 6,
+
+["cross"] = 7,
+["Cross"] = 7,
+
+["skull"] = 8,
+["Skull"] = 8
+
+}
+
+function get_marker_index(name)
+	return raid_target_indices[name]
 end
 
 function echo(text) 
@@ -137,46 +171,6 @@ function get_available_subcommands()
 	return get_list_of_keys(lole_subcommands);
 end
 
-local raid_target_indices = {
-
-["star"] = 1,
-["Star"] = 1,
-
-["circle"] = 2,
-["Circle"] = 2,
-
-["diamond"] = 3,
-["Diamond"] = 3,
-
-["triangle"] = 4,
-["Triangle"] = 4,
-
-["crescent"] = 5,
-["Crescent"] = 5,
-
-["moon"] = 5,
-["Moon"] = 5,
-
-["square"] = 6,
-["Square"] = 6,
-
-["cross"] = 7,
-["Cross"] = 7,
-
-["skull"] = 8,
-["Skull"] = 8
-
-}
-
-function get_marker_index(name)
-	return raid_target_indices[name]
-end
-
-CS_CASTING, CS_TIMESTAMP, CS_CASTTIME, CS_TARGET = 1, 2, 3, 4;
-NOT_CASTING = { false, 0.0, 0.0, "none" };
-
-cast_state = NOT_CASTING;
-
 function get_config_name_with_color(arg_config)
 	if arg_config == "default" then 
 		return "|r|rdefault";
@@ -201,6 +195,12 @@ function cast_spell(spellname)
 	cast_state = { true, GetTime(), castTime, UnitName("target") };
 	cast_if_nocd(spellname);
 end
+
+
+local CS_CASTING, CS_TIMESTAMP, CS_CASTTIME, CS_TARGET = 1, 2, 3, 4;
+local NOT_CASTING = { false, 0.0, 0.0, "none" };
+
+local cast_state = NOT_CASTING;
 
 function casting_legit_heal()
 	
@@ -240,25 +240,6 @@ function cleanse_party(debuffname)
 	return false;
 end
 
-function target_mob_with_charm(index_str)
-
-	local index = raid_target_indices[index_str];
-	
-	if (UnitExists("target") and index == GetRaidTargetIndex("target")) then 
-		return 1; 
-	end 
-	
-	AssistUnit("Adieux");
-	AssistUnit("Noctur");
-	
-	if (UnitExists("target") and index == GetRaidTargetIndex("target")) then
-		return 1;
-	end
-	
-	ClearTarget();
-	return 0;
-
-end
 
 function has_debuff(targetname, debuff_name)
 	local fnd = false;
@@ -324,6 +305,40 @@ function has_debuff_of_type(targetname, typename)
 	
 	return fnd,timeLeft;
 
+end
+
+
+local CC_jobs = {}
+local num_CC_jobs = 0
+
+function set_CC_job(spell, marker)
+	num_CC_jobs = num_CC_jobs + 1
+	CC_jobs[marker] = spell
+end
+
+function unset_CC_job(marker)
+	num_CC_jobs = num_CC_jobs - 1
+	CC_jobs[marker] = nil;
+end
+
+function do_CC_jobs()
+	
+	for marker, spell in pairs(CC_jobs) do
+		target_unit_with_charm(marker);
+	
+		if UnitExists("target") then
+			a, d = has_debuff("target", spell)
+			if not a then 
+				CastSpellByName(spell)
+				return true;
+			elseif d < 3 then
+				CastSpellByName(spell)
+				return true;
+			end
+		end
+	end
+	
+	return false
 end
 
 function keep_CCd(targetname, spellname)

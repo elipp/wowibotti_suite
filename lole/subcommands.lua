@@ -7,49 +7,49 @@ local available_configs = {
 	class_config_create("default", {}, {}, "FFFFFF", function() end, {}, 0),
 	
 	druid_resto = 
-	class_config_create("druid_resto", {"Mark of the Wild", "Thorns"}, {}, class_color("druid"), combat_druid_resto, {}, ROLES.caster),
+	class_config_create("druid_resto", {"Mark of the Wild", "Thorns"}, {}, get_class_color("druid"), combat_druid_resto, {}, ROLES.caster),
 	
 	druid_balance = 
-	class_config_create("druid_balance", {"Mark of the Wild", "Thorns"}, {"Moonkin Form"}, class_color("druid"), combat_druid_balance, {"Barkskin"}, ROLES.caster),
+	class_config_create("druid_balance", {"Mark of the Wild", "Thorns"}, {"Moonkin Form"}, get_class_color("druid"), combat_druid_balance, {"Barkskin"}, ROLES.caster),
 	
 	mage_fire = 
-	class_config_create("mage_fire", {"Arcane Intellect"}, {"Molten Armor"}, class_color("mage"), combat_mage_fire, {"Icy Veins", "Combustion"}, ROLES.caster),
+	class_config_create("mage_fire", {"Arcane Intellect"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_fire, {"Icy Veins", "Combustion"}, ROLES.caster),
 	
 	mage_frost = 
-	class_config_create("mage_frost", {"Arcane Intellect"}, {"Molten Armor"}, class_color("mage"), combat_mage_frost, {"Icy Veins"}, ROLES.caster),
+	class_config_create("mage_frost", {"Arcane Intellect"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_frost, {"Icy Veins"}, ROLES.caster),
 	
 	paladin_prot = 
-	class_config_create("paladin_prot", {}, {"Devotion Aura", "Righteous Fury"}, class_color("paladin"), combat_paladin_prot, {"Avenging Wrath"}, ROLES.paladin_tank),
+	class_config_create("paladin_prot", {}, {"Devotion Aura", "Righteous Fury"}, get_class_color("paladin"), combat_paladin_prot, {"Avenging Wrath"}, ROLES.paladin_tank),
 	
 	paladin_holy = 
-	class_config_create("paladin_holy", {}, {"Concentration Aura"}, class_color("paladin"), combat_paladin_holy, {"Divine Favor", "Divine Illumination"}, ROLES.healer),
+	class_config_create("paladin_holy", {}, {"Concentration Aura"}, get_class_color("paladin"), combat_paladin_holy, {"Divine Favor", "Divine Illumination"}, ROLES.healer),
 	
 	paladin_retri = 
-	class_config_create("paladin_retri", {}, {"Sanctity Aura"}, class_color("paladin"), combat_paladin_retri, {"Avenging Wrath"}, ROLES.caster),
+	class_config_create("paladin_retri", {}, {"Sanctity Aura"}, get_class_color("paladin"), combat_paladin_retri, {"Avenging Wrath"}, ROLES.caster),
    
 	priest_holy = 
-	class_config_create("priest_holy", {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection"}, {"Inner Fire"}, class_color("priest"), combat_priest_holy, {"Inner Focus"}, ROLES.healer),
+	class_config_create("priest_holy", {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection"}, {"Inner Fire"}, get_class_color("priest"), combat_priest_holy, {"Inner Focus"}, ROLES.healer),
 	
 	priest_shadow = 
-	class_config_create("priest_shadow", {"Power Word: Fortitude", "Shadow Protection"}, {"Shadow Form", "Inner Fire"}, class_color("priest"), combat_priest_shadow, {"Inner Focus"}, ROLES.caster),
+	class_config_create("priest_shadow", {"Power Word: Fortitude", "Shadow Protection"}, {"Shadow Form", "Inner Fire"}, get_class_color("priest"), combat_priest_shadow, {"Inner Focus"}, ROLES.caster),
 	
 	shaman_elem = 
-	class_config_create("shaman_elem", {}, {"Water Shield"}, class_color("shaman"), combat_shaman_elem, {"Bloodlust", "Elemental Mastery"}, ROLES.caster),
+	class_config_create("shaman_elem", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_elem, {"Bloodlust", "Elemental Mastery"}, ROLES.caster),
    
 	shaman_resto = 
-	class_config_create("shaman_resto", {}, {"Water Shield"}, class_color("shaman"), combat_shaman_resto, {"Bloodlust"}, ROLES.healer),
+	class_config_create("shaman_resto", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_resto, {"Bloodlust"}, ROLES.healer),
 	
 	warlock_affli = 
-	class_config_create("warlock_affli", {}, {"Fel Armor"}, class_color("warlock"), combat_warlock_affli, {}, ROLES.caster),
+	class_config_create("warlock_affli", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_affli, {}, ROLES.caster),
 	
 	warlock_sb = 
-	class_config_create("warlock_sb", {}, {"Fel Armor"}, class_color("warlock"), combat_warlock_sb, {}, ROLES.caster),
+	class_config_create("warlock_sb", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_sb, {}, ROLES.caster),
 	
 	warrior_prot = 
-	class_config_create("warrior_prot", {}, {"Commanding Shout"}, class_color("warrior"), combat_warrior_prot, {"Last Stand"}, ROLES.warrior_tank),
+	class_config_create("warrior_prot", {}, {"Commanding Shout"}, get_class_color("warrior"), combat_warrior_prot, {"Last Stand"}, ROLES.warrior_tank),
 	
 	warrior_arms = 
-	class_config_create("warrior_arms", {}, {"Battle Shout"}, class_color("warrior"), combat_warrior_arms, {"Death Wish"}, ROLES.warrior_tank),
+	class_config_create("warrior_arms", {}, {"Battle Shout"}, get_class_color("warrior"), combat_warrior_arms, {"Death Wish"}, ROLES.warrior_tank),
 };
 
 

@@ -89,6 +89,7 @@ public:
 	int in_combat() const;
 
 	uint unit_get_buff(int index) const;
+	uint unit_get_debuff(int index) const;
 
 	std::string get_type_name() const;
 

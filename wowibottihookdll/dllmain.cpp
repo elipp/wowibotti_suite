@@ -9,6 +9,8 @@
 #include <vector>
 #include <cstdio>
 #include <cstdarg>
+#include <unordered_map>
+#include <algorithm>
 
 #include "addrs.h"
 #include "defs.h"
@@ -236,7 +238,7 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 	}
 
 
-	// the value of 0xD689B8 seems to be incremented with every step CTM'd, but it seems to be working after the first 
+	// the value of 0xD689B8 seems to be incremented with every step CTM'd, but it seems to be ok like this (modify once, after that keeps track of itself)
 
 	float b8val = 0;
 	readAddr(0xD689B8, &b8val, sizeof(b8val));
@@ -273,6 +275,32 @@ static GUID_t get_raid_target_GUID(int index) {
 	return GUID;
 }
 
+static GUID_t get_raid_target_GUID(const std::string &marker) {
+	static const std::unordered_map<std::string, int> marker_index_map = {
+		{ "star", 1 },
+		{ "circle", 2 },
+		{ "diamond", 3 },
+		{ "triangle", 4 },
+		{ "crescent", 5 },
+		{ "moon", 5 },
+		{ "square", 6 },
+		{ "cross", 7 },
+		{ "skull", 8 }
+	};
+
+	std::string marker_copy = marker;
+	std::transform(marker_copy.begin(), marker_copy.end(), marker_copy.begin(), ::tolower);
+
+	auto it = marker_index_map.find(marker_copy);
+	if (it == marker_index_map.end()) {
+		printf("get_raid_target_GUID (const std::string&): error! invalid marker \"%s\"!\n", marker.c_str());
+		return 0;
+	}
+
+	return get_raid_target_GUID(it->second);
+}
+
+
 static int dump_wowobjects_to_log() {
 
 	ObjectManager OM;
@@ -308,11 +336,20 @@ static int dump_wowobjects_to_log() {
 					}
 					else if (next.get_type() == OBJECT_TYPE_UNIT) {
 						fprintf(fp, "name: %s, target GUID: 0x%016llX, combat = %d\n", next.unit_get_name().c_str(), next.unit_get_target_GUID(), next.in_combat());
-						fprintf(fp, "buffs:\n");
+						fprintf(fp, "buffs (by spellID):\n");
 						for (int n = 1; n <= 16; ++n) {
 							int spellID = next.unit_get_buff(n);
-							if (spellID) fprintf(fp, "%d: spellID = %u\n", n, spellID);
+							if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
 						}
+
+						fprintf(fp, "----\ndebuffs (by spellID)\n");
+
+						for (int n = 1; n <= 16; ++n) {
+							int spellID = next.unit_get_debuff(n);
+							if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
+						}
+
+						fprintf(fp, "----\n");
 					}
 				}
 				else if (next.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
@@ -660,7 +697,20 @@ static void lole_nop(const std::string& arg) {
 }
 
 static void lole_dungeon_script(const std::string &arg) {
+	// =)
+}
 
+static void lole_target_charm(const std::string &arg) {
+	// arg = marker name
+	GUID_t GUID = get_raid_target_GUID(arg);
+
+	if (GUID == 0) {
+		DoString("ClearTarget()");
+	}
+
+	else {
+		SelectUnit(GUID);
+	}
 }
 
 typedef void(*hubfunc_t)(const std::string &);
@@ -678,6 +728,7 @@ typedef void(*hubfunc_t)(const std::string &);
 #define LOLE_OPCODE_COOLDOWNS 0x7
 #define LOLE_OPCODE_CC 0x8
 #define LOLE_OPCODE_DUNGEON_SCRIPT 0x9
+#define LOLE_OPCODE_TARGET_CHARM 0xA
 
 #define LOLE_DEBUG_OPCODE_DUMP 0xF1
 
@@ -695,7 +746,8 @@ static const struct {
 	{"LOLE_CTM_BROADCAST", act_on_CTM_broadcast, 3},
 	{"LOLE_COOLDOWNS", lole_nop, 3}, // nyi
 	{"LOLE_CC", lole_nop, 3},
-	{"LOLE_DUNGEON_SCRIPT", lole_dungeon_script, 1}
+	{"LOLE_DUNGEON_SCRIPT", lole_dungeon_script, 1},
+	{"LOLE_TARGET_CHARM", lole_target_charm, 1}
 };
 
 static const struct {
