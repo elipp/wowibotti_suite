@@ -166,6 +166,9 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
             LBUFFCHECK_ISSUED = true;
 		end
 
+    elseif (prefix == "lole_mount") then
+        RunMacro("mount");
+        
 	end
 end
 
