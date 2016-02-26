@@ -196,6 +196,40 @@ function cast_spell(spellname)
 	cast_if_nocd(spellname);
 end
 
+function get_HP_deficits() 
+
+	local HP_deficits = {};
+
+	--HP_deficits["player"] = UnitHealthMax("player") - UnitHealth("player");
+	for i=1,10,1 do
+		local name = "raid" .. tonumber(i);
+		if UnitExists(name) and not UnitIsDead(name) then
+			HP_deficits[name] = UnitHealthMax(name) - UnitHealth(name);
+		end
+	end
+	
+	return HP_deficits;
+
+end
+
+function get_lowest_hp(hp_deficits) 
+	
+	local lowest = nil;
+	
+	for name,hp_deficit in pairs(hp_deficits) do
+		
+		if not lowest then 
+			lowest = name;
+		else
+			if hp_deficit > hp_deficits[lowest] then
+				lowest = name;
+			end
+		end
+	end
+	
+	return lowest;
+
+end
 
 local CS_CASTING, CS_TIMESTAMP, CS_CASTTIME, CS_TARGET = 1, 2, 3, 4;
 local NOT_CASTING = { false, 0.0, 0.0, "none" };

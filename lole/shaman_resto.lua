@@ -13,40 +13,6 @@ local function refresh_ES(targetname)
 	
 end
 
-local function get_group_member_HP_deficits() 
-
-	local group_member_HP_deficits = {};
-
-	group_member_HP_deficits["player"] = UnitHealthMax("player") - UnitHealth("player");
-	for i=1,4,1 do local exists = GetPartyMember(i)
-		local name = "party" .. i;
-		if exists and not UnitIsDead(name) then
-			group_member_HP_deficits[name] = UnitHealthMax(name) - UnitHealth(name);
-		end
-	end
-	
-	return group_member_HP_deficits;
-
-end
-
-local function get_lowest_hp(hp_deficits) 
-	
-	local lowest = nil;
-	
-	for name,hp_deficit in pairs(hp_deficits) do
-		
-		if not lowest then 
-			lowest = name;
-		else
-			if hp_deficit > hp_deficits[lowest] then
-				lowest = name;
-			end
-		end
-	end
-	
-	return lowest;
-
-end
 
 local function get_total_deficit(hp_deficits) 
 	local total = 0;
@@ -88,7 +54,7 @@ combat_shaman_resto = function()
 	
 	if refresh_ES(ES_TARGET) then return end
 	
-	local HP_deficits = get_group_member_HP_deficits();
+	local HP_deficits = get_HP_deficits();
 	if not HP_deficits then return; end
 	
 	local lowest = get_lowest_hp(HP_deficits);
