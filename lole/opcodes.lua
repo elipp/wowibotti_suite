@@ -19,7 +19,7 @@ local LOLE_DEBUG_OPCODE_DUMP = "LOP_81";
 
 
 function send_opcode_addonmsg(opcode, message)
-	SendAddonMessage("lole_opcode", opcode .. ":" .. message, "PARTY");
+	SendAddonMessage("lole_opcode", opcode .. ":" .. message, "RAID");
 end
 
 function send_opcode_addonmsg_to(opcode, message, to)
