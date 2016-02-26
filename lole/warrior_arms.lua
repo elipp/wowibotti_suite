@@ -88,6 +88,11 @@ combat_warrior_arms = function()
 	if cast_if_nocd("Whirlwind") then return; end
 	
 
+	if UnitMana("player") > 65 then
+		--if GetTime() - swing_starttime < 1.5 then
+		if cast_if_nocd("Slam") then return end;
+		--end
+	end
 	
 	if not has_buff("player", "Battle Shout") then
 		CastSpellByName("Battle Shout");
