@@ -4,7 +4,7 @@ combat_priest_holy = function()
 
 	if UnitCastingInfo("player") then return; end;
 	
-	TargetUnit("focus");
+	TargetUnit("Adieux");
 	local mana_left = UnitMana("player");
 
 	if mana_left < 3000 then
