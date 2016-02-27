@@ -296,7 +296,7 @@ local function lole_drink()
 
 	if UnitPowerType("player") == 0 then -- 0 for mana
 
-		if UnitMana("player")/UnitManaMax("player") < 0.65 then
+		if UnitMana("player")/UnitManaMax("player") < 0.90 then
 			if GetItemCount(34062) > 0 then
 				UseItemByName("Conjured Manna Biscuit");
 
