@@ -79,14 +79,14 @@ combat_warlock_sb = function()
 	if tap_if_need_to() then return; end
 		
 	--if lole_subcommands.get("aoemode") == 1 then			
-		for i=1,16,1 do 
-			TargetNearestEnemy();
-			if (UnitExists("target") and not has_debuff_by_self("target", "Seed of Corruption")) then
-				CastSpellByName("Seed of Corruption");
-				break;
-			end
+	for i=1,16,1 do 
+		TargetNearestEnemy();
+		if (UnitExists("target") and not has_debuff_by_self("target", "Seed of Corruption")) then
+			CastSpellByName("Seed of Corruption");
+			return
 		end
-		return;
+	end
+		
 	--end
 	-- same here, soul drain if less than N shards; TODO
 	
