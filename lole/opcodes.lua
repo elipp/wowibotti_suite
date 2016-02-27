@@ -154,9 +154,10 @@ end
 local function OCB_follow_unit_with_GUID(GUID_str_ciphered)
 	--if IsRaidLeader() then return end
 
-	local GUID_deciphered = decipher_GUID(GUID_str_ciphered);
-	DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. GUID_deciphered);
-
+	if lole_subcommands.get("playermode") == 0 then
+		local GUID_deciphered = decipher_GUID(GUID_str_ciphered);
+		DelIgnore(LOLE_OPCODE_FOLLOW .. ":" .. GUID_deciphered);
+	end
 end
 
 local function OCB_set_blast(mode)
@@ -164,11 +165,11 @@ local function OCB_set_blast(mode)
 	if mode == 1 or mode == "1" then
 		set_blast_state(true)
 		blast_checkbutton:SetChecked(true)
-		blast_check_settext(blast_enabled_string);
+		blast_check_settext(true);
 	else
 		set_blast_state(nil)
 		blast_checkbutton:SetChecked(false)
-		blast_check_settext(blast_disabled_string);
+		blast_check_settext(false);
 		clear_target();
 	end
 end
@@ -240,7 +241,7 @@ local function OCB_set_cc_target(arg)
 	local _enabled, _spell, _marker = strsplit(",", arg);
 	local enabled, spell, marker = tonumber(trim_string(_enabled)), trim_string(_spell), trim_string(_marker)
 
-	echo("set_cc_target: OK! gonna do" .. spell .. " on " .. marker);
+	echo("set_cc_target: got args: " .. enabled .. ", " .. spell .. ", " .. marker);
 
 	if (enabled == 1) then
 		set_CC_job(spell, marker)

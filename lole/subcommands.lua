@@ -1,5 +1,4 @@
 local LOLE_CLASS_CONFIG = "default";
-
 local LOLE_BLAST_STATE = nil;
 
 local available_configs = {

@@ -3,23 +3,23 @@ local ua_guard = true;
 local immolate_guard = true;
 
 config_warlock_affli_combat = function()
-	
+
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
-	
+
 	if not UnitAffectingCombat("player") then
 		if (mana < 0.90*maxmana) then
 			CastSpellByName("Life Tap");
 			return;
 		end
 	end
-	
+
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end
 	if GetSpellCooldown("Corruption") > 0 then return; end -- check gcd. this could add unnecessary latency to spam though
-	
+
 	if lole_subcommands.get("aoemode") == 1 then
-		for i=1,16,1 do 
+		for i=1,16,1 do
 			TargetNearestEnemy();
 			if (UnitExists("target") and not has_debuff_by_self("target", "Seed of Corruption")) then
 				CastSpellByName("Seed of Corruption");
@@ -27,15 +27,16 @@ config_warlock_affli_combat = function()
 			end
 		end
 	end
-	-- REPLACE THIS WITH IF LESS THAN N SHARDS, SOUL DRAIN!
-	-- --elseif  == 1 then
-	    -- if (UnitExists("target") and not UnitIsDead("target") and UnitHealth("target") < 20000) then
-			-- --SpellStopCasting();
-			-- CastSpellByName("Drain Soul");
-			-- return;
-		-- end
-	-- end
-	
+
+	if (GetItemCount(6265) < 20) then -- 6265 -- soul shard
+		if (UnitExists("target") and not UnitIsDead("target") and UnitHealth("target") < 20000) then
+			SpellStopCasting();
+			CastSpellByName("Drain Soul");
+			return;
+		end
+	end
+
+
 	if mana < 2500 then
 		if UnitHealth("player") > 3500 then
 			CastSpellByName("Life Tap");
@@ -45,24 +46,24 @@ config_warlock_affli_combat = function()
 			tap_warning_given = true;
 			return;
 		end
-	
+
 	end
-	
+
 	local t = target_mob_with_charm("skull");
 	if (t < 1) then return; end
-	
-	
+
+
 	if not has_debuff("target", "Curse of the Elements") then
 		CastSpellByName("Curse of the Elements");
 		return;
 	end
-	
+
 	if has_buff("player", "Nightfall") then
 		CastSpellByName("Shadow Bolt")
 		ua_guard = false;
 		immolate_guard = false;
 		return;
-	elseif not has_debuff("target", "Unstable Affliction") and not ua_guard then 
+	elseif not has_debuff("target", "Unstable Affliction") and not ua_guard then
 		CastSpellByName("Unstable Affliction");
 		ua_guard = true;
 		immolate_guard = false;
@@ -77,15 +78,13 @@ config_warlock_affli_combat = function()
 		immolate_guard = true;
 		ua_guard = false;
 		return;
-	else 
+	else
 		CastSpellByName("Shadow Bolt");
 		ua_guard = false;
 		immolate_guard = true;
 		return;
 	end
-	
+
 	tap_warning_given = false;
-	
+
 end
-
-

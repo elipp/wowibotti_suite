@@ -35,6 +35,13 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 
 		clear_target()
 
+		blast_check_settext(false)
+
+		if not IsRaidLeader() then
+			lbuffcheck_clean_button:Disable()
+			lbuffcheck_button:Disable()
+		end
+
 		lole_frame:UnregisterEvent("ADDON_LOADED");
 
 	elseif event == "PLAYER_DEAD" then
@@ -48,7 +55,7 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		if IsRaidLeader() then
 			broadcast_blast_state(0);
 		end
-	
+
 	elseif event == "UPDATE_BATTLEFIELD_STATUS" then
 		-- lol
 	end
@@ -58,7 +65,7 @@ end
 
 lole_frame:SetScript("OnEvent", LOLE_EventHandler);
 
-lole_frame:SetHeight(300)
+lole_frame:SetHeight(290)
 lole_frame:SetWidth(250)
 lole_frame:SetPoint("RIGHT", -25, 0)
 
@@ -108,26 +115,25 @@ header_text:SetText("LOLEXD")
 blast_checkbutton = CreateFrame("CheckButton", "blast_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
 blast_checkbutton:SetPoint("TOPLEFT", 15, -30);
 
-
-blast_disabled_string = " BLAST disabled"
-blast_enabled_string = " BLAST enabled!"
-
-
-function blast_check_settext(text)
-	getglobal(blast_checkbutton:GetName() .. "Text"):SetText(text)
-end
-
-blast_check_settext(blast_disabled_string)
+local blast_disabled_string = " BLAST disabled"
+local blast_enabled_string = " BLAST enabled!"
 
 blast_checkbutton.tooltip = "Whether BLAST is on or off.";
 
 blast_checkbutton:SetScript("OnClick",
   function()
-	local arg = blast_checkbutton:GetChecked() and "1" or "0"; -- this is the lua equivalent of '?' in C :D
+	local arg = blast_checkbutton:GetChecked() and "1" or "0"; -- this is equivalent to C's ternary operator ('?')
 	lole_subcommands.blast(arg)
   end
 );
 
+function blast_check_settext(flag)
+	if (flag == true) then
+		getglobal(blast_checkbutton:GetName() .. "Text"):SetText(blast_enabled_string)
+	elseif (flag == false) then
+		getglobal(blast_checkbutton:GetName() .. "Text"):SetText(blast_disabled_string)
+	end
+end
 
 local static_target_text = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 static_target_text:SetPoint("TOPLEFT", 18, -55);
@@ -158,13 +164,17 @@ function main_frame_show()
 end
 
 local config_dropdown = CreateFrame("Frame", "config_dropdown", lole_frame, "UIDropDownMenuTemplate");
-config_dropdown:SetPoint("BOTTOMLEFT", 60, 10);
+config_dropdown:SetPoint("BOTTOMLEFT", 42, 10);
+config_dropdown:SetScale(0.88)
 
 UIDropDownMenu_SetWidth(100, config_dropdown)
 
 local config_text = config_dropdown:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 config_text:SetPoint("LEFT", -23, 3);
 config_text:SetText("Config:")
+
+--local r,g,b,a = config_text:GetTextColor();
+--echo(r .. " " .. g .. " " ..  b .. " " .. a)
 
 
 local function config_drop_onClick(name)
@@ -186,7 +196,6 @@ end
 function set_visible_dropdown_config(configname)
 	UIDropDownMenu_SetSelectedID(config_dropdown, drop_formatted_config_indices[configname])
 end
-
 
 local function config_drop_initialize()
 
@@ -228,7 +237,6 @@ local function create_simple_button(name, parent, x, y, text, width, height, onc
 
 	return button
 end
-
 
 local follow_button =
 create_simple_button("follow_button", lole_frame, 22, -100, "Follow me!", 85, 27, function() lole_subcommands.followme() end);
@@ -298,14 +306,7 @@ create_simple_button("lbuffcheck_clean_button", lole_frame, 120, -160, "Buff (cl
 local lbuffcheck_button =
 create_simple_button("lbuffcheck_button", lole_frame, 250, -160, "Buff", 62, 27, function() lole_subcommands.lbuffcheck() end);
 
--- ok this can be problematic.
-
-if not IsRaidLeader() then
-	lbuffcheck_clean_button:Disable()
-	lbuffcheck_button:Disable()
-end
-
-local ctm_host = { title = "CTM mode:", title_fontstr = nil, buttons = {}, num_buttons = 0, first_pos_x = 150, first_pos_y = -160, increment = -18 }
+local ctm_host = { title = "CTM mode:", title_fontstr = nil, buttons = {}, num_buttons = 0, first_pos_x = 223, first_pos_y = -205, increment = 18 }
 
 CTM_MODES = {
 	LOCAL = 1, TARGET = 2, EVERYONE = 3, HEALERS = 4, CASTERS = 5, MELEE = 6
@@ -340,8 +341,9 @@ function ctm_host:add_button(button_text)
 
 	getglobal(button:GetName() .. "Text"):SetText(button_text);
 	button:SetID(self.num_buttons);
-	button:SetPoint("TOPLEFT", self.first_pos_x, self.first_pos_y + self.increment*self.num_buttons);
+	button:SetPoint("TOPLEFT", self.first_pos_x, self.first_pos_y - self.increment*self.num_buttons);
 	button:SetScript("OnClick", ctm_host.exclusive_onclick)
+	button:SetScale(0.75);
 
 	-- this is really bad..
 	if self.num_buttons == 1 then
@@ -351,8 +353,8 @@ function ctm_host:add_button(button_text)
 
 end
 
-ctm_host.title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal");
-ctm_host.title_fontstr:SetPoint("TOPLEFT", ctm_host.first_pos_x-15, ctm_host.first_pos_y);
+ctm_host.title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
+ctm_host.title_fontstr:SetPoint("TOPLEFT", 162, -152);
 ctm_host.title_fontstr:SetText(ctm_host.title)
 
 -- first one is default :P
@@ -363,6 +365,43 @@ ctm_host:add_button("Everyone");
 --ctm_host:add_button("Healers");
 --ctm_host:add_button("Casters");
 --ctm_host:add_button("Melee");
+
+local mode_attrib_title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
+mode_attrib_title_fontstr:SetPoint("TOPLEFT", 160, -225);
+mode_attrib_title_fontstr:SetText("Mode attribs:")
+
+local playermode_checkbutton = CreateFrame("CheckButton", "playermode_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
+playermode_checkbutton:SetPoint("TOPLEFT", 205, -300);
+playermode_checkbutton.tooltip = "Set to enabled if you're playing this character.";
+playermode_checkbutton:SetScale(0.8)
+
+--local mattrib_font = playermode_checkbutton:CreateFontString(nil, "OVERLAY")
+--mattrib_font:SetFont("Fonts\\FRIZQT__.TTF", 9);
+
+getglobal(playermode_checkbutton:GetName() .. "Text"):SetFont("Fonts\\FRIZQT__.TTF", 9)
+getglobal(playermode_checkbutton:GetName() .. "Text"):SetText("|cFFFFD100Player mode")
+
+playermode_checkbutton:SetScript("OnClick",
+  function()
+	local arg = playermode_checkbutton:GetChecked() and "1" or "0";
+	lole_subcommands.set("playermode", arg);
+  end
+);
+
+local aoemode_checkbutton = CreateFrame("CheckButton", "aoemode_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
+aoemode_checkbutton:SetPoint("TOPLEFT", 205, -320);
+aoemode_checkbutton.tooltip = "AOE spells only";
+aoemode_checkbutton:SetScale(0.8)
+
+getglobal(aoemode_checkbutton:GetName() .. "Text"):SetFont("Fonts\\FRIZQT__.TTF", 9)
+getglobal(aoemode_checkbutton:GetName() .. "Text"):SetText("|cFFFFD100AOE mode")
+
+aoemode_checkbutton:SetScript("OnClick",
+  function()
+	local arg = aoemode_checkbutton:GetChecked() and "1" or "0";
+	lole_subcommands.set("aoemode", arg);
+  end
+);
 
 local CC_state = {}
 local num_CC_targets = 0
