@@ -13,35 +13,35 @@ local CLASS_COLORS = {
 	druid = "FF7D0A",
 	DRUID = "FF7D0A",
 	Druid = "FF7D0A",
-	
+
 	hunter = "ABD473",
 	HUNTER = "ABD473",
 	Hunter = "ABD473",
-	
+
 	mage = "69CCF0",
 	MAGE = "69CCF0",
 	Mage = "69CCF0",
-	
+
 	paladin = "F58CBA",
 	PALADIN = "F58CBA",
 	Paladin = "F58CBA",
-	
+
 	priest = "FFFFFF",
 	PRIEST = "FFFFFF",
 	Priest = "FFFFFF",
-	
+
 	rogue = "FFF569",
 	ROGUE = "FFF569",
 	Rogue = "FFF569",
-	
+
 	shaman = "0070DE",
 	SHAMAN = "0070DE",
 	Shaman = "0070DE",
-	
+
 	warlock = "9482C9",
 	WARLOCK = "9482C9",
 	Warlock = "9482C9",
-	
+
 	warrior = "C79C6E",
 	WARRIOR = "C79C6E",
 	Warrior = "C79C6E",
@@ -86,7 +86,7 @@ function get_marker_index(name)
 	return raid_target_indices[name]
 end
 
-function echo(text) 
+function echo(text)
     DEFAULT_CHAT_FRAME:AddMessage("lole: " .. tostring(text))
 end
 
@@ -151,14 +151,14 @@ end
 
 function get_available_class_configs_pretty()
 	local key_tab, n = {}, 1;
-	
+
 	for name, _ in pairsByKey(get_available_configs()) do
 		key_tab[n] = get_config_name_with_color(name);
 		n = n + 1;
 	end
-	
+
 	return table.concat(key_tab, ", ");
-	
+
 end
 
 
@@ -172,9 +172,9 @@ function get_available_subcommands()
 end
 
 function get_config_name_with_color(arg_config)
-	if arg_config == "default" then 
+	if arg_config == "default" then
 		return "|r|rdefault";
-	else 
+	else
 		local avconf = get_available_configs()
 		return "|cFF" .. avconf[arg_config].color .. avconf[arg_config].name .. "|r";
 	end
@@ -186,7 +186,7 @@ function cast_if_nocd(spellname)
 		CastSpellByName(spellname);
 		return true;
 	end
-	
+
 	return false;
 end
 
@@ -196,7 +196,7 @@ function cast_spell(spellname)
 	cast_if_nocd(spellname);
 end
 
-function get_HP_deficits() 
+function get_HP_deficits()
 
 	local HP_deficits = {};
 
@@ -207,18 +207,18 @@ function get_HP_deficits()
 			HP_deficits[name] = UnitHealthMax(name) - UnitHealth(name);
 		end
 	end
-	
+
 	return HP_deficits;
 
 end
 
-function get_lowest_hp(hp_deficits) 
-	
+function get_lowest_hp(hp_deficits)
+
 	local lowest = nil;
-	
+
 	for name,hp_deficit in pairs(hp_deficits) do
-		
-		if not lowest then 
+
+		if not lowest then
 			lowest = name;
 		else
 			if hp_deficit > hp_deficits[lowest] then
@@ -226,7 +226,7 @@ function get_lowest_hp(hp_deficits)
 			end
 		end
 	end
-	
+
 	return lowest;
 
 end
@@ -237,31 +237,31 @@ local NOT_CASTING = { false, 0.0, 0.0, "none" };
 local cast_state = NOT_CASTING;
 
 function casting_legit_heal()
-	
+
 	if UnitCastingInfo("player") then return true; end
-	
-	if cast_state[CS_CASTING] then 
+
+	if cast_state[CS_CASTING] then
 		if (GetTime() - cast_state[CS_TIMESTAMP])*1000 > (cast_state[CS_CASTTIME]+100) then
 			cast_state = NOT_CASTING;
 			return false;
-		
+
 		elseif not UnitCastingInfo("player") then
 			cast_state = NOT_CASTING;
 			return false;
-		
+
 		elseif (UnitHealthMax(cast_state[CS_TARGET]) - UnitHealth(cast_state[CS_TARGET])) < 1000 then
 			stopfollow();
 			cast_state = NOT_CASTING; -- useful when the UnitHealth info lag causes the char to overheal (or any cause)
 			return false;
-		
+
 		else return true; end
 	end
-	
+
 	return false;
 
 end
 
-function cleanse_party(debuffname) 
+function cleanse_party(debuffname)
 	for i=1,4,1 do local exists = GetPartyMember(i)
         local name = "party" .. i;
         if has_debuff(name, debuffname) then
@@ -278,25 +278,25 @@ end
 function has_debuff(targetname, debuff_name)
 	local fnd = false;
 	local timeleft = 999;
-	for i=1,16,1 do name, _, _, _, _, _, timeleft = UnitDebuff(targetname,i) 
-		if(name ~= nil and string.find(name, debuff_name)) then 
+	for i=1,16,1 do name, _, _, _, _, _, timeleft = UnitDebuff(targetname,i)
+		if(name ~= nil and string.find(name, debuff_name)) then
 			fnd=true;
-			break; 
+			break;
 		end
 	end
 	return fnd, timeleft;
 end
 
-function has_debuff_by_self(targetname, debuff_name) 
+function has_debuff_by_self(targetname, debuff_name)
 
-	for i=1,16,1 do name, _, _, _, _, duration = UnitDebuff(targetname,i) 
-		if (name ~= nil and string.find(name, debuff_name)) then 
+	for i=1,16,1 do name, _, _, _, _, duration = UnitDebuff(targetname,i)
+		if (name ~= nil and string.find(name, debuff_name)) then
 			if duration then	-- in this version of the wow lua api, duration and timeleft == nil for debuffs cast by others
 				return true;
 			end
 		end
 	end
-	
+
 	return false;
 
 
@@ -304,9 +304,9 @@ end
 
 function get_num_debuff_stacks(targetname, debuff_name)
 
-	for i=1,16,1 do name, _, _, count = UnitDebuff(targetname, i) 
-		if (name ~= nil and string.find(name, debuff_name)) then 
-			return count; 
+	for i=1,16,1 do name, _, _, count = UnitDebuff(targetname, i)
+		if (name ~= nil and string.find(name, debuff_name)) then
+			return count;
 		end
 	end
 	-- not debuffed with debuff_name
@@ -317,10 +317,10 @@ end
 
 function has_buff(targetname, buff_name)
 	local fnd = false;
-	for i=1,16,1 do name, _, icon, _, _, timeLeft = UnitBuff(targetname, i) 
-		if(name ~= nil and string.find(name, buff_name)) then 
+	for i=1,16,1 do name, _, icon, _, _, timeLeft = UnitBuff(targetname, i)
+		if(name ~= nil and string.find(name, buff_name)) then
 			fnd=true;
-			break; 
+			break;
 		end
 	end
 	return fnd, timeleft;
@@ -330,13 +330,13 @@ end
 function has_debuff_of_type(targetname, typename)
 	local fnd = false;
 
-	for i=1,16,1 do _, _, _, _, debuffType, timeLeft = UnitDebuff(targetname,i) 
-		if(debuffType ~= nil and string.find(debuffType, typename)) then 
+	for i=1,16,1 do _, _, _, _, debuffType, timeLeft = UnitDebuff(targetname,i)
+		if(debuffType ~= nil and string.find(debuffType, typename)) then
 			fnd = true;
-			break; 
+			break;
 		end
 	end
-	
+
 	return fnd,timeLeft;
 
 end
@@ -356,13 +356,13 @@ function unset_CC_job(marker)
 end
 
 function do_CC_jobs()
-	
+
 	for marker, spell in pairs(CC_jobs) do
 		target_unit_with_charm(marker);
-	
-		if UnitExists("target") and not UnitDead("target") then
+
+		if UnitExists("target") and not UnitIsDead("target") then
 			a, d = has_debuff("target", spell)
-			if not a then 
+			if not a then
 				CastSpellByName(spell)
 				return true;
 			elseif d < 3 then
@@ -371,7 +371,7 @@ function do_CC_jobs()
 			end
 		end
 	end
-	
+
 	return false
 end
 
@@ -387,12 +387,12 @@ function keep_CCd(targetname, spellname)
 			return true;
 		end
 	end
-	
+
 	return false;
 end
 
 function validate_target()
-	
+
 	if BLAST_TARGET_GUID ~= NOTARGET and UnitExists("focus") and BLAST_TARGET_GUID == UnitGUID("focus") then
 		if not UnitIsDead("focus") then
 			TargetUnit("focus");
@@ -401,7 +401,7 @@ function validate_target()
 			clear_target()
 			return false;
 		end
-	else 
+	else
 		return false;
 	end
 
@@ -446,7 +446,7 @@ function get_int_from_strbool(strbool)
 			rval = 0;
 		end
 	end
-	
+
 	return rval;
 end
 
@@ -470,14 +470,14 @@ function get_list_of_keys(dict)
 	end
 
 	local key_tab, n = {}, 1;
-	
+
 	for k, _ in pairsByKey(dict) do
 		key_tab[n] = k;
 		n = n + 1;
 	end
-	
+
 	return table.concat(key_tab, ", "); -- alphabetical sort.
-	
+
 end
 
 function tokenize_string(str, sep)
@@ -490,5 +490,3 @@ end
 function trim_string(s)
   return (s:gsub("^%s*(.-)%s*$", "%1"))
 end
-
-
