@@ -15,18 +15,21 @@ local TOTEMS = {
 
 combat_shaman_elem = function()
 
+	
+	caster_range_check(30); 
+	caster_face_target();
+
+
 	if UnitCastingInfo("player") then return; end
 
 	if not has_buff("player", "Water Shield") then 
 		CastSpellByName("Water Shield");
 		return;
 	end
-	
+
 	if refresh_totems(TOTEMS) then return; end
 
-	
-	caster_range_check(30); 
-	caster_face_target();
+	if not validate_target() then return end
 
 	CastSpellByName("Lightning Bolt");
 	

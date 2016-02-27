@@ -197,7 +197,9 @@ end
 local function set_cc_target(arg)
 	-- this assings the CC request into a static var or something like that :D
 	local _enabled, _spell, _marker = strsplit(",", arg);
-	local enabled, spell, marker = tonumber(_enabled), trim_string(_spell), trim_string(_marker)
+	local enabled, spell, marker = tonumber(trim_string(_enabled)), trim_string(_spell), trim_string(_marker)
+	
+	echo("TUSSU")
 	
 	if (enabled == 1) then
 		set_CC_job(spell, marker)
