@@ -26,9 +26,9 @@ combat_mage_fire = function()
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end -- mainly in reference to evocation
 	
-	delrissa();
+	--delrissa();
 	
-	if true then return end;
+	--if true then return end;
 	
 	if ((GetItemCount(22044) == 0) and (not UnitAffectingCombat("player"))) then
 		CastSpellByName("Conjure Mana Emerald");
