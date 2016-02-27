@@ -9,22 +9,22 @@ LBUFFCHECK_ISSUED = false;
 BUFF_ALIASES = {
     ["Arcane Intellect"] = "Arcane Brilliance",
 --  ["Arcane Brilliance"] = "Arcane Intellect",
-    
+
     ["Mark of the Wild"] = "Gift of the Wild",
 --  ["Gift of the Wild"] = "Mark of the Wild",
-    
+
     ["Power Word: Fortitude"] = "Prayer of Fortitude",
 --  ["Prayer of Fortitude"] = "Power Word: Fortitude",
-    
+
     ["Divine Spirit"] = "Prayer of Spirit",
 --  ["Prayer of Spirit"] = "Divine Spirit",
-    
+
     ["Blessing of Kings"] = "Greater Blessing of Kings",
 --  ["Greater Blessing of Kings"] = "Blessing of Kings",
-    
+
     ["Blessing of Wisdom"] = "Greater Blessing of Wisdom",
 --  ["Greater Blessing of Wisdom"] = "Blessing of Wisdom",
-    
+
     ["Blessing of Salvation"] = "Greater Blessing of Salvation",
 --  ["Greater Blessing of Salvation"] = "Blessing of Salvation"
 
@@ -50,7 +50,7 @@ function get_desired_buffs(role)
         "Blessing of Wisdom",
         "Arcane Intellect",
     };
-	
+
 	local warrior_tank_buffs = {
 		"Blessing of Kings",
         "Blessing of Might",
@@ -88,7 +88,7 @@ function get_desired_buffs(role)
         table.remove(desired_buffs, 2);
     end
 
-    for key, buff in pairs(common_buffs) do 
+    for key, buff in pairs(common_buffs) do
         table.insert(desired_buffs, buff);
     end
 
@@ -109,7 +109,7 @@ end
 
 function lole_leaderbuffcheck(arg)
 
-    if arg ~= nil and arg ~= "clean" then 
+    if arg and arg ~= "clean" then 
         echo("lole_leaderbuffcheck: erroneous argument!");
         return false;
     end
@@ -133,13 +133,13 @@ function lole_buffcheck(arg, verbose)
         verbose = true;
     end
 
-    if (arg ~= nil and arg ~= "clean") or type(verbose) ~= type(true) then 
+    if (arg ~= nil and arg ~= "clean") or type(verbose) ~= type(true) then
         echo("lole_buffcheck: erroneous argument!");
         return false;
     end
 
     local buffname_timeleft_map = {}
-    
+
     for i=1,32 do id,cancel = GetPlayerBuff(i,"HELPFUL") -- |HARMFUL|PASSIVE"); -- not needed really
         if (id > 0) then
             local name = GetPlayerBuffName(id);
@@ -150,7 +150,7 @@ function lole_buffcheck(arg, verbose)
             buffname_timeleft_map[name] = timeleft;
         end
     end
-   
+
     local missing_table = {};
 
     if arg == "clean" then
@@ -165,7 +165,7 @@ function lole_buffcheck(arg, verbose)
         local desired_buffs = get_desired_buffs(get_current_config().role);
         for i,bname in ipairs(desired_buffs) do
             local bname_alias = BUFF_ALIASES[bname];
-            
+
             if buffname_timeleft_map[bname] ~= nil then
                 if buffname_timeleft_map[bname] < 180 then
                     table.insert(missing_table, bname);
@@ -185,7 +185,7 @@ function lole_buffcheck(arg, verbose)
         for i,bname in ipairs(get_current_config().self_buffs) do
             if arg == "clean" then
                 if buffname_timeleft_map[bname] == 1000 then
-                else 
+                else
                     table.insert(SELF_BUFF_SPAM_TABLE, bname);
                 end
             else
@@ -199,9 +199,9 @@ function lole_buffcheck(arg, verbose)
             end
         end
     end
-    
+
     local msgstr = table.concat(missing_table, ",");
-     
+
     SendAddonMessage("lole_buffs", msgstr, "RAID", UnitName("player"));
     LAST_BUFF_CHECK = time();
     BUFFS_CHECKED = true;
@@ -223,13 +223,13 @@ function get_num_buff_requests(buffs)
             end
         end
     end
-	
+
 	return request_amount;
 
 end
 
 function get_spam_table(buffs, group_buff_map)
-    
+
     local groups = {[1] = {}, [2] = {}};
     if GetNumRaidMembers() == 0 then
         for buff, chars in pairs(buffs) do

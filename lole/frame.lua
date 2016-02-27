@@ -13,7 +13,7 @@ lole_frame:SetScript("OnUpdate", function()
 		do_CC_jobs()
 		lole_main();
 	end
-	
+
 	if frame_modulo >= every_nth_frame then -- mod would be better, but,
 		frame_modulo = 0
 	else
@@ -21,9 +21,9 @@ lole_frame:SetScript("OnUpdate", function()
 	end
 end);
 
-local function LOLE_EventHandler(self, event, prefix, message, channel, sender) 
+local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 	--DEFAULT_CHAT_FRAME:AddMessage("LOLE_EventHandler: event:" .. event)
-	
+
 	if event == "ADDON_LOADED" then
 		if prefix ~= "lole" then return end
 
@@ -32,34 +32,39 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		else
 			lole_subcommands.setconfig("default");
 		end
-		
+
 		clear_target()
-		
+
 		lole_frame:UnregisterEvent("ADDON_LOADED");
-		
+
 	elseif event == "PLAYER_DEAD" then
 		clear_target();
-	
+
 	elseif event == "PLAYER_REGEN_DISABLED" then
 		if IsRaidLeader() then
 			broadcast_follow_target(NOTARGET);
 		end
+	elseif event == "PLAYER_REGEN_ENABLED" then
+		if IsRaidLeader() then
+			broadcast_blast_state(0);
+		end
+	
 	elseif event == "UPDATE_BATTLEFIELD_STATUS" then
-		
+		-- lol
 	end
-	
-	
+
+
 end
 
 lole_frame:SetScript("OnEvent", LOLE_EventHandler);
 
 lole_frame:SetHeight(300)
 lole_frame:SetWidth(250)
-lole_frame:SetPoint("RIGHT")
+lole_frame:SetPoint("RIGHT", -25, 0)
 
 
 local backdrop = {
-	bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",  
+	bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
 	edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
 	  -- true to repeat the background texture to fill the frame, false to scale it
 	tile = false,
@@ -116,7 +121,7 @@ blast_check_settext(blast_disabled_string)
 
 blast_checkbutton.tooltip = "Whether BLAST is on or off.";
 
-blast_checkbutton:SetScript("OnClick", 
+blast_checkbutton:SetScript("OnClick",
   function()
 	local arg = blast_checkbutton:GetChecked() and "1" or "0"; -- this is the lua equivalent of '?' in C :D
 	lole_subcommands.blast(arg)
@@ -152,22 +157,6 @@ function main_frame_show()
 	lole_frame:Show();
 end
 
---local edit = CreateFrame("EditBox", "edit1", lole_frame);
---edit:SetPoint("TOPLEFT", 10, -30);
---edit:SetHeight(15)
---edit:SetWidth(80)
---edit:SetText("");
---edit:SetAutoFocus(false)
-
---edit:SetCursorPosition(0);
---edit:SetBackdrop(backdrop);
---edit:SetTextInsets(3, 3, 0, 0)
---edit:SetBackdropBorderColor(1.0, 0.0, 0.0, 1.0);
-
---edit:SetFont("Fonts\\FRIZQT__.TTF", 10);
-
---edit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-
 local config_dropdown = CreateFrame("Frame", "config_dropdown", lole_frame, "UIDropDownMenuTemplate");
 config_dropdown:SetPoint("BOTTOMLEFT", 60, 10);
 
@@ -179,9 +168,9 @@ config_text:SetText("Config:")
 
 
 local function config_drop_onClick(name)
-	lole_subcommands.setconfig(string.sub(name, 11)); -- these have the color string in front of them, length 10 
+	lole_subcommands.setconfig(string.sub(name, 11)); -- these have the color string in front of them, length 10
 end
- 
+
 local drop_formatted_configs = {}
 local drop_formatted_config_indices = {}
 
@@ -200,80 +189,73 @@ end
 
 
 local function config_drop_initialize()
-		
+
 	local info = {}
-	
+
 	for n = 1, #drop_formatted_configs do
 		info.text = drop_formatted_configs[n];
 		info.value = n;
 		info.arg1 = info.text;
-		
+
 		if n == drop_formatted_config_indices[get_current_config()] then
 			info.checked = 1
 		else
 			info.checked = nil;
 		end
-		
+
 		info.func = config_drop_onClick;
 		UIDropDownMenu_AddButton(info)
 	end
 end
- 
+
 UIDropDownMenu_Initialize(config_dropdown, config_drop_initialize)
 
+local function create_simple_button(name, parent, x, y, text, width, height, onclick, scale) -- scale optional
+	local button = CreateFrame("Button", name, parent, "UIPanelButtonTemplate");
 
-local follow_button = CreateFrame("Button", "follow_button", lole_frame, "UIPanelButtonTemplate")
+	-- SetPoint (and SetWidth/Height) behaves a bit differently (i think) depending on whether SetScale was called before or after
+	if scale then
+		button:SetScale(scale);
+	else
+		button:SetScale(0.75);
+	end
 
-follow_button:SetPoint("TOPLEFT", 22, -100);
-follow_button:SetHeight(27)
-follow_button:SetWidth(85)
+	button:SetPoint("TOPLEFT", x, y);
+	button:SetWidth(width);
+	button:SetHeight(height);
+	button:SetText(text);
+	button:SetScript("OnClick", onclick);
 
-follow_button:SetText("Follow me!");
+	return button
+end
 
-follow_button:SetScale(0.75)
 
-follow_button:SetScript("OnClick", function()
-	lole_subcommands.followme()
-end)
+local follow_button =
+create_simple_button("follow_button", lole_frame, 22, -100, "Follow me!", 85, 27, function() lole_subcommands.followme() end);
 
-local stopfollow_button = CreateFrame("Button", "stopfollow_button", lole_frame, "UIPanelButtonTemplate")
+local stopfollow_button =
+create_simple_button("stopfollow_button", lole_frame, 22, -130, "Stopfollow", 85, 27, function() lole_subcommands.stopfollow() end);
 
-stopfollow_button:SetPoint("TOPLEFT", 22, -130);
-stopfollow_button:SetHeight(27)
-stopfollow_button:SetWidth(85)
+local function update_target_onclick()
 
-stopfollow_button:SetScale(0.75)
-
-stopfollow_button:SetText("Stopfollow");
-
-stopfollow_button:SetScript("OnClick", function()
-	lole_subcommands.stopfollow()
-end)
-
-local update_target_button = CreateFrame("Button", "stopfollow_button", lole_frame, "UIPanelButtonTemplate")
-
-update_target_button:SetPoint("TOPLEFT", 128, -100);
-update_target_button:SetHeight(27)
-update_target_button:SetWidth(158)
-
-update_target_button:SetScale(0.75)
-
-update_target_button:SetText("Update BLAST target");
-
-update_target_button:SetScript("OnClick", function()
-	
 	if not IsRaidLeader() then
 		lole_error("Couldn't update BLAST target (you are not the raid leader!)");
 		return;
 	end
-	
-	if not UnitExists("target") then 
+
+	if not UnitExists("target") then
 		lole_error("Couldn't update BLAST target (no valid mob selected!)");
 		return;
 	end
-	
+
 	local target_GUID = UnitGUID("target");
-	
+
+	if not target_GUID then
+		clear_target();
+		broadcast_target_GUID(NOTARGET);
+		return
+	end
+
 	if target_GUID ~= BLAST_TARGET_GUID then
 		-- mob GUIDs always start with 0xF130
 		if string.sub(target_GUID, 1, 6) == "0xF130" and (not UnitIsDead("target")) and UnitReaction("target", "player") < 5 then
@@ -285,13 +267,48 @@ update_target_button:SetScript("OnClick", function()
 			return;
 		end
 	end
-end)
+end
 
+local update_target_button =
+create_simple_button("update_target_button", lole_frame, 120, -100, "Update target", 115, 27, update_target_onclick);
 
-local ctm_host = { title = "CTM mode:", title_fontstr = nil, buttons = {}, num_buttons = 0, first_pos_x = 150, first_pos_y = -102, increment = -18 }
+local function clear_target_onclick()
 
-CTM_MODES = { 
-	LOCAL = 1, TARGET = 2, EVERYONE = 3, HEALERS = 4, CASTERS = 5, MELEE = 6 
+	if not IsRaidLeader() then
+		lole_error("Couldn't clear BLAST target (you are not the raid leader!)");
+		return;
+	end
+
+	clear_target();
+	broadcast_target_GUID(NOTARGET);
+end
+
+local clear_target_button =
+create_simple_button("clear_target_button", lole_frame, 250, -100, "Clear", 62, 27, clear_target_onclick);
+
+local cooldowns_button =
+create_simple_button("cooldowns_button", lole_frame, 120, -130, "Cooldowns", 115, 27, function() broadcast_cooldowns() end);
+
+local drink_button =
+create_simple_button("drink_button", lole_frame, 250, -130, "Drink", 62, 27, function() broadcast_drink() end);
+
+local lbuffcheck_clean_button =
+create_simple_button("lbuffcheck_clean_button", lole_frame, 120, -160, "Buff (clean)", 115, 27, function() lole_subcommands.lbuffcheck("clean") end);
+
+local lbuffcheck_button =
+create_simple_button("lbuffcheck_button", lole_frame, 250, -160, "Buff", 62, 27, function() lole_subcommands.lbuffcheck() end);
+
+-- ok this can be problematic.
+
+if not IsRaidLeader() then
+	lbuffcheck_clean_button:Disable()
+	lbuffcheck_button:Disable()
+end
+
+local ctm_host = { title = "CTM mode:", title_fontstr = nil, buttons = {}, num_buttons = 0, first_pos_x = 150, first_pos_y = -160, increment = -18 }
+
+CTM_MODES = {
+	LOCAL = 1, TARGET = 2, EVERYONE = 3, HEALERS = 4, CASTERS = 5, MELEE = 6
 }
 
 
@@ -303,7 +320,7 @@ end
 
 
 ctm_host.exclusive_onclick = function(self, button, down)
-	
+
 	for k, b in pairs(ctm_host.buttons) do
 		if (b:GetID() ~= self:GetID()) then
 			b:SetChecked(nil);
@@ -312,27 +329,26 @@ ctm_host.exclusive_onclick = function(self, button, down)
 			ctm_host.checkedID = b:GetID();
 		end
 	end
-	
-end
 
+end
 
 function ctm_host:add_button(button_text)
 	self.num_buttons = self.num_buttons + 1;
 	self.buttons[self.num_buttons] = CreateFrame("CheckButton", "ctm_radio" .. tostring(self.num_buttons), lole_frame, "UIRadioButtonTemplate")
-	
+
 	local button = self.buttons[self.num_buttons];
 
 	getglobal(button:GetName() .. "Text"):SetText(button_text);
 	button:SetID(self.num_buttons);
 	button:SetPoint("TOPLEFT", self.first_pos_x, self.first_pos_y + self.increment*self.num_buttons);
 	button:SetScript("OnClick", ctm_host.exclusive_onclick)
-	
-	-- this is really bad..	
+
+	-- this is really bad..
 	if self.num_buttons == 1 then
 		button:SetChecked(true)
 		self.checkedID = 1
 	end
-	
+
 end
 
 ctm_host.title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal");
@@ -344,35 +360,9 @@ ctm_host.title_fontstr:SetText(ctm_host.title)
 ctm_host:add_button("Local");
 ctm_host:add_button("Target");
 ctm_host:add_button("Everyone");
-ctm_host:add_button("Healers");
-ctm_host:add_button("Casters");
-ctm_host:add_button("Melee");
-
-local function get_available_CC() ---- unnecessary for now
-
-	local CC_table = nil
-	
-	for i=1,4,1 do 
-		local exists = GetPartyMember(i)
-		if exists then
-			if not CC_table then CC_table = {} end
-			
-			local id = "party" .. tostring(i)
-			local name = UnitName(id)
-			local _, class, _ = UnitClass(id);
-			
-			if class == "MAGE" then
-				CC_table[name] = { "Polymorph" }
-			elseif class == "WARLOCK" then
-				CC_table[name] = { "Fear", "Banish" }
-			elseif class == "DRUID" then
-				CC_table[name] = { "Cyclone", "Hibernate", "Entangling Roots" }
-			end
-		end
-	end
-	
-	return CC_table;
-end
+--ctm_host:add_button("Healers");
+--ctm_host:add_button("Casters");
+--ctm_host:add_button("Melee");
 
 local CC_state = {}
 local num_CC_targets = 0
@@ -385,45 +375,50 @@ local function delete_CC_entry(CC_entry)
 		lole_error("attempting to delete CC entry " .. CC_host.ID  .. " (index too damn high!)")
 		return false
 	end
-		
+
 	local hostID = CC_host.ID
-	
+
 	CC_host:Hide()
 	disable_cc_target(CC_host.char, CC_host.spell, CC_host.marker);
-	
+
 	table.remove(CC_state, hostID);
 
 	num_CC_targets = num_CC_targets - 1
-	
-	for i = hostID, num_CC_targets do 
+
+	for i = hostID, num_CC_targets do
 		CC_state[i]:SetPoint("TOPLEFT", 18, CC_base_y - 20*i)
 		CC_state[i].ID = i;
 	end
-		
+
 end
 
 local CC_spells = {
 	Polymorph = 118,
 	Sheep = 118,
 	sheep = 118,
-	
+
 	Cyclone = 33786,
 	cyclone = 33786,
-	
+
 	["Entangling Roots"] = 26989,
 	Roots = 26989,
 	roots = 26989,
 	root = 26989,
-	
+
 	Banish = 18647,
+	banish = 18647,
 	ban = 18647,
-	
+
 	Fear = 6215,
 	fear = 6215,
-	
+
 	["Shackle Undead"] = 10955,
 	Shackle = 10955,
-	shackle = 10955
+	shackle = 10955,
+
+	["Turn Evil"] = 10326,
+	Turn = 10326,
+	turn = 10326,
 }
 
 local CC_spellnames = { -- in a CastSpellByName-able format
@@ -432,11 +427,12 @@ local CC_spellnames = { -- in a CastSpellByName-able format
 	[26989] = "Entangling Roots",
 	[18647] = "Banish",
 	[6215] = "Fear",
-	[10955] = "Shackle Undead"
+	[10955] = "Shackle Undead",
+	[10326] = "Turn Evil",
 }
 
 local CC_frame_backdrop = {
-	--bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",  
+	--bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
 	edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
 	  -- true to repeat the background texture to fill the frame, false to scale it
 	tile = false,
@@ -460,40 +456,40 @@ local function new_CC(char, spellID, marker)
 		lole_error("Character " .. char .. " doesn't appear to exist!")
 		return false
 	end
-	
-	if not spellID then 
+
+	if not spellID then
 		lole_error("Unknown CC spell!");
 		return false
 	end
-	
+
 	local spell = CC_spellnames[spellID]; -- get the spellname in a CastSpellByName-able format
-		
+
 	local name, rank, icon, castTime, minRange, maxRange = GetSpellInfo(spellID)
 
 	if not get_marker_index(marker) then
 		lole_error("Invalid marker name " .. marker .. "!")
 		return false
 	end
-		
+
 	num_CC_targets = num_CC_targets + 1
-		
+
 	local CC_host = CreateFrame("Frame", nil, lole_frame);
-	
+
 	CC_host.char = char
 	CC_host.spell = spell
 	CC_host.marker = marker
-	
+
 	CC_host:SetWidth(100)
 	CC_host:SetHeight(22)
-	
+
 	CC_host:SetBackdrop(CC_frame_backdrop)
-	
+
 	local y = CC_base_y - (num_CC_targets*20)
-	
+
 	CC_host:SetPoint("TOPLEFT", 18, y)
-	
+
 	CC_host.ID = num_CC_targets
-	
+
 	local icon_frame = CreateFrame("Frame", nil, CC_host)
 	icon_frame:SetWidth(16)
 	icon_frame:SetHeight(16)
@@ -501,48 +497,48 @@ local function new_CC(char, spellID, marker)
 	local icon_texture = icon_frame:CreateTexture(nil,"BACKGROUND")
 	icon_texture:SetTexture(icon)
 	icon_texture:SetAllPoints(icon_frame)
-	
+
 	icon_frame.texture = icon_texture
 
 	local y = -140 - (num_CC_targets*20)
-	
+
 	icon_frame:SetPoint("TOPLEFT", 60, -3)
 	icon_frame:Show()
-	
+
 	local caster_char_text = CC_host:CreateFontString(nil, "OVERLAY")
 	caster_char_text:SetFont("Fonts\\FRIZQT__.TTF", 9);
-	
+
 	caster_char_text:SetPoint("TOPLEFT", 3, -6);
 	caster_char_text:SetText("|cFF" .. get_class_color(UnitClass(char)) .. char)
-	
+
 	local marker_frame = CreateFrame("Frame", nil, CC_host)
 	marker_frame:SetWidth(16)
 	marker_frame:SetHeight(16)
-	
+
 	local marker_texture = marker_frame:CreateTexture(nil, "BACKGROUND");
 	marker_texture:SetTexture("Interface\\TARGETINGFRAME\\UI-RaidTargetingIcon_" .. get_marker_index(marker))
 	marker_texture:SetAllPoints(marker_frame)
-	
+
 	marker_frame.texture = marker_texture
-	
+
 	marker_frame:SetPoint("TOPLEFT", 80, -3);
 	marker_frame:Show()
-	
+
 	local delete_button = CreateFrame("Button", nil, CC_host)
-	
+
 	delete_button:SetWidth(12)
 	delete_button:SetHeight(12)
-	
+
 	delete_button:SetPoint("TOPLEFT", 100, -4);
-	
+
 	delete_button:SetNormalTexture("Interface\\Buttons\\UI-MinusButton-Up");
 	--delete_button:SetHighlightTexture("Interface\\Buttons\\UI-MinusButton-Highlight"
 	delete_button:SetPushedTexture("Interface\\Buttons\\UI-MinusButton-Down");
-	
+
 	delete_button:SetScript("OnClick", function(self) delete_CC_entry(self) end)
-	
+
 	CC_state[num_CC_targets] = CC_host;
-	
+
 end
 
 StaticPopupDialogs["ADD_CC_DIALOG"] = {
@@ -555,36 +551,24 @@ StaticPopupDialogs["ADD_CC_DIALOG"] = {
 	hideOnEscape = 1,
 	hasEditBox = 1,
 	hasWideEditBox = 1,
-	
+
 	OnShow = function()
 		getglobal(this:GetName().."WideEditBox"):SetText("")
 	end,
-	
+
 	OnAccept = function()
 		local text = getglobal(this:GetParent():GetName().."WideEditBox"):GetText()
 		local _char, _spell, _marker = strsplit(",", text);
 		local char, spell, marker = trim_string(_char), trim_string(_spell), trim_string(_marker)
-		
-		local spellID = CC_spells[spell] 
+
+		local spellID = CC_spells[spell]
 		new_CC(char, spellID, marker)
-		
+
 		local spell = CC_spellnames[spellID];
 		enable_cc_target(char, spell, marker)
 	end,
-  
+
 };
 
-
-local add_cc_button = CreateFrame("Button", "add_cc_button", lole_frame, "UIPanelButtonTemplate")
-add_cc_button:SetScale(0.75)
-
-add_cc_button:SetPoint("TOPLEFT", 22, -175);
-add_cc_button:SetHeight(27)
-add_cc_button:SetWidth(85)
-
-add_cc_button:SetText("Add CC...");
-
-add_cc_button:SetScript("OnClick", function()
-	StaticPopup_Show("ADD_CC_DIALOG")
-end)
-
+local add_cc_button =
+create_simple_button("add_cc_button", lole_frame, 22, -175, "Add CC...", 85, 27, function() StaticPopup_Show("ADD_CC_DIALOG") end);

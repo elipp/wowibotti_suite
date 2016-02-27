@@ -85,7 +85,7 @@ combat_warrior_arms = function()
 	end
 	
 	if cast_if_nocd("Mortal Strike") then return; end
-	if cast_if_nocd("Whirlwind") then return; end
+	--if cast_if_nocd("Whirlwind") then return; end
 	
 
 	if UnitMana("player") > 65 then

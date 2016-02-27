@@ -360,7 +360,7 @@ function do_CC_jobs()
 	for marker, spell in pairs(CC_jobs) do
 		target_unit_with_charm(marker);
 	
-		if UnitExists("target") then
+		if UnitExists("target") and not UnitDead("target") then
 			a, d = has_debuff("target", spell)
 			if not a then 
 				CastSpellByName(spell)
