@@ -1,4 +1,4 @@
-local function auto_stancedance() 
+local function auto_stancedance()
 	local name = UnitCastingInfo("target");
 	if (name == "Bellowing Roar") then
 		echo("Voi vittu, castaa bellowing roarii!!");
@@ -12,7 +12,7 @@ end
 local sw_frame;
 local swing_starttime = 0;
 local swing_duration = 0;
-	
+
 --sw_frame = CreateFrame("Frame");
 --sw_frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 
@@ -23,7 +23,7 @@ local COMBATLOG_FILTER_ME = bit.bor(
 			COMBATLOG_OBJECT_TYPE_PLAYER or 0x00000400
 )
 
-	
+
 local function swing_eventhandler(self, event, ...)
 	if (event == "COMBAT_LOG_EVENT_UNFILTERED") then
 		local timestamp, type, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, spellId, spellName, spellSchool, damageDealt = ...;
@@ -32,14 +32,14 @@ local function swing_eventhandler(self, event, ...)
 			swing_starttime = GetTime();
 			swing_duration = UnitAttackSpeed("player");
 		end
-		
+
 	end
 end
 
 --sw_frame:SetScript("OnEvent", swing_eventhandler)
 
 local function slam()
-	
+
 	local dt = GetTime() - swing_starttime;
 	local __, __, __, __, __, __, castTime, __, __ = GetSpellInfo("Slam");
 
@@ -49,22 +49,45 @@ local function slam()
 
 	-- this margin is just arbitrary, not tested! also, on feenix the slam mechanic doesn't seem to be working as it should be..
 	-- ie. the swing timer is always reset when you start casting slam.
-	
+
 	if dt > optimal_slam + 0.2 and dt < optimal_slam + 0.3 then
 		if cast_if_nocd("Slam") then return end;
 	end
-	
+
+end
+
+local function curator()
+	TargetUnit("Astral Flare")
+	if (UnitExists("target") and not UnitIsDead("target")) then
+		broadcast_target_GUID(UnitGUID("target"));
+		set_target(UnitGUID("target"))
+		RunMacroText("/cast [nostance:3] Berserker Stance")
+		RunMacroText("/cast Intercept");
+		return true;
+	else
+		TargetUnit("The Curator")
+		if (UnitExists("target") and not UnitIsDead("target")) then
+			local spell = UnitChannelInfo("target");
+			if spell == "Evocation" then
+				broadcast_target_GUID(UnitGUID("target"));
+				set_target(UnitGUID("target"))
+				return true;
+			end
+		end
+	end
+
+	return false;
 end
 
 combat_warrior_arms = function()
-		
+
 	if not validate_target() then return end
-	
+
 	melee_close_in() -- this is a hooked function that makes the warrior walk behind/toward the target.
 	-- CTM_MOVE_AND_ATTACK is performed, so no need to mess around with StartAttack()
-	
-	if UnitIsDead("target") then ClearTarget() end; 
-	
+
+	if UnitIsDead("target") then ClearTarget() end;
+
 	if (not UnitAffectingCombat("player")) then
 		RunMacroText("/cast [nostance:1] Battle Stance"); -- charge doesnt work
 		RunMacroText("/cast Charge");
@@ -73,7 +96,15 @@ combat_warrior_arms = function()
 
 	RunMacroText("/cast [nostance:3] Berserker Stance"); -- overall, its probably better to be in zerg stance :D
 
-	
+	if GetSpellCooldown("Bloodrage") == 0 then
+		CastSpellByName("Bloodrage")
+	end
+
+	if not has_buff("player", "Battle Shout") then
+		CastSpellByName("Battle Shout");
+		return;
+	end
+
 	if UnitCastingInfo("target") then
 		RunMacroText("/cast [nostance:3] Berserker Stance");
 		cast_if_nocd("Pummel");
@@ -83,28 +114,24 @@ combat_warrior_arms = function()
 		RunMacroText("/cast [nostance:1] Battle Stance");
 		RunMacroText("/cast Rend");
 	end
-	
-	if cast_if_nocd("Mortal Strike") then return; end
-	--if cast_if_nocd("Whirlwind") then return; end
-	
 
-	if UnitMana("player") > 65 then
-		--if GetTime() - swing_starttime < 1.5 then
-		if cast_if_nocd("Slam") then return end;
-		--end
-	end
-	
-	if not has_buff("player", "Battle Shout") then
-		CastSpellByName("Battle Shout");
-		return;
-	end
-	
-	if UnitMana("player") > 65 then
+	if cast_if_nocd("Mortal Strike") then return; end
+
+	if lole_subcommands.get("aoemode") == 1 then
+		if cast_if_nocd("Whirlwind") then return; end
+		if UnitMana("player") > 65 then
+			CastSpellByName("Cleave")
+		end
+	else
+		if UnitMana("player") > 65 then
 		--if GetTime() - swing_starttime < 1.5 then
 			if cast_if_nocd("Slam") then return end;
 		--end
+		end
 	end
-		
+
+
+
 	if not has_debuff("target", "Thunder Clap") then
 		if cast_if_nocd("Thunder Clap") then return; end
 	end
@@ -114,9 +141,5 @@ combat_warrior_arms = function()
 		return;
 	end
 
-	
+
 end
-
-
-
-

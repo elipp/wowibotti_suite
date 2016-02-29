@@ -49,6 +49,9 @@ local available_configs = {
 
 	warrior_arms =
 	class_config_create("warrior_arms", {}, {"Battle Shout"}, get_class_color("warrior"), combat_warrior_arms, {"Death Wish"}, ROLES.warrior_tank),
+
+	--mage_aespam =
+	--class_config_create("mage_aespam", {}, {}, get_class_color("mage"), function() CastSpellByName("Arcane Explosion") end, {}, ROLES.caster),
 };
 
 

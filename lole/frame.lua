@@ -49,7 +49,7 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 
 	elseif event == "PLAYER_REGEN_DISABLED" then
 		if IsRaidLeader() then
-			broadcast_follow_target(NOTARGET);
+		--	broadcast_follow_target(NOTARGET); -- REMEMBER TO REMOVE THIS!!
 		end
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		if IsRaidLeader() then

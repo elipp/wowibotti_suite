@@ -647,13 +647,15 @@ static void follow_unit_with_GUID(const std::string& arg) {
 	click_to_move(o.get_pos(), CTM_MOVE, 0);
 
 	if ((o.get_pos() - p.get_pos()).length() < 10) {
-		//DoString("FollowUnit(\"" + o.unit_get_name() + "\")");
 		printf("follow difference < 10! calling WOWAPI FollowUnit()\n");
 		DoString("FollowUnit(\"%s\")", o.unit_get_name().c_str());
 		follow_state.clear();
 	}
 	else {
-		follow_state.start(arg);
+		// close_enough == 1 means the follow attempt either hasn't been started yet or that the char has actually reached its target
+		if (follow_state.close_enough) { 
+			follow_state.start(arg);
+		}
 	}
 
 
