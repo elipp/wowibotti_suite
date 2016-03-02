@@ -284,6 +284,18 @@ function cleanse_party(debuffname)
 	return false;
 end
 
+function decurse_party(debuffname)
+    for i=1,4,1 do local exists = GetPartyMember(i)
+        local name = "party" .. i;
+        if has_debuff(name, debuffname) then
+            TargetUnit(name);
+            CastSpellByName("Remove Curse");
+            CastSpellByName("Remove Lesser Curse")
+            return true;
+        end
+    end
+    return false;
+end
 
 function has_debuff(targetname, debuff_name)
 	local fnd = false;
