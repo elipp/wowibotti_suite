@@ -11,6 +11,9 @@ local available_configs = {
 	druid_balance =
 	class_config_create("druid_balance", {"Mark of the Wild", "Thorns"}, {"Moonkin Form"}, get_class_color("druid"), combat_druid_balance, {"Barkskin"}, ROLES.caster),
 
+	hunter =
+	class_config_create("hunter", {}, {"Aspect of the Viper"}, get_class_color("hunter"), combat_hunter, {"Bestial Wrath", "Rapid Fire"}, ROLES.warrior_tank)
+
 	mage_fire =
 	class_config_create("mage_fire", {"Arcane Intellect"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_fire, {"Icy Veins", "Combustion"}, ROLES.caster),
 

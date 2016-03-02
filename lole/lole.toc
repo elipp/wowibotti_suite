@@ -10,6 +10,7 @@ class_config.lua
 
 druid_resto.lua
 druid_balance.lua
+hunter.lua
 paladin_holy.lua
 paladin_prot.lua
 paladin_retri.lua
