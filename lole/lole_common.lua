@@ -200,11 +200,21 @@ function get_HP_deficits()
 
 	local HP_deficits = {};
 
-	--HP_deficits["player"] = UnitHealthMax("player") - UnitHealth("player");
-	for i=1,10,1 do
-		local name = "raid" .. tonumber(i);
-		if UnitExists(name) and not UnitIsDead(name) then
-			HP_deficits[name] = UnitHealthMax(name) - UnitHealth(name);
+	if GetNumRaidMembers() == 0 then
+	    HP_deficits["player"] = UnitHealthMax("player") - UnitHealth("player");
+	    for i=1,4,1 do local exists = GetPartyMember(i)
+            local name = "party" .. i;
+            if exists and not UnitIsDead(name) then
+            	HP_deficits[name] = UnitHealthMax(name) - UnitHealth(name);
+            end
+	    end
+	else
+		--HP_deficits["player"] = UnitHealthMax("player") - UnitHealth("player");
+		for i=1,10,1 do
+			local name = "raid" .. tonumber(i);
+			if UnitExists(name) and not UnitIsDead(name) then
+				HP_deficits[name] = UnitHealthMax(name) - UnitHealth(name);
+			end
 		end
 	end
 
@@ -274,6 +284,18 @@ function cleanse_party(debuffname)
 	return false;
 end
 
+function decurse_party(debuffname)
+    for i=1,4,1 do local exists = GetPartyMember(i)
+        local name = "party" .. i;
+        if has_debuff(name, debuffname) then
+            TargetUnit(name);
+            CastSpellByName("Remove Curse");
+            CastSpellByName("Remove Lesser Curse")
+            return true;
+        end
+    end
+    return false;
+end
 
 function has_debuff(targetname, debuff_name)
 	local fnd = false;
