@@ -2,7 +2,7 @@ local tap_warning_given = false;
 local ua_guard = true;
 local immolate_guard = true;
 
-config_warlock_affli_combat = function()
+combat_warlock_affli = function()
 
 
 	local mana = UnitMana("player");
