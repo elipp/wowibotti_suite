@@ -4,6 +4,7 @@ local immolate_guard = true;
 
 config_warlock_affli_combat = function()
 
+
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
 
@@ -13,6 +14,8 @@ config_warlock_affli_combat = function()
 			return;
 		end
 	end
+
+	if not validate_target() then return end
 
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end
