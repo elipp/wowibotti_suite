@@ -17,6 +17,9 @@ config_warlock_affli_combat = function()
 
 	if not validate_target() then return end
 
+	caster_range_check(30);
+	caster_face_target();
+
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end
 	if GetSpellCooldown("Corruption") > 0 then return; end -- check gcd. this could add unnecessary latency to spam though
@@ -51,9 +54,6 @@ config_warlock_affli_combat = function()
 		end
 
 	end
-
-	local t = target_mob_with_charm("skull");
-	if (t < 1) then return; end
 
 
 	if not has_debuff("target", "Curse of the Elements") then
