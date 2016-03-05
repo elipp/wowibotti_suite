@@ -3,7 +3,7 @@ local pom_time = 0;
 combat_priest_holy = function()
 
 	if casting_legit_heal() then return end
-	
+
 	TargetUnit("Adieux");
 	local mana_left = UnitMana("player");
 
@@ -27,6 +27,8 @@ combat_priest_holy = function()
 		CastSpellByName("Renew");
 		return;
 	end
+
+	if cleanse_party("Static Disruption") then return end
 
 	if casting_legit_heal() then return end
 

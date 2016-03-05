@@ -401,7 +401,9 @@ static void __stdcall face_target() {
 	if (!p.valid()) return;
 
 	vec3 diff = t.get_pos() - p.get_pos();
-	click_to_move(p.get_pos() + 0.4*diff.unit(), CTM_MOVE, 0); 
+
+
+
 	// less than 0.5 is good for just changing orientation (without walking). see click_to_move()
 
 	// The SetFacing function is effective on the local client level, 
@@ -601,12 +603,22 @@ static void move_into_casting_range(const std::string& arg) {
 	char *endptr;
 	float minrange = strtof(arg.c_str(), &endptr);
 
-	if (diff.length() > minrange-1) {
+	if (diff.length() > minrange - 1) {
 		// move in a straight line to a distance of 29 yd from the target. Kinda bug-prone though..
-		vec3 new_point = tpos - (minrange - 0.5) * diff.unit(); 
+		vec3 new_point = tpos - (minrange - 0.5) * diff.unit();
 		click_to_move(new_point, CTM_MOVE, 0x0);
 		return;
+
 	}
+	else {
+		float rot = p.get_rot();
+		vec3 rot_unit = vec3(std::cos(rot), std::sin(rot), 0.0);
+
+		if (dot(diff, rot_unit) < 0) {
+			click_to_move(ppos + 0.3*diff.unit(), CTM_MOVE, 0, 0.2);
+		}
+	}
+
 }
 
 static void follow_unit_with_GUID(const std::string& arg) {
@@ -670,7 +682,7 @@ static void follow_unit_with_GUID(const std::string& arg) {
 }
 
 static void caster_face_target(const std::string &arg) {
-	face_queued = 1;
+	//face_queued = 1;
 }
 
 static void act_on_CTM_broadcast(const std::string &arg) {

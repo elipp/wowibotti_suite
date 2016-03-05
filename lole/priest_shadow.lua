@@ -11,7 +11,6 @@ combat_priest_shadow = function()
 	if not validate_target() then return end
 
 	caster_range_check(20); -- 20 yd on mind flay  :()
-	caster_face_target();
 
 	if (UnitMana("player") < 4000 and UnitHealth("target") > 50000) then if cast_if_nocd("Shadowfiend") then return; end end
 

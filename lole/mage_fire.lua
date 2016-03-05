@@ -51,7 +51,6 @@ combat_mage_fire = function()
 	if not validate_target() then return end
 
 	caster_range_check(36);
-	caster_face_target();
 
 	-- replace this shit with gettalentinfo :D
 

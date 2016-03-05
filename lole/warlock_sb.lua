@@ -63,7 +63,6 @@ combat_warlock_sb = function()
 	if not validate_target() then return end
 
 	caster_range_check(30);
-	caster_face_target();
 
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end

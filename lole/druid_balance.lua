@@ -7,7 +7,6 @@ combat_druid_balance = function()
 	if not validate_target() then return end
 
 	caster_range_check(35)
-	caster_face_target()
 	
 	if not has_debuff("target", "Insect Swarm") then
 		CastSpellByName("Insect Swarm");
