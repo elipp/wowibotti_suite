@@ -5,18 +5,13 @@ combat_priest_shadow = function()
 	if UnitChannelInfo("player") then return; end	-- don't clip mind flay
 	if UnitCastingInfo("player") then return; end
 
+	--if cleanse_party("Enveloping Wind") then return; end
+--	if cleanse_party("Lung Burst") then return; end
 
-	if cleanse_party("Enveloping Wind") then return; end
-	if cleanse_party("Lung Burst") then return; end
-
-	if not UnitExists("target") or UnitIsDead("target") then
-		return;
-	end
+	if not validate_target() then return end
 
 	caster_range_check(20); -- 20 yd on mind flay  :()
 	caster_face_target();
-
-	if not validate_target() then return end
 
 	if (UnitMana("player") < 4000 and UnitHealth("target") > 50000) then if cast_if_nocd("Shadowfiend") then return; end end
 

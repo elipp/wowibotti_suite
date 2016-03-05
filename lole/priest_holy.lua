@@ -2,7 +2,7 @@ local pom_time = 0;
 
 combat_priest_holy = function()
 
-	if UnitCastingInfo("player") then return; end;
+	if casting_legit_heal() then return end
 	
 	TargetUnit("Adieux");
 	local mana_left = UnitMana("player");
@@ -12,24 +12,24 @@ combat_priest_holy = function()
 		return;
 	end
 
-		
+
 	local health_max = UnitHealthMax("target");
 	local health_cur = UnitHealth("target");
-	
+
 	if time() - pom_time > 20 then
-		if cast_if_nocd("Prayer of Mending") then 
+		if cast_if_nocd("Prayer of Mending") then
 			pom_time = time();
-			return; 
+			return;
 		end
 	end
-	
+
 	if not has_buff("target", "Renew") then
 		CastSpellByName("Renew");
 		return;
 	end
-	
+
 	if casting_legit_heal() then return end
-	
+
 	if (health_cur < health_max * 0.60) then
 		cast_spell("Greater Heal");
 	elseif (health_cur < health_max * 0.88) then
@@ -37,7 +37,5 @@ combat_priest_holy = function()
 	elseif (UnitHealth("player") < UnitHealthMax("player")*0.65) then
 		cast_spell("Binding Heal");
 	end
-	
+
 end
-
-

@@ -104,7 +104,7 @@ __declspec(noinline) static void set_facing(float x) {
 
 }
 
-static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
+static void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_distance = 0.0) {
 	static const uint
 		CTM_X = 0xD68A18,
 		CTM_Y = 0xD68A1C,
@@ -116,7 +116,7 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 		CTM_walking_angle = 0xD689A0,
 		CTM_const_float_9A4 = 0xD689A4, 
 		CTM_const_float_9A8 = 0xD689A8,
-		CTM_const_float_9AC = 0xD689AC; 
+		CTM_min_distance = 0xD689AC; 
 
 	// at least for CTM_MOVE and CTM_MOVE_AND_ATTACK, D689AC contains the minimum distance you need to be 
 	// until you're considered done with the CTM. 9A8 is something i've not yet figured out, but it doesn't seem to really affect anything
@@ -203,29 +203,30 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 	static const uint
 		ALL_9A4 = 0x415F66F3;
 
-	static const uint
-		MOVE_9A8 = 0x3E800000, // 0.25, don't really know what this is
-		MOVE_9AC = 0x3F000000; // this is 0.5, minimum distance from exact point
+	static const float
+		MOVE_9A8 = 0.25, // 0.25, don't really know what this is
+		MOVE_MINDISTANCE = 0.5; // this is 0.5, minimum distance from exact point
 
-	static const uint
-		FOLLOW_9A8 = 0x41100000,
-		FOLLOW_9AC = 0x40400000;
+	static const float
+		FOLLOW_9A8 = 9.0,
+		FOLLOW_MINDISTANCE = 3.0;
 
-	static const uint
-		MOVE_AND_ATTACK_9A8 = 0x41571C71, // for M&A its something like 13.444
+	static const float
+		MOVE_AND_ATTACK_9A8 = 13.444444, // for M&A its something like 13.444
 	//	MOVE_AND_ATTACK_9AC = 0x406AAAAA; // 3.6666 (melee range?)
-		MOVE_AND_ATTACK_9AC = 0x3FC00000; // use 1.5 for this (test!) seems to work:P http://www.h-schmidt.net/FloatConverter/IEEE754.html
+		MOVE_AND_ATTACK_MINDISTANCE = 1.5; // use 1.5 for this (test!) seems to work:P http://www.h-schmidt.net/FloatConverter/IEEE754.html
 
 	writeAddr(CTM_const_float_9A4, &ALL_9A4, sizeof(ALL_9A4));
 
 	if (action == CTM_MOVE) {
 		writeAddr(CTM_const_float_9A8, &MOVE_9A8, sizeof(MOVE_9A8));
-		writeAddr(CTM_const_float_9AC, &MOVE_9AC, sizeof(MOVE_9AC));
-	}
+		writeAddr(CTM_min_distance, min_distance == 0 ? &MOVE_MINDISTANCE : &min_distance, sizeof(float));
+	
+	}	
 
 	else if (action == CTM_FOLLOW) {
 		writeAddr(CTM_const_float_9A8, &FOLLOW_9A8, sizeof(FOLLOW_9A8));
-		writeAddr(CTM_const_float_9AC, &FOLLOW_9AC, sizeof(FOLLOW_9AC));
+		writeAddr(CTM_min_distance, min_distance == 0 ? &FOLLOW_MINDISTANCE : &min_distance, sizeof(float));
 	}
 	else if (action == CTM_MOVE_AND_ATTACK) {
 		if (interact_GUID != 0) {
@@ -234,7 +235,7 @@ static void click_to_move(vec3 point, uint action, GUID_t interact_GUID) {
 			writeAddr(CTM_MOVE_ATTACK_ZERO, &zero, sizeof(zero));
 		}
 		writeAddr(CTM_const_float_9A8, &MOVE_AND_ATTACK_9A8, sizeof(MOVE_AND_ATTACK_9A8));
-		writeAddr(CTM_const_float_9AC, &MOVE_AND_ATTACK_9AC, sizeof(MOVE_AND_ATTACK_9AC));
+		writeAddr(CTM_min_distance, min_distance == 0 ? &MOVE_AND_ATTACK_MINDISTANCE : &min_distance, sizeof(float));
 	}
 
 
@@ -400,7 +401,7 @@ static void __stdcall face_target() {
 	if (!p.valid()) return;
 
 	vec3 diff = t.get_pos() - p.get_pos();
-	click_to_move(p.get_pos() + 0.3*diff.unit(), CTM_MOVE, 0); 
+	click_to_move(p.get_pos() + 0.4*diff.unit(), CTM_MOVE, 0); 
 	// less than 0.5 is good for just changing orientation (without walking). see click_to_move()
 
 	// The SetFacing function is effective on the local client level, 
@@ -627,6 +628,7 @@ static void follow_unit_with_GUID(const std::string& arg) {
 		float prot = p.get_rot();
 		vec3 rot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
 		click_to_move(p.get_pos() + 0.51*rot_unit, CTM_MOVE, 0);
+		follow_state.clear();
 		return;
 	}
 
