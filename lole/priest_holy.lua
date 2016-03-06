@@ -28,8 +28,6 @@ combat_priest_holy = function()
 		return;
 	end
 
-	if cleanse_party("Static Disruption") then return end
-
 	if casting_legit_heal() then return end
 
 	if (health_cur < health_max * 0.60) then
