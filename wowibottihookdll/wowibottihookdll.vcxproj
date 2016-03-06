@@ -145,18 +145,22 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="addrs.h" />
+    <ClInclude Include="ctm.h" />
     <ClInclude Include="defs.h" />
     <ClInclude Include="hooks.h" />
-    <ClInclude Include="ObjectManager.h" />
+    <ClInclude Include="wowmem.h" />
+    <ClInclude Include="opcodes.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="timer.h" />
     <ClInclude Include="window.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ctm.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="hooks.cpp" />
-    <ClCompile Include="ObjectManager.cpp" />
+    <ClCompile Include="wowmem.cpp" />
+    <ClCompile Include="opcodes.cpp" />
     <ClCompile Include="timer.cpp" />
     <ClCompile Include="window.cpp" />
   </ItemGroup>

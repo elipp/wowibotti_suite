@@ -1,8 +1,20 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
+#include <algorithm>
 
+#include "addrs.h"
 #include "defs.h"
+
+extern int const (*LUA_DoString)(const char*, const char*, const char*);
+extern int const (*SelectUnit)(GUID_t);
+
+void DoString(const char* format, ...); 
+
+GUID_t get_raid_target_GUID(int index);
+GUID_t get_raid_target_GUID(const std::string &marker_name);
+
 
 enum {
 	OBJECT_TYPE_OBJECT = 0,

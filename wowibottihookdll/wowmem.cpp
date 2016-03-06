@@ -1,9 +1,73 @@
-#include "ObjectManager.h"
+#include "wowmem.h"
+#include "ctm.h"
 
-extern int const (*SelectUnit)(GUID_t);
-extern void DoString(const char* format, ...);
 
-static const std::string type_names[] = {
+int const (*LUA_DoString)(const char*, const char*, const char*) = (int const(*)(const char*, const char*, const char*)) LUA_DoString_addr;
+int const (*SelectUnit)(GUID_t) = (int const(*)(GUID_t)) SelectUnit_addr;
+
+void DoString(const char* format, ...) {
+	char cmd[1024];
+
+	va_list args;
+	va_start(args, format);
+	vsprintf(cmd, format, args);
+	va_end(args);
+
+	LUA_DoString(cmd, cmd, "");
+}
+
+// this __declspec(noinline) thing has got to do with the msvc optimizer.
+// seems like the inline assembly is discarded when this func is inlined, in which case were fucked
+__declspec(noinline) static void set_facing(float x) {
+	void const (*SetFacing)(float) = (void const (*)(float))0x007B9DE0;
+
+	uint this_ecx = DEREF(0xE29D28) + 0xBE0;
+
+	// printf("set_facing: this_ecx: %X\n", this_ecx);
+	// this is due to the fact that SetFacing is uses a __thiscall calling convention, 
+	// so the base addr needs to be passed in ECX. no idea which base address this is though,
+	// but it seems to be constant enough :D
+
+	__asm push ecx
+	__asm mov ecx, this_ecx
+	SetFacing(x);
+	__asm pop ecx;
+
+}
+
+GUID_t get_raid_target_GUID(int index) {
+	GUID_t GUID;
+	readAddr(0xC6F700 + index * 8, &GUID, sizeof(GUID)); // these are stored at the static address C6F700 until C6F764
+	return GUID;
+}
+
+GUID_t get_raid_target_GUID(const std::string &marker_name) {
+	static const std::unordered_map<std::string, int> marker_index_map = {
+		{ "star", 1 },
+		{ "circle", 2 },
+		{ "diamond", 3 },
+		{ "triangle", 4 },
+		{ "crescent", 5 },
+		{ "moon", 5 },
+		{ "square", 6 },
+		{ "cross", 7 },
+		{ "skull", 8 }
+	};
+
+	std::string marker = marker_name;
+	std::transform(marker.begin(), marker.end(), marker.begin(), ::tolower);
+
+	auto it = marker_index_map.find(marker);
+	if (it == marker_index_map.end()) {
+		printf("get_raid_target_GUID (const std::string&): error! invalid marker \"%s\"!\n", marker_name.c_str());
+		return 0;
+	}
+
+	return get_raid_target_GUID(it->second);
+}
+
+
+static const std::string wowobject_type_names[] = {
 	"0 : OBJECT",
 	"1 : ITEM",
 	"2 : CONTAINER",
@@ -67,7 +131,7 @@ int WowObject::get_type() const {
 
 
 std::string WowObject::get_type_name() const {
-	return type_names[get_type()];
+	return wowobject_type_names[get_type()];
 }
 
 

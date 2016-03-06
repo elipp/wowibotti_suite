@@ -380,7 +380,7 @@ end
 function do_CC_jobs()
 
 	for marker, spell in pairs(CC_jobs) do
-		target_unit_with_charm(marker);
+		target_unit_with_marker(marker);
 
 		if UnitExists("target") and not UnitIsDead("target") then
 			a, d = has_debuff("target", spell)

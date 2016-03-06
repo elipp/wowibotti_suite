@@ -5,15 +5,16 @@ LOLE_OPCODE_TARGET_GUID,
 LOLE_OPCODE_BLAST,   -- this is basically deprecated now
 LOLE_OPCODE_CASTER_RANGE_CHECK,
 LOLE_OPCODE_FOLLOW,  -- this also includes walking to/towards the target
-LOLE_OPCODE_CASTER_FACE,
+LOLE_OPCODE_FACE,
 LOLE_OPCODE_CTM_BROADCAST,
 LOLE_OPCODE_COOLDOWNS,
 LOLE_OPCODE_CC,
 LOLE_OPCODE_DUNGEON_SCRIPT,
-LOLE_OPCODE_TARGET_CHARM,
-LOLE_OPCODE_DRINK
+LOLE_OPCODE_TARGET_MARKER,
+LOLE_OPCODE_DRINK,
+LOLE_OPCODE_MELEE_BEHIND
 
-= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05", "LOP_06", "LOP_07", "LOP_08", "LOP_09", "LOP_0A", "LOP_0B"
+= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05", "LOP_06", "LOP_07", "LOP_08", "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C"
 
 local LOLE_DEBUG_OPCODE_DUMP = "LOP_81";
 
@@ -105,8 +106,8 @@ function disable_cc_target(name, spell, marker)
 	send_opcode_addonmsg_to(LOLE_OPCODE_CC, "0" .. "," .. spell .. "," .. marker, name)
 end
 
-function target_unit_with_charm(marker)
-	DelIgnore(LOLE_OPCODE_TARGET_CHARM .. ":" .. marker);
+function target_unit_with_marker(marker)
+	DelIgnore(LOLE_OPCODE_TARGET_MARKER .. ":" .. marker);
 end
 
 function caster_range_check(minrange)
@@ -117,7 +118,13 @@ end
 
 function caster_face_target()
 	if lole_subcommands.get("playermode") == 0 then
-		DelIgnore(LOLE_OPCODE_CASTER_FACE);
+		DelIgnore(LOLE_OPCODE_FACE);
+	end
+end
+
+function melee_behind()
+	if lole_subcommands.get("playermode") == 0 then
+		DelIgnore(LOLE_OPCODE_MELEE_BEHIND)
 	end
 end
 
@@ -263,16 +270,21 @@ local function OCB_load_dungeon_script(script)
 	-- nyi as fuck :D
 end
 
+local function OCB_melee_behind()
+	DelIgnore(LOLE_OPCODE_MELEE_BEHIND);
+end
+
 lole_opcode_funcs = {
 	[LOLE_OPCODE_NOP] = 				OCB_nop,
 	[LOLE_OPCODE_TARGET_GUID] = 		OCB_target_unit_with_GUID,
 	[LOLE_OPCODE_BLAST] = 				OCB_set_blast,
 	[LOLE_OPCODE_CASTER_RANGE_CHECK] = 	OCB_range_check,
 	[LOLE_OPCODE_FOLLOW] = 				OCB_follow_unit_with_GUID,
-	[LOLE_OPCODE_CASTER_FACE] = 		OCB_face_target,
+	[LOLE_OPCODE_FACE] = 				OCB_face_target,
 	[LOLE_OPCODE_CTM_BROADCAST] = 		OCB_act_on_CTM_broadcast,
 	[LOLE_OPCODE_COOLDOWNS] = 			OCB_blow_cooldowns,
 	[LOLE_OPCODE_CC] = 					OCB_set_cc_target,
 	[LOLE_OPCODE_DUNGEON_SCRIPT] = 		OCB_load_dungeon_script,
-	[LOLE_OPCODE_DRINK] = 				OCB_drink;
+	[LOLE_OPCODE_DRINK] = 				OCB_drink,
+	[LOLE_OPCODE_MELEE_BEHIND] = 		OCB_melee_behind;
 }
