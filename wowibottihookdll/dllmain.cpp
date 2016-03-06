@@ -235,8 +235,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		windowThread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
 		inj_hModule = hModule;
 
-		AllocConsole();
-		freopen("CONOUT$", "wb", stdout);
+		//AllocConsole();
+		//freopen("CONOUT$", "wb", stdout);
 		
 		break;
 
