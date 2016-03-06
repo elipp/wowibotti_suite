@@ -1,11 +1,11 @@
 combat_paladin_retri = function()
-	
+
 	--if cleanse_party("Arcane Shock") then return; end
-	
+
 	if not validate_target() then return; end
-	
-	melee_close_in()
-	
+
+	melee_attack_behind()
+
     local jud_on_cd = true;
 	if GetSpellCooldown("Judgement") == 0 then
         jud_on_cd = false;
@@ -31,4 +31,3 @@ combat_paladin_retri = function()
     end
 
 end
-

@@ -1,24 +1,32 @@
 #include "ctm.h"
 
+static const uint
+CTM_X = 0xD68A18,
+CTM_Y = 0xD68A1C,
+CTM_Z = 0xD68A20,
+CTM_ACTION = 0xD689BC,
+CTM_GUID = 0xD689C0, // this is for interaction
+CTM_MOVE_ATTACK_ZERO = 0xD689CC,
+
+CTM_walking_angle = 0xD689A0,
+CTM_FL_A4 = 0xD689A4,
+CTM_FL_A8 = 0xD689A8,
+CTM_min_distance = 0xD689AC,
+
+CTM_increment = 0xD689B8,
+
+CTM_mystery_C8 = 0xD689C8,
+CTM_mystery_A90 = 0xD68A90,
+CTM_mystery_A94 = 0xD68A94;
+
+int get_wow_CTM_state() {
+	int state;
+	readAddr(CTM_ACTION, &state, sizeof(state));
+	return state;
+}
+
 void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_distance) {
-	static const uint
-		CTM_X = 0xD68A18,
-		CTM_Y = 0xD68A1C,
-		CTM_Z = 0xD68A20,
-		CTM_ACTION = 0xD689BC,
-		CTM_GUID = 0xD689C0, // this is for interaction
-		CTM_MOVE_ATTACK_ZERO = 0xD689CC,
 
-		CTM_walking_angle = 0xD689A0,
-		CTM_FL_A4 = 0xD689A4,
-		CTM_FL_A8 = 0xD689A8,
-		CTM_min_distance = 0xD689AC,
-
-		CTM_increment = 0xD689B8,
-
-		CTM_mystery_C8 = 0xD689C8,
-		CTM_mystery_A90 = 0xD68A90,
-		CTM_mystery_A94 = 0xD68A94;
 
 
 	ObjectManager OM;

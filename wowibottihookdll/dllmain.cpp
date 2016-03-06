@@ -53,7 +53,6 @@ static void __stdcall EndScene_hook() {
 }
 
 
-
 static void __stdcall broadcast_CTM(float *coords, int action) {
 
 	float x, y, z;

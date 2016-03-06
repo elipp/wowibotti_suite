@@ -10,7 +10,7 @@ local function auto_stancedance()
 end
 
 combat_warrior_prot = function()
-	
+
 	CastSpellByName("Heroic Strike");
 
 	if UnitCastingInfo("target") then
@@ -22,7 +22,7 @@ combat_warrior_prot = function()
 
 	if cast_if_nocd("Shield Block") then return; end
 	if cast_if_nocd("Shield Bash") then return; end
-	
+
 	if IsUsableSpell("Revenge") then
 		CastSpellByName("Revenge");
 		return;
@@ -45,5 +45,3 @@ combat_warrior_prot = function()
 	CastSpellByName("Devastate");
 
 end
-
-

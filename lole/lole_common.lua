@@ -429,13 +429,6 @@ function validate_target()
 
 end
 
-
-
-function melee_close_in()
-	ClosePetStables(); -- hooked XD
-end
-
-
 function cipher_GUID(GUID)
 	local part1 = tonumber(string.sub(GUID, 3, 10), 16); -- the GUID string still has the 0x part in it
 	local part2 = tonumber(string.sub(GUID, 11), 16);

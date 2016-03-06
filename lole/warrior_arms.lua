@@ -83,10 +83,7 @@ combat_warrior_arms = function()
 
 	if not validate_target() then return end
 
-	melee_close_in() -- this is a hooked function that makes the warrior walk behind/toward the target.
-	-- CTM_MOVE_AND_ATTACK is performed, so no need to mess around with StartAttack()
-
-	if UnitIsDead("target") then ClearTarget() end;
+	melee_attack_behind()
 
 	if (not UnitAffectingCombat("player")) then
 		RunMacroText("/cast [nostance:1] Battle Stance"); -- charge doesnt work

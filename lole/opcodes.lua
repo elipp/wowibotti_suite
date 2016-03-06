@@ -122,7 +122,7 @@ function caster_face_target()
 	end
 end
 
-function melee_behind()
+function melee_attack_behind()
 	if lole_subcommands.get("playermode") == 0 then
 		DelIgnore(LOLE_OPCODE_MELEE_BEHIND)
 	end
@@ -272,6 +272,10 @@ end
 
 local function OCB_melee_behind()
 	DelIgnore(LOLE_OPCODE_MELEE_BEHIND);
+end
+
+local function OCB_melee_clear()
+
 end
 
 lole_opcode_funcs = {

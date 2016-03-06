@@ -146,7 +146,9 @@ static void LOP_face(const std::string &arg) {
 
 static void LOP_melee_behind(const std::string &arg) {
 	GUID_t target_GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
-	if (!target_GUID) return;
+	if (!target_GUID) {
+		return;
+	}
 
 	ObjectManager OM;
 	WowObject t = OM.get_object_by_GUID(target_GUID);
@@ -162,25 +164,36 @@ static void LOP_melee_behind(const std::string &arg) {
 	// basically rotating the vector (1, 0, 0) target_rot radians anti-clockwise
 	//vec3 rot_unit(1.0 * std::cos(target_rot) - 0.0 * std::sin(target_rot), 1.0 * std::sin(target_rot) + 0.0 * std::cos(target_rot), 0.0);
 
-	vec3 rot_unit = vec3(std::cos(target_rot), std::sin(target_rot), 0.0);
-	vec3 pc = p.get_pos();
-	vec3 tc = t.get_pos();
+	vec3 trot_unit = vec3(std::cos(target_rot), std::sin(target_rot), 0.0);
+	vec3 ppos = p.get_pos();
+	vec3 tpos = t.get_pos();
+
+	float prot = p.get_rot();
+	vec3 prot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
 
 	//vec3 point_behind(tc.x - std::cos(target_rot), tc.y - std::sin(target_rot), tc.z);
-	vec3 point_behind = tc - rot_unit;
-	vec3 diff = pc - point_behind;
-
-	//printf("melee_behind.. diff.length: %f\n", diff.length());
-
-	if (diff.length() < 0.3) { // 1.0 sometimes results in some pretty weird shit.. :D
-		return;
+	vec3 point_behind_actual = tpos - 3.0*trot_unit;
+	vec3 point_behind_ctm = point_behind_actual + 0.5*prot_unit;
+	vec3 diff = point_behind_ctm - ppos;
+	
+	if (diff.length() > 1.0) {
+		click_to_move(point_behind_ctm, CTM_MOVE, 0);
 	}
 	else {
-		click_to_move(point_behind, CTM_MOVE_AND_ATTACK, t.get_GUID());
+		DoString("StartAttack()");
+		float d = dot(prot_unit, trot_unit);
+
+		 if (d < 0.6) { 
+			 // dot product of normalized vectors gives the cosine of the angle between them,
+			 // and for auto-attacking, the valid sector is actually rather small, unlike spells,
+			 // for which perfectly perpendicular is ok
+			vec3 face = (tpos - ppos).unit();
+			click_to_move(ppos + face, CTM_MOVE, 0, 1.5);
+		}
 	}
 
-}
 
+}
 
 static void LOP_target_GUID(const std::string &arg) {
 
@@ -255,7 +268,7 @@ static void LOP_range_check(const std::string& arg) {
 		vec3 rot_unit = vec3(std::cos(rot), std::sin(rot), 0.0);
 		float d = dot(diff, rot_unit);
 
-		printf("dot product: %f\n", d);
+	//	printf("dot product: %f\n", d);
 
 		if (d < 0) {
 			click_to_move(ppos + diff.unit(), CTM_MOVE, 0, 1.5); // this seems quite stable for just changing orientation.
@@ -395,7 +408,7 @@ static const struct {
 	{ "LOLE_DUNGEON_SCRIPT", LOP_dungeon_script, 1 },
 	{ "LOLE_TARGET_MARKER", LOP_target_marker, 1 },
 	{ "LOLE_DRINK", LOP_nop, 0},
-	{ "LOLE_MELEE_BEHIND", LOP_melee_behind, 1}
+	{ "LOLE_MELEE_BEHIND", LOP_melee_behind, 0},
 };
 
 static const struct {
