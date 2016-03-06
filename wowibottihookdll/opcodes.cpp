@@ -159,14 +159,30 @@ static void LOP_melee_behind(const std::string &arg) {
 
 	if (!p.valid()) return;
 
-	float target_rot = t.get_rot();
-
 	// basically rotating the vector (1, 0, 0) target_rot radians anti-clockwise
 	//vec3 rot_unit(1.0 * std::cos(target_rot) - 0.0 * std::sin(target_rot), 1.0 * std::sin(target_rot) + 0.0 * std::cos(target_rot), 0.0);
 
-	vec3 trot_unit = vec3(std::cos(target_rot), std::sin(target_rot), 0.0);
 	vec3 ppos = p.get_pos();
 	vec3 tpos = t.get_pos();
+	
+	// ok, so turns out the get_rot() variable isn't really kept up-to-date in the OM,
+	// so the actual rotation will need to be figured out by means of looking at who the mob is
+	// targeting, and looking at the difference vector (since the mob is always directly facing the target)
+
+	GUID_t tot_GUID = t.NPC_get_target_GUID();
+	float target_rot;
+
+	if (tot_GUID) {
+		WowObject tot = OM.get_object_by_GUID(tot_GUID);
+		vec3 trot_diff = tot.get_pos() - tpos;
+		target_rot = atan2(trot_diff.y, trot_diff.x);
+	}
+	else {
+		// it's kinda funny this is the fallback tbh :DD
+		target_rot = t.get_rot();
+	}
+
+	vec3 trot_unit = vec3(std::cos(target_rot), std::sin(target_rot), 0.0);
 
 	float prot = p.get_rot();
 	vec3 prot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
