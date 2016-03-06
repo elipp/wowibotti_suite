@@ -615,7 +615,7 @@ static void move_into_casting_range(const std::string& arg) {
 		vec3 rot_unit = vec3(std::cos(rot), std::sin(rot), 0.0);
 
 		if (dot(diff, rot_unit) < 0) {
-			click_to_move(ppos + 0.3*diff.unit(), CTM_MOVE, 0, 0.2);
+			click_to_move(ppos + 0.9*diff.unit(), CTM_MOVE, 0, 0.5);
 		}
 	}
 
