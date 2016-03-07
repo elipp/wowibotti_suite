@@ -230,7 +230,7 @@ end
 
 function get_spam_table(buffs, group_buff_map)
 
-    local groups = {[1] = {}, [2] = {}};
+    local groups = {[1] = {}};
     if GetNumRaidMembers() == 0 then
         for buff, chars in pairs(buffs) do
             for char in pairs(chars) do
@@ -241,10 +241,10 @@ function get_spam_table(buffs, group_buff_map)
         local i = 1;
         while GetRaidRosterInfo(i) do
             local raid_info = {GetRaidRosterInfo(i)};
-            if raid_info[3] == 1 then
-                groups[1][raid_info[1]] = true;
-            elseif raid_info[3] == 2 then
-                groups[2][raid_info[1]] = true;
+            if not groups[raid_info[3]] then
+                groups[raid_info[3]] = {[raid_info[1]] = true};
+            else
+                groups[raid_info[3]][raid_info[1]] = true;
             end
             i = i + 1;
         end
@@ -252,12 +252,16 @@ function get_spam_table(buffs, group_buff_map)
 
     local grouped_requests = {};
     for buff, chars in pairs(buffs) do
-        grouped_requests[buff] = {[1] = {}, [2] = {}};
+        grouped_requests[buff] = {};
+        for grp, table in pairs(groups) do
+            table.insert(grouped_requests[buff], {});
+        end
         for char in pairs(chars) do
-            if groups[1][char] then
-                table.insert(grouped_requests[buff][1], char);
-            elseif groups[2][char] then
-                table.insert(grouped_requests[buff][2], char);
+            for grp, table in pairs(groups) do
+                if groups[grp][char] then
+                    table.insert(grouped_requests[buff][grp], char);
+                    break;
+                end
             end
         end
     end
