@@ -193,7 +193,7 @@ LRESULT CALLBACK DLLWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		case MYMENU_CTM: {
 
 			ObjectManager OM;
-			WowObject o = OM.get_object_by_GUID(OM.get_localGUID());
+			WowObject o = OM.get_local_object();
 			if (!o.valid()) {
 				break;
 			}

@@ -317,6 +317,41 @@ local function lole_drink()
 	end
 end
 
+local raid_first_pass = true
+
+local function lole_raid()
+
+
+	if GetNumPartyMembers() == 0 then
+		raid_first_pass = true
+	else
+		ConvertToRaid()
+		raid_first_pass = false
+	end
+
+	local guildies = get_online_guild_members()
+
+	if raid_first_pass then
+		lole_frame:RegisterEvent("PARTY_MEMBERS_CHANGED");
+		for name, _ in pairs(guildies) do
+			InviteUnit(name);
+			break;
+		end
+		raid_first_pass = false
+
+	else
+		for name, _ in pairs(guildies) do
+			InviteUnit(name)
+		end
+		raid_first_pass = true
+	end
+
+end
+
+local function lole_leaveparty()
+	leave_party_all()
+end
+
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
 	buffcheck = lole_buffcheck;
@@ -333,6 +368,8 @@ lole_subcommands = {
 	buffs = do_buffs;
 	gui = lole_gui;
 	drink = lole_drink;
+	raid = lole_raid;
+	leaveparty = lole_leaveparty;
 
 	dump = lole_debug_dump_wowobjects;
 }

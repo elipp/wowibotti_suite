@@ -27,11 +27,9 @@ int get_wow_CTM_state() {
 
 void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_distance) {
 
-
-
 	ObjectManager OM;
 
-	auto p = OM.get_object_by_GUID(OM.get_localGUID());
+	auto p = OM.get_local_object();
 
 	vec3 diff = p.get_pos() - point; // this is kinda weird, since usually one would take dest - current_loc, but np
 	float directed_angle = atan2(diff.y, diff.x);

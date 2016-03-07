@@ -39,10 +39,10 @@ static int dump_wowobjects_to_log() {
 
 	if (fp) {
 		printf("Dumping WowObjects to file \"%s\"!\n", log_path.c_str());
-		WowObject next = OM.getFirstObject();
+		WowObject next = OM.get_first_object();
 		GUID_t target_GUID;
 		readAddr(PLAYER_TARGET_ADDR, &target_GUID, sizeof(target_GUID));
-		fprintf(fp, "local GUID = 0x%016llX, player target: %016llX\n", OM.get_localGUID(), target_GUID);
+		fprintf(fp, "local GUID = 0x%016llX, player target: %016llX\n", OM.get_local_GUID(), target_GUID);
 
 		while (next.valid()) {
 
@@ -115,7 +115,7 @@ static void LOP_face(const std::string &arg) {
 
 	if (!t.valid()) return;
 
-	WowObject p = OM.get_object_by_GUID(OM.get_localGUID());
+	WowObject p = OM.get_local_object();
 
 	if (!p.valid()) return;
 
@@ -155,7 +155,7 @@ static void LOP_melee_behind(const std::string &arg) {
 
 	if (!t.valid()) return;
 
-	WowObject p = OM.get_object_by_GUID(OM.get_localGUID());
+	WowObject p = OM.get_local_object();
 
 	if (!p.valid()) return;
 
@@ -173,6 +173,7 @@ static void LOP_melee_behind(const std::string &arg) {
 	float target_rot;
 
 	if (tot_GUID) {
+		if (tot_GUID == OM.get_local_GUID()) return;
 		WowObject tot = OM.get_object_by_GUID(tot_GUID);
 		vec3 trot_diff = tot.get_pos() - tpos;
 		target_rot = atan2(trot_diff.y, trot_diff.x);
@@ -257,7 +258,7 @@ static void LOP_range_check(const std::string& arg) {
 
 	if (!t.valid()) return;
 
-	WowObject p = OM.get_object_by_GUID(OM.get_localGUID());
+	WowObject p = OM.get_local_object();
 
 	if (!p.valid()) return;
 
@@ -301,7 +302,7 @@ static void LOP_follow_GUID(const std::string& arg) {
 	char *endptr;
 	GUID_t GUID = strtoull(arg.c_str(), &endptr, 16);
 
-	WowObject p = OM.get_object_by_GUID(OM.get_localGUID());
+	WowObject p = OM.get_local_object();
 
 	if (!p.valid()) {
 		printf("follow_unit_with_GUID: LOLE_OPCODE_FOLLOW: getting local object failed? WTF? XD\n");
@@ -425,6 +426,7 @@ static const struct {
 	{ "LOLE_TARGET_MARKER", LOP_target_marker, 1 },
 	{ "LOLE_DRINK", LOP_nop, 0},
 	{ "LOLE_MELEE_BEHIND", LOP_melee_behind, 0},
+	{ "LOLE_LEAVE_PARTY", LOP_nop, 0}
 };
 
 static const struct {

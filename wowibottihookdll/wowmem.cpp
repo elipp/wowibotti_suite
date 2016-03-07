@@ -324,7 +324,7 @@ void ObjectManager::LoadAddresses() {
 }
 
 
-WowObject ObjectManager::getFirstObject() const {
+WowObject ObjectManager::get_first_object() const {
 	unsigned int object_base_addr;
 	readAddr(this->base_addr + firstObjectOffset, &object_base_addr, sizeof(object_base_addr));
 	return WowObject(object_base_addr);
@@ -335,7 +335,7 @@ ObjectManager::ObjectManager() {
 }
 
 WowObject ObjectManager::get_object_by_GUID(GUID_t GUID) const {
-	WowObject next = getFirstObject();
+	WowObject next = get_first_object();
 
 	while (next.valid()) {
 		if (next.get_GUID() == GUID) {
@@ -346,8 +346,12 @@ WowObject ObjectManager::get_object_by_GUID(GUID_t GUID) const {
 	return next;
 }
 
-GUID_t ObjectManager::get_localGUID() const { return localGUID; }
+GUID_t ObjectManager::get_local_GUID() const { return localGUID; }
 
 int ObjectManager::valid() const {
 	return !base_addr;
+}
+
+WowObject ObjectManager::get_local_object() const {
+	return get_object_by_GUID(get_local_GUID()); // almost guaranteed to work :P
 }

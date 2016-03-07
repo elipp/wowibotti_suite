@@ -507,3 +507,20 @@ end
 function trim_string(s)
   return (s:gsub("^%s*(.-)%s*$", "%1"))
 end
+
+function get_online_guild_members()
+
+	GuildRoster()
+	local num_members = GetNumGuildMembers(true); -- includeOffline == true
+
+	local eligible_members = {}
+
+	for i = 1, num_members do
+		local name, _, _, level, _, _, _, _, online = GetGuildRosterInfo(i);
+		if online and name ~= UnitName("player") and level == 70 then
+			eligible_members[name] = i;
+		end
+	end
+
+	return eligible_members
+end

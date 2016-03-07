@@ -137,11 +137,12 @@ public:
 
 	int valid() const;
 
-	WowObject getFirstObject() const;
+	WowObject get_first_object() const;
 
 	ObjectManager();
 
 	WowObject get_object_by_GUID(GUID_t GUID) const;
-	GUID_t get_localGUID() const;
+	GUID_t get_local_GUID() const;
+	WowObject get_local_object() const;
 
 };

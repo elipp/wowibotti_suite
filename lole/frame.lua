@@ -4,6 +4,7 @@ lole_frame:RegisterEvent("PLAYER_REGEN_DISABLED"); -- this is fired when player 
 lole_frame:RegisterEvent("PLAYER_REGEN_ENABLED"); -- and this when combat is over
 lole_frame:RegisterEvent("PLAYER_DEAD");
 lole_frame:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
+lole_frame:RegisterEvent("PARTY_INVITE_REQUEST")
 
 local every_nth_frame = 4
 local frame_modulo = 0
@@ -20,6 +21,7 @@ lole_frame:SetScript("OnUpdate", function()
 		frame_modulo = frame_modulo + 1
 	end
 end);
+
 
 local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 	--DEFAULT_CHAT_FRAME:AddMessage("LOLE_EventHandler: event:" .. event)
@@ -58,6 +60,24 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 
 	elseif event == "UPDATE_BATTLEFIELD_STATUS" then
 		-- lol
+
+	elseif event == "PARTY_INVITE_REQUEST" then
+	--	if GetNumRaidMembers() > 0 then return end
+
+		local guildies = get_online_guild_members()
+
+		if guildies[prefix] then
+			self:RegisterEvent("PARTY_MEMBERS_CHANGED");
+			AcceptGroup()
+		end
+
+	elseif event == "PARTY_MEMBERS_CHANGED" then
+		StaticPopup_Hide("PARTY_INVITE")
+		self:UnregisterEvent("PARTY_MEMBERS_CHANGED")
+
+		if IsRaidLeader() then
+			lole_subcommands.raid()
+		end
 	end
 
 

@@ -12,9 +12,10 @@ LOLE_OPCODE_CC,
 LOLE_OPCODE_DUNGEON_SCRIPT,
 LOLE_OPCODE_TARGET_MARKER,
 LOLE_OPCODE_DRINK,
-LOLE_OPCODE_MELEE_BEHIND
+LOLE_OPCODE_MELEE_BEHIND,
+LOLE_OPCODE_LEAVE_PARTY
 
-= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05", "LOP_06", "LOP_07", "LOP_08", "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C"
+= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05", "LOP_06", "LOP_07", "LOP_08", "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C", "LOP_0D"
 
 local LOLE_DEBUG_OPCODE_DUMP = "LOP_81";
 
@@ -126,6 +127,10 @@ function melee_attack_behind()
 	if lole_subcommands.get("playermode") == 0 then
 		DelIgnore(LOLE_OPCODE_MELEE_BEHIND)
 	end
+end
+
+function leave_party_all()
+	send_opcode_addonmsg(LOLE_OPCODE_LEAVE_PARTY, "")
 end
 
 function lole_debug_dump_wowobjects()
@@ -274,8 +279,8 @@ local function OCB_melee_behind()
 	DelIgnore(LOLE_OPCODE_MELEE_BEHIND);
 end
 
-local function OCB_melee_clear()
-
+local function OCB_leave_party()
+	LeaveParty()
 end
 
 lole_opcode_funcs = {
@@ -291,4 +296,5 @@ lole_opcode_funcs = {
 	[LOLE_OPCODE_DUNGEON_SCRIPT] = 		OCB_load_dungeon_script,
 	[LOLE_OPCODE_DRINK] = 				OCB_drink,
 	[LOLE_OPCODE_MELEE_BEHIND] = 		OCB_melee_behind;
+	[LOLE_OPCODE_LEAVE_PARTY] = 		OCB_leave_party;
 }

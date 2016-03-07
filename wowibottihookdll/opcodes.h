@@ -23,6 +23,7 @@ typedef void(*hubfunc_t)(const std::string &);
 #define LOLE_OPCODE_TARGET_MARKER 0xA
 #define LOLE_OPCODE_DRINK 0xB
 #define LOLE_OPCODE_MELEE_BEHIND 0xC
+#define LOLE_OPCODE_LEAVE_PARTY 0xD
 
 #define LOLE_DEBUG_OPCODE_DUMP 0xF1
 
