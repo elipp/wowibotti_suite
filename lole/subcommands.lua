@@ -321,17 +321,19 @@ local raid_first_pass = true
 
 local function lole_raid()
 
+	local guildies = get_online_guild_members()
 
 	if GetNumPartyMembers() == 0 then
 		raid_first_pass = true
 	else
-		ConvertToRaid()
+		if tablelength(guildies) > 4 then -- the player isn't counted into this
+			ConvertToRaid()
+		end
 		raid_first_pass = false
 	end
 
-	local guildies = get_online_guild_members()
 
-	if raid_first_pass then
+	if raid_first_pass then -- inv first guy, because more ppl can only be invited when a group exists
 		lole_frame:RegisterEvent("PARTY_MEMBERS_CHANGED");
 		for name, _ in pairs(guildies) do
 			InviteUnit(name);
@@ -347,6 +349,7 @@ local function lole_raid()
 	end
 
 end
+
 
 local function lole_leaveparty()
 	leave_party_all()
@@ -369,6 +372,7 @@ lole_subcommands = {
 	gui = lole_gui;
 	drink = lole_drink;
 	raid = lole_raid;
+	party = lole_party;
 	leaveparty = lole_leaveparty;
 
 	dump = lole_debug_dump_wowobjects;
