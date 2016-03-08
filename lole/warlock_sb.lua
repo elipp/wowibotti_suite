@@ -37,18 +37,6 @@ local function vexallus()
 
 end
 
-local function delrissa()
-
-	if keep_CCd("Zelfan", "Banish") then return end
-	if keep_CCd("Eramas Brightblaze", "Fear") then return end
-
-	if not validate_target() then return end
-
-	CastSpellByName("Shadow Bolt")
-
-
-end
-
 combat_warlock_sb = function()
 
 	local mana = UnitMana("player");
@@ -80,7 +68,7 @@ combat_warlock_sb = function()
 	end
 
 	if (GetItemCount(6265) < 20) then -- 6265 -- soul shard
-		if (UnitExists("target") and not UnitIsDead("target") and UnitHealth("target") < 20000) then
+		if (UnitExists("target") and not UnitIsDead("target") and UnitHealth("target") < 8000) then
 			SpellStopCasting();
 			CastSpellByName("Drain Soul");
 			return;

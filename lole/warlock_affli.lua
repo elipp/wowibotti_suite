@@ -2,8 +2,45 @@ local tap_warning_given = false;
 local ua_guard = true;
 local immolate_guard = true;
 
-combat_warlock_affli = function()
 
+local function tap_if_need_to()
+	if UnitMana("player") < 2500 then
+		if UnitHealth("player") > 3500 then
+			CastSpellByName("Life Tap");
+			return true;
+		end
+	else
+		return false;
+	end
+end
+
+local function vexallus()
+
+	if tap_if_need_to() then return true; end
+
+	caster_range_check(30);
+	caster_face_target();
+
+	TargetUnit("Pure Energy")
+
+	if UnitExists("target") and UnitName("target") == "Pure Energy" and not UnitIsDead("target") then
+		CastSpellByName("Searing Pain(Rank 2)")
+		return true;
+	else
+		if UnitCastingInfo("player") then return; end
+		if UnitChannelInfo("player") then return; end
+		TargetUnit("Vexallus")
+
+		CastSpellByName("Drain Life")
+
+		return true;
+	end
+
+	return false;
+
+end
+
+combat_warlock_affli = function()
 
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
