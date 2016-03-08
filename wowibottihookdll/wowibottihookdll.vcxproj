@@ -153,7 +153,6 @@
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="timer.h" />
-    <ClInclude Include="window.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ctm.cpp" />
@@ -162,7 +161,6 @@
     <ClCompile Include="wowmem.cpp" />
     <ClCompile Include="opcodes.cpp" />
     <ClCompile Include="timer.cpp" />
-    <ClCompile Include="window.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

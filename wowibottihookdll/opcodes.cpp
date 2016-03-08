@@ -5,6 +5,9 @@
 #include "ctm.h"
 #include "timer.h"
 
+extern HWND wow_hWnd;
+extern int afkjump_keyup_queued;
+
 static struct follow_state_t {
 	int close_enough = 1;
 	Timer timer;
@@ -402,6 +405,10 @@ static void LOP_target_marker(const std::string &arg) {
 	}
 }
 
+static void LOP_afk_jump(const std::string &arg) {
+	PostMessage(wow_hWnd, WM_KEYDOWN, VK_SPACE, NULL);
+	afkjump_keyup_queued = 3;
+}
 
 static void LOPDBG_dump(const std::string &arg) {
 	dump_wowobjects_to_log();
@@ -426,7 +433,8 @@ static const struct {
 	{ "LOLE_TARGET_MARKER", LOP_target_marker, 1 },
 	{ "LOLE_DRINK", LOP_nop, 0},
 	{ "LOLE_MELEE_BEHIND", LOP_melee_behind, 0},
-	{ "LOLE_LEAVE_PARTY", LOP_nop, 0}
+	{ "LOLE_LEAVE_PARTY", LOP_nop, 0},
+	{ "LOLE_OPCODE_AFK_JUMP", LOP_afk_jump, 0}
 };
 
 static const struct {

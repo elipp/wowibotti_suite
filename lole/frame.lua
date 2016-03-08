@@ -9,18 +9,33 @@ lole_frame:RegisterEvent("PARTY_INVITE_REQUEST")
 local every_nth_frame = 4
 local frame_modulo = 0
 
+
+local function set_buff_button_state()
+	-- is this really necessary? :P
+	if not IsRaidLeader() then -- it just wasn't reliable enough to do this in ADDON_LOADED
+		if lbuffcheck_clean_button:IsEnabled() == 1 then lbuffcheck_clean_button:Disable() end
+		if lbuffcheck_button:IsEnabled() == 1 then lbuffcheck_button:Disable() end
+	else
+		if lbuffcheck_clean_button:IsEnabled() == 0 then lbuffcheck_clean_button:Enable() end
+		if lbuffcheck_button:IsEnabled() == 0 then lbuffcheck_button:Enable() end
+	end
+end
+
 lole_frame:SetScript("OnUpdate", function()
+	set_buff_button_state()
+
 	if get_blast_state() and frame_modulo == 0 then
-		if UnitIsAFK("player") then RunMacroText("/afk") end
+
+		if UnitIsAFK("player") or time_since_last_afk_jump() > 270 then
+			afk_jump();
+		end
+
 		do_CC_jobs();
 		lole_main();
 	end
 
-	if frame_modulo >= every_nth_frame then -- mod would be better, but,
-		frame_modulo = 0
-	else
-		frame_modulo = frame_modulo + 1
-	end
+	frame_modulo = frame_modulo >= every_nth_frame and 0 or (frame_modulo + 1)
+
 end);
 
 
@@ -36,15 +51,9 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 			lole_subcommands.setconfig("default");
 		end
 
-		clear_target()
+	--	clear_target()
 
 		blast_check_settext(false)
-
-		if not IsRaidLeader() then
-			lbuffcheck_clean_button:Disable()
-			lbuffcheck_button:Disable()
-		end
-
 		lole_frame:UnregisterEvent("ADDON_LOADED");
 
 	elseif event == "PLAYER_DEAD" then
@@ -207,10 +216,9 @@ local drop_formatted_config_indices = {}
 
 local i = 1;
 
-for k, v in pairsByKey(get_available_configs()) do
+for k, v in pairs_by_key(get_available_configs()) do
 	drop_formatted_configs[i] = "|cFF" .. v.color .. k
 	drop_formatted_config_indices[k] = i -- XD
-	echo(k)
 	i = i + 1;
 end
 

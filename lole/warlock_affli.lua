@@ -78,19 +78,7 @@ combat_warlock_affli = function()
 		end
 	end
 
-
-	if mana < 2500 then
-		if UnitHealth("player") > 3500 then
-			CastSpellByName("Life Tap");
-			return;
-		elseif not tap_warning_given then
-			SendChatMessage("FUCK! Running LOW ON MANA, but too low HP to safely fap. Healz plx!", "YELL");
-			tap_warning_given = true;
-			return;
-		end
-
-	end
-
+	if tap_if_need_to() then return true; end
 
 	if not has_debuff("target", "Curse of the Elements") then
 		CastSpellByName("Curse of the Elements");

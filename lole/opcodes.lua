@@ -5,7 +5,7 @@ LOLE_OPCODE_TARGET_GUID,
 LOLE_OPCODE_BLAST,   -- this is basically deprecated now
 LOLE_OPCODE_CASTER_RANGE_CHECK,
 LOLE_OPCODE_FOLLOW,  -- this also includes walking to/towards the target
-LOLE_OPCODE_FACE,
+LOLE_OPCODE_FACE, 	 -- also deprecated
 LOLE_OPCODE_CTM_BROADCAST,
 LOLE_OPCODE_COOLDOWNS,
 LOLE_OPCODE_CC,
@@ -13,9 +13,10 @@ LOLE_OPCODE_DUNGEON_SCRIPT,
 LOLE_OPCODE_TARGET_MARKER,
 LOLE_OPCODE_DRINK,
 LOLE_OPCODE_MELEE_BEHIND,
-LOLE_OPCODE_LEAVE_PARTY
+LOLE_OPCODE_LEAVE_PARTY,
+LOLE_OPCODE_AFK_JUMP
 
-= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05", "LOP_06", "LOP_07", "LOP_08", "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C", "LOP_0D"
+= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05", "LOP_06", "LOP_07", "LOP_08", "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C", "LOP_0D", "LOP_0E"
 
 local LOLE_DEBUG_OPCODE_DUMP = "LOP_81";
 
@@ -131,6 +132,17 @@ end
 
 function leave_party_all()
 	send_opcode_addonmsg(LOLE_OPCODE_LEAVE_PARTY, "")
+end
+
+local AFK_jump_timestamp = time()
+
+function afk_jump()
+	DelIgnore(LOLE_OPCODE_AFK_JUMP);
+	AFK_jump_timestamp = time()
+end
+
+function time_since_last_afk_jump()
+	return time() - AFK_jump_timestamp
 end
 
 function lole_debug_dump_wowobjects()
@@ -283,6 +295,10 @@ local function OCB_leave_party()
 	LeaveParty()
 end
 
+local function OCB_afk_jump()
+	DelIgnore(LOLE_OPCODE_AFK_JUMP)
+end
+
 lole_opcode_funcs = {
 	[LOLE_OPCODE_NOP] = 				OCB_nop,
 	[LOLE_OPCODE_TARGET_GUID] = 		OCB_target_unit_with_GUID,
@@ -297,4 +313,5 @@ lole_opcode_funcs = {
 	[LOLE_OPCODE_DRINK] = 				OCB_drink,
 	[LOLE_OPCODE_MELEE_BEHIND] = 		OCB_melee_behind;
 	[LOLE_OPCODE_LEAVE_PARTY] = 		OCB_leave_party;
+	[LOLE_OPCODE_AFK_JUMP] = 			OCB_afk_jump;
 }

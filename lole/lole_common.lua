@@ -152,7 +152,7 @@ end
 function get_available_class_configs_pretty()
 	local key_tab, n = {}, 1;
 
-	for name, _ in pairsByKey(get_available_configs()) do
+	for name, _ in pairs_by_key(get_available_configs()) do
 		key_tab[n] = get_config_name_with_color(name);
 		n = n + 1;
 	end
@@ -467,7 +467,7 @@ function get_int_from_strbool(strbool)
 	return rval;
 end
 
-function pairsByKey(t, f)
+function pairs_by_key(t, f)
 	local a = {}
 		for n in pairs(t) do table.insert(a, n) end
 		table.sort(a, f)
@@ -488,7 +488,7 @@ function get_list_of_keys(dict)
 
 	local key_tab, n = {}, 1;
 
-	for k, _ in pairsByKey(dict) do
+	for k, _ in pairs_by_key(dict) do
 		key_tab[n] = k;
 		n = n + 1;
 	end

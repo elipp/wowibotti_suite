@@ -16,17 +16,17 @@
 #include "hooks.h"
 #include "opcodes.h"
 #include "timer.h"
-#include "window.h"
+
+#define ENABLE_DEBUG_CONSOLE
 
 HINSTANCE  inj_hModule;          // HANDLE for injected module
-
 HANDLE glhProcess;
+HWND wow_hWnd;
 
-static int face_queued = 0;
+int afkjump_keyup_queued = 0;
 
 static BYTE original_opcodes[8];
 
-static void __stdcall walk_to_target();
 
 void __stdcall print_errcode(int code) {
 	printf("Spell cast failed, errcode %d\n", code);
@@ -47,6 +47,13 @@ static void __stdcall EndScene_hook() {
 
 	if (every_third_frame == 0) {
 		refollow_if_needed();
+		
+		if (afkjump_keyup_queued > 1) --afkjump_keyup_queued;
+
+		if (afkjump_keyup_queued == 1) {
+			PostMessage(wow_hWnd, WM_KEYUP, VK_SPACE, NULL);
+			afkjump_keyup_queued = 0;
+		}
 	}
 
 	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
@@ -145,21 +152,34 @@ static int unhook_all() {
 	return 1;
 }
 
+BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam) {
+
+	char title[100];
+	char class_name[100];
+
+	GetClassName(hWnd, class_name, sizeof(class_name));
+	GetWindowText(hWnd, title, sizeof(title));
+
+	DWORD pid = GetCurrentProcessId();
+	DWORD this_pid;
+
+	if (strcmp(title, "World of Warcraft") == 0) {
+		GetWindowThreadProcessId(hWnd, &this_pid);
+		if (pid == this_pid) {
+			wow_hWnd = hWnd;
+			printf("got window HWND! (pid = %d)\n", pid);
+		}
+	}
+
+	return TRUE;
+}
+
 
 DWORD WINAPI ThreadProc(LPVOID lpParam) {
-	MSG messages;
-	char *pString = reinterpret_cast<char *> (lpParam);
-	HMENU hMenu = CreateDLLWindowMenu();
-	RegisterDLLWindowClass("DLLWindowClass", inj_hModule);
-
-	//HWND hwnd = CreateWindowEx(0, "DLLWindowClass", pString, WS_EX_PALETTEWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 400, 300, NULL, hMenu, inj_hModule, NULL);
-	//ShowWindow(hwnd, SW_SHOWNORMAL);
 
 	hook_all();
 
-	//if (RegisterHotKey(hwnd, 100, MOD_ALT, 'G')) {
-		//printf("Registered window %X as blast client!\n", (DWORD)hwnd);
-	//}
+	MSG messages;
 
 	while (GetMessage(&messages, NULL, 0, 0)) {
 		TranslateMessage(&messages);
@@ -170,60 +190,10 @@ DWORD WINAPI ThreadProc(LPVOID lpParam) {
 }
 
 
-LRESULT CALLBACK DLLWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
-
-	int lo, hi;
-	switch (message) {
-
-	case WM_COMMAND:
-		switch (wParam)
-		{
-		case MYMENU_EXIT:
-			unhook_all();
-			SendMessage(hwnd, WM_CLOSE, 0, 0);
-			break;
-
-		case MYMENU_HOOK:
-			hook_all();
-			break;
-
-		case MYMENU_UNHOOK:
-			unhook_all();
-			break;
-		case MYMENU_CTM: {
-
-			ObjectManager OM;
-			WowObject o = OM.get_local_object();
-			if (!o.valid()) {
-				break;
-			}
-
-			WowObject t = OM.get_object_by_GUID(o.unit_get_target_GUID());
-			if (!t.valid()) {
-				break;
-			}
-			click_to_move(t.get_pos(), CTM_MOVE_AND_ATTACK, t.get_GUID());
-			break;
-		}
-
-		}
-		break;
-
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		break;
-	default:
-		return DefWindowProc(hwnd, message, wParam, lParam);
-	}
-	return 0;
-}
-
-
-
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
 
 	HANDLE hProcess = GetCurrentProcess();
-	HANDLE windowThread = INVALID_HANDLE_VALUE;
+	HANDLE hook_thread = INVALID_HANDLE_VALUE;
 
 	glhProcess = hProcess;
 
@@ -232,12 +202,15 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		
 		patch_LUA_prot(hProcess);
 		//hook_all();
-		windowThread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
+		hook_thread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
 		inj_hModule = hModule;
 
-		//AllocConsole();
-		//freopen("CONOUT$", "wb", stdout);
-		
+#ifdef ENABLE_DEBUG_CONSOLE
+		AllocConsole();
+		freopen("CONOUT$", "wb", stdout);
+#endif
+		EnumWindows(EnumWindowsProc, NULL);
+
 		break;
 
 	case DLL_THREAD_ATTACH:
@@ -249,7 +222,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	case DLL_PROCESS_DETACH:
 		printf("DLL DETACHED! Unhooking all functions.\n");
 
-		PostThreadMessage(GetThreadId(windowThread), WM_DESTROY, 0, 0);
+		PostThreadMessage(GetThreadId(hook_thread), WM_DESTROY, 0, 0);
 		//WaitForSingleObject(windowThread, INFINITE);
 		unhook_all();
 
