@@ -11,7 +11,8 @@ local frame_modulo = 0
 
 lole_frame:SetScript("OnUpdate", function()
 	if get_blast_state() and frame_modulo == 0 then
-		do_CC_jobs()
+		if UnitIsAFK("player") then RunMacroText("/afk") end
+		do_CC_jobs();
 		lole_main();
 	end
 
