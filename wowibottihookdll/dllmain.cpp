@@ -163,7 +163,7 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam) {
 	DWORD pid = GetCurrentProcessId();
 	DWORD this_pid;
 
-	if (strcmp(title, "World of Warcraft") == 0) {
+	if (strcmp(title, "World of Warcraft") == 0 && strcmp(class_name, "GxWindowClassD3d") == 0) {
 		GetWindowThreadProcessId(hWnd, &this_pid);
 		if (pid == this_pid) {
 			wow_hWnd = hWnd;
