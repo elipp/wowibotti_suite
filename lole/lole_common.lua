@@ -509,20 +509,20 @@ function trim_string(s)
 end
 
 local guild_members = {
-	"Adieux" = 1,
-	"Bogomips" = 2,
-	"Consona" = 3,
-	"Crq" = 4,
-	"Dissona" = 5,
-	"Gawk" = 6,
-	"Gyorgy" = 7,
-	"Igop" = 8,
-	"Jobim" = 9,
-	"Josp" = 10,
-	"Kasio" = 11,
-	"Noctur" = 12,
-	"Pogi" = 13,
-	"Viginti" = 14
+	["Adieux"] = 1,
+	["Bogomips"] = 2,
+	["Consona"] = 3,
+	["Crq"] = 4,
+	["Dissona"] = 5,
+	["Gawk"] = 6,
+	["Gyorgy"] = 7,
+	["Igop"] = 8,
+	["Jobim"] = 9,
+	["Josp"] = 10,
+	["Kasio"] = 11,
+	["Noctur"] = 12,
+	["Pogi"] = 13,
+	["Viginti"] = 14
 }
 
 function get_guild_members()
