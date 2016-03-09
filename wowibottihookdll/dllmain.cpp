@@ -41,6 +41,8 @@ static int patch_LUA_prot(HANDLE hProcess) {
 	return 1;
 }
 
+
+
 static void __stdcall EndScene_hook() {
 
 	static int every_third_frame = 0;
@@ -51,7 +53,7 @@ static void __stdcall EndScene_hook() {
 		if (afkjump_keyup_queued > 1) --afkjump_keyup_queued;
 
 		if (afkjump_keyup_queued == 1) {
-			PostMessage(wow_hWnd, WM_KEYUP, VK_SPACE, NULL);
+			PostMessage(wow_hWnd, WM_KEYUP, VK_LEFT, get_KEYUP_LPARAM(VK_LEFT));
 			afkjump_keyup_queued = 0;
 		}
 	}

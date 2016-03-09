@@ -26,8 +26,8 @@ lole_frame:SetScript("OnUpdate", function()
 
 	if get_blast_state() and frame_modulo == 0 then
 
-		if UnitIsAFK("player") or time_since_last_afk_jump() > 270 then
-			afk_jump();
+		if time_since_last_afk_clear() > 240 then
+			afk_clear();
 		end
 
 		do_CC_jobs();
@@ -53,7 +53,9 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 
 	--	clear_target()
 
+		update_mode_attrib_checkbox_states()
 		blast_check_settext(false)
+
 		lole_frame:UnregisterEvent("ADDON_LOADED");
 
 	elseif event == "PLAYER_DEAD" then
@@ -79,6 +81,9 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		if guildies[prefix] then
 			self:RegisterEvent("PARTY_MEMBERS_CHANGED");
 			AcceptGroup()
+		else
+			lole_error("PARTY_INVITE_REQUEST: Guildie " .. prefix .. " doesn't appear to be online (according to GuildRosterInfo)!")
+			DeclineGroup()
 		end
 
 	elseif event == "PARTY_MEMBERS_CHANGED" then
@@ -431,6 +436,20 @@ aoemode_checkbutton:SetScript("OnClick",
 	lole_subcommands.set("aoemode", arg);
   end
 );
+
+function update_mode_attrib_checkbox_states()
+	if lole_subcommands.get("playermode") == 1 then
+		playermode_checkbutton:SetChecked(true);
+	else
+		playermode_checkbutton:SetChecked(false);
+	end
+
+	if lole_subcommands.get("aoemode") == 1 then
+		aoemode_checkbutton:SetChecked(true);
+	else
+		aoemode_checkbutton:SetChecked(false);
+	end
+end
 
 local CC_state = {}
 local num_CC_targets = 0

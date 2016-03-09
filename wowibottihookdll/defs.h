@@ -9,6 +9,20 @@ typedef unsigned int uint; // looks kinda messy with all the "unsigned int"s
 
 #define MKEY_G 0x47
 
+inline LPARAM get_KEYDOWN_LPARAM(int vk) {
+	LPARAM lparam;
+	UINT scan = MapVirtualKey(vk, 0);
+	lparam = 0x00000001 | (LPARAM)(scan << 16);         // Scan code, repeat=1
+	return lparam;
+}
+
+inline LPARAM get_KEYUP_LPARAM(int vk) {
+	LPARAM lparam = get_KEYDOWN_LPARAM(vk);
+	lparam = lparam | 0xC0000000; // the last 2 bits are always 1 for WM_KEYUP
+	return lparam;
+}
+
+
 enum {
 	CTM_HUNTER_AIMED = 0x0,
 	CTM_FOLLOW = 0x3,

@@ -14,7 +14,7 @@ LOLE_OPCODE_TARGET_MARKER,
 LOLE_OPCODE_DRINK,
 LOLE_OPCODE_MELEE_BEHIND,
 LOLE_OPCODE_LEAVE_PARTY,
-LOLE_OPCODE_AFK_JUMP
+LOLE_OPCODE_AFK_CLEAR
 
 = "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05", "LOP_06", "LOP_07", "LOP_08", "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C", "LOP_0D", "LOP_0E"
 
@@ -134,15 +134,15 @@ function leave_party_all()
 	send_opcode_addonmsg(LOLE_OPCODE_LEAVE_PARTY, "")
 end
 
-local AFK_jump_timestamp = time()
+local AFK_clear_timestamp = time()
 
-function afk_jump()
-	DelIgnore(LOLE_OPCODE_AFK_JUMP);
-	AFK_jump_timestamp = time()
+function afk_clear()
+	DelIgnore(LOLE_OPCODE_AFK_CLEAR);
+	AFK_clear_timestamp = time()
 end
 
-function time_since_last_afk_jump()
-	return time() - AFK_jump_timestamp
+function time_since_last_afk_clear()
+	return time() - AFK_clear_timestamp
 end
 
 function lole_debug_dump_wowobjects()
@@ -295,8 +295,8 @@ local function OCB_leave_party()
 	LeaveParty()
 end
 
-local function OCB_afk_jump()
-	DelIgnore(LOLE_OPCODE_AFK_JUMP)
+local function OCB_afk_clear()
+	DelIgnore(LOLE_OPCODE_AFK_CLEAR)
 end
 
 lole_opcode_funcs = {
@@ -313,5 +313,5 @@ lole_opcode_funcs = {
 	[LOLE_OPCODE_DRINK] = 				OCB_drink,
 	[LOLE_OPCODE_MELEE_BEHIND] = 		OCB_melee_behind;
 	[LOLE_OPCODE_LEAVE_PARTY] = 		OCB_leave_party;
-	[LOLE_OPCODE_AFK_JUMP] = 			OCB_afk_jump;
+	[LOLE_OPCODE_AFK_CLEAR] = 			OCB_afk_clear;
 }
