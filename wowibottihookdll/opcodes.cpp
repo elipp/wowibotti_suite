@@ -434,7 +434,8 @@ static const struct {
 	{ "LOLE_DRINK", LOP_nop, 0},
 	{ "LOLE_MELEE_BEHIND", LOP_melee_behind, 0},
 	{ "LOLE_LEAVE_PARTY", LOP_nop, 0},
-	{ "LOLE_OPCODE_AFK_CLEAR", LOP_afk_clear, 0}
+	{ "LOLE_AFK_CLEAR", LOP_afk_clear, 0},
+	{ "LOLE_RELEASE_SPIRIT", LOP_nop, 0}
 };
 
 static const struct {

@@ -325,7 +325,7 @@ local function lole_raid()
 	if GetNumPartyMembers() == 0 then
 		raid_first_pass = true
 	else
-		-- this always makes a raid, since GuildRoster is fucked up beyond belief.. 
+		-- this always makes a raid, since GuildRoster is fucked up beyond belief..
 		ConvertToRaid()
 		raid_first_pass = false
 	end
@@ -347,6 +347,10 @@ local function lole_raid()
 		raid_first_pass = true
 	end
 
+end
+
+local function lole_release()
+	release_spirit_all()
 end
 
 
@@ -373,6 +377,7 @@ lole_subcommands = {
 	raid = lole_raid;
 	party = lole_party;
 	leaveparty = lole_leaveparty;
+	release = lole_release;
 
 	dump = lole_debug_dump_wowobjects;
 }

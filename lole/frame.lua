@@ -5,6 +5,7 @@ lole_frame:RegisterEvent("PLAYER_REGEN_ENABLED"); -- and this when combat is ove
 lole_frame:RegisterEvent("PLAYER_DEAD");
 lole_frame:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
 lole_frame:RegisterEvent("PARTY_INVITE_REQUEST")
+lole_frame:RegisterEvent("RESURRECT_REQUEST")
 
 local every_nth_frame = 4
 local frame_modulo = 0
@@ -93,6 +94,14 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 
 		if IsRaidLeader() then
 			lole_subcommands.raid()
+		end
+	elseif event == "RESURRECT_REQUEST" then
+		if not UnitAffectingCombat(prefix) then
+			AcceptResurrect()
+			StaticPopup_Hide("RESURRECT");
+			lole_subcommands.drink()
+		else
+			SendChatMessage(prefix .. " resurrected my ass but appears to be in combat. Not auto-accepting.", "GUILD")
 		end
 	end
 

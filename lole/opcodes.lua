@@ -14,10 +14,13 @@ LOLE_OPCODE_TARGET_MARKER,
 LOLE_OPCODE_DRINK,
 LOLE_OPCODE_MELEE_BEHIND,
 LOLE_OPCODE_LEAVE_PARTY,
-LOLE_OPCODE_AFK_CLEAR
+LOLE_OPCODE_AFK_CLEAR,
+LOLE_OPCODE_RELEASE_SPIRIT
 
-= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04", "LOP_05", "LOP_06", "LOP_07", "LOP_08", "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C", "LOP_0D", "LOP_0E"
-
+= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04",
+"LOP_05", "LOP_06", "LOP_07", "LOP_08",
+"LOP_09", "LOP_0A", "LOP_0B", "LOP_0C",
+"LOP_0D", "LOP_0E", "LOP_0F"
 local LOLE_DEBUG_OPCODE_DUMP = "LOP_81";
 
 ----------------------------
@@ -132,6 +135,10 @@ end
 
 function leave_party_all()
 	send_opcode_addonmsg(LOLE_OPCODE_LEAVE_PARTY, "")
+end
+
+function release_spirit_all()
+	send_opcode_addonmsg(LOLE_OPCODE_RELEASE_SPIRIT, "");
 end
 
 local AFK_clear_timestamp = time()
@@ -299,6 +306,10 @@ local function OCB_afk_clear()
 	DelIgnore(LOLE_OPCODE_AFK_CLEAR)
 end
 
+local function OCB_release_spirit()
+	RepopMe()
+end
+
 lole_opcode_funcs = {
 	[LOLE_OPCODE_NOP] = 				OCB_nop,
 	[LOLE_OPCODE_TARGET_GUID] = 		OCB_target_unit_with_GUID,
@@ -314,4 +325,5 @@ lole_opcode_funcs = {
 	[LOLE_OPCODE_MELEE_BEHIND] = 		OCB_melee_behind;
 	[LOLE_OPCODE_LEAVE_PARTY] = 		OCB_leave_party;
 	[LOLE_OPCODE_AFK_CLEAR] = 			OCB_afk_clear;
+	[LOLE_OPCODE_RELEASE_SPIRIT] =		OCB_release_spirit;
 }
