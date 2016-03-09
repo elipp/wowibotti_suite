@@ -49,5 +49,7 @@ combat_warrior_prot = function()
 		return;
 	end
 
+	CastSpellByName("Devastate")
+
 
 end

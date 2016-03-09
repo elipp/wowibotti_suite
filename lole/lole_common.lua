@@ -510,14 +510,14 @@ end
 
 function get_guild_members()
 
-	GuildRoster()
-	local num_members = GetNumGuildMembers(true); -- includeOffline == true
+	SendWho("Uuslapio");
+	local num_guildies_online = GetNumWhoResults()
 
 	local eligible_members = {}
 
-	for i = 1, num_members do
-		local name, _, _, level, _, _, _, _, _ = GetGuildRosterInfo(i);
-		if name ~= UnitName("player") and level == 70 then
+	for i = 1, num_guildies_online do
+		local name, guild, level, _, _, _, _ = GetWhoInfo(i)
+		if name ~= UnitName("player") and guild == "Uuslapio" and level == 70 then
 			eligible_members[name] = i;
 		end
 	end

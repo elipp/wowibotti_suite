@@ -85,6 +85,8 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 			lole_error("PARTY_INVITE_REQUEST: " .. prefix .. " doesn't appear to be a member of Uuslapio, declining!")
 			DeclineGroup()
 		end
+		StaticPopup_Hide("PARTY_INVITE")
+
 
 	elseif event == "PARTY_MEMBERS_CHANGED" then
 		StaticPopup_Hide("PARTY_INVITE")
