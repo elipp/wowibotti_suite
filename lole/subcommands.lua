@@ -321,17 +321,16 @@ local raid_first_pass = true
 
 local function lole_raid()
 
-	local guildies = get_online_guild_members()
 
 	if GetNumPartyMembers() == 0 then
 		raid_first_pass = true
 	else
-		if tablelength(guildies) > 4 then -- the player isn't counted into this
-			ConvertToRaid()
-		end
+		-- this always makes a raid, since GuildRoster is fucked up beyond belief.. 
+		ConvertToRaid()
 		raid_first_pass = false
 	end
 
+	local guildies = get_guild_members()
 
 	if raid_first_pass then -- inv first guy, because more ppl can only be invited when a group exists
 		lole_frame:RegisterEvent("PARTY_MEMBERS_CHANGED");

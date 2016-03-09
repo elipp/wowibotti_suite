@@ -76,13 +76,13 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 	elseif event == "PARTY_INVITE_REQUEST" then
 	--	if GetNumRaidMembers() > 0 then return end
 
-		local guildies = get_online_guild_members()
+		local guildies = get_guild_members()
 
 		if guildies[prefix] then
 			self:RegisterEvent("PARTY_MEMBERS_CHANGED");
 			AcceptGroup()
 		else
-			lole_error("PARTY_INVITE_REQUEST: Guildie " .. prefix .. " doesn't appear to be online (according to GuildRosterInfo)!")
+			lole_error("PARTY_INVITE_REQUEST: " .. prefix .. " doesn't appear to be a member of Uuslapio, declining!")
 			DeclineGroup()
 		end
 

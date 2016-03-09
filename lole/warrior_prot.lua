@@ -1,4 +1,4 @@
-local function auto_stancedance() 
+local function auto_stancedance()
 	local name = UnitCastingInfo("target");
 	if (name == "Bellowing Roar") then
 		echo("Voi vittu, castaa bellowing roarii!!");
@@ -11,25 +11,32 @@ end
 
 combat_warrior_prot = function()
 
+	RunMacroText("/cast [nostance:2] Defensive Stance")
+
+	if not has_buff("player", "Commanding Shout") then
+		CastSpellByName("Commanding Shout");
+	end
+
+	if cast_if_nocd("Shield Block") then return; end
 	CastSpellByName("Heroic Strike");
 
 	if UnitCastingInfo("target") then
 		if not cast_if_nocd("Spell Reflect") then
-			cast_if_nocd("Shield Bash");
+			if cast_if_nocd("Shield Bash") then return end
 		end
-		return;
 	end
 
-	if cast_if_nocd("Shield Block") then return; end
-	if cast_if_nocd("Shield Bash") then return; end
+	local num_stacks = get_num_debuff_stacks("target", "Sunder Armor");
+	if num_stacks < 5 then
+		CastSpellByName("Devastate")
+		return
+	end
+
+	if cast_if_nocd("Shield Slam") then return; end
 
 	if IsUsableSpell("Revenge") then
 		CastSpellByName("Revenge");
 		return;
-	end
-
-	if not has_buff("player", "Commanding Shout") then
-		CastSpellByName("Commanding Shout");
 	end
 
 	if not has_debuff("target", "Thunder Clap") then
@@ -42,6 +49,5 @@ combat_warrior_prot = function()
 		return;
 	end
 
-	CastSpellByName("Devastate");
 
 end
