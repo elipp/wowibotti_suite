@@ -508,21 +508,25 @@ function trim_string(s)
   return (s:gsub("^%s*(.-)%s*$", "%1"))
 end
 
+local guild_members = {
+	"Adieux" = 1,
+	"Bogomips" = 2,
+	"Consona" = 3,
+	"Crq" = 4,
+	"Dissona" = 5,
+	"Gawk" = 6,
+	"Gyorgy" = 7,
+	"Igop" = 8,
+	"Jobim" = 9,
+	"Josp" = 10,
+	"Kasio" = 11,
+	"Noctur" = 12,
+	"Pogi" = 13,
+	"Viginti" = 14
+}
+
 function get_guild_members()
-
-	SendWho("Uuslapio");
-	local num_guildies_online = GetNumWhoResults()
-
-	local eligible_members = {}
-
-	for i = 1, num_guildies_online do
-		local name, guild, level, _, _, _, _ = GetWhoInfo(i)
-		if name ~= UnitName("player") and guild == "Uuslapio" and level == 70 then
-			eligible_members[name] = i;
-		end
-	end
-
-	return eligible_members
+	return guild_members
 end
 
 function tablelength(T)

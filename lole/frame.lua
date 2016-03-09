@@ -9,7 +9,6 @@ lole_frame:RegisterEvent("PARTY_INVITE_REQUEST")
 local every_nth_frame = 4
 local frame_modulo = 0
 
-
 local function set_buff_button_state()
 	-- is this really necessary? :P
 	if not IsRaidLeader() then -- it just wasn't reliable enough to do this in ADDON_LOADED
