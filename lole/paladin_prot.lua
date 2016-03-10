@@ -1,20 +1,12 @@
 
 combat_paladin_prot = function()
 
+    --if cleanse_party("Arcane Shock") then return; end
+
     if not has_buff("player", "Holy Shield") then		
         if cast_if_nocd("Holy Shield") then return; end
     end
 	
-	for i=1,4,1 do local exists = GetPartyMember(i)
-		local name = "party" .. i;
-		if has_debuff(name, "Enveloping Wind") or has_debuff(name, "Lung Burst") then
-			TargetUnit(name);
-			CastSpellByName("Cleanse");
-			TargetUnit("Hydromancer Thespia");
-			return;
-		end
-	end
-
     if cast_if_nocd("Consecration") then return; end
     
     --if not has_debuff("target", "Judgement of the Crusader") then

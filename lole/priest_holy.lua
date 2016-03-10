@@ -27,13 +27,17 @@ combat_priest_holy = function()
 
 	local mana_left = UnitMana("player");
 
-	if mana_left < 3000 and GetSpellCooldown("Shadowfiend") == 0 then
-		if not validate_target() then return end
+	if mana_left < 3000 and GetSpellCooldown("Shadowfiend") == 0 and validate_target() then
 		CastSpellByName("Shadowfiend");
 		return;
 	end
 
-	caster_range_check(35);
+	caster_range_check(30);
+
+	if GetSpellCooldown("Dispel Magic") > 0 then -- dont waste cycles on GCD
+		return;
+	end
+
 	TargetUnit(main_tank);
 
 	if time() - pom_time > 10 then
@@ -70,7 +74,7 @@ combat_priest_holy = function()
 	local health_cur = UnitHealth("target");
 	local targeting_self = UnitName(heal_target) == UnitName("player");
 
-	if (health_cur < health_max * 0.40) then
+	if (UnitName(heal_target) == main_tank and health_cur < health_max * 0.30) then
 		cast_spell("Greater Heal");
 	elseif (should_cast_PoH()) then
 		cast_spell("Prayer of Healing");
