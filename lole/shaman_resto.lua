@@ -55,7 +55,7 @@ combat_shaman_resto = function()
 	if refresh_ES(ES_TARGET) then return end
 
 	local HP_deficits = get_HP_deficits();
-	if not HP_deficits then return; end
+	if next(HP_deficits) == nil then return; end
 
 	local lowest = get_lowest_hp(HP_deficits);
 	if not lowest then return; end
