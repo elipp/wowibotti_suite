@@ -41,7 +41,7 @@ local TOTEMS = {
 
 combat_shaman_resto = function()
 
-	local ES_TARGET = "Adieux";
+	local ES_TARGET = "Noctur";
 
 	if casting_legit_heal() then return end
 
