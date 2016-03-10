@@ -196,11 +196,15 @@ function cast_spell(spellname)
 	cast_if_nocd(spellname);
 end
 
-function get_HP_deficits()
-
+function get_HP_deficits(party_only)
 	local HP_deficits = {};
+    local num_raid_members = 0;
 
-    local num_raid_members = GetNumRaidMembers();
+    if party_only then
+        num_raid_members = 0;
+    else
+        num_raid_members = GetNumRaidMembers();
+    end
 
 	if num_raid_members == 0 then
 	    HP_deficits["player"] = UnitHealthMax("player") - UnitHealth("player");
@@ -274,9 +278,15 @@ function casting_legit_heal()
 end
 
 function cleanse_party(debuffname)
-	for i=1,4,1 do local exists = GetPartyMember(i)
+	for i=1,5,1 do 
+        local exists = true;
         local name = "party" .. i;
-        if has_debuff(name, debuffname) then
+        if i == 5 then
+            name = "player"
+        else
+            exists = GetPartyMember(i)
+        end
+        if exists and has_debuff(name, debuffname) then
 			TargetUnit(name);
             CastSpellByName("Cleanse");
 			CastSpellByName("Dispel Magic")
@@ -287,9 +297,15 @@ function cleanse_party(debuffname)
 end
 
 function decurse_party(debuffname)
-    for i=1,4,1 do local exists = GetPartyMember(i)
+    for i=1,5,1 do 
+        local exists = true;
         local name = "party" .. i;
-        if has_debuff(name, debuffname) then
+        if i == 5 then
+            name = "player"
+        else
+            exists = GetPartyMember(i)
+        end
+        if exists and has_debuff(name, debuffname) then
             TargetUnit(name);
             CastSpellByName("Remove Curse");
             CastSpellByName("Remove Lesser Curse")
