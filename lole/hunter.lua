@@ -25,6 +25,11 @@ combat_hunter = function()
         end
     end
 
+    if not has_buff("pet", "Mend Pet") and UnitHealthMax("pet") - UnitHealth("pet") > 2000 then
+        CastSpellByName("Mend Pet");
+        return;
+    end
+
     if not validate_target() then return end
 
     PetAttack()
@@ -45,7 +50,9 @@ combat_hunter = function()
         if cast_if_nocd("Multi Shot") then return end
     end
 
-    if IsUsableSpell("Kill Command") then CastSpellByName("Kill Command") return; end
+    if IsUsableSpell("Kill Command") then
+        if cast_if_nocd("Kill Command") then return; end
+    end
 
     CastSpellByName("Steady Shot");
 

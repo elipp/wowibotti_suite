@@ -41,7 +41,7 @@ local TOTEMS = {
 
 combat_shaman_resto = function()
 
-	local ES_TARGET = "Noctur";
+	local ES_TARGET = "Adieux";
 
 	if casting_legit_heal() then return end
 
@@ -78,15 +78,13 @@ combat_shaman_resto = function()
 		return;
 	end
 
-	--if HP_deficits[lowest] > 4000 then
-	--	cast_spell("Healing Wave")
-
-	--	return;
---	end
+	-- if HP_deficits[lowest] > 3000 then -- this was actually really good for vexallus :O
+	-- 	cast_spell("Lesser Healing Wave")
+	-- 	return;
+	-- end
 
 	if total_deficit > 6000 then
 		cast_spell("Chain Heal")
-
 		return;
 	end
 

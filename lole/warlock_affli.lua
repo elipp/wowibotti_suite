@@ -42,6 +42,9 @@ end
 
 combat_warlock_affli = function()
 
+	--vexallus()
+	--if true then return end;
+
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
 

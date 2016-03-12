@@ -52,7 +52,15 @@ combat_mage_fire = function()
 
 	caster_range_check(36);
 
-	-- replace this shit with gettalentinfo :D
+	-- if has_buff("target", "Power Word: Shield") then
+	-- 	CastSpellByName("Spellsteal")
+	-- 	return
+	-- end
+	--
+	-- if has_buff("target", "Renew") then
+	-- 	CastSpellByName("Spellsteal")
+	-- 	return
+	-- end
 
 	local talent_name, _, tier, column, talent_rank, _, _, _ = GetTalentInfo(2, 10); -- improved scorch
 

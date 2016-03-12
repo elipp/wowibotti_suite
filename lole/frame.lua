@@ -1,11 +1,12 @@
 lole_frame = CreateFrame("Frame");
-lole_frame:RegisterEvent("ADDON_LOADED");
-lole_frame:RegisterEvent("PLAYER_REGEN_DISABLED"); -- this is fired when player enters combat
-lole_frame:RegisterEvent("PLAYER_REGEN_ENABLED"); -- and this when combat is over
-lole_frame:RegisterEvent("PLAYER_DEAD");
+lole_frame:RegisterEvent("ADDON_LOADED")
+lole_frame:RegisterEvent("PLAYER_REGEN_DISABLED") -- this is fired when player enters combat
+lole_frame:RegisterEvent("PLAYER_REGEN_ENABLED") -- and this when combat is over
+lole_frame:RegisterEvent("PLAYER_DEAD")
 lole_frame:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
 lole_frame:RegisterEvent("PARTY_INVITE_REQUEST")
 lole_frame:RegisterEvent("RESURRECT_REQUEST")
+lole_frame:RegisterEvent("CONFIRM_SUMMON")
 
 local every_nth_frame = 4
 local frame_modulo = 0
@@ -97,12 +98,32 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		end
 	elseif event == "RESURRECT_REQUEST" then
 		if not UnitAffectingCombat(prefix) then
+			lole_frame:RegisterEvent('PLAYER_ALIVE')
+			lole_frame:RegisterEvent('PLAYER_UNGHOST', 'PLAYER_ALIVE')
 			AcceptResurrect()
-			StaticPopup_Hide("RESURRECT");
-			lole_subcommands.drink()
 		else
 			SendChatMessage(prefix .. " resurrected my ass but appears to be in combat. Not auto-accepting.", "GUILD")
 		end
+	elseif event == "PLAYER_ALIVE" then
+		lole_frame:UnregisterEvent('PLAYER_ALIVE')
+		lole_frame:UnregisterEvent('PLAYER_UNGHOST', 'PLAYER_ALIVE')
+
+		StaticPopup_Hide("RESURRECT")
+		StaticPopup_Hide("RESURRECT_NO_SICKNESS")
+		StaticPopup_Hide("RESURRECT_NO_TIMER")
+
+		lole_subcommands.drink()
+
+	elseif event == "CONFIRM_SUMMON" then
+		local summoner = GetSummonConfirmSummoner() -- weird ass API..
+		local guildies = get_guild_members()
+
+		if guildies[summoner] then
+			ConfirmSummon()
+		else
+			SendChatMessage(summoner .. " attempted to summon my ass to " .. GetSummonConfirmAreaName() .. " but doesn't appear to be a member of Uuslapio, not auto-accepting!", "GUILD")
+		end
+
 	end
 
 

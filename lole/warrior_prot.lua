@@ -18,6 +18,7 @@ combat_warrior_prot = function()
 	end
 
 	if cast_if_nocd("Shield Block") then return; end
+
 	CastSpellByName("Heroic Strike");
 
 	if UnitCastingInfo("target") then
@@ -26,8 +27,13 @@ combat_warrior_prot = function()
 		end
 	end
 
-	local num_stacks = get_num_debuff_stacks("target", "Sunder Armor");
-	if num_stacks < 5 then
+	if not has_debuff("target", "Thunder Clap") then
+		CastSpellByName("Thunder Clap");
+		return;
+	end
+
+	local num_stacks, timeleft = get_num_debuff_stacks("target", "Sunder Armor");
+	if num_stacks < 5 or timeleft < 12 then
 		CastSpellByName("Devastate")
 		return
 	end
@@ -35,13 +41,7 @@ combat_warrior_prot = function()
 	if cast_if_nocd("Shield Slam") then return; end
 
 	if IsUsableSpell("Revenge") then
-		CastSpellByName("Revenge");
-		return;
-	end
-
-	if not has_debuff("target", "Thunder Clap") then
-		CastSpellByName("Thunder Clap");
-		return;
+		if cast_if_nocd("Revenge") then return end
 	end
 
 	if not has_debuff("target", "Demoralizing Shout") then

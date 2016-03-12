@@ -278,7 +278,7 @@ function casting_legit_heal()
 end
 
 function cleanse_party(debuffname)
-	for i=1,5,1 do 
+	for i=1,5,1 do
         local exists = true;
         local name = "party" .. i;
         if i == 5 then
@@ -297,7 +297,7 @@ function cleanse_party(debuffname)
 end
 
 function decurse_party(debuffname)
-    for i=1,5,1 do 
+    for i=1,5,1 do
         local exists = true;
         local name = "party" .. i;
         if i == 5 then
@@ -344,13 +344,13 @@ end
 
 function get_num_debuff_stacks(targetname, debuff_name)
 
-	for i=1,16,1 do name, _, _, count = UnitDebuff(targetname, i)
+	for i=1,16,1 do name, _, _, count, _, _, timeleft = UnitDebuff(targetname, i)
 		if (name ~= nil and string.find(name, debuff_name)) then
-			return count;
+			return count, timeleft;
 		end
 	end
 	-- not debuffed with debuff_name
-	return 0;
+	return 0, 999;
 
 end
 
@@ -435,6 +435,9 @@ function validate_target()
 
 	if BLAST_TARGET_GUID ~= NOTARGET and UnitExists("focus") and BLAST_TARGET_GUID == UnitGUID("focus") then
 		if not UnitIsDead("focus") then
+			if has_debuff("focus", "Polymorph") or has_debuff("focus", "Shackle") then
+			 	return false;
+			end
 			TargetUnit("focus");
 			return true;
 		else
