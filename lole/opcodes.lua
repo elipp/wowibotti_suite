@@ -21,6 +21,7 @@ LOLE_OPCODE_RELEASE_SPIRIT
 "LOP_05", "LOP_06", "LOP_07", "LOP_08",
 "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C",
 "LOP_0D", "LOP_0E", "LOP_0F"
+
 local LOLE_DEBUG_OPCODE_DUMP = "LOP_81";
 
 ----------------------------
@@ -144,6 +145,7 @@ end
 local AFK_clear_timestamp = time()
 
 function afk_clear()
+	RunMacroText("/afk")
 	DelIgnore(LOLE_OPCODE_AFK_CLEAR);
 	AFK_clear_timestamp = time()
 end

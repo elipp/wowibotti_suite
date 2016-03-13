@@ -210,7 +210,7 @@ function get_HP_deficits(party_only)
 	    HP_deficits["player"] = UnitHealthMax("player") - UnitHealth("player");
 	    for i=1,4,1 do local exists = GetPartyMember(i)
             local name = "party" .. i;
-            if exists and not UnitIsDead(name) then
+            if exists and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
             	HP_deficits[name] = UnitHealthMax(name) - UnitHealth(name);
             end
 	    end
@@ -218,7 +218,7 @@ function get_HP_deficits(party_only)
 		--HP_deficits["player"] = UnitHealthMax("player") - UnitHealth("player");
 		for i=1,num_raid_members,1 do
 			local name = "raid" .. tonumber(i);
-			if UnitExists(name) and not UnitIsDead(name) then
+			if UnitExists(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
 				HP_deficits[name] = UnitHealthMax(name) - UnitHealth(name);
 			end
 		end
