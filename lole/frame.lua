@@ -60,16 +60,16 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		lole_frame:UnregisterEvent("ADDON_LOADED");
 
 	elseif event == "PLAYER_DEAD" then
-		clear_target();
+		--clear_target();
 
 	elseif event == "PLAYER_REGEN_DISABLED" then
 		if IsRaidLeader() then
 		--	broadcast_follow_target(NOTARGET); -- REMEMBER TO REMOVE THIS!!
 		end
 	elseif event == "PLAYER_REGEN_ENABLED" then
-		if IsRaidLeader() then
-			broadcast_blast_state(0);
-		end
+		-- if IsRaidLeader() then
+		-- 	broadcast_blast_state(0);
+		-- end
 
 	elseif event == "UPDATE_BATTLEFIELD_STATUS" then
 		-- lol

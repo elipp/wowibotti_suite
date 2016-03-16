@@ -29,8 +29,8 @@ local TOTEMS = {
 ["air"] = "Windfury Totem",
 --["air"] = "Wrath of Air Totem",
 
---["earth"] = "Tremor Totem",
-["earth"] = "Strength of Earth Totem",
+["earth"] = "Tremor Totem",
+--["earth"] = "Strength of Earth Totem",
 --["earth"] = "Stoneskin Totem",
 
 ["water"] = "Mana Spring Totem",
@@ -41,7 +41,7 @@ local TOTEMS = {
 
 combat_shaman_resto = function()
 
-	local ES_TARGET = "Noctur";
+	local ES_TARGET = "Crq";
 
 	if casting_legit_heal() then return end
 

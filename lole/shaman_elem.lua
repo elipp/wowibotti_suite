@@ -30,6 +30,11 @@ combat_shaman_elem = function()
 
 	if not validate_target() then return end
 
+	if lole_subcommands.get("aoemode") == 1 then
+		CastSpellByName("Elemental Mastery")
+		if cast_if_nocd("Chain Lightning") then return end
+	end
+
 	CastSpellByName("Lightning Bolt");
 
 end

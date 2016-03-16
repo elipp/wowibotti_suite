@@ -1,6 +1,6 @@
 local pom_time = 0;
 local mt_healer = false;
-local main_tank = "Noctur";
+local main_tank = "Adieux";
 
 local function should_cast_PoH()
 	local r = false;
