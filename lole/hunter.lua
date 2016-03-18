@@ -1,3 +1,5 @@
+local scorpid_time = 0
+
 combat_hunter = function()
     PetPassiveMode() -- just do this no matter what :D
 
@@ -33,18 +35,23 @@ combat_hunter = function()
     if not validate_target() then return end
 
     PetAttack()
-
     caster_range_check(35)
 
+    if GetSpellCooldown("Claw") == 0 then
+        CastSpellByName("Scorpid Poison")
+        CastSpellByName("Claw")
+    end
+
     if not has_debuff("target", "Hunter's Mark") then
-            CastSpellByName("Hunter's Mark");
-            return
+        CastSpellByName("Hunter's Mark");
+        return
     end
 
     if not has_debuff("target", "Scorpid Sting") then
         CastSpellByName("Scorpid Sting");
         return
     end
+
 
     if lole_subcommands.get("aoemode") then
         if cast_if_nocd("Multi Shot") then return end
