@@ -455,6 +455,10 @@ function unset_CC_job(marker)
 	CC_jobs[marker] = nil;
 end
 
+function unset_all_CC_jobs()
+	CC_jobs = nil
+end
+
 function do_CC_jobs()
 
 	for marker, spell in pairs(CC_jobs) do

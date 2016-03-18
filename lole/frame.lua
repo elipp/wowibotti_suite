@@ -438,15 +438,15 @@ mode_attrib_title_fontstr:SetPoint("TOPLEFT", 160, -225);
 mode_attrib_title_fontstr:SetText("Mode attribs:")
 
 local playermode_checkbutton = CreateFrame("CheckButton", "playermode_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
-playermode_checkbutton:SetPoint("TOPLEFT", 205, -300);
+playermode_checkbutton:SetPoint("BOTTOMRIGHT", -67, 50);
 playermode_checkbutton.tooltip = "Set to enabled if you're playing this character.";
-playermode_checkbutton:SetScale(0.8)
+--playermode_checkbutton:SetScale(0.8)
 
 --local mattrib_font = playermode_checkbutton:CreateFontString(nil, "OVERLAY")
 --mattrib_font:SetFont("Fonts\\FRIZQT__.TTF", 9);
 
-getglobal(playermode_checkbutton:GetName() .. "Text"):SetFont("Fonts\\FRIZQT__.TTF", 9)
-getglobal(playermode_checkbutton:GetName() .. "Text"):SetText("|cFFFFD100Player mode")
+getglobal(playermode_checkbutton:GetName() .. "Text"):SetFont("Fonts\\FRIZQT__.TTF", 8)
+getglobal(playermode_checkbutton:GetName() .. "Text"):SetText("Player mode")
 
 playermode_checkbutton:SetScript("OnClick",
   function()
@@ -455,13 +455,15 @@ playermode_checkbutton:SetScript("OnClick",
   end
 );
 
-local aoemode_checkbutton = CreateFrame("CheckButton", "aoemode_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
-aoemode_checkbutton:SetPoint("TOPLEFT", 205, -320);
-aoemode_checkbutton.tooltip = "AOE spells only";
-aoemode_checkbutton:SetScale(0.8)
+-- COLOR CODE FOR E.G. GameFontNormalSmall TEMPLATE: |cFFFFD100
 
-getglobal(aoemode_checkbutton:GetName() .. "Text"):SetFont("Fonts\\FRIZQT__.TTF", 9)
-getglobal(aoemode_checkbutton:GetName() .. "Text"):SetText("|cFFFFD100AOE mode")
+local aoemode_checkbutton = CreateFrame("CheckButton", "aoemode_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
+aoemode_checkbutton:SetPoint("BOTTOMRIGHT", -67, 30);
+aoemode_checkbutton.tooltip = "AOE spells only";
+--aoemode_checkbutton:SetScale(0.8)
+
+getglobal(aoemode_checkbutton:GetName() .. "Text"):SetFont("Fonts\\FRIZQT__.TTF", 8)
+getglobal(aoemode_checkbutton:GetName() .. "Text"):SetText("AOE mode")
 
 aoemode_checkbutton:SetScript("OnClick",
   function()
@@ -483,6 +485,29 @@ function update_mode_attrib_checkbox_states()
 		aoemode_checkbutton:SetChecked(false);
 	end
 end
+
+------------------------------------------------
+------------------ CC STUFF --------------------
+------------------------------------------------
+
+local CC_frame_backdrop = {
+	--bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+	edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+	  -- true to repeat the background texture to fill the frame, false to scale it
+	tile = false,
+	  -- size (width or height) of the square repeating background tiles (in pixels)
+	tileSize = 32,
+	  -- thickness of edge segments and square size of edge corners (in pixels)
+	edgeSize = 8,
+	  -- distance from the edges of the frame to those of the background texture (in pixels)
+	insets = {
+		left = 0,
+		right = 0,
+		top = 0,
+		bottom = 0
+	}
+}
+
 
 local CC_state = {}
 -- CC_state contains active CC targets with the raid marker as key
@@ -510,7 +535,6 @@ function delete_CC_entry(CC_marker)
 	num_CC_targets = num_CC_targets - 1
 
 	for marker, entry in pairs(CC_state) do
-		echo("num_targets: " .. num_CC_targets .. ", ID: " .. entry.ID .. ", " .. entry.marker .. ", " .. entry.char .. ", " .. entry.spell)
 		if entry.ID > hostID then
 		 	entry.ID = entry.ID - 1;
 			entry:SetPoint("TOPLEFT", 18, CC_base_y - 20*entry.ID)
@@ -519,24 +543,12 @@ function delete_CC_entry(CC_marker)
 
 end
 
-
-local CC_frame_backdrop = {
-	--bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-	edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-	  -- true to repeat the background texture to fill the frame, false to scale it
-	tile = false,
-	  -- size (width or height) of the square repeating background tiles (in pixels)
-	tileSize = 32,
-	  -- thickness of edge segments and square size of edge corners (in pixels)
-	edgeSize = 8,
-	  -- distance from the edges of the frame to those of the background texture (in pixels)
-	insets = {
-		left = 0,
-		right = 0,
-		top = 0,
-		bottom = 0
-	}
-}
+function delete_all_CC_entries()
+	for marker, entry in pairs(CC_state) do
+		entry:Hide()
+		CC_state[marker] = nil;
+	end
+end
 
 function new_CC(char, spellID, marker)
 	-- echo("Asking " .. trim_string(char) .. " to do " .. trim_string(spell) .. " on " .. trim_string(marker) .. "!")

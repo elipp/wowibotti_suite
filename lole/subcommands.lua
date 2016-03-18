@@ -362,6 +362,10 @@ local function lole_maintank(arg)
 	broadcast_main_tank(arg)
 end
 
+local function lole_clearcc()
+	disable_all_cc_targets()
+end
+
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
 	buffcheck = lole_buffcheck;
@@ -383,6 +387,7 @@ lole_subcommands = {
 	leaveparty = lole_leaveparty;
 	release = lole_release;
 	mt = lole_maintank;
+	clearcc = lole_clearcc;
 
 	dump = lole_debug_dump_wowobjects;
 }

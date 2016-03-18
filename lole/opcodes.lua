@@ -117,6 +117,10 @@ function disable_cc_target(name, spell, marker)
 	send_opcode_addonmsg_to(LOLE_OPCODE_CC, "0" .. "," .. spell .. "," .. marker, name)
 end
 
+function disable_all_cc_targets()
+	send_opcode_addonmsg(LOLE_OPCODE_CC, "-1" .. "," .. "all" .. "," .. "all")
+end
+
 function target_unit_with_marker(marker)
 	DelIgnore(LOLE_OPCODE_TARGET_MARKER .. ":" .. marker);
 end
@@ -287,8 +291,11 @@ local function OCB_set_cc_target(arg)
 	elseif (enabled == 0) then
 		unset_CC_job(marker)
 		delete_CC_entry(marker)
+	elseif (enabled == -1) then
+		unset_all_CC_jobs()
+		delete_all_CC_entries()
 	else
-		lole_error("set_cc_target: invalid argument! (enabled must be 1 or 0)");
+		lole_error("set_cc_target: invalid argument! (enabled must be 1, 0 or -1)");
 		return false
 	end
 
