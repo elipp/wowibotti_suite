@@ -358,6 +358,10 @@ local function lole_leaveparty()
 	leave_party_all()
 end
 
+local function lole_maintank(arg)
+	broadcast_main_tank(arg)
+end
+
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
 	buffcheck = lole_buffcheck;
@@ -378,6 +382,7 @@ lole_subcommands = {
 	party = lole_party;
 	leaveparty = lole_leaveparty;
 	release = lole_release;
+	mt = lole_maintank;
 
 	dump = lole_debug_dump_wowobjects;
 }

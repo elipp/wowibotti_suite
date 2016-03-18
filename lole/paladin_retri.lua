@@ -1,6 +1,6 @@
 combat_paladin_retri = function()
 
-	--if cleanse_party("Arcane Shock") then return; end
+	--if cleanse_party("Holy Fire") then return; end
 
 	if not validate_target() then return; end
 

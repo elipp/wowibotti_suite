@@ -1,6 +1,8 @@
 
 local function refresh_ES(targetname)
 
+	if not targetname then return false; end
+
 	if not UnitExists(targetname) then return false end
 
 	if not has_buff(targetname, "Earth Shield") then
@@ -41,8 +43,6 @@ local TOTEMS = {
 
 combat_shaman_resto = function()
 
-	local ES_TARGET = "Crq";
-
 	if casting_legit_heal() then return end
 
 	if not has_buff("player", "Water Shield") then
@@ -52,7 +52,7 @@ combat_shaman_resto = function()
 
 	if refresh_totems(TOTEMS) then return; end
 
-	if refresh_ES(ES_TARGET) then return end
+	if refresh_ES(MAIN_TANK) then return end
 
 	local HP_deficits = get_HP_deficits();
 	if next(HP_deficits) == nil then return; end

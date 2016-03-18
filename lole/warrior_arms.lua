@@ -102,6 +102,8 @@ combat_warrior_arms = function()
 
 	--if terestian() then return end
 
+	--if curator() then return end
+
 	if not validate_target() then return end
 
 	melee_attack_behind()

@@ -407,7 +407,7 @@ static void LOP_target_marker(const std::string &arg) {
 
 static void LOP_afk_clear(const std::string &arg) {
 	PostMessage(wow_hWnd, WM_KEYDOWN, VK_LEFT, get_KEYDOWN_LPARAM(VK_LEFT));
-	afkjump_keyup_queued = 3;
+	afkjump_keyup_queued = 2;
 }
 
 static void LOPDBG_dump(const std::string &arg) {

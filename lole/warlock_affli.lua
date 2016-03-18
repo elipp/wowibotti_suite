@@ -109,7 +109,12 @@ combat_warlock_affli = function()
 		ua_guard = false;
 		return;
 	else
-		CastSpellByName("Shadow Bolt");
+		if (UnitHealthMax("player") - UnitHealth("player") > 2000) then
+			CastSpellByName("Drain Life");
+			return
+		else
+			CastSpellByName("Shadow Bolt");
+		end
 		ua_guard = false;
 		immolate_guard = true;
 		return;

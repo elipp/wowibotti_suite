@@ -5,6 +5,8 @@ NOTARGET = "0x0000000000000000";
 BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 
+MAIN_TANK = nil
+
 ROLES = { healer = 1, caster = 2, warrior_tank = 3, paladin_tank = 4, melee = 5 }
 
 -- http://wowwiki.wikia.com/wiki/Class_colors
@@ -81,6 +83,55 @@ local raid_target_indices = {
 ["Skull"] = 8
 
 }
+
+
+local CC_spells = {
+	Polymorph = 118,
+	Sheep = 118,
+	sheep = 118,
+
+	Cyclone = 33786,
+	cyclone = 33786,
+
+	["Entangling Roots"] = 26989,
+	Roots = 26989,
+	roots = 26989,
+	root = 26989,
+
+	Banish = 18647,
+	banish = 18647,
+	ban = 18647,
+
+	Fear = 6215,
+	fear = 6215,
+
+	["Shackle Undead"] = 10955,
+	Shackle = 10955,
+	shackle = 10955,
+
+	["Turn Evil"] = 10326,
+	Turn = 10326,
+	turn = 10326,
+}
+
+
+local CC_spellnames = { -- in a CastSpellByName-able format
+	[118] = "Polymorph",
+	[33786] = "Cyclone",
+	[26989] = "Entangling Roots",
+	[18647] = "Banish",
+	[6215] = "Fear",
+	[10955] = "Shackle Undead",
+	[10326] = "Turn Evil",
+}
+
+function get_CC_spellID(name)
+	return CC_spells[name];
+end
+
+function get_CC_spellname(spellID)
+	return CC_spellnames[spellID];
+end
 
 function get_marker_index(name)
 	return raid_target_indices[name]

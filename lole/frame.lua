@@ -11,19 +11,21 @@ lole_frame:RegisterEvent("CONFIRM_SUMMON")
 local every_nth_frame = 4
 local frame_modulo = 0
 
-local function set_buff_button_state()
+local function set_button_states()
 	-- is this really necessary? :P
 	if not IsRaidLeader() then -- it just wasn't reliable enough to do this in ADDON_LOADED
 		if lbuffcheck_clean_button:IsEnabled() == 1 then lbuffcheck_clean_button:Disable() end
 		if lbuffcheck_button:IsEnabled() == 1 then lbuffcheck_button:Disable() end
+		if add_cc_button:IsEnabled() == 1 then add_cc_button:Disable() end
 	else
 		if lbuffcheck_clean_button:IsEnabled() == 0 then lbuffcheck_clean_button:Enable() end
 		if lbuffcheck_button:IsEnabled() == 0 then lbuffcheck_button:Enable() end
+		if add_cc_button:IsEnabled() == 0 then add_cc_button:Enable() end
 	end
 end
 
 lole_frame:SetScript("OnUpdate", function()
-	set_buff_button_state()
+	set_button_states()
 
 	if get_blast_state() and frame_modulo == 0 then
 
@@ -56,6 +58,7 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 
 		update_mode_attrib_checkbox_states()
 		blast_check_settext(false)
+
 
 		lole_frame:UnregisterEvent("ADDON_LOADED");
 
@@ -206,7 +209,7 @@ static_target_text:SetPoint("TOPLEFT", 18, -55);
 static_target_text:SetText("Current blast target:")
 
 local target_text = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-target_text:SetPoint("TOPLEFT", 123, -55);
+target_text:SetPoint("TOPLEFT", 126, -55);
 target_text:SetText("")
 
 local target_GUID_text = lole_frame:CreateFontString(nil, "OVERLAY")
@@ -483,11 +486,14 @@ function update_mode_attrib_checkbox_states()
 end
 
 local CC_state = {}
+-- CC_state contains active CC targets with the raid marker as key
+
 local num_CC_targets = 0
 local CC_base_y = -140
 
-local function delete_CC_entry(CC_entry)
-	local CC_host = CC_entry:GetParent()
+function delete_CC_entry(CC_marker)
+
+	local CC_host = CC_state[CC_marker];
 
 	if CC_host.ID > num_CC_targets then
 		lole_error("attempting to delete CC entry " .. CC_host.ID  .. " (index too damn high!)")
@@ -499,55 +505,21 @@ local function delete_CC_entry(CC_entry)
 	CC_host:Hide()
 	disable_cc_target(CC_host.char, CC_host.spell, CC_host.marker);
 
-	table.remove(CC_state, hostID);
+	--table.remove(CC_state, hostID);
+	CC_state[CC_host.marker] = nil;
 
 	num_CC_targets = num_CC_targets - 1
 
-	for i = hostID, num_CC_targets do
-		CC_state[i]:SetPoint("TOPLEFT", 18, CC_base_y - 20*i)
-		CC_state[i].ID = i;
+	for marker, entry in pairs(CC_state) do
+		echo("num_targets: " .. num_CC_targets .. ", ID: " .. entry.ID .. ", " .. entry.marker .. ", " .. entry.char .. ", " .. entry.spell)
+		if entry.ID > hostID then
+		 	entry.ID = entry.ID - 1;
+			entry:SetPoint("TOPLEFT", 18, CC_base_y - 20*entry.ID)
+		end
 	end
 
 end
 
-local CC_spells = {
-	Polymorph = 118,
-	Sheep = 118,
-	sheep = 118,
-
-	Cyclone = 33786,
-	cyclone = 33786,
-
-	["Entangling Roots"] = 26989,
-	Roots = 26989,
-	roots = 26989,
-	root = 26989,
-
-	Banish = 18647,
-	banish = 18647,
-	ban = 18647,
-
-	Fear = 6215,
-	fear = 6215,
-
-	["Shackle Undead"] = 10955,
-	Shackle = 10955,
-	shackle = 10955,
-
-	["Turn Evil"] = 10326,
-	Turn = 10326,
-	turn = 10326,
-}
-
-local CC_spellnames = { -- in a CastSpellByName-able format
-	[118] = "Polymorph",
-	[33786] = "Cyclone",
-	[26989] = "Entangling Roots",
-	[18647] = "Banish",
-	[6215] = "Fear",
-	[10955] = "Shackle Undead",
-	[10326] = "Turn Evil",
-}
 
 local CC_frame_backdrop = {
 	--bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
@@ -567,8 +539,19 @@ local CC_frame_backdrop = {
 	}
 }
 
-local function new_CC(char, spellID, marker)
+function new_CC(char, spellID, marker)
 	-- echo("Asking " .. trim_string(char) .. " to do " .. trim_string(spell) .. " on " .. trim_string(marker) .. "!")
+
+	if CC_state[marker] then
+		local cc = CC_state[marker];
+		if cc.char:lower() == char:lower() and cc.spell == get_CC_spellname(spellID) then
+			echo("(new_CC request is identical (normal double-posted AddonMessage?), ignoring.)")
+		else
+			lole_error("A conflicting entry for marker \"" .. marker .. "\" seems to already exist (info: " .. cc.char .. ":" .. cc.spell .. "). Please delete this one before reassigning.")
+		end
+
+		return
+	end
 
 	if not UnitExists(char) then
 		lole_error("Character " .. char .. " doesn't appear to exist!")
@@ -580,7 +563,7 @@ local function new_CC(char, spellID, marker)
 		return false
 	end
 
-	local spell = CC_spellnames[spellID]; -- get the spellname in a CastSpellByName-able format
+	local spell = get_CC_spellname(spellID); -- get the spellname in a CastSpellByName-able format
 
 	local name, rank, icon, castTime, minRange, maxRange = GetSpellInfo(spellID)
 
@@ -597,6 +580,8 @@ local function new_CC(char, spellID, marker)
 	CC_host.spell = spell
 	CC_host.marker = marker
 
+	CC_host.ID = num_CC_targets
+
 	CC_host:SetWidth(100)
 	CC_host:SetHeight(22)
 
@@ -605,8 +590,6 @@ local function new_CC(char, spellID, marker)
 	local y = CC_base_y - (num_CC_targets*20)
 
 	CC_host:SetPoint("TOPLEFT", 18, y)
-
-	CC_host.ID = num_CC_targets
 
 	local icon_frame = CreateFrame("Frame", nil, CC_host)
 	icon_frame:SetWidth(16)
@@ -642,20 +625,22 @@ local function new_CC(char, spellID, marker)
 	marker_frame:SetPoint("TOPLEFT", 80, -3);
 	marker_frame:Show()
 
-	local delete_button = CreateFrame("Button", nil, CC_host)
+	if IsRaidLeader() then
+		local delete_button = CreateFrame("Button", nil, CC_host)
 
-	delete_button:SetWidth(12)
-	delete_button:SetHeight(12)
+		delete_button:SetWidth(12)
+		delete_button:SetHeight(12)
 
-	delete_button:SetPoint("TOPLEFT", 100, -4);
+		delete_button:SetPoint("TOPLEFT", 100, -4);
 
-	delete_button:SetNormalTexture("Interface\\Buttons\\UI-MinusButton-Up");
-	--delete_button:SetHighlightTexture("Interface\\Buttons\\UI-MinusButton-Highlight"
-	delete_button:SetPushedTexture("Interface\\Buttons\\UI-MinusButton-Down");
+		delete_button:SetNormalTexture("Interface\\Buttons\\UI-MinusButton-Up");
+		--delete_button:SetHighlightTexture("Interface\\Buttons\\UI-MinusButton-Highlight"
+		delete_button:SetPushedTexture("Interface\\Buttons\\UI-MinusButton-Down");
 
-	delete_button:SetScript("OnClick", function(self) delete_CC_entry(self) end)
+		delete_button:SetScript("OnClick", function(self) delete_CC_entry(self:GetParent().marker) end)
+	end
 
-	CC_state[num_CC_targets] = CC_host;
+	CC_state[marker] = CC_host;
 
 end
 
@@ -679,10 +664,10 @@ StaticPopupDialogs["ADD_CC_DIALOG"] = {
 		local _char, _spell, _marker = strsplit(",", text);
 		local char, spell, marker = trim_string(_char), trim_string(_spell), trim_string(_marker)
 
-		local spellID = CC_spells[spell]
+		local spellID = get_CC_spellID(spell)
 		new_CC(char, spellID, marker)
 
-		local spell = CC_spellnames[spellID];
+		local spell = get_CC_spellname(spellID);
 		enable_cc_target(char, spell, marker)
 	end,
 

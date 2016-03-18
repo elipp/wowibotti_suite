@@ -1,14 +1,15 @@
 LOLE_CLASS_CONFIG_NAME_SAVED = "default";
 LOLE_CLASS_CONFIG_ATTRIBS_SAVED = nil; -- listed in SavedVariablesPerCharacter
+LOLE_MAIN_TANK_SAVED = "Adieux";
 
 local function usage()
 	echo("|cFFFFFF00/lole usage: /lole subcmd subcmd_arg");
-	
+
 	echo(" - Available subcommands are: |cFFFFFF00\n" .. get_available_subcommands());
-	echo(" - Available class configs are: |cFFFFFF00\n" .. get_available_class_configs_pretty());	
-	
+	echo(" - Available class configs are: |cFFFFFF00\n" .. get_available_class_configs_pretty());
+
 	echo(" - Available mode attributes (for /lole set) are: |cFFFFFF00\n" .. get_mode_attribs())
-	
+
 end
 
 local function handle_subcommand(args)
@@ -16,14 +17,14 @@ local function handle_subcommand(args)
 	local atab = {strsplit(" ", args)};
 	local numargs = table.getn(atab);
 
-	if (numargs < 1) then 
+	if (numargs < 1) then
 		usage();
 		return false;
 	end
-	
+
 	local a1 = atab[1];
 	local a2 = atab[2];
-	local a3 = atab[3]; 
+	local a3 = atab[3];
 
 	local cmdfunc = lole_subcommands[a1];
     if cmdfunc then
@@ -43,7 +44,7 @@ function lole_main(args)
 		handle_subcommand(args)
 		return;
 	end
-	
+
     if lole_subcommands.get("buffmode") == 1 then
         lole_buffs();
     else
@@ -55,28 +56,28 @@ function lole_main(args)
 			return;
         end
         if lole_subcommands.get("playermode") ~= 1 then
-            if UnitExists("focus") and UnitIsDead("focus") then 
+            if UnitExists("focus") and UnitIsDead("focus") then
 				ClearFocus()
 			end
 			get_current_config().combat();
-			
+
         end
     end
-		
-		
+
+
 	if (IsRaidLeader()) then
-		if UnitExists("focus") and UnitIsDead("focus") then 
+		if UnitExists("focus") and UnitIsDead("focus") then
 			clear_target()
 			broadcast_target_GUID(NOTARGET)
 		end
-	
+
 		if BLAST_TARGET_GUID == NOTARGET then
 			if not UnitExists("focus") then
 				if UnitExists("target") and not UnitIsDead("target") and UnitReaction("target", "player") < 5 then
 					set_target(UnitGUID("target"))
 					broadcast_target_GUID(UnitGUID("target"));
 				end
-			else 
+			else
 					-- not sure if this is reachable or not
 				clear_target()
 			end
@@ -87,8 +88,8 @@ function lole_main(args)
 
 end
 
-local function lole_SlashCommand(args) 
-	lole_main(args)	
+local function lole_SlashCommand(args)
+	lole_main(args)
 end
 
 local function on_buff_check_event(self, event, ...)
@@ -100,23 +101,23 @@ local function handle_opcode(arg)
 	--lole_error(arg); -- debug
 
 	local opcode, message = strsplit(":", arg);
-	
+
 	if not lole_opcode_funcs[opcode] then
 		lole_error("unknown opcode " .. tostring(opcode))
 		return false;
 	end
-	
+
 	lole_opcode_funcs[opcode](message);
-	
+
 	return true;
 
 end
 
 local function OnMsgEvent(self, event, prefix, message, channel, sender)
-	
+
 	if (prefix == "lole_opcode") then
 		handle_opcode(message)
-	
+
 	elseif (prefix == "lole_buffs") then
         local buffs = {strsplit(",", message)};
         for key, buff in pairs(buffs) do
@@ -126,7 +127,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
                 MISSING_BUFFS[buff][sender] = true;
             end
         end
-        
+
     elseif (prefix == "lole_buffcheck") then
         if (time() - LAST_LBUFFCHECK) > 1 then
             if message == "buffcheck" then
@@ -142,7 +143,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 
     elseif (prefix == "lole_mount") then
         RunMacro("mount");
-        
+
 	end
 end
 

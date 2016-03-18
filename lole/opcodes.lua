@@ -15,12 +15,13 @@ LOLE_OPCODE_DRINK,
 LOLE_OPCODE_MELEE_BEHIND,
 LOLE_OPCODE_LEAVE_PARTY,
 LOLE_OPCODE_AFK_CLEAR,
-LOLE_OPCODE_RELEASE_SPIRIT
+LOLE_OPCODE_RELEASE_SPIRIT,
+LOLE_OPCODE_MAIN_TANK
 
 = "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04",
 "LOP_05", "LOP_06", "LOP_07", "LOP_08",
 "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C",
-"LOP_0D", "LOP_0E", "LOP_0F"
+"LOP_0D", "LOP_0E", "LOP_0F", "LOP_10"
 
 local LOLE_DEBUG_OPCODE_DUMP = "LOP_81";
 
@@ -84,6 +85,10 @@ end
 
 function broadcast_drink()
 	send_opcode_addonmsg(LOLE_OPCODE_DRINK, "");
+end
+
+function broadcast_main_tank(arg)
+	send_opcode_addonmsg(LOLE_OPCODE_MAIN_TANK, arg)
 end
 
 function set_target(target_GUID)
@@ -232,18 +237,18 @@ local function OCB_act_on_CTM_broadcast(args)
 	elseif mode == CTM_MODES.EVERYONE then
 		DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. coords)
 
-	elseif mode == CTM_MODES.HEALERS then
-		if get_current_config().role == ROLES.HEALER then
-			DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. coords);
-		end
-	elseif mode == CTM_MODES.CASTERS then
-		if get_current_config().role == ROLES.CASTER then
-			DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. coords);
-		end
-	elseif mode == CTM_MODES.MELEE then
-		if get_current_config().role == ROLES.MELEE then
-			DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. coords);
-		end
+	-- elseif mode == CTM_MODES.HEALERS then
+	-- 	if get_current_config().role == ROLES.HEALER then
+	-- 		DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. coords);
+	-- 	end
+	-- elseif mode == CTM_MODES.CASTERS then
+	-- 	if get_current_config().role == ROLES.CASTER then
+	-- 		DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. coords);
+	-- 	end
+	-- elseif mode == CTM_MODES.MELEE then
+	-- 	if get_current_config().role == ROLES.MELEE then
+	-- 		DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. coords);
+	-- 	end
 	else
 		lole_error("act_on_CTM_broadcast: invalid mode " .. modestr);
 	end
@@ -278,8 +283,10 @@ local function OCB_set_cc_target(arg)
 
 	if (enabled == 1) then
 		set_CC_job(spell, marker)
+		new_CC(UnitName("player"), get_CC_spellID(spell), marker);
 	elseif (enabled == 0) then
 		unset_CC_job(marker)
+		delete_CC_entry(marker)
 	else
 		lole_error("set_cc_target: invalid argument! (enabled must be 1 or 0)");
 		return false
@@ -312,6 +319,11 @@ local function OCB_release_spirit()
 	RepopMe()
 end
 
+local function OCB_main_tank(arg)
+	MAIN_TANK = arg
+	echo("Main tank set to " .. arg .. ". (change with /lole mt <mtname>)")
+end
+
 lole_opcode_funcs = {
 	[LOLE_OPCODE_NOP] = 				OCB_nop,
 	[LOLE_OPCODE_TARGET_GUID] = 		OCB_target_unit_with_GUID,
@@ -328,4 +340,5 @@ lole_opcode_funcs = {
 	[LOLE_OPCODE_LEAVE_PARTY] = 		OCB_leave_party;
 	[LOLE_OPCODE_AFK_CLEAR] = 			OCB_afk_clear;
 	[LOLE_OPCODE_RELEASE_SPIRIT] =		OCB_release_spirit;
+	[LOLE_OPCODE_MAIN_TANK] =			OCB_main_tank;
 }

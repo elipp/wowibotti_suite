@@ -1,6 +1,5 @@
 local pom_time = 0;
 local mt_healer = false;
-local main_tank = "Adieux";
 
 local function should_cast_PoH()
 	local r = false;
@@ -38,7 +37,7 @@ combat_priest_holy = function()
 		return;
 	end
 
-	TargetUnit(main_tank);
+	TargetUnit(MAIN_TANK);
 
 	if time() - pom_time > 10 then
 		if cast_if_nocd("Prayer of Mending") then
@@ -65,7 +64,7 @@ combat_priest_holy = function()
 		end
 		heal_target = lowest;
 	else
-		heal_target = main_tank;
+		heal_target = MAIN_TANK;
 	end
 
 	TargetUnit(heal_target);
@@ -74,7 +73,7 @@ combat_priest_holy = function()
 	local health_cur = UnitHealth("target");
 	local targeting_self = UnitName(heal_target) == UnitName("player");
 
-	if (UnitName(heal_target) == main_tank and health_cur < health_max * 0.30) then
+	if (UnitName(heal_target) == MAIN_TANK and health_cur < health_max * 0.30) then
 		cast_spell("Greater Heal");
 	elseif (should_cast_PoH()) then
 		cast_spell("Prayer of Healing");
