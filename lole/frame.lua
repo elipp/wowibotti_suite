@@ -59,7 +59,6 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		update_mode_attrib_checkbox_states()
 		blast_check_settext(false)
 
-
 		lole_frame:UnregisterEvent("ADDON_LOADED");
 
 	elseif event == "PLAYER_DEAD" then
@@ -134,7 +133,7 @@ end
 
 lole_frame:SetScript("OnEvent", LOLE_EventHandler);
 
-lole_frame:SetHeight(290)
+lole_frame:SetHeight(315)
 lole_frame:SetWidth(250)
 lole_frame:SetPoint("RIGHT", -25, 0)
 
@@ -233,7 +232,7 @@ function main_frame_show()
 end
 
 local config_dropdown = CreateFrame("Frame", "config_dropdown", lole_frame, "UIDropDownMenuTemplate");
-config_dropdown:SetPoint("BOTTOMLEFT", 42, 10);
+config_dropdown:SetPoint("BOTTOMLEFT", 42, 35);
 config_dropdown:SetScale(0.88)
 
 UIDropDownMenu_SetWidth(100, config_dropdown)
@@ -487,8 +486,8 @@ end
 
 local CC_state = {}
 -- CC_state contains active CC targets with the raid marker as key
-
 local num_CC_targets = 0
+
 local CC_base_y = -140
 
 function delete_CC_entry(CC_marker)
@@ -576,7 +575,7 @@ function new_CC(char, spellID, marker)
 
 	local CC_host = CreateFrame("Frame", nil, lole_frame);
 
-	CC_host.char = char
+	CC_host.char = first_to_upper(char)
 	CC_host.spell = spell
 	CC_host.marker = marker
 
@@ -610,7 +609,7 @@ function new_CC(char, spellID, marker)
 	caster_char_text:SetFont("Fonts\\FRIZQT__.TTF", 9);
 
 	caster_char_text:SetPoint("TOPLEFT", 3, -6);
-	caster_char_text:SetText("|cFF" .. get_class_color(UnitClass(char)) .. char)
+	caster_char_text:SetText("|cFF" .. get_class_color(UnitClass(CC_host.char)) .. CC_host.char)
 
 	local marker_frame = CreateFrame("Frame", nil, CC_host)
 	marker_frame:SetWidth(16)
@@ -675,3 +674,17 @@ StaticPopupDialogs["ADD_CC_DIALOG"] = {
 
 local add_cc_button =
 create_simple_button("add_cc_button", lole_frame, 22, -175, "Add CC...", 85, 27, function() StaticPopup_Show("ADD_CC_DIALOG") end);
+
+local main_tank_string = lole_frame:CreateFontString(nil, "OVERLAY");
+main_tank_string:SetFont("Fonts\\FRIZQT__.TTF", 9);
+main_tank_string:SetPoint("BOTTOMLEFT", 15, 15);
+main_tank_string:SetText("|cFFFFD100Main tank:")
+
+local main_tank_name_string = lole_frame:CreateFontString(nil, "OVERLAY")
+main_tank_name_string:SetFont("Fonts\\FRIZQT__.TTF", 9);
+main_tank_name_string:SetPoint("BOTTOMLEFT", 70, 15);
+main_tank_name_string:SetText("-none-")
+
+function update_main_tank(name)
+	main_tank_name_string:SetText("|cFF" .. get_class_color(UnitClass(name)) .. name)
+end

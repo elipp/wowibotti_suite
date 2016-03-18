@@ -320,8 +320,9 @@ local function OCB_release_spirit()
 end
 
 local function OCB_main_tank(arg)
-	MAIN_TANK = arg
-	echo("Main tank set to " .. arg .. ". (change with /lole mt <mtname>)")
+	MAIN_TANK = first_to_upper(arg)
+	update_main_tank(MAIN_TANK)
+	echo("Main tank set to " .. MAIN_TANK .. ". (change with /lole mt <mtname>)")
 end
 
 lole_opcode_funcs = {

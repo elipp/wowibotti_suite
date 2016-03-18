@@ -50,7 +50,12 @@ local CLASS_COLORS = {
 }
 
 function get_class_color(class)
-	return CLASS_COLORS[class]
+	local r = CLASS_COLORS[class]
+	if not r then
+		return "(erroneous class code)"
+	else
+		return r
+	end
 end
 
 local raid_target_indices = {
@@ -157,6 +162,10 @@ function shallowcopy(orig)
         copy = orig
     end
     return copy
+end
+
+function first_to_upper(str)
+    return (str:gsub("^%l", string.upper))
 end
 
 function table.val_to_str ( v )
