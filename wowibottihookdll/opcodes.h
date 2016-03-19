@@ -29,6 +29,7 @@ typedef void(*hubfunc_t)(const std::string &);
 #define LOLE_OPCODE_MAIN_TANK 0x10
 
 #define LOLE_DEBUG_OPCODE_DUMP 0xF1
+#define LOLE_DEBUG_LOOT_ALL 0xF2
 
 int opcode_call(int opcode, const std::string &arg);
 int opcode_debug_call(int debug_opcode, const std::string &arg);

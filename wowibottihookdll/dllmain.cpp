@@ -181,6 +181,8 @@ DWORD WINAPI ThreadProc(LPVOID lpParam) {
 
 	hook_all();
 
+	DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
+
 	MSG messages;
 
 	while (GetMessage(&messages, NULL, 0, 0)) {

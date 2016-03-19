@@ -390,4 +390,5 @@ lole_subcommands = {
 	clearcc = lole_clearcc;
 
 	dump = lole_debug_dump_wowobjects;
+	loot = lole_debug_loot_all;
 }

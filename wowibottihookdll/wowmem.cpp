@@ -67,6 +67,11 @@ GUID_t get_raid_target_GUID(const std::string &marker_name) {
 }
 
 
+GUID_t get_target_GUID() {
+	return *(GUID_t*)PLAYER_TARGET_ADDR;
+}
+
+
 static const std::string wowobject_type_names[] = {
 	"0 : OBJECT",
 	"1 : ITEM",

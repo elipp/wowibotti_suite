@@ -3,10 +3,12 @@ lole_frame:RegisterEvent("ADDON_LOADED")
 lole_frame:RegisterEvent("PLAYER_REGEN_DISABLED") -- this is fired when player enters combat
 lole_frame:RegisterEvent("PLAYER_REGEN_ENABLED") -- and this when combat is over
 lole_frame:RegisterEvent("PLAYER_DEAD")
-lole_frame:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
+--lole_frame:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
 lole_frame:RegisterEvent("PARTY_INVITE_REQUEST")
 lole_frame:RegisterEvent("RESURRECT_REQUEST")
 lole_frame:RegisterEvent("CONFIRM_SUMMON")
+lole_frame:RegisterEvent("LOOT_OPENED")
+lole_frame:RegisterEvent("CVAR_UPDATE")
 
 local every_nth_frame = 4
 local frame_modulo = 0
@@ -59,7 +61,12 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		update_mode_attrib_checkbox_states()
 		blast_check_settext(false)
 
+		update_injected_status(false) -- default
+
+		lole_debug_query_injected(); -- this will fire a CVAR_UPDATE if we're injected
+
 		lole_frame:UnregisterEvent("ADDON_LOADED");
+
 
 	elseif event == "PLAYER_DEAD" then
 		--clear_target();
@@ -84,11 +91,11 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		if guildies[prefix] then
 			self:RegisterEvent("PARTY_MEMBERS_CHANGED");
 			AcceptGroup()
+			StaticPopup_Hide("PARTY_INVITE")
 		else
-			lole_error("PARTY_INVITE_REQUEST: " .. prefix .. " doesn't appear to be a member of Uuslapio, declining!")
-			DeclineGroup()
+			SendChatMessage("PARTY_INVITE_REQUEST: " .. prefix .. " doesn't appear to be a member of Uuslapio, not auto-accepting!", "GUILD")
+		--	DeclineGroup()
 		end
-		StaticPopup_Hide("PARTY_INVITE")
 
 
 	elseif event == "PARTY_MEMBERS_CHANGED" then
@@ -126,6 +133,17 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 			SendChatMessage(summoner .. " attempted to summon my ass to " .. GetSummonConfirmAreaName() .. " but doesn't appear to be a member of Uuslapio, not auto-accepting!", "GUILD")
 		end
 
+	elseif event == "LOOT_OPENED" then
+		local num_items = GetNumLootItems()
+		for i = 1, num_items do
+			lootIcon, lootName, lootQuantity, rarity = GetLootSlotInfo(i);
+			echo(tostring(lootName) .. ", " .. tostring(lootQuantity) .. ", " .. tostring(rarity))
+		end
+
+	elseif event == "CVAR_UPDATE" then
+		if prefix == "inject" and message == "1" then
+			update_injected_status(true)
+		end
 	end
 
 
@@ -699,4 +717,17 @@ main_tank_name_string:SetText("-none-")
 
 function update_main_tank(name)
 	main_tank_name_string:SetText("|cFF" .. get_class_color(UnitClass(name)) .. name)
+end
+
+local inject_status_text = lole_frame:CreateFontString(nil, "OVERLAY");
+inject_status_text:SetFont("Fonts\\FRIZQT__.TTF", 9);
+inject_status_text:SetPoint("BOTTOMRIGHT", -22, 15);
+inject_status_text:SetText("")
+
+function update_injected_status(arg)
+	if arg == true then
+		inject_status_text:SetText("|cFF228B22(Injected)")
+	else
+		inject_status_text:SetText("|cFF800000(Not injected!)")
+	end
 end

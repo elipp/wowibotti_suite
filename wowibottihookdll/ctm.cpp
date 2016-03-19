@@ -53,6 +53,10 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 										 //	MOVE_AND_ATTACK_9AC = 0x406AAAAA; // 3.6666 (melee range?)
 		MOVE_AND_ATTACK_MINDISTANCE = 1.5; // use 1.5 for this (test!) seems to work:P http://www.h-schmidt.net/FloatConverter/IEEE754.html
 
+	static const float
+		LOOT_9A8 = 13.4444444,
+		LOOT_MINDISTANCE = 3.6666666;
+
 	float float_9A8, min_dist;
 	GUID_t interact;
 
@@ -72,6 +76,13 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 	case CTM_MOVE_AND_ATTACK:
 		float_9A8 = MOVE_AND_ATTACK_9A8;
 		min_dist = min_distance == 0 ? MOVE_AND_ATTACK_MINDISTANCE : min_distance;
+		interact = interact_GUID;
+		break;
+
+
+	case CTM_LOOT:
+		float_9A8 = LOOT_9A8;
+		min_dist = min_distance == 0 ? LOOT_MINDISTANCE : min_distance;
 		interact = interact_GUID;
 		break;
 

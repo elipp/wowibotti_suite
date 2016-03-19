@@ -142,6 +142,15 @@ function get_marker_index(name)
 	return raid_target_indices[name]
 end
 
+function injected()
+	local s = GetCVar("screenshotQuality");
+	if s ~= "iok" then
+		return nil;
+	else
+		return 1
+	end
+end
+
 function echo(text)
     DEFAULT_CHAT_FRAME:AddMessage("lole: " .. tostring(text))
 end

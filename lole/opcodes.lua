@@ -23,7 +23,13 @@ LOLE_OPCODE_MAIN_TANK
 "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C",
 "LOP_0D", "LOP_0E", "LOP_0F", "LOP_10"
 
-local LOLE_DEBUG_OPCODE_DUMP = "LOP_81";
+local
+LOLE_DEBUG_OPCODE_NOP,
+LOLE_DEBUG_OPCODE_DUMP,
+LOLE_DEBUG_OPCODE_LOOT_ALL,
+LOLE_DEBUG_OPCODE_QUERY_INJECTED
+
+= "LOP_80", "LOP_81", "LOP_82", "LOP_83"
 
 ----------------------------
 ---- public functions ------
@@ -167,6 +173,14 @@ function lole_debug_dump_wowobjects()
 	DelIgnore(LOLE_DEBUG_OPCODE_DUMP);
 	echo("|cFF00FF96Dumped WowObjects to <DESKTOPDIR>\\wodump.log (if you're injected!) ;)")
 	return true;
+end
+
+function lole_debug_loot_all()
+	DelIgnore(LOLE_DEBUG_OPCODE_LOOT_ALL);
+end
+
+function lole_debug_query_injected()
+	DelIgnore(LOLE_DEBUG_OPCODE_QUERY_INJECTED)
 end
 
 ------------------------------------------------------------------------------

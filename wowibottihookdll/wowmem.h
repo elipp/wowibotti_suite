@@ -15,6 +15,7 @@ void DoString(const char* format, ...);
 GUID_t get_raid_target_GUID(int index);
 GUID_t get_raid_target_GUID(const std::string &marker_name);
 
+GUID_t get_target_GUID();
 
 enum {
 	OBJECT_TYPE_OBJECT = 0,

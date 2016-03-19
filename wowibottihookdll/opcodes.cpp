@@ -98,7 +98,7 @@ static int dump_wowobjects_to_log() {
 
 static void __stdcall walk_to_target() {
 
-	GUID_t target_GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
+	GUID_t target_GUID = get_target_GUID();
 	if (!target_GUID) return;
 
 	ObjectManager OM;
@@ -110,7 +110,7 @@ static void __stdcall walk_to_target() {
 
 static void LOP_face(const std::string &arg) {
 
-	GUID_t target_GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
+	GUID_t target_GUID = get_target_GUID();
 	if (!target_GUID) return;
 
 	ObjectManager OM;
@@ -148,7 +148,7 @@ static void LOP_face(const std::string &arg) {
 }
 
 static void LOP_melee_behind(const std::string &arg) {
-	GUID_t target_GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
+	GUID_t target_GUID = get_target_GUID();
 	if (!target_GUID) {
 		return;
 	}
@@ -253,7 +253,7 @@ static void LOP_blast(const std::string &arg) {
 }
 
 static void LOP_range_check(const std::string& arg) {
-	GUID_t target_GUID = *(GUID_t*)PLAYER_TARGET_ADDR;
+	GUID_t target_GUID = get_target_GUID();
 	if (!target_GUID) return;
 
 	ObjectManager OM;
@@ -414,6 +414,17 @@ static void LOPDBG_dump(const std::string &arg) {
 	dump_wowobjects_to_log();
 }
 
+static void LOPDBG_loot(const std::string &arg) {
+	ObjectManager OM;
+	WowObject corpse = OM.get_object_by_GUID(get_target_GUID());
+	
+	click_to_move(corpse.get_pos(), CTM_LOOT, corpse.get_GUID());
+}
+
+static void LOPDBG_query_injected(const std::string &arg) {
+	DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
+}
+
 
 static const struct {
 	std::string name;
@@ -443,8 +454,10 @@ static const struct {
 	hubfunc_t func;
 	uint num_args;
 } debug_opcode_funcs[] = {
-	{ "LOLE_NOP", LOP_nop, 0 },
-	{ "LOLE_DEBUG_DUMP", LOPDBG_dump, 0 }
+	{ "LOLE_DEBUG_NOP", LOP_nop, 0 },
+	{ "LOLE_DEBUG_DUMP", LOPDBG_dump, 0 },
+	{ "LOLE_DEBUG_LOOT_ALL", LOPDBG_loot, 0},
+	{ "LOLE_DEBUG_QUERY_INJECTED", LOPDBG_query_injected, 0 }
 };
 
 static const size_t num_opcode_funcs = sizeof(opcode_funcs) / sizeof(opcode_funcs[0]);
