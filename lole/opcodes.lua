@@ -16,12 +16,16 @@ LOLE_OPCODE_MELEE_BEHIND,
 LOLE_OPCODE_LEAVE_PARTY,
 LOLE_OPCODE_AFK_CLEAR,
 LOLE_OPCODE_RELEASE_SPIRIT,
-LOLE_OPCODE_MAIN_TANK
+LOLE_OPCODE_MAIN_TANK,
+LOLE_OPCODE_AVOID_SPELL_OBJECT,
+LOLE_OPCODE_HUG_SPELL_OBJECT,
+LOLE_OPCODE_SPREAD
 
 = "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04",
 "LOP_05", "LOP_06", "LOP_07", "LOP_08",
 "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C",
-"LOP_0D", "LOP_0E", "LOP_0F", "LOP_10"
+"LOP_0D", "LOP_0E", "LOP_0F", "LOP_10",
+"LOP_11", "LOP_12", "LOP_13"
 
 local
 LOLE_DEBUG_OPCODE_NOP,
@@ -169,6 +173,10 @@ function time_since_last_afk_clear()
 	return time() - AFK_clear_timestamp
 end
 
+function hug_spell_with_spellID(spellID)
+	DelIgnore(LOLE_OPCODE_HUG_SPELL_OBJECT .. ":" .. tostring(spellID))
+end
+
 function lole_debug_dump_wowobjects()
 	DelIgnore(LOLE_DEBUG_OPCODE_DUMP);
 	echo("|cFF00FF96Dumped WowObjects to <DESKTOPDIR>\\wodump.log (if you're injected!) ;)")
@@ -182,6 +190,8 @@ end
 function lole_debug_query_injected()
 	DelIgnore(LOLE_DEBUG_OPCODE_QUERY_INJECTED)
 end
+
+
 
 ------------------------------------------------------------------------------
 ----- OPCODE callback (or "OCB") funcs. called in lole.lua:handle_opcode -----

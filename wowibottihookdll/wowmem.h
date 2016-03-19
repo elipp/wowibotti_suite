@@ -146,4 +146,6 @@ public:
 	GUID_t get_local_GUID() const;
 	WowObject get_local_object() const;
 
+	std::vector<WowObject> get_spell_objects_with_spellID(long spellID);
+
 };

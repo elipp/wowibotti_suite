@@ -360,3 +360,21 @@ int ObjectManager::valid() const {
 WowObject ObjectManager::get_local_object() const {
 	return get_object_by_GUID(get_local_GUID()); // almost guaranteed to work :P
 }
+
+std::vector<WowObject> ObjectManager::get_spell_objects_with_spellID(long spellID) {
+	std::vector<WowObject> matches;
+	
+	WowObject next = get_first_object();
+
+	while (next.valid()) {
+		if (next.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
+			if (next.DO_get_spellID() == spellID) {
+				matches.push_back(next);
+			}
+		}
+		next = next.getNextObject();
+	}
+
+	return matches;
+}
+

@@ -410,6 +410,36 @@ static void LOP_afk_clear(const std::string &arg) {
 	afkjump_keyup_queued = 2;
 }
 
+static void LOP_avoid_spell_object(const std::string &arg) {
+	char *endptr;
+	long spellID = strtoul(arg.c_str(), &endptr, 16);
+}
+
+static void LOP_hug_spell_object(const std::string &arg) {
+	char *endptr;
+	long spellID = strtoul(arg.c_str(), &endptr, 10);
+
+	ObjectManager OM;
+
+	auto objs = OM.get_spell_objects_with_spellID(spellID);
+
+	if (objs.empty()) {
+		ctm_unlock();
+		return;
+	}
+
+	// just run to obj #1 for now
+
+	click_to_move(objs[0].DO_get_pos(), CTM_MOVE, 0);
+
+	ctm_lock();
+
+}
+
+static void LOP_spread(const std::string &arg) {
+
+}
+
 static void LOPDBG_dump(const std::string &arg) {
 	dump_wowobjects_to_log();
 }
@@ -446,7 +476,10 @@ static const struct {
 	{ "LOLE_MELEE_BEHIND", LOP_melee_behind, 0},
 	{ "LOLE_LEAVE_PARTY", LOP_nop, 0},
 	{ "LOLE_AFK_CLEAR", LOP_afk_clear, 0},
-	{ "LOLE_RELEASE_SPIRIT", LOP_nop, 0}
+	{ "LOLE_RELEASE_SPIRIT", LOP_nop, 0},
+	{ "LOLE_OPCODE_AVOID_SPELL_OBJECT", LOP_avoid_spell_object, 1 },
+	{ "LOLE_OPCODE_HUG_SPELL_OBJECT", LOP_hug_spell_object, 1 },
+	{ "LOLE_OPCODE_SPREAD", LOP_spread, 0 }
 };
 
 static const struct {

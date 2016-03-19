@@ -34,7 +34,7 @@ lole_frame:SetScript("OnUpdate", function()
 		if time_since_last_afk_clear() > 240 then
 			afk_clear();
 		end
-
+		hug_spell_with_spellID(44007);
 		do_CC_jobs();
 		lole_main();
 	end

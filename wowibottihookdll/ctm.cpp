@@ -1,5 +1,7 @@
 #include "ctm.h"
 
+static int ctm_locked = 0;
+
 static const uint
 CTM_X = 0xD68A18,
 CTM_Y = 0xD68A1C,
@@ -25,7 +27,19 @@ int get_wow_CTM_state() {
 	return state;
 }
 
+void ctm_lock() {
+	ctm_locked = 1;
+}
+
+void ctm_unlock() {
+	ctm_locked = 0;
+}
+
 void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_distance) {
+
+	if (ctm_locked) {
+		return;
+	}
 
 	ObjectManager OM;
 
