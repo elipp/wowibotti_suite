@@ -9,6 +9,8 @@ lole_frame:RegisterEvent("RESURRECT_REQUEST")
 lole_frame:RegisterEvent("CONFIRM_SUMMON")
 lole_frame:RegisterEvent("LOOT_OPENED")
 lole_frame:RegisterEvent("CVAR_UPDATE")
+lole_frame:RegisterEvent("TRADE_SHOW")
+lole_frame:RegisterEvent("LOOT_CLOSED")
 
 local every_nth_frame = 4
 local frame_modulo = 0
@@ -26,6 +28,8 @@ local function set_button_states()
 	end
 end
 
+disenchanting = nil
+
 lole_frame:SetScript("OnUpdate", function()
 	set_button_states()
 
@@ -34,15 +38,22 @@ lole_frame:SetScript("OnUpdate", function()
 		if time_since_last_afk_clear() > 240 then
 			afk_clear();
 		end
-		hug_spell_with_spellID(44007);
+
+		hug_spell_with_spellID(44007); -- 44007 is the electric storm pussy of akil'zon
 		do_CC_jobs();
 		lole_main();
+	end
+
+	if DE_b and DE_s then
+		UseContainerItem(DE_b, DE_s) -- the /cast Disenchant has already been done
+		lole_debug_DE_greeniez()
 	end
 
 	frame_modulo = frame_modulo >= every_nth_frame and 0 or (frame_modulo + 1)
 
 end);
 
+local looted_GUID = "";
 
 local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 	--DEFAULT_CHAT_FRAME:AddMessage("LOLE_EventHandler: event:" .. event)
@@ -135,17 +146,36 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 
 	elseif event == "LOOT_OPENED" then
 		local num_items = GetNumLootItems()
+
+		looted_GUID = UnitGUID("target");
+		echo(looted_GUID)
+
 		for i = 1, num_items do
-			lootIcon, lootName, lootQuantity, rarity = GetLootSlotInfo(i);
-			echo(tostring(lootName) .. ", " .. tostring(lootQuantity) .. ", " .. tostring(rarity))
+		-- 	lootIcon, lootName, lootQuantity, rarity = GetLootSlotInfo(i);
+		-- 	echo(tostring(lootName) .. ", " .. tostring(lootQuantity) .. ", " .. tostring(rarity))
+			LootSlot(i)
 		end
+	elseif event == "LOOT_CLOSED" then
+		lole_debug_looted_GUID(looted_GUID);
+		disenchanting = nil
 
 	elseif event == "CVAR_UPDATE" then
 		if prefix == "inject" and message == "1" then
 			update_injected_status(true)
 		end
-	end
 
+	elseif event == "TRADE_SHOW" then
+		local guildies = get_guild_members();
+		if guildies[UnitName("npc")] then -- this is weird as fuck.. but the unit "npc" apparently represents the char that's trading with us
+			self:RegisterEvent("TRADE_ACCEPT_UPDATE")
+		end
+
+	elseif event == "TRADE_ACCEPT_UPDATE" then
+		if message == 1 then
+			AcceptTrade()
+			self:UnregisterEvent("TRADE_ACCEPT_UPDATE")
+		end
+	end
 
 end
 
@@ -536,6 +566,11 @@ local CC_base_y = -140
 function delete_CC_entry(CC_marker)
 
 	local CC_host = CC_state[CC_marker];
+
+	if not CC_host then
+		echo("warning: delete_CC_entry: attempt to delete CC entry from marker \"" .. CC_marker .. "\" (doesn't exist!)")
+		return
+	end
 
 	if CC_host.ID > num_CC_targets then
 		lole_error("attempting to delete CC entry " .. CC_host.ID  .. " (index too damn high!)")

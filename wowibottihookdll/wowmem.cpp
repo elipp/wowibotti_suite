@@ -252,6 +252,14 @@ GUID_t WowObject::NPC_get_target_GUID() const {
 }
 
 
+int WowObject::NPC_has_loot() const {
+	uint loot_mask = DEREF(DEREF(base + 0x120)); // this is a homebrew loot mask.. :D:D
+	int has_been_looted = (loot_mask == 0x80000000);
+	printf("GUID: %llX, loot_mask = %lX, has_been_looted = %d\n", get_GUID(), loot_mask, has_been_looted);
+	return has_been_looted ? 0 : 1;
+}
+
+
 GUID_t WowObject::unit_get_target_GUID() const {
 	GUID_t target_GUID;
 	readAddr(base + UnitTargetGUID, &target_GUID, sizeof(target_GUID));
@@ -290,6 +298,13 @@ uint WowObject::unit_get_buff(int index) const {
 uint WowObject::unit_get_debuff(int index) const {
 	return unit_get_buff(index + 0x28); // these appear to be stored in sequence with buffs, starting from 0x29
 }
+
+
+uint WowObject::unit_dead() const {
+	uint dead = DEREF(DEREF(base + 0x120) + 0x40);
+	return dead == 0 ? 1 : 0;
+}
+
 
 int WowObject::in_combat() const {
 	uint mask = (DEREF(DEREF(base + 0x120) + 0xA0)) >> 0x13; // ref: 544BA0 (WOWAPI UnitAffectingCombat): 544BE0 onwards
@@ -361,7 +376,7 @@ WowObject ObjectManager::get_local_object() const {
 	return get_object_by_GUID(get_local_GUID()); // almost guaranteed to work :P
 }
 
-std::vector<WowObject> ObjectManager::get_spell_objects_with_spellID(long spellID) {
+std::vector<WowObject> ObjectManager::get_spell_objects_with_spellID(long spellID) const {
 	std::vector<WowObject> matches;
 	
 	WowObject next = get_first_object();
@@ -370,6 +385,7 @@ std::vector<WowObject> ObjectManager::get_spell_objects_with_spellID(long spellI
 		if (next.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
 			if (next.DO_get_spellID() == spellID) {
 				matches.push_back(next);
+				printf("found matching spell object with GUID %lld\n", next.get_GUID());
 			}
 		}
 		next = next.getNextObject();
@@ -377,4 +393,27 @@ std::vector<WowObject> ObjectManager::get_spell_objects_with_spellID(long spellI
 
 	return matches;
 }
+
+std::unordered_map<GUID_t, WowObject> ObjectManager::get_lootable_corpses_within_range(float yards) const {
+	std::unordered_map<GUID_t, WowObject> corpses;
+
+	WowObject me = get_local_object();
+
+	WowObject next = get_first_object();
+
+	while (next.valid()) {
+		if (next.get_type() == OBJECT_TYPE_NPC) {
+			float distance = (me.get_pos() - next.get_pos()).length();
+			if (next.unit_dead() && next.NPC_has_loot() && distance < yards) {
+				corpses[next.get_GUID()] = next;
+				printf("added GUID %llX (%s) to the list of corpses to be looted!\n", next.get_GUID(), next.NPC_get_name().c_str());
+			}
+		}
+		next = next.getNextObject();
+	}
+
+	return corpses;
+
+}
+
 

@@ -1,39 +1,32 @@
 -- opcodes for DelIgnore :P
-local
-LOLE_OPCODE_NOP,
-LOLE_OPCODE_TARGET_GUID,
-LOLE_OPCODE_BLAST,   -- this is basically deprecated now
-LOLE_OPCODE_CASTER_RANGE_CHECK,
-LOLE_OPCODE_FOLLOW,  -- this also includes walking to/towards the target
-LOLE_OPCODE_FACE, 	 -- also deprecated
-LOLE_OPCODE_CTM_BROADCAST,
-LOLE_OPCODE_COOLDOWNS,
-LOLE_OPCODE_CC,
-LOLE_OPCODE_DUNGEON_SCRIPT,
-LOLE_OPCODE_TARGET_MARKER,
-LOLE_OPCODE_DRINK,
-LOLE_OPCODE_MELEE_BEHIND,
-LOLE_OPCODE_LEAVE_PARTY,
-LOLE_OPCODE_AFK_CLEAR,
-LOLE_OPCODE_RELEASE_SPIRIT,
-LOLE_OPCODE_MAIN_TANK,
-LOLE_OPCODE_AVOID_SPELL_OBJECT,
-LOLE_OPCODE_HUG_SPELL_OBJECT,
-LOLE_OPCODE_SPREAD
+local LOLE_OPCODE_NOP 					= "LOP_00"
+local LOLE_OPCODE_TARGET_GUID 			= "LOP_01"
+local LOLE_OPCODE_BLAST 				= "LOP_02"  -- this is basically deprecated now
+local LOLE_OPCODE_CASTER_RANGE_CHECK	= "LOP_03"
+local LOLE_OPCODE_FOLLOW 				= "LOP_04"	-- this also includes walking to/towards the target
+local LOLE_OPCODE_FACE					= "LOP_05" 	-- also deprecated
+local LOLE_OPCODE_CTM_BROADCAST 		= "LOP_06"
+local LOLE_OPCODE_COOLDOWNS				= "LOP_07"
+local LOLE_OPCODE_CC					= "LOP_08"
+local LOLE_OPCODE_DUNGEON_SCRIPT		= "LOP_09"
+local LOLE_OPCODE_TARGET_MARKER			= "LOP_0A"
+local LOLE_OPCODE_DRINK					= "LOP_0B"
+local LOLE_OPCODE_MELEE_BEHIND			= "LOP_0C"
+local LOLE_OPCODE_LEAVE_PARTY			= "LOP_0D"
+local LOLE_OPCODE_AFK_CLEAR				= "LOP_0E"
+local LOLE_OPCODE_RELEASE_SPIRIT		= "LOP_0F"
+local LOLE_OPCODE_MAIN_TANK				= "LOP_10"
+local LOLE_OPCODE_AVOID_SPELL_OBJECT	= "LOP_11"
+local LOLE_OPCODE_HUG_SPELL_OBJECT		= "LOP_12"
+local LOLE_OPCODE_SPREAD				= "LOP_13"
 
-= "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04",
-"LOP_05", "LOP_06", "LOP_07", "LOP_08",
-"LOP_09", "LOP_0A", "LOP_0B", "LOP_0C",
-"LOP_0D", "LOP_0E", "LOP_0F", "LOP_10",
-"LOP_11", "LOP_12", "LOP_13"
 
-local
-LOLE_DEBUG_OPCODE_NOP,
-LOLE_DEBUG_OPCODE_DUMP,
-LOLE_DEBUG_OPCODE_LOOT_ALL,
-LOLE_DEBUG_OPCODE_QUERY_INJECTED
+local LOLE_DEBUG_OPCODE_NOP 			= "LOP_80"
+local LOLE_DEBUG_OPCODE_DUMP 			= "LOP_81"
+local LOLE_DEBUG_OPCODE_LOOT_ALL		= "LOP_82"
+local LOLE_DEBUG_OPCODE_QUERY_INJECTED	= "LOP_83"
+local LOLE_DEBUG_OPCODE_LOOTED_GUID		= "LOP_84"
 
-= "LOP_80", "LOP_81", "LOP_82", "LOP_83"
 
 ----------------------------
 ---- public functions ------
@@ -71,21 +64,21 @@ function broadcast_CTM(mode, arg)
 		local target_GUID = UnitGUID("target")
 		if not target_GUID then return end
 
-		echo("sending CTM to target " .. target_GUID)
+		--echo("sending CTM to target " .. target_GUID)
 		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. target_GUID .. "," .. arg)
 
 		-- kinda redundant.
 	elseif mode == CTM_MODES.EVERYONE then
 		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
 
-	elseif mode == CTM_MODES.HEALERS then
-		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
-
-	elseif mode == CTM_MODES.CASTERS then
-		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
-
-	elseif mode == CTM_MODES.MELEE then
-		send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
+	-- elseif mode == CTM_MODES.HEALERS then
+	-- 	send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
+	--
+	-- elseif mode == CTM_MODES.CASTERS then
+	-- 	send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
+	--
+	-- elseif mode == CTM_MODES.MELEE then
+	-- 	send_opcode_addonmsg(LOLE_OPCODE_CTM_BROADCAST, tostring(mode) .. "," .. "0x0" .. "," .. arg)
 	else
 		lole_error("lole_ctm: invalid mode: " .. tostring(mode));
 		return false;
@@ -177,6 +170,29 @@ function hug_spell_with_spellID(spellID)
 	DelIgnore(LOLE_OPCODE_HUG_SPELL_OBJECT .. ":" .. tostring(spellID))
 end
 
+function spread(spread_table)
+	local c = get_current_config()
+
+	if c.role == ROLES.melee
+	or c.role == ROLES.melee_mana
+	or c.role == ROLES.warrior_tank
+	or c.role == ROLES.paladin_tank then
+		return -- this doesn't apply to the above, since they'll constantly be running towards the blast target anyway
+	end
+
+	local own_index = 0;
+
+	for i = 1, i < 11 do
+		if GetRaidRosterInfo(i) == UnitName("player") then
+			own_index = i;
+			break;
+		end
+	end
+
+	DelIgnore(LOLE_OPCODE_CTM_BROADCAST .. ":" .. spread_table[own_index]);
+
+end
+
 function lole_debug_dump_wowobjects()
 	DelIgnore(LOLE_DEBUG_OPCODE_DUMP);
 	echo("|cFF00FF96Dumped WowObjects to <DESKTOPDIR>\\wodump.log (if you're injected!) ;)")
@@ -185,6 +201,11 @@ end
 
 function lole_debug_loot_all()
 	DelIgnore(LOLE_DEBUG_OPCODE_LOOT_ALL);
+end
+
+function lole_debug_looted_GUID(GUID)
+	if not GUID then return end
+	DelIgnore(LOLE_DEBUG_OPCODE_LOOTED_GUID .. ":" .. GUID)
 end
 
 function lole_debug_query_injected()

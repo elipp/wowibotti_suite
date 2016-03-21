@@ -8,4 +8,8 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 void ctm_lock();
 void ctm_unlock();
 
+int ctm_locked();
+
+void ctm_lock_until_done();
+
 int get_wow_CTM_state();

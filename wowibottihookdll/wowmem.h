@@ -43,7 +43,10 @@ private:
 		Y = X + 4,
 		Z = X + 8,
 		R = X + 12,
-		info_field = 0x120,
+		
+		// there are a lot of offsets associated with this, but since this must be deref'd, we can't just assume the offsets always stay the same.
+		info_field = 0x120, 
+
 		Name = 0xDB8,
 		NPCcurrentHealth = 0x11E8,
 		NPCcurrentMana = 0x11EC,
@@ -93,16 +96,16 @@ public:
 
 	std::string NPC_get_name() const;
 
+	int NPC_has_loot() const;
+
 	GUID_t NPC_get_target_GUID() const;
-
 	std::string unit_get_name() const;
-
 	GUID_t unit_get_target_GUID() const;
-
-	int in_combat() const;
-
 	uint unit_get_buff(int index) const;
 	uint unit_get_debuff(int index) const;
+	uint unit_dead() const;
+
+	int in_combat() const;
 
 	std::string get_type_name() const;
 
@@ -146,6 +149,7 @@ public:
 	GUID_t get_local_GUID() const;
 	WowObject get_local_object() const;
 
-	std::vector<WowObject> get_spell_objects_with_spellID(long spellID);
+	std::vector<WowObject> get_spell_objects_with_spellID(long spellID) const;
+	std::unordered_map<GUID_t, WowObject> get_lootable_corpses_within_range(float yards) const;
 
 };

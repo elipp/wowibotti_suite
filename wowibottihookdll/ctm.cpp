@@ -1,6 +1,6 @@
 #include "ctm.h"
 
-static int ctm_locked = 0;
+static int CTM_LOCKED = 0;
 
 static const uint
 CTM_X = 0xD68A18,
@@ -28,16 +28,29 @@ int get_wow_CTM_state() {
 }
 
 void ctm_lock() {
-	ctm_locked = 1;
+	CTM_LOCKED = 1;
 }
 
 void ctm_unlock() {
-	ctm_locked = 0;
+	CTM_LOCKED = 0;
 }
+
+void ctm_lock_until_done() {
+	int ctm_action_current;
+	readAddr(CTM_ACTION, &ctm_action_current, sizeof(ctm_action_current));
+	if (ctm_action_current != CTM_DONE) {
+		CTM_LOCKED = 1;
+	}
+	else {
+		CTM_LOCKED = 0;
+	}
+}
+
+int ctm_locked() { return CTM_LOCKED; }
 
 void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_distance) {
 
-	if (ctm_locked) {
+	if (ctm_locked()) {
 		return;
 	}
 

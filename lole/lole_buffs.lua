@@ -70,11 +70,11 @@ function get_desired_buffs(role)
     }
 
     local desired_buffs;
-    if role == ROLES.caster then
+    if role == ROLES.caster or role == ROLES.melee_mana then
         desired_buffs = caster_buffs;
     elseif role == ROLES.healer then
         desired_buffs = healer_buffs;
-    elseif role == ROLES.warrior_tank then
+    elseif role == ROLES.warrior_tank or role == ROLES.hunter then
         desired_buffs = warrior_tank_buffs;
     elseif role == ROLES.paladin_tank then
         desired_buffs = paladin_tank_buffs;
@@ -109,7 +109,7 @@ end
 
 function lole_leaderbuffcheck(arg)
 
-    if arg and arg ~= "clean" then 
+    if arg and arg ~= "clean" then
         echo("lole_leaderbuffcheck: erroneous argument!");
         return false;
     end

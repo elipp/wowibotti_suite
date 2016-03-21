@@ -56,6 +56,10 @@ static void __stdcall EndScene_hook() {
 			PostMessage(wow_hWnd, WM_KEYUP, VK_LEFT, get_KEYUP_LPARAM(VK_LEFT));
 			afkjump_keyup_queued = 0;
 		}
+		loot_next(); 
+		//ctm_lock_until_done();
+
+
 	}
 
 	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
@@ -102,16 +106,9 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 	char *endptr;
 	unsigned long op = strtoul(opstr.c_str(), &endptr, 16);
 
-	if (op & 0x80) {
-		int debug_op = op & 0x7F;
-		opcode_debug_call(debug_op, arg);
-		printf("DelIgnore_hub: got DEBUG opcode %lu -> %s\n", op, opcode_get_funcname(debug_op).c_str());
-		return;
-	}
-
-	printf("DelIgnore_hub: got opcode %lu -> %s\n", op, opcode_get_funcname(op).c_str());
-
 	int num_args = opcode_get_num_args(op);
+
+	printf("DelIgnore_hub: got opcode %lX -> %s\n", op, opcode_get_funcname(op).c_str());
 
 	if (num_args > 0) {
 		// then we expect to find a ':' and arguments separated by ',':s

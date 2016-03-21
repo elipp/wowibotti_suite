@@ -6,13 +6,13 @@ local available_configs = {
 	class_config_create("default", {}, {}, "FFFFFF", function() end, {}, 0),
 
 	druid_resto =
-	class_config_create("druid_resto", {"Mark of the Wild", "Thorns"}, {}, get_class_color("druid"), combat_druid_resto, {}, ROLES.caster),
+	class_config_create("druid_resto", {"Mark of the Wild", "Thorns"}, {}, get_class_color("druid"), combat_druid_resto, {}, ROLES.healer),
 
 	druid_balance =
 	class_config_create("druid_balance", {"Mark of the Wild", "Thorns"}, {"Moonkin Form"}, get_class_color("druid"), combat_druid_balance, {"Barkskin"}, ROLES.caster),
 
 	hunter =
-	class_config_create("hunter", {}, {}, get_class_color("hunter"), combat_hunter, {"Bestial Wrath", "Rapid Fire"}, ROLES.warrior_tank),
+	class_config_create("hunter", {}, {}, get_class_color("hunter"), combat_hunter, {"Bestial Wrath", "Rapid Fire"}, ROLES.hunter),
 
 	mage_fire =
 	class_config_create("mage_fire", {"Arcane Intellect"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_fire, {"Icy Veins", "Combustion"}, ROLES.caster),
@@ -27,7 +27,7 @@ local available_configs = {
 	class_config_create("paladin_holy", {}, {"Concentration Aura"}, get_class_color("paladin"), combat_paladin_holy, {"Divine Favor", "Divine Illumination"}, ROLES.healer),
 
 	paladin_retri =
-	class_config_create("paladin_retri", {}, {"Sanctity Aura"}, get_class_color("paladin"), combat_paladin_retri, {"Avenging Wrath"}, ROLES.caster),
+	class_config_create("paladin_retri", {}, {"Sanctity Aura"}, get_class_color("paladin"), combat_paladin_retri, {"Avenging Wrath"}, ROLES.melee_mana),
 
 	priest_holy =
 	class_config_create("priest_holy", {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection"}, {"Inner Fire"}, get_class_color("priest"), combat_priest_holy, {"Inner Focus"}, ROLES.healer),
@@ -366,6 +366,35 @@ local function lole_clearcc()
 	disable_all_cc_targets()
 end
 
+DE_b, DE_s = nil, nil
+
+function lole_debug_DE_greeniez()
+
+	if disenchanting then return end
+
+	if UnitCastingInfo("player") then return end
+
+	for b = 0,4 do
+		for s = 1,GetContainerNumSlots(b)do
+			local n = GetContainerItemLink(b,s)
+			if n and strfind(n,"ff1eff00") then
+				itemName, itemLink, itemRarity, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount,
+				itemEquipLoc, itemTexture = GetItemInfo(n)
+				SpellStopCasting()
+				CastSpellByName("Disenchant")
+				if itemEquipLoc ~= "" then
+					echo("disenchanting " .. n)
+					DE_b, DE_s = b, s
+					disenchanting = 1
+					return
+				end
+			end
+		end
+	end
+
+	DE_b, DE_s = nil, nil
+end
+
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
 	buffcheck = lole_buffcheck;
@@ -389,6 +418,8 @@ lole_subcommands = {
 	mt = lole_maintank;
 	clearcc = lole_clearcc;
 
+
 	dump = lole_debug_dump_wowobjects;
 	loot = lole_debug_loot_all;
+	greeniez = lole_debug_DE_greeniez;
 }

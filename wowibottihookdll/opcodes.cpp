@@ -57,7 +57,8 @@ static int dump_wowobjects_to_log() {
 					fprintf(fp, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, next.get_rot());
 
 					if (next.get_type() == OBJECT_TYPE_NPC) {
-						fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", next.NPC_get_name().c_str(), next.NPC_getCurHealth(), next.NPC_getMaxHealth(), next.NPC_get_target_GUID(), next.in_combat());
+						fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d, dead = %d, has_loot = %d\n\n", next.NPC_get_name().c_str(), next.NPC_getCurHealth(), next.NPC_getMaxHealth(), next.NPC_get_target_GUID(), next.in_combat(), next.unit_dead(), next.NPC_has_loot());
+					
 					}
 					else if (next.get_type() == OBJECT_TYPE_UNIT) {
 						fprintf(fp, "name: %s, target GUID: 0x%016llX, combat = %d\n", next.unit_get_name().c_str(), next.unit_get_target_GUID(), next.in_combat());
@@ -412,7 +413,7 @@ static void LOP_afk_clear(const std::string &arg) {
 
 static void LOP_avoid_spell_object(const std::string &arg) {
 	char *endptr;
-	long spellID = strtoul(arg.c_str(), &endptr, 16);
+	long spellID = strtoul(arg.c_str(), &endptr, 10);
 }
 
 static void LOP_hug_spell_object(const std::string &arg) {
@@ -420,6 +421,8 @@ static void LOP_hug_spell_object(const std::string &arg) {
 	long spellID = strtoul(arg.c_str(), &endptr, 10);
 
 	ObjectManager OM;
+
+	printf("got spellID %d as arg!\n", spellID);
 
 	auto objs = OM.get_spell_objects_with_spellID(spellID);
 
@@ -444,11 +447,115 @@ static void LOPDBG_dump(const std::string &arg) {
 	dump_wowobjects_to_log();
 }
 
-static void LOPDBG_loot(const std::string &arg) {
+static std::unordered_map<GUID_t, WowObject> corpses_to_loot;
+
+static int loot_process_active = 0;
+static Timer loot_timer;
+static GUID_t trying_to_loot_GUID = 0;
+static GUID_t distance_taken = 0;
+static GUID_t previous_corpse = 0;
+
+static void LOPDBG_loot_all(const std::string &arg) {
 	ObjectManager OM;
-	WowObject corpse = OM.get_object_by_GUID(get_target_GUID());
+	corpses_to_loot = OM.get_lootable_corpses_within_range(20);
+	trying_to_loot_GUID = 0;
+	loot_process_active = 1;
+	distance_taken = 0;
+	loot_timer.start();
+
+	ctm_unlock();
+}
+
+static WowObject find_farthest_corpse() {
+
+	ObjectManager OM;
+	vec3 my_pos = OM.get_local_object().get_pos();
+
+	if (corpses_to_loot.size() == 1) {
+		return corpses_to_loot.begin()->second;
+	}
+
+	float max_dist;
+	WowObject farthest = corpses_to_loot.begin()->second;
+	max_dist = (my_pos - farthest.get_pos()).length();
+
+	for (auto &o : corpses_to_loot) {
+		float dist = (my_pos - o.second.get_pos()).length();
+
+		if (dist > max_dist) {
+			farthest = o.second;
+			max_dist = dist;
+		}
+	}
+
+	return farthest;
+
+}
+
+void loot_next() {
+	if (!loot_process_active) { return; }
+
+	if (ctm_locked()) { return; } // no point doing all this logic for nothing
+
+	if (corpses_to_loot.empty()) {
+		printf("loot_next: no corpses to loot!\n");
+		loot_process_active = 0;
+		return;
+	}
+
+	ObjectManager OM;
+	//auto o = find_farthest_corpse();
+	auto o = corpses_to_loot.begin()->second;
+
+	WowObject om_o = OM.get_object_by_GUID(o.get_GUID());
+
+	if (!om_o.valid()) {
+		printf("it appears that the corpse with GUID %llX doesn't exist in the OM (in the world?). Moving on...\n", o.get_GUID());
+		corpses_to_loot.erase(o.get_GUID());
+		loot_timer.start();
+		ctm_unlock();
+		return;
+	}
+
+	if (loot_timer.get_ms() > 4000) {
+		printf("Loot-confirmation for GUID %llX timed out (4000ms), skipping...\n", o.get_GUID());
+		corpses_to_loot.erase(o.get_GUID());
+		loot_timer.start();
+		ctm_unlock();
+		return;
+	}
+
+	if (trying_to_loot_GUID != o.get_GUID()) {
+		printf("trying to loot corpse with GUID %llX...\n", o.get_GUID());
+		trying_to_loot_GUID = o.get_GUID();
+	}
+
+	SelectUnit(o.get_GUID());
+	click_to_move(o.get_pos(), CTM_LOOT, o.get_GUID(), 0.33); 
+	// 0.5 is basically the lowest safe value for min_distance. anything lower than that is subject to all kinds of stupid things..
+
+	ctm_lock();
+}
+
+static void LOPDBG_looted_GUID(const std::string &arg) {
+
+	char *endptr;
+	GUID_t GUID = strtoull(arg.c_str(), &endptr, 16);
+	previous_corpse = GUID;
+	corpses_to_loot.erase(GUID);
+	printf("erasing corpse with GUID %llX from list\n", GUID);
+
+	ObjectManager OM;
+
+	auto o = OM.get_object_by_GUID(GUID);
+	int looted_mask = 0x80000000; // XDD we'll see if this works
+	writeAddr(DEREF(o.get_base() + 0x120), &looted_mask, sizeof(int));
+
+	loot_timer.start();
 	
-	click_to_move(corpse.get_pos(), CTM_LOOT, corpse.get_GUID());
+	ctm_unlock();
+
+	loot_next();
 }
 
 static void LOPDBG_query_injected(const std::string &arg) {
@@ -477,6 +584,7 @@ static const struct {
 	{ "LOLE_LEAVE_PARTY", LOP_nop, 0},
 	{ "LOLE_AFK_CLEAR", LOP_afk_clear, 0},
 	{ "LOLE_RELEASE_SPIRIT", LOP_nop, 0},
+	{ "LOLE_MAIN_TANK", LOP_nop, 0}, 
 	{ "LOLE_OPCODE_AVOID_SPELL_OBJECT", LOP_avoid_spell_object, 1 },
 	{ "LOLE_OPCODE_HUG_SPELL_OBJECT", LOP_hug_spell_object, 1 },
 	{ "LOLE_OPCODE_SPREAD", LOP_spread, 0 }
@@ -489,8 +597,10 @@ static const struct {
 } debug_opcode_funcs[] = {
 	{ "LOLE_DEBUG_NOP", LOP_nop, 0 },
 	{ "LOLE_DEBUG_DUMP", LOPDBG_dump, 0 },
-	{ "LOLE_DEBUG_LOOT_ALL", LOPDBG_loot, 0},
-	{ "LOLE_DEBUG_QUERY_INJECTED", LOPDBG_query_injected, 0 }
+	{ "LOLE_DEBUG_LOOT_ALL", LOPDBG_loot_all, 0},
+	{ "LOLE_DEBUG_QUERY_INJECTED", LOPDBG_query_injected, 0 },
+	{ "LOLE_DEBUG_LOOTED_GUID", LOPDBG_looted_GUID, 1},
+
 };
 
 static const size_t num_opcode_funcs = sizeof(opcode_funcs) / sizeof(opcode_funcs[0]);
@@ -502,27 +612,34 @@ static const size_t num_debug_opcode_funcs = sizeof(debug_opcode_funcs) / sizeof
 
 int opcode_call(int opcode, const std::string &arg) {
 	
+	if (opcode & 0x80) {
+		int debug_op = opcode & 0x7F;
+		if (debug_op > num_debug_opcode_funcs - 1) {
+			printf("opcode_get_funcname: error: unknown debug opcode %lu. (valid range: 0 - %lu)\n", debug_op, num_debug_opcode_funcs);
+			return 0;
+		}
+		debug_opcode_funcs[debug_op].func(arg);
+		return 1;
+	}
+
 	if (opcode > num_opcode_funcs-1) {
 		printf("opcode_call: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs);
 		return 0;
 	}
-	opcode_funcs[opcode].func(arg);
 
+	opcode_funcs[opcode].func(arg);
 	return 1;
 }
 
-int opcode_debug_call(int debug_opcode, const std::string &arg) {
-	if (debug_opcode > num_debug_opcode_funcs - 1) {
-		printf("opcode_debug_call: error: unknown opcode %lu. (valid range: 0 - %lu)\n", debug_opcode, num_debug_opcode_funcs);
-		return 0;
-	}
-
-	debug_opcode_funcs[debug_opcode].func(arg);
-
-}
-
-
 int opcode_get_num_args(int opcode) {
+	if (opcode & 0x80) {
+		int debug_op = opcode & 0x7F;
+		if (debug_op > num_debug_opcode_funcs - 1) {
+			printf("opcode_get_funcname: error: unknown debug opcode %lu. (valid range: 0 - %lu)\n", debug_op, num_debug_opcode_funcs);
+		}
+		return debug_opcode_funcs[debug_op].num_args;
+	}
+	
 	if (opcode > num_opcode_funcs - 1) {
 		printf("opcode_get_num_args: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs);
 		return -1;
@@ -532,13 +649,20 @@ int opcode_get_num_args(int opcode) {
 }
 
 const std::string &opcode_get_funcname(int opcode) {
+	if (opcode & 0x80) {
+		int debug_op = opcode & 0x7F;
+		if (debug_op > num_debug_opcode_funcs - 1) {
+			printf("opcode_get_funcname: error: unknown debug opcode %lu. (valid range: 0 - %lu)\n", debug_op, num_debug_opcode_funcs);
+		}
+		return debug_opcode_funcs[debug_op].name;
+	}
 	
 	if (opcode > num_opcode_funcs - 1) {
 		printf("opcode_get_funcname: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs);
 		return "ERROR";
 	}
-
 	return opcode_funcs[opcode].name;
+
 }
 
 // follow stuff
