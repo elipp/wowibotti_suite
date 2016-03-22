@@ -424,8 +424,12 @@ static void LOP_hug_spell_object(const std::string &arg) {
 	auto objs = OM.get_spell_objects_with_spellID(spellID);
 
 	if (objs.empty()) {
+		printf("No objects with spellid %ld\n", spellID);
 		ctm_unlock();
 		return;
+	}
+	else {
+		printf("hugging %ld!\n", spellID);
 	}
 
 	// just run to obj #1 for now
@@ -477,6 +481,7 @@ static const struct {
 	{ "LOLE_LEAVE_PARTY", LOP_nop, 0},
 	{ "LOLE_AFK_CLEAR", LOP_afk_clear, 0},
 	{ "LOLE_RELEASE_SPIRIT", LOP_nop, 0},
+	{ "LOLE_MAIN_TANK", LOP_nop, 0},
 	{ "LOLE_OPCODE_AVOID_SPELL_OBJECT", LOP_avoid_spell_object, 1 },
 	{ "LOLE_OPCODE_HUG_SPELL_OBJECT", LOP_hug_spell_object, 1 },
 	{ "LOLE_OPCODE_SPREAD", LOP_spread, 0 }

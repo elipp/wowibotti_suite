@@ -31,8 +31,6 @@ combat_priest_holy = function()
 		return;
 	end
 
-	caster_range_check(30);
-
 	if GetSpellCooldown("Dispel Magic") > 0 then -- dont waste cycles on GCD
 		return;
 	end
@@ -68,6 +66,7 @@ combat_priest_holy = function()
 	end
 
 	TargetUnit(heal_target);
+	caster_range_check(30);
 
 	local health_max = UnitHealthMax("target");
 	local health_cur = UnitHealth("target");

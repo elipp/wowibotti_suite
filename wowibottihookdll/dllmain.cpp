@@ -17,7 +17,7 @@
 #include "opcodes.h"
 #include "timer.h"
 
-//#define ENABLE_DEBUG_CONSOLE
+#define ENABLE_DEBUG_CONSOLE
 
 HINSTANCE  inj_hModule;          // HANDLE for injected module
 HANDLE glhProcess;

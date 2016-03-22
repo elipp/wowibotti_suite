@@ -64,8 +64,8 @@ combat_shaman_resto = function()
 		return;
 	end
 
-	caster_range_check(35);
 	TargetUnit(lowest);
+	caster_range_check(35);
 
 	local total_deficit = get_total_deficit(HP_deficits)
 
