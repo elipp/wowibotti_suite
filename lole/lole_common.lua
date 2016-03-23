@@ -614,7 +614,8 @@ local guild_members = {
 	["Kasio"] = 11,
 	["Noctur"] = 12,
 	["Pogi"] = 13,
-	["Viginti"] = 14
+	["Viginti"] = 14,
+	["Meisseln"] = 15
 }
 
 function get_guild_members()

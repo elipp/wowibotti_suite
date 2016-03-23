@@ -35,6 +35,9 @@ local available_configs = {
 	priest_shadow =
 	class_config_create("priest_shadow", {"Power Word: Fortitude", "Shadow Protection"}, {"Shadowform", "Inner Fire"}, get_class_color("priest"), combat_priest_shadow, {"Inner Focus"}, ROLES.caster),
 
+	shaman_enh =
+	class_config_create("shaman_enh", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_enh, {"Bloodlust", "Shamanistic Rage"}, ROLES.melee_mana),
+
 	shaman_elem =
 	class_config_create("shaman_elem", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_elem, {"Bloodlust", "Elemental Mastery"}, ROLES.caster),
 

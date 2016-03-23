@@ -26,6 +26,7 @@ warrior_arms.lua
 shaman_common.lua
 
 shaman_elem.lua
+shaman_enh.lua
 shaman_resto.lua
 
 opcodes.lua

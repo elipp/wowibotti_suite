@@ -133,12 +133,12 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 			SendChatMessage(summoner .. " attempted to summon my ass to " .. GetSummonConfirmAreaName() .. " but doesn't appear to be a member of Uuslapio, not auto-accepting!", "GUILD")
 		end
 
-	elseif event == "LOOT_OPENED" then
-		local num_items = GetNumLootItems()
-		for i = 1, num_items do
-			lootIcon, lootName, lootQuantity, rarity = GetLootSlotInfo(i);
-			echo(tostring(lootName) .. ", " .. tostring(lootQuantity) .. ", " .. tostring(rarity))
-		end
+	-- elseif event == "LOOT_OPENED" then
+	-- 	local num_items = GetNumLootItems()
+	-- 	for i = 1, num_items do
+	-- 		lootIcon, lootName, lootQuantity, rarity = GetLootSlotInfo(i);
+	-- 		echo(tostring(lootName) .. ", " .. tostring(lootQuantity) .. ", " .. tostring(rarity))
+	-- 	end
 
 	elseif event == "CVAR_UPDATE" then
 		if prefix == "inject" and message == "1" then

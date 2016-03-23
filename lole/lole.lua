@@ -1,6 +1,5 @@
 LOLE_CLASS_CONFIG_NAME_SAVED = "default";
 LOLE_CLASS_CONFIG_ATTRIBS_SAVED = nil; -- listed in SavedVariablesPerCharacter
-LOLE_MAIN_TANK_SAVED = "Adieux";
 
 local function usage()
 	echo("|cFFFFFF00/lole usage: /lole subcmd subcmd_arg");

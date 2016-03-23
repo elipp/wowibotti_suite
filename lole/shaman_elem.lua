@@ -15,10 +15,6 @@ local TOTEMS = {
 
 combat_shaman_elem = function()
 
-
-	caster_range_check(30);
-
-
 	if UnitCastingInfo("player") then return; end
 
 	if not has_buff("player", "Water Shield") then
@@ -29,6 +25,7 @@ combat_shaman_elem = function()
 	if refresh_totems(TOTEMS) then return; end
 
 	if not validate_target() then return end
+	caster_range_check(30);
 
 	if lole_subcommands.get("aoemode") == 1 then
 		CastSpellByName("Elemental Mastery")
