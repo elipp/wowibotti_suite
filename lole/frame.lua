@@ -145,7 +145,7 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		if prefix == "inject" and message == "1" then
 			update_injected_status(true)
 		end
-	end
+	
 
 	elseif event == "TRADE_SHOW" then
 		local guildies = get_guild_members();
