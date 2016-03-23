@@ -1,6 +1,7 @@
 
 local TOTEMS = {
 --["air"] = "Windfury Totem",
+--["air"] = "Nature Resistance Totem",
 ["air"] = "Wrath of Air Totem",
 
 ["earth"] = "Tremor Totem",

@@ -20,7 +20,8 @@ local totem_name_type_map = {
 
 	["Wrath of Air Totem"] = totem_type_id_map["air"],
 	["Windfury Totem"] = totem_type_id_map["air"],
-	["Grace of Air Totem"] = totem_type_id_map["air"]
+	["Grace of Air Totem"] = totem_type_id_map["air"],
+	["Nature Resistance Totem"] = totem_type_id_map["air"]
 };
 
 local totem_name_buffname_map = {
