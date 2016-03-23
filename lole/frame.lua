@@ -9,6 +9,7 @@ lole_frame:RegisterEvent("RESURRECT_REQUEST")
 lole_frame:RegisterEvent("CONFIRM_SUMMON")
 lole_frame:RegisterEvent("LOOT_OPENED")
 lole_frame:RegisterEvent("CVAR_UPDATE")
+lole_frame:RegisterEvent("TRADE_SHOW");
 
 local every_nth_frame = 4
 local frame_modulo = 0
@@ -143,6 +144,21 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 	elseif event == "CVAR_UPDATE" then
 		if prefix == "inject" and message == "1" then
 			update_injected_status(true)
+		end
+	end
+
+	elseif event == "TRADE_SHOW" then
+		local guildies = get_guild_members();
+		if guildies[UnitName("npc")] then -- this is weird as fuck.. but the unit "npc" apparently represents the char that's trading with us
+			self:RegisterEvent("TRADE_ACCEPT_UPDATE")
+		end
+
+	elseif event == "TRADE_ACCEPT_UPDATE" then
+		if message == 1 then
+			-- prefix -> our answer, message -> theirs (accept:1, decline:0).
+			-- so this is that the trade partner has accepted, and we concur with AcceptTrade()
+			AcceptTrade()
+			self:UnregisterEvent("TRADE_ACCEPT_UPDATE")
 		end
 	end
 
