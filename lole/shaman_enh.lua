@@ -4,11 +4,11 @@ local TOTEMS = {
 --["air"] = "Windfury Totem",
 --["air"] = "Wrath of Air Totem",
 
-["earth"] = "Tremor Totem",
---["earth"] = "Strength of Earth Totem",
+--["earth"] = "Tremor Totem",
+["earth"] = "Strength of Earth Totem",
 --["earth"] = "Stoneskin Totem",
 
-["water"] = "Mana Spring Totem",
+--["water"] = "Mana Spring Totem",
 
 --["fire"] = "Totem of Wrath"
 }
@@ -28,6 +28,8 @@ combat_shaman_enh = function()
         if cast_if_nocd("Shamanistic Rage") then return end
     end
 
-    cast_if_nocd("Earth Shock");
+    if cast_if_nocd("Earth Shock") then return end;
+
+    CastSpellByName("Purge")
 
 end
