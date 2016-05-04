@@ -24,6 +24,7 @@ HANDLE glhProcess;
 HWND wow_hWnd;
 
 int afkjump_keyup_queued = 0;
+int enter_world = 0;
 
 static BYTE original_opcodes[8];
 
@@ -57,6 +58,12 @@ static void __stdcall EndScene_hook() {
 			afkjump_keyup_queued = 0;
 		}
 	}
+
+	if (enter_world == 1) {
+		DoString("EnterWorld()");
+	}
+
+	enter_world = (enter_world > 0) ? enter_world - 1 : 0;
 
 	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
 }
@@ -182,6 +189,9 @@ DWORD WINAPI ThreadProc(LPVOID lpParam) {
 	hook_all();
 
 	DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
+	//DoString("DefaultServerLogin(\"elipp\", \"kuusysi69\")");
+
+	enter_world = 60 * 5;
 
 	MSG messages;
 
