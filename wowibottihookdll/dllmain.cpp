@@ -48,6 +48,14 @@ static int patch_LUA_prot(HANDLE hProcess) {
 }
 
 
+static void update_hwevent_tick() {
+	typedef int tick_count_t(void);
+	int ticks = ((tick_count_t*)GetOSTickCount)();
+
+	*(int*)(TicksSinceLastHWEvent) = ticks; 
+	// this makes us immune to AFK ^^
+}
+
 
 static void __stdcall EndScene_hook() {
 
@@ -62,10 +70,12 @@ static void __stdcall EndScene_hook() {
 			PostMessage(wow_hWnd, WM_KEYUP, VK_LEFT, get_KEYUP_LPARAM(VK_LEFT));
 			afkjump_keyup_queued = 0;
 		}
+
+		update_hwevent_tick();
+
 		DoString(login_spam.c_str());
 
 	}
-
 
 	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
 }
