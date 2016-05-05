@@ -3,6 +3,7 @@ lole_frame:RegisterEvent("ADDON_LOADED")
 lole_frame:RegisterEvent("PLAYER_REGEN_DISABLED") -- this is fired when player enters combat
 lole_frame:RegisterEvent("PLAYER_REGEN_ENABLED") -- and this when combat is over
 lole_frame:RegisterEvent("PLAYER_DEAD")
+lole_frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 --lole_frame:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
 lole_frame:RegisterEvent("PARTY_INVITE_REQUEST")
 lole_frame:RegisterEvent("RESURRECT_REQUEST")
@@ -145,7 +146,7 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		if prefix == "inject" and message == "1" then
 			update_injected_status(true)
 		end
-	
+
 
 	elseif event == "TRADE_SHOW" then
 		local guildies = get_guild_members();
@@ -160,6 +161,8 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 			AcceptTrade()
 			self:UnregisterEvent("TRADE_ACCEPT_UPDATE")
 		end
+	elseif event == "PLAYER_ENTERING_WORLD" then
+		afk_clear()
 	end
 
 

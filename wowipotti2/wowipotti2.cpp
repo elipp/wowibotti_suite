@@ -9,6 +9,7 @@
 #include <tchar.h>
 #include <string>
 #include <cassert>
+#include <fstream>
 
 #include "wowipotti2.h"
 
@@ -22,12 +23,135 @@ struct wowcl {
 	HWND window_handle;
 	std::string window_title;
 	int valid;
+	DWORD pid;
 	wowcl() {};
 	wowcl(HWND hWnd, std::string &title)
-		: window_handle(hWnd), window_title(title), valid(1) {}
+		: window_handle(hWnd), window_title(title), valid(1) {
+		
+		GetWindowThreadProcessId(hWnd, &pid);
+
+	}
 };
 
-std::vector<wowcl> wow_handles;
+static std::vector<wowcl> wow_handles;
+
+static std::vector<HANDLE> cred_file_map_handles;
+
+static void error_box(const std::string &msg) {
+	MessageBox(NULL, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
+}
+
+inline void tokenize_string(const std::string& str, const std::string& delim, std::vector<std::string>& tokens) {
+	size_t start, end = 0;
+	while (end < str.size()) {
+		start = end;
+		while (start < str.size() && (delim.find(str[start]) != std::string::npos)) {
+			start++;  // skip initial whitespace
+		}
+		end = start;
+		while (end < str.size() && (delim.find(str[end]) == std::string::npos)) {
+			end++; // skip to end of word
+		}
+		if (end - start != 0) {  // just ignore zero-length strings.
+			tokens.push_back(std::string(str, start, end - start));
+		}
+	}
+}
+
+
+
+static int find_stuff_between(const std::string &in_str, char c, std::string &out_str) {
+	unsigned d_begin = in_str.find(c);
+	unsigned d_end = in_str.find_last_of(c);
+
+	if (d_begin == std::string::npos || d_end == std::string::npos || d_begin == d_end) {
+		error_box("Invalid config variable (values needs to be enclosed in quotes. E.g. WOWPATH=\"<your_path>\"). Exiting.");
+		return 0;
+	}
+	
+	out_str = in_str.substr(d_begin + 1, d_end - d_begin - 1);
+
+	return 1;
+
+}
+
+
+struct wowaccount {
+	std::string login_name, password, char_name, class_name;
+	wowaccount(std::string ln, std::string pw, std::string chn, std::string cln) : login_name(ln), password(pw), char_name(chn), class_name(cln) {}
+};
+
+struct potti_config {
+	std::string client_exe_path;
+	std::vector<wowaccount> accounts;
+
+	int read_from_file(const char* filename) {
+		std::ifstream conf_file(filename);
+		if (!conf_file.is_open()) {
+			error_box("Couldn't find config file (potti.conf) from the working directory.");
+			return FALSE;
+		}
+
+		std::vector <std::string> lines;
+
+		std::string line;
+		while (std::getline(conf_file, line)) {
+			lines.push_back(line);
+		//	printf("got line \"%s\"", line.c_str());
+		}
+
+		for (auto &l : lines) {
+			std::vector<std::string> tokens;
+			tokenize_string(l, "=", tokens);
+
+			if (tokens.size() != 2) {
+				error_box("Failure reading config file. Exiting!");
+				return FALSE;
+			}
+
+			if (tokens[0] == "WOWPATH") {
+				if (!find_stuff_between(tokens[1], '"', this->client_exe_path)) {
+					return 0;
+				}
+
+				printf("Client path: %s\n", this->client_exe_path.c_str());
+			}
+			else if (tokens[0] == "ACCOUNTS") {
+				std::string acc_str;
+				if (!find_stuff_between(tokens[1], '"', acc_str)) {
+					return 0;
+				}
+
+				std::vector <std::string> L1_tokens;
+
+				tokenize_string(acc_str, ";", L1_tokens);
+
+				for (auto &L1 : L1_tokens) {
+
+					std::vector<std::string> L2_tokens;
+					tokenize_string(L1, ",", L2_tokens);
+
+					if (L2_tokens.size() != 4) {
+						error_box("Error parsing ACCOUNTS conf var (expected exactly 4 members). Exiting.");
+						return 0;
+					}
+
+					this->accounts.push_back(wowaccount(L2_tokens[0], L2_tokens[1], L2_tokens[2], L2_tokens[3]));
+				}
+
+			}
+			else {
+				error_box("Unknown config variable \"" + tokens[0] + "\". Exiting!");
+				return 0;
+			}
+
+		}
+
+		conf_file.close();
+	}
+};
+
+static potti_config config_state;
 
 BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam) {
 
@@ -99,6 +223,46 @@ static BOOL SetPrivilege(HANDLE hToken, LPCTSTR Privilege, BOOL bEnablePrivilege
 	return TRUE;
 }
 
+static int create_account_assignments() {
+	static const size_t BUF_MAX = 256;
+
+	wow_handles = std::vector<wowcl>();
+	EnumWindows(EnumWindowsProc, NULL);
+
+	if (wow_handles.size() < 1) { return 1; }
+
+	int num_to_process = wow_handles.size();
+	if (wow_handles.size() > config_state.accounts.size()) {
+		num_to_process = config_state.accounts.size();
+	}
+
+	for (int i = 0; i < num_to_process; ++i) {
+
+		wowcl &c = wow_handles[i];
+
+		HANDLE filemap = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, BUF_MAX, ("Local\\lole_login_" + std::to_string(c.pid)).c_str());
+
+		if (GetLastError() != NO_ERROR) {
+			error_box("Rekt. CreateFileMapping failed!");
+			return 0;
+		}
+
+		cred_file_map_handles.push_back(filemap);
+
+		auto buf = MapViewOfFile(filemap, FILE_MAP_ALL_ACCESS, 0, 0, BUF_MAX);
+		printf("error after MapViewOfFile: %d\n", GetLastError());
+	
+		wowaccount &acc = config_state.accounts[i];
+
+		std::string content = acc.login_name + "," + acc.password + "," + acc.char_name;
+
+		CopyMemory(buf, content.c_str(), content.size());
+		UnmapViewOfFile(buf);
+	}
+
+	return TRUE;
+
+}
 
 
 static int obtain_debug_privileges() {
@@ -120,10 +284,9 @@ static int obtain_debug_privileges() {
 	}
 
 	// enable SeDebugPrivilege
-	if (!SetPrivilege(hToken, SE_DEBUG_NAME, TRUE))
-	{
-		fprintf(stderr, "SetPrivilege pheyled.\n");
-		fprintf(stderr, "ERROR: WINAPI SetPrivilege() failed! DLL injection will fail.\n");
+	if (!SetPrivilege(hToken, SE_DEBUG_NAME, TRUE)) {
+		printf("SetPrivilege for SE_DEBUG_NAME pheyled.\n");
+		printf("ERROR: WINAPI SetPrivilege() failed! DLL injection will fail.\n");
 
 		// close token handle
 		CloseHandle(hToken);
@@ -131,6 +294,16 @@ static int obtain_debug_privileges() {
 		// indicate failure
 		return 0;
 	}
+
+	/*if (!SetPrivilege(hToken, SE_CREATE_GLOBAL_NAME, TRUE)) {
+		printf("SetPrivilege for SE_CREATE_GLOBAL_NAME pheyled.\n");
+		printf("ERROR: WINAPI SetPrivilege() failed! DLL injection will fail.\n");
+
+		CloseHandle(hToken);
+
+		return 0;
+	}*/
+
 	return 1;
 }
 
@@ -258,13 +431,12 @@ static int launch_clients(HWND dlg) {
 
 
 	for (int i = 0; i < value; ++i) {
-		CreateProcess("C:\\Users\\Elias\\Downloads\\Feenix 2.4.3 client\\Wow.exe", NULL, NULL, NULL, TRUE, 0, NULL, NULL, &info, &processInfo);
+		CreateProcess(config_state.client_exe_path.c_str(), NULL, NULL, NULL, TRUE, 0, NULL, NULL, &info, &processInfo);
 	}
 
 	return 1;
 
 }
-
 
 static int set_affinities() {
 	
@@ -272,20 +444,19 @@ static int set_affinities() {
 
 	EnumWindows(EnumWindowsProc, NULL);
 
-	DWORD pid;
 	int n = 0;
 
 	for (auto c : wow_handles) {
-		GetWindowThreadProcessId(c.window_handle, &pid);
-		HANDLE proc_handle = OpenProcess(PROCESS_ALL_ACCESS, TRUE, pid);
+
+		HANDLE proc_handle = OpenProcess(PROCESS_ALL_ACCESS, TRUE, c.pid);
 
 		DWORD aff_mask = (0x3 << (n * 2));
 
 		SetProcessAffinityMask(proc_handle, aff_mask);
-		SetPriorityClass(proc_handle, HIGH_PRIORITY_CLASS);
+		SetPriorityClass(proc_handle, ABOVE_NORMAL_PRIORITY_CLASS);
 		n = (n < 3) ? (n + 1) : 0;
 
-		printf("proc_handle = %X, PID = %d, aff_mask = %X\n", proc_handle, pid, aff_mask);
+		printf("proc_handle = %X, PID = %d, aff_mask = %X\n", proc_handle, c.pid, aff_mask);
 
 		CloseHandle(proc_handle);
 
@@ -296,8 +467,8 @@ static int set_affinities() {
 
 
 
-INT_PTR CALLBACK DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
+INT_PTR CALLBACK DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+
 	int lo, hi;
 	switch (message) {
 
@@ -328,17 +499,27 @@ INT_PTR CALLBACK DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			return TRUE;
 			break;
 
+		case ID_BUTTON_ASSIGN:
+			create_account_assignments();
+			return TRUE;
+			break;
 		default:
 			break;
 		}
 
-	case WM_CREATE:
 		break;
 
-	case WM_HOTKEY:
-		break;
+
+	//case WM_CREATE:
+	//	break;
+
+	//case WM_HOTKEY:
+		//break;
 
 	case WM_DESTROY:
+		for (auto &h : cred_file_map_handles) {
+			CloseHandle(h);
+		}
 		PostQuitMessage(0);
 		break;
 
@@ -351,12 +532,6 @@ INT_PTR CALLBACK DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	return FALSE;
 }
 
-static void errcode_messagebox() {
-	auto e = GetLastError();
-	std::string errstr = std::to_string(e);
-
-	MessageBox(NULL, errstr.c_str(), "erzar", MB_OK);
-}
 
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow) {
 	HWND hWnd;
@@ -376,6 +551,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow) {
 
 	HWND numclients_spin = GetDlgItem(hWnd, ID_UPDOWN_NUMCLIENTS); assert(numclients_spin != INVALID_HANDLE_VALUE);
 	SendMessage(numclients_spin, UDM_SETRANGE32, 0, 25);
+
+	if (!config_state.read_from_file("potti.conf")) return FALSE;
 
 	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
@@ -400,26 +577,23 @@ int APIENTRY WinMain(_In_ HINSTANCE hInstance,
 
 	InitCommonControlsEx(&ic);
 
+	AllocConsole();
+	freopen("CONOUT$", "wb", stdout);
+
 	if (!InitInstance(hInstance, nCmdShow)) {
 		return FALSE;
 	}
 
-
 	if (!obtain_debug_privileges()) {
-		printf("\nwowipotti2: ERROR: couldn't obtain debug privileges.\n(Are you running as administrator?)\n\nPress enter to exit.\n");
-		getchar();
+		//printf("\nwowipotti2: ERROR: couldn't obtain debug privileges.\n(Are you running as administrator?)\n\nPress enter to exit.\n");
+		//getchar();
+		error_box("Couldn't obtain debug privileges. Please re-run this with administrator privileges.");
 		return 0;
 	}
-	
-
-	
-	AllocConsole();
-	freopen("CONOUT$", "wb", stdout);
-
 
 	MSG msg;
-
 	int ret;
+
 	while ((ret = GetMessage(&msg, 0, 0, 0)) != 0) {
 		if (ret == -1)
 			return -1;

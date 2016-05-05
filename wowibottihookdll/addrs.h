@@ -12,6 +12,7 @@
 #define PLAYER_TARGET_ADDR3 0xC6E970
 #define LUA_DoString_addr 0x706C80
 #define SelectUnit_addr 0x4A6690
+#define GetOSTickCountMs 0x749850
 
 // just as an intrigue, seems like the player's spellbook spells are at C6FB00 + 4*n :)
 

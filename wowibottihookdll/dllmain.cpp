@@ -1,6 +1,7 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "stdafx.h"
 
+#include <Windows.h>
 #include <D3D9.h>
 #include <string>
 #include <vector>
@@ -17,7 +18,7 @@
 #include "opcodes.h"
 #include "timer.h"
 
-//#define ENABLE_DEBUG_CONSOLE
+#define ENABLE_DEBUG_CONSOLE
 
 HINSTANCE  inj_hModule;          // HANDLE for injected module
 HANDLE glhProcess;
@@ -25,6 +26,10 @@ HWND wow_hWnd;
 
 int afkjump_keyup_queued = 0;
 int enter_world = 0;
+
+static std::string login_spam = "do end";
+
+static std::string char_name;
 
 static BYTE original_opcodes[8];
 
@@ -57,13 +62,10 @@ static void __stdcall EndScene_hook() {
 			PostMessage(wow_hWnd, WM_KEYUP, VK_LEFT, get_KEYUP_LPARAM(VK_LEFT));
 			afkjump_keyup_queued = 0;
 		}
+		DoString(login_spam.c_str());
+
 	}
 
-	if (enter_world == 1) {
-		DoString("EnterWorld()");
-	}
-
-	enter_world = (enter_world > 0) ? enter_world - 1 : 0;
 
 	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
 }
@@ -183,15 +185,55 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam) {
 	return TRUE;
 }
 
+static int handle_login_creds() {
+	static const size_t BUF_SIZE = 256;
+
+	HANDLE login_map = OpenFileMapping(FILE_MAP_ALL_ACCESS, NULL, ("Local\\lole_login_" + std::to_string(GetCurrentProcessId())).c_str());
+	if (GetLastError() == NO_ERROR) {
+		// then the lole launcher has assigned this client some login credentials to use
+		char buf[BUF_SIZE];
+		LPVOID fd_addr = MapViewOfFile(login_map, FILE_MAP_ALL_ACCESS, 0, 0, BUF_SIZE);
+
+		if (fd_addr == NULL) {
+			MessageBox(NULL, ("error with MapViewOfFile: " + std::to_string(GetLastError())).c_str(), "mro", MB_OK);
+			return 1;
+		}
+
+		CopyMemory(buf, fd_addr, BUF_SIZE);
+
+		std::vector<std::string> credentials;
+		tokenize_string(buf, ",", credentials);
+
+		if (credentials.size() != 3) {
+			MessageBox(NULL, "The login credentials assigned to us were invalid. Expected 3 elements.", "mro", MB_OK);
+			return 0;
+		}
+
+		printf("got creds: %s, %s\n", credentials[0].c_str(), credentials[1].c_str());
+
+		login_spam = "if (AccountLoginUI and AccountLoginUI:IsShown()) then AccountLoginUI:Hide(); DefaultServerLogin('" +
+			credentials[0] + "', '" + credentials[1] + "'); elseif (CharacterSelectUI and CharacterSelectUI:IsShown()) \
+			then for i=0,GetNumCharacters() do local name = GetCharacterInfo(i); if (name and name == '" + credentials[2] + "') then CharacterSelect_SelectCharacter(i); end end EnterWorld(); end";
+
+
+	}
+
+	CloseHandle(login_map);
+
+	enter_world = 60 * 5;
+
+	return 1;
+}
+
+
 
 DWORD WINAPI ThreadProc(LPVOID lpParam) {
+	handle_login_creds();
 
 	hook_all();
 
 	DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
 	//DoString("DefaultServerLogin(\"elipp\", \"kuusysi69\")");
-
-	enter_world = 60 * 5;
 
 	MSG messages;
 
@@ -223,8 +265,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		AllocConsole();
 		freopen("CONOUT$", "wb", stdout);
 #endif
-		EnumWindows(EnumWindowsProc, NULL);
-
+	
 		break;
 
 	case DLL_THREAD_ATTACH:
