@@ -524,6 +524,7 @@ int opcode_debug_call(int debug_opcode, const std::string &arg) {
 
 	debug_opcode_funcs[debug_opcode].func(arg);
 
+	return 1;
 }
 
 
@@ -538,9 +539,11 @@ int opcode_get_num_args(int opcode) {
 
 const std::string &opcode_get_funcname(int opcode) {
 	
+	static std::string err = "ERROR";
+
 	if (opcode > num_opcode_funcs - 1) {
 		printf("opcode_get_funcname: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs);
-		return "ERROR";
+		return err;
 	}
 
 	return opcode_funcs[opcode].name;

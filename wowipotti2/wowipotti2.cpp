@@ -148,7 +148,10 @@ struct potti_config {
 		}
 
 		conf_file.close();
+		return 1;
+
 	}
+
 };
 
 static potti_config config_state;
@@ -456,7 +459,7 @@ static int set_affinities() {
 		SetPriorityClass(proc_handle, ABOVE_NORMAL_PRIORITY_CLASS);
 		n = (n < 3) ? (n + 1) : 0;
 
-		printf("proc_handle = %X, PID = %d, aff_mask = %X\n", proc_handle, c.pid, aff_mask);
+		printf("proc_handle = %X, PID = %d, aff_mask = %X\n", (DWORD)proc_handle, c.pid, aff_mask);
 
 		CloseHandle(proc_handle);
 

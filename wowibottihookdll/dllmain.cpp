@@ -18,7 +18,7 @@
 #include "opcodes.h"
 #include "timer.h"
 
-#define ENABLE_DEBUG_CONSOLE
+//#define ENABLE_DEBUG_CONSOLE
 
 HINSTANCE  inj_hModule;          // HANDLE for injected module
 HANDLE glhProcess;
@@ -27,12 +27,31 @@ HWND wow_hWnd;
 int afkjump_keyup_queued = 0;
 int enter_world = 0;
 
-static std::string login_spam = "do end";
+struct cred_t {
+	std::string account, password, char_name;
+	std::string login_script;
+	cred_t(const std::string &acc, const std::string &pw, const std::string ch) : account(acc), password(pw), char_name(ch) {
+		char buf[512];
 
-static std::string char_name;
+		sprintf(buf, "if (AccountLoginUI and AccountLoginUI:IsShown()) then AccountLoginUI:Hide(); DefaultServerLogin('%s', '%s');\
+					 elseif (CharacterSelectUI and CharacterSelectUI:IsShown()) \
+					then for i=0,GetNumCharacters() do local name = GetCharacterInfo(i);\
+					if (name and name == '%s') then CharacterSelect_SelectCharacter(i); end end EnterWorld(); end", account.c_str(), password.c_str(), char_name.c_str());
+		
+		login_script = std::string(buf);
+	}
+
+	cred_t() {
+		account = "";
+		password = "";
+		char_name = "";
+		login_script = "do end";
+	}
+};
+
+static cred_t credentials;
 
 static BYTE original_opcodes[8];
-
 
 void __stdcall print_errcode(int code) {
 	printf("Spell cast failed, errcode %d\n", code);
@@ -53,9 +72,13 @@ static void update_hwevent_tick() {
 	int ticks = ((tick_count_t*)GetOSTickCount)();
 
 	*(int*)(TicksSinceLastHWEvent) = ticks; 
-	// this makes us immune to AFK ^^
+	// this should make us immune to AFK ^^
 }
 
+
+static void attempt_login() {
+	DoString(credentials.login_script.c_str());
+}
 
 static void __stdcall EndScene_hook() {
 
@@ -64,21 +87,21 @@ static void __stdcall EndScene_hook() {
 	if (every_third_frame == 0) {
 		refollow_if_needed();
 		
-		if (afkjump_keyup_queued > 1) --afkjump_keyup_queued;
+		//if (afkjump_keyup_queued > 1) --afkjump_keyup_queued;
 
-		if (afkjump_keyup_queued == 1) {
-			PostMessage(wow_hWnd, WM_KEYUP, VK_LEFT, get_KEYUP_LPARAM(VK_LEFT));
-			afkjump_keyup_queued = 0;
-		}
+		//if (afkjump_keyup_queued == 1) {
+		//	PostMessage(wow_hWnd, WM_KEYUP, VK_LEFT, get_KEYUP_LPARAM(VK_LEFT));
+		//	afkjump_keyup_queued = 0;
+		//}
 
 		update_hwevent_tick();
 
-		DoString(login_spam.c_str());
-
+		attempt_login(); // spamming this shouldn't hurt performance
 	}
 
 	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
 }
+
 
 
 static void __stdcall broadcast_CTM(float *coords, int action) {
@@ -211,20 +234,15 @@ static int handle_login_creds() {
 
 		CopyMemory(buf, fd_addr, BUF_SIZE);
 
-		std::vector<std::string> credentials;
-		tokenize_string(buf, ",", credentials);
+		std::vector<std::string> cred_tokens;
+		tokenize_string(buf, ",", cred_tokens);
 
-		if (credentials.size() != 3) {
+		if (cred_tokens.size() != 3) {
 			MessageBox(NULL, "The login credentials assigned to us were invalid. Expected 3 elements.", "mro", MB_OK);
 			return 0;
 		}
 
-		printf("got creds: %s, %s\n", credentials[0].c_str(), credentials[1].c_str());
-
-		login_spam = "if (AccountLoginUI and AccountLoginUI:IsShown()) then AccountLoginUI:Hide(); DefaultServerLogin('" +
-			credentials[0] + "', '" + credentials[1] + "'); elseif (CharacterSelectUI and CharacterSelectUI:IsShown()) \
-			then for i=0,GetNumCharacters() do local name = GetCharacterInfo(i); if (name and name == '" + credentials[2] + "') then CharacterSelect_SelectCharacter(i); end end EnterWorld(); end";
-
+		credentials = cred_t(cred_tokens[0], cred_tokens[1], cred_tokens[2]);
 
 	}
 
@@ -243,7 +261,6 @@ DWORD WINAPI ThreadProc(LPVOID lpParam) {
 	hook_all();
 
 	DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
-	//DoString("DefaultServerLogin(\"elipp\", \"kuusysi69\")");
 
 	MSG messages;
 
