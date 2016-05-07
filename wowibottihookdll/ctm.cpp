@@ -1,25 +1,58 @@
 #include "ctm.h"
 
+#include <queue>
+
+static std::queue<CTM_t> ctm_queue;
 static int ctm_locked = 0;
 
+void ctm_add(const CTM_t &ctm) {
+	if (ctm_queue.size() > 5) return;
+
+	ctm_queue.push(ctm);
+}
+
+void ctm_act() {
+
+	if (ctm_locked) return;
+
+	auto &CTM = ctm_queue.front();
+	click_to_move(CTM);
+
+	ctm_lock();
+}
+
+void ctm_commit() {
+
+	if (ctm_queue.empty()) return;
+	
+	ctm_unlock();
+
+	ctm_act();
+	ctm_queue.pop();
+	
+	ctm_lock();
+
+}
+
+
 static const uint
-CTM_X = 0xD68A18,
-CTM_Y = 0xD68A1C,
-CTM_Z = 0xD68A20,
-CTM_ACTION = 0xD689BC,
-CTM_GUID = 0xD689C0, // this is for interaction
-CTM_MOVE_ATTACK_ZERO = 0xD689CC,
+	CTM_X = 0xD68A18,
+	CTM_Y = 0xD68A1C,
+	CTM_Z = 0xD68A20,
+	CTM_ACTION = 0xD689BC,
+	CTM_GUID = 0xD689C0, // this is for interaction
+	CTM_MOVE_ATTACK_ZERO = 0xD689CC,
 
-CTM_walking_angle = 0xD689A0,
-CTM_FL_A4 = 0xD689A4,
-CTM_FL_A8 = 0xD689A8,
-CTM_min_distance = 0xD689AC,
+	CTM_walking_angle = 0xD689A0,
+	CTM_FL_A4 = 0xD689A4,
+	CTM_FL_A8 = 0xD689A8,
+	CTM_min_distance = 0xD689AC,
 
-CTM_increment = 0xD689B8,
+	CTM_increment = 0xD689B8,
 
-CTM_mystery_C8 = 0xD689C8,
-CTM_mystery_A90 = 0xD68A90,
-CTM_mystery_A94 = 0xD68A94;
+	CTM_mystery_C8 = 0xD689C8,
+	CTM_mystery_A90 = 0xD68A90,
+	CTM_mystery_A94 = 0xD68A94;
 
 int get_wow_CTM_state() {
 	int state;
@@ -142,6 +175,12 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 	writeAddr(CTM_ACTION, &action, sizeof(action));
 
 }
+
+
+void click_to_move(const CTM_t& c) {
+	click_to_move(c.destination, c.action, c.interact_GUID, c.min_distance);
+}
+
 
 // CTM notes:
 

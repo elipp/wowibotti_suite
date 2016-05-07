@@ -61,7 +61,13 @@ static BYTE CTM_aux_patch[] = {
 };
 // NOP for padding is a lot better, since the disassembler gets fucked up with 0x00s
 
+static const BYTE CTM_finished_original[] = {
+	0xC7, 0x05, 0xBC, 0x89, 0xD6, 0x00, 0x0D, 0x00, 0x00, 0x00
+};
 
+static BYTE CTM_finished_patch[] = {
+	0xE9, 0x00, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90, 0x90
+};
 
 static int prepare_EndScene_patch(LPVOID hook_func_addr, hookable &h) {
 
@@ -271,8 +277,6 @@ static int __stdcall get_CTM_retaddr(int action) {
 
 }
 
-
-
 static int prepare_CTM_main_patch(LPVOID hook_func_addr, hookable &h) {
 	printf("Preparing CTM_main patch...\n");
 
@@ -331,13 +335,47 @@ static int prepare_CTM_main_patch(LPVOID hook_func_addr, hookable &h) {
 	return 1;
 }
 
+static int prepare_CTM_finished_patch(LPVOID hook_func_addr, hookable &h) {
+
+	printf("Preparing CTM_finished patch...\n");
+
+	static BYTE CTM_finished_trampoline[] = {
+		// original opcodes from ClosePetStables
+		0xC7, 0x05, 0xBC, 0x89, 0xD6, 0x00, 0x0D, 0x00, 0x00, 0x00, // MOV [to address] 0xD689BC, 0x0D 
+
+		0x68, 0x00, 0x00, 0x00, 0x00, // push return address onto stack for ret
+		0x60, // pushad
+		0xE8, 0x00, 0x00, 0x00, 0x00, // call own function
+		0x61, // popad
+		0xC3 //ret
+	};
+
+	DWORD tr_offset = (DWORD)CTM_finished_trampoline - CTM_update_hookaddr - 5;
+	memcpy(CTM_finished_patch + 1, &tr_offset, sizeof(tr_offset));
+
+	DWORD ret_addr = 0x612A7B;
+	memcpy(CTM_finished_trampoline + 11, &ret_addr, sizeof(ret_addr));
+
+
+	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)CTM_finished_trampoline - 21;
+	memcpy(CTM_finished_trampoline + 17, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
+
+	DWORD oldprotect;
+	VirtualProtect((LPVOID)CTM_finished_trampoline, sizeof(CTM_finished_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
+
+	printf("OK.\nCTM_finished trampoline: %p, hook_func_addr: %p\n", &CTM_finished_trampoline, hook_func_addr);
+
+	return 1;
+
+}
+
 static hookable hookable_functions[] = {
 	{ "EndScene", 0x0, EndScene_original, EndScene_patch, sizeof(EndScene_original), prepare_EndScene_patch},
 	{ "DelIgnore", (LPVOID)DelIgnore_hookaddr, DelIgnore_original, DelIgnore_patch, sizeof(DelIgnore_original), prepare_DelIgnore_patch },
 	{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, sizeof(ClosePetStables_original), prepare_ClosePetStables_patch },
 	{ "CTM_aux", (LPVOID)CTM_aux, CTM_aux_original, CTM_aux_patch, sizeof(CTM_aux_original), prepare_CTM_aux_patch},
-	{ "CTM_main", (LPVOID)CTM_main, CTM_main_original, CTM_main_patch, sizeof(CTM_main_original), prepare_CTM_main_patch}
-
+	{ "CTM_main", (LPVOID)CTM_main, CTM_main_original, CTM_main_patch, sizeof(CTM_main_original), prepare_CTM_main_patch},
+	{ "CTM_update", (LPVOID)CTM_update_hookaddr, CTM_finished_original, CTM_finished_patch, sizeof(CTM_finished_original), prepare_CTM_finished_patch}
 };
 
 

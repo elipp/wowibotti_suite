@@ -7,6 +7,7 @@
 #include <vector>
 #include <cstdio>
 #include <cstdarg>
+#include <random>
 #include <unordered_map>
 #include <algorithm>
 
@@ -18,7 +19,7 @@
 #include "opcodes.h"
 #include "timer.h"
 
-//#define ENABLE_DEBUG_CONSOLE
+#define ENABLE_DEBUG_CONSOLE
 
 HINSTANCE  inj_hModule;          // HANDLE for injected module
 HANDLE glhProcess;
@@ -95,8 +96,9 @@ static void __stdcall EndScene_hook() {
 		//}
 
 		update_hwevent_tick();
-
 		attempt_login(); // spamming this shouldn't hurt performance
+
+		ctm_act();
 	}
 
 	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
@@ -172,7 +174,10 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 		opcode_call(op, "");
 	}
 
+}
 
+static void __stdcall CTM_finished_hookfunc() {
+	ctm_commit();
 }
 
 
@@ -183,6 +188,7 @@ static int hook_all() {
 	//install_hook("ClosePetStables", melee_behind_target);
 	//install_hook("CTM_aux", broadcast_CTM);
 	install_hook("CTM_main", broadcast_CTM);
+	install_hook("CTM_update", CTM_finished_hookfunc);
 	
 	return 1;
 }
@@ -247,8 +253,6 @@ static int handle_login_creds() {
 	}
 
 	CloseHandle(login_map);
-
-	enter_world = 60 * 5;
 
 	return 1;
 }

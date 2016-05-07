@@ -14,6 +14,9 @@
 #define SelectUnit_addr 0x4A6690
 #define GetOSTickCount 0x749850
 
+#define CTM_update 0x612990 // this could be used to signal a completed CTM action
+#define CTM_update_hookaddr 0x612A71
+
 #define TicksSinceLastHWEvent 0xBE10FC
 
 // just as an intrigue, seems like the player's spellbook spells are at C6FB00 + 4*n :)
