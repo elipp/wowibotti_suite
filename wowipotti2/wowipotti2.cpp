@@ -17,6 +17,13 @@ static HINSTANCE hInst;
 static HWND main_window_hWnd;
 static WNDPROC editbox_original_wndproc;
 
+static HWND edit_num_clients_hWnd;
+static HWND button_launch_hWnd;
+static HWND button_assign_hWnd;
+static HWND button_affinity_hWnd;
+static HWND button_inject_hWnd;
+static HWND updown_hWnd;
+
 #define MAX_LOADSTRING 100
 
 struct wowcl {
@@ -27,9 +34,7 @@ struct wowcl {
 	wowcl() {};
 	wowcl(HWND hWnd, std::string &title)
 		: window_handle(hWnd), window_title(title), valid(1) {
-		
 		GetWindowThreadProcessId(hWnd, &pid);
-
 	}
 };
 
@@ -391,6 +396,35 @@ static int validate_editbox_value_apply(HWND hWnd) {
 	return 1;
 }
 
+
+HWND create_button(const std::string &text, int pos_x, int pos_y, int width, int height, int resourceID, HWND parent_hWnd) {
+	
+	HWND btn_hWnd = CreateWindow(
+		"BUTTON",  // Predefined class; Unicode assumed 
+		text.c_str(),      // Button text 
+		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles 
+		pos_x,         // x position 
+		pos_y,         // y position 
+		width,        // Button width
+		height,        // Button height
+		parent_hWnd,     // Parent window
+		NULL,       // No menu.
+		(HINSTANCE)GetWindowLong(main_window_hWnd, GWL_HINSTANCE),
+		NULL);      // Pointer not needed.
+
+	if (!btn_hWnd) {
+		error_box("Rekt. create_button() fayaled: " + std::to_string(GetLastError()));
+		return NULL;
+	}
+
+	SendMessage(btn_hWnd,
+		WM_SETFONT,
+		(WPARAM)GetStockObject(DEFAULT_GUI_FONT),
+		MAKELPARAM(FALSE, 0));
+
+	return btn_hWnd;
+}
+
 LRESULT CALLBACK numeric_editbox_wndproc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 	switch (msg) {
@@ -418,20 +452,20 @@ LRESULT CALLBACK numeric_editbox_wndproc(HWND hWnd, UINT msg, WPARAM wParam, LPA
 	return 0;
 }
 
-static int launch_clients(HWND dlg) {
-	HWND edit = GetDlgItem(dlg, ID_EDIT_NUMCLIENTS);
+static int launch_clients() {
 
 	char textbuf[64];
 	long value;
 	char *endptr;
 
-	GetWindowText(edit, textbuf, 64);
+	GetWindowText(edit_num_clients_hWnd, textbuf, 64);
 
 	value = strtol(textbuf, &endptr, 10);	// the editbox has ES_NUMBER, so it's quite hard to come up with an invalid value :P
 
+	printf("got %d\n", value);
+
 	STARTUPINFO info = { sizeof(info) };
 	PROCESS_INFORMATION processInfo;
-
 
 	for (int i = 0; i < value; ++i) {
 		CreateProcess(config_state.client_exe_path.c_str(), NULL, NULL, NULL, TRUE, 0, NULL, NULL, &info, &processInfo);
@@ -470,52 +504,109 @@ static int set_affinities() {
 
 
 
-INT_PTR CALLBACK DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 
 	int lo, hi;
+	lo = LOWORD(wParam);
+	hi = HIWORD(wParam);
+
 	switch (message) {
 
 	case WM_COMMAND:
-		lo = LOWORD(wParam);
-		hi = HIWORD(wParam);
+
+		if (hi == BN_CLICKED) {
+
+			if ((HWND)lParam == button_launch_hWnd) {
+				launch_clients();
+				return TRUE;
+			}
+			else if ((HWND)lParam == button_affinity_hWnd) {
+				set_affinities();
+				return TRUE;
+			}
+			else if ((HWND)lParam == button_inject_hWnd) {
+				inject_to_all();
+				return TRUE;
+			}
+			else if ((HWND)lParam == button_assign_hWnd) {
+				create_account_assignments();
+				return TRUE;
+			}
+
+		}
 
 		switch (lo) {
-		//case ID_CHECKBOXBLAST:
-		//	toggle_blast();
-		//	return TRUE;
-		//	break;
-		case ID_UPDOWN_NUMCLIENTS:
-			return TRUE;
-			break;
-		case ID_BUTTON_LAUNCH:
-			launch_clients(hWnd);
-			return TRUE;
-			break;
-	
-		case ID_BUTTON_AFFINITY:
-			set_affinities();
-			return TRUE;
-			break;
+			//case ID_CHECKBOXBLAST:
+			//	toggle_blast();
+			//	return TRUE;
+			//	break;
+			case ID_UPDOWN_NUMCLIENTS:
+				return TRUE;
+				break;
 
-		case ID_BUTTON_INJECT:
-			inject_to_all();
-			return TRUE;
-			break;
-
-		case ID_BUTTON_ASSIGN:
-			create_account_assignments();
-			return TRUE;
-			break;
-		default:
-			break;
+			default:
+				break;
 		}
 
 		break;
+		
 
 
-	//case WM_CREATE:
-	//	break;
 
+	case WM_CREATE: {
+		edit_num_clients_hWnd = CreateWindowEx(WS_EX_CLIENTEDGE,
+			"EDIT",
+			"",
+			WS_CHILD | WS_VISIBLE |
+			ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_NUMBER,
+			170,
+			25,
+			60,
+			20,
+			hWnd,
+			(HMENU)ID_EDIT_NUMCLIENTS,
+			GetModuleHandle(NULL),
+			NULL);
+
+		updown_hWnd = CreateWindowEx(WS_EX_LEFT | WS_EX_LTRREADING,
+			UPDOWN_CLASS,
+			NULL,
+			WS_CHILDWINDOW | WS_VISIBLE
+			| UDS_AUTOBUDDY | UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_HOTTRACK,
+			0, 0,
+			0, 0,         // Set to zero to automatically size to fit the buddy window.
+			hWnd,
+			NULL,
+			GetModuleHandle(NULL),
+			NULL);
+
+		SendMessage(updown_hWnd, UDM_SETRANGE32, 0, 25);
+
+		SendMessage(edit_num_clients_hWnd, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), MAKELPARAM(FALSE, 0));
+		SendMessage(edit_num_clients_hWnd, WM_SETTEXT, NULL, (LPARAM)"0");
+		
+		button_launch_hWnd = create_button("Launch!", 240, 20, 100, 30, ID_BUTTON_LAUNCH, hWnd);
+		button_affinity_hWnd = create_button("Set CPU affinities", 30, 80, 100, 30, ID_BUTTON_AFFINITY, hWnd);
+		button_assign_hWnd = create_button("Assign login creds", 30, 120, 100, 30, ID_BUTTON_ASSIGN, hWnd);
+		button_inject_hWnd = create_button("Inject DLL", 150, 80, 100, 30, ID_BUTTON_INJECT, hWnd);
+
+		HWND num_clients_static = CreateWindowEx(0,
+			"STATIC",
+			"Number of clients to launch:",
+			WS_CHILD | WS_VISIBLE,
+			25, 28, 140, 18,
+			hWnd,
+			NULL,
+			GetModuleHandle(NULL),
+			NULL);
+
+		SendMessage(num_clients_static,
+			WM_SETFONT,
+			(WPARAM)GetStockObject(DEFAULT_GUI_FONT),
+			MAKELPARAM(FALSE, 0));
+
+		break;
+	}
 	//case WM_HOTKEY:
 		//break;
 
@@ -536,31 +627,52 @@ INT_PTR CALLBACK DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 }
 
 
-BOOL InitInstance(HINSTANCE hInstance, int nCmdShow) {
-	HWND hWnd;
+BOOL InitInstance(HINSTANCE hInstance, int nShowCmd) {
 
 	hInst = hInstance; // Store instance handle in our global variable
 
-	hWnd = CreateDialogParam(hInst, MAKEINTRESOURCE(IDD_DIALOG1), 0, DlgProc, 0);
+	WNDCLASSEX wClass;
+	ZeroMemory(&wClass, sizeof(WNDCLASSEX));
+	wClass.cbClsExtra = NULL;
+	wClass.cbSize = sizeof(WNDCLASSEX);
+	wClass.cbWndExtra = NULL;
+	wClass.hbrBackground = (HBRUSH)COLOR_WINDOW;
+	wClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wClass.hIcon = NULL;
+	wClass.hIconSm = NULL;
+	wClass.hInstance = hInst;
+	wClass.lpfnWndProc = (WNDPROC)WndProc;
+	wClass.lpszClassName = "lole launcher";
+	wClass.lpszMenuName = NULL;
+	wClass.style = CS_HREDRAW | CS_VREDRAW;
 
-	if (!hWnd)
+	if (!RegisterClassEx(&wClass)) {
+		error_box("RegisterClassEx() failed! Errcode: " + std::to_string(GetLastError()));
 		return FALSE;
-	
+	}
 
-	HWND num_clients_editbox = GetDlgItem(hWnd, ID_EDIT_NUMCLIENTS);
-	editbox_original_wndproc = (WNDPROC)SetWindowLongPtr(num_clients_editbox, GWLP_WNDPROC, (LONG_PTR)numeric_editbox_wndproc);
-	SetWindowText(num_clients_editbox, "0");
-	SendMessage(num_clients_editbox, EM_SETSEL, 1, 1);
+	HWND hWnd = CreateWindowEx(NULL,
+		wClass.lpszClassName,
+		"lole launcher",
+		WS_OVERLAPPEDWINDOW,
+		200,
+		200,
+		640,
+		480,
+		NULL,
+		NULL,
+		hInst,
+		NULL);
 
-	HWND numclients_spin = GetDlgItem(hWnd, ID_UPDOWN_NUMCLIENTS); assert(numclients_spin != INVALID_HANDLE_VALUE);
-	SendMessage(numclients_spin, UDM_SETRANGE32, 0, 25);
+	if (!hWnd) {
+		error_box("CreateWindowEx() failed! Errcode: " + std::to_string(GetLastError()));
+		return FALSE;
+	}
+
+	ShowWindow(hWnd, nShowCmd);
+	main_window_hWnd = hWnd;
 
 	if (!config_state.read_from_file("potti.conf")) return FALSE;
-
-	ShowWindow(hWnd, nCmdShow);
-	UpdateWindow(hWnd);
-
-	main_window_hWnd = hWnd;
 
 	return TRUE;
 }

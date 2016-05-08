@@ -14,6 +14,7 @@ void ctm_add(const CTM_t &ctm) {
 void ctm_act() {
 
 	if (ctm_locked) return;
+	if (ctm_queue.empty()) return;
 
 	auto &CTM = ctm_queue.front();
 	click_to_move(CTM);
