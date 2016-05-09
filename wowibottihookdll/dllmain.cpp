@@ -14,6 +14,7 @@
 #include "addrs.h"
 #include "ctm.h"
 #include "defs.h"
+#include "dungeon_script.h"
 #include "wowmem.h"
 #include "hooks.h"
 #include "opcodes.h"
@@ -267,6 +268,9 @@ DWORD WINAPI ThreadProc(LPVOID lpParam) {
 	DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
 
 	MSG messages;
+	
+	dscript_t s;
+	s.read_from_file("C:\\Users\\Elias\\Documents\\Visual Studio 2015\\Projects\\wowibotti_suite\\Release\\dscript\\sp_test.lole");
 
 	while (GetMessage(&messages, NULL, 0, 0)) {
 		TranslateMessage(&messages);
@@ -284,6 +288,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 
 	glhProcess = hProcess;
 
+
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH:
 		
@@ -291,6 +296,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		//hook_all();
 		hook_thread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
 		inj_hModule = hModule;
+
 
 #ifdef ENABLE_DEBUG_CONSOLE
 		AllocConsole();

@@ -462,8 +462,6 @@ static int launch_clients() {
 
 	value = strtol(textbuf, &endptr, 10);	// the editbox has ES_NUMBER, so it's quite hard to come up with an invalid value :P
 
-	printf("got %d\n", value);
-
 	STARTUPINFO info = { sizeof(info) };
 	PROCESS_INFORMATION processInfo;
 

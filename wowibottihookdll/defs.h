@@ -107,6 +107,22 @@ inline void tokenize_string(const std::string& str, const std::string& delim, st
 	}
 }
 
+
+inline int find_stuff_between(const std::string &in_str, char cbegin, char cend, std::string &out_str) {
+	unsigned d_begin = in_str.find(cbegin);
+	unsigned d_end = in_str.find_last_of(cend);
+
+	if (d_begin == std::string::npos || d_end == std::string::npos || d_begin == d_end) {
+		printf("find_stuff_between: couldn't find content between delimiters '%c' and '%c' in string \"%s\".\n", cbegin, cend, in_str.c_str());
+		return 0;
+	}
+
+	out_str = in_str.substr(d_begin + 1, d_end - d_begin - 1);
+
+	return 1;
+
+}
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif 

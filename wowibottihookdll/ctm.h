@@ -3,6 +3,7 @@
 #include "defs.h"
 #include "wowmem.h"
 
+
 struct CTM_t {
 	DWORD timestamp;
 	LONG ID;

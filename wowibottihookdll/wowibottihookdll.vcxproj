@@ -147,6 +147,7 @@
     <ClInclude Include="addrs.h" />
     <ClInclude Include="ctm.h" />
     <ClInclude Include="defs.h" />
+    <ClInclude Include="dungeon_script.h" />
     <ClInclude Include="hooks.h" />
     <ClInclude Include="wowmem.h" />
     <ClInclude Include="opcodes.h" />
@@ -157,6 +158,7 @@
   <ItemGroup>
     <ClCompile Include="ctm.cpp" />
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="dungeon_script.cpp" />
     <ClCompile Include="hooks.cpp" />
     <ClCompile Include="wowmem.cpp" />
     <ClCompile Include="opcodes.cpp" />
