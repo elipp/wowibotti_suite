@@ -82,9 +82,31 @@ static void attempt_login() {
 	DoString(credentials.login_script.c_str());
 }
 
+static void update_debug_positions() {
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	vec3 ppos = p.get_pos();
+	char buf[128];
+
+	sprintf(buf, "(%.1f, %.1f, %.1f)", ppos.x, ppos.y, ppos.z);
+	DoString("SetCVar(\"movieSubtitle\", \"%s\", \"player_pos\")", buf);
+
+	if (get_target_GUID() != 0) {
+		auto t = OM.get_object_by_GUID(get_target_GUID());
+		vec3 tpos = t.get_pos();
+		sprintf(buf, "(%.1f, %.1f, %.1f)", tpos.x, tpos.y, tpos.z);
+
+		DoString("SetCVar(\"movieSubtitle\", \"%s\", \"target_pos\")", buf);
+	}
+	else {
+		DoString("SetCVar(\"movieSubtitle\", \"-\", \"target_pos\")");
+	}
+}
+
 static void __stdcall EndScene_hook() {
 
 	static int every_third_frame = 0;
+	static int every_thirty_frames = 0;
 
 	if (every_third_frame == 0) {
 		refollow_if_needed();
@@ -96,13 +118,20 @@ static void __stdcall EndScene_hook() {
 		//	afkjump_keyup_queued = 0;
 		//}
 
-		update_hwevent_tick();
-		attempt_login(); // spamming this shouldn't hurt performance
 
 		ctm_act();
+
+	}
+
+	if (every_thirty_frames == 0) {
+		update_debug_positions();
+		update_hwevent_tick();
+		attempt_login(); 
 	}
 
 	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
+	every_thirty_frames = every_thirty_frames > 29 ? 0 : every_thirty_frames + 1;
+
 }
 
 

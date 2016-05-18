@@ -101,7 +101,7 @@ inline void tokenize_string(const std::string& str, const std::string& delim, st
 		while (end < str.size() && (delim.find(str[end]) == std::string::npos)) {
 			end++; // skip to end of word
 		}
-		if (end - start != 0) {  // just ignore zero-length strings.
+		if (end - start > 0) {  // just ignore zero-length strings.
 			tokens.push_back(std::string(str, start, end - start));
 		}
 	}

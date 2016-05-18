@@ -4,6 +4,8 @@
 
 #include <fstream>
 
+static int num_default_script = 1;
+
 static int parse_coords(const std::string &coords, vec3 &out) {
 	std::string cvalues;
 	if (!find_stuff_between(coords, '(', ')', cvalues)) {
@@ -104,7 +106,7 @@ int dscript_t::read_from_file(const std::string &filename) {
 				line.erase(std::remove_if(line.begin(), line.end(), ::isspace), line.end());
 				lines.push_back(line);
 
-				printf("\"%s\"\n", line.c_str());
+				//printf("\"%s\"\n", line.c_str());
 			}
 		}
 
@@ -136,9 +138,33 @@ int dscript_t::read_from_file(const std::string &filename) {
 					if (!read_statements(statement, obj)) {
 						return 0;
 					}
+
+					this->tasks.push(obj);
 				}
 			}
 		}
+		else {
+			// we should have a simple assignment of type var = value
+			std::vector <std::string> tt;
+			tokenize_string(l, "=", tt);
+			
+			if (tt.size() != 2) {
+				printf("dscript_t::read_from_file: syntax error: expected an assignment of type \"<var> = value\", got \"%s\"\n", line.c_str());
+				return 0;
+			}
+
+			if (tt[0] == "scriptname") {
+				if (!find_stuff_between(tt[1], '"', '"', this->script_name)) {
+					return 0;
+				}
+				printf("dscript_t::read_from_file: found scriptname directive: \"%s\"\n", this->script_name.c_str());
+			}
+		}
+	}
+
+	if (script_name == "") {
+		script_name = "unnamed_" + std::to_string(num_default_script);
+		printf("dscript_t::read_from_file: didn't find scriptname directive in script. Assigned name \"%s\"\n", script_name.c_str());
 	}
 	
 

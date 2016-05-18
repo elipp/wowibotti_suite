@@ -141,6 +141,10 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 	elseif event == "CVAR_UPDATE" then
 		if prefix == "inject" and message == "1" then
 			update_injected_status(true)
+		elseif prefix == "player_pos" then
+			update_player_pos_text("|cFFFFD100Player pos: |r" .. message)
+		elseif prefix == "target_pos" then
+			update_target_pos_text("|cFFFFD100Target pos: |r" .. message)
 		end
 
 
@@ -164,7 +168,7 @@ end
 
 lole_frame:SetScript("OnEvent", LOLE_EventHandler);
 
-lole_frame:SetHeight(315)
+lole_frame:SetHeight(350)
 lole_frame:SetWidth(250)
 lole_frame:SetPoint("RIGHT", -25, 0)
 
@@ -465,7 +469,7 @@ ctm_host:add_button("Everyone");
 --ctm_host:add_button("Melee");
 
 local mode_attrib_title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
-mode_attrib_title_fontstr:SetPoint("TOPLEFT", 160, -225);
+mode_attrib_title_fontstr:SetPoint("BOTTOMRIGHT", -25, 80);
 mode_attrib_title_fontstr:SetText("Mode attribs:")
 
 local playermode_checkbutton = CreateFrame("CheckButton", "playermode_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
@@ -743,4 +747,22 @@ function update_injected_status(arg)
 	else
 		inject_status_text:SetText("|cFF800000(Not injected!)")
 	end
+end
+
+local player_pos_text = lole_frame:CreateFontString(nil, "OVERLAY");
+player_pos_text:SetFont("Fonts\\FRIZQT__.TTF", 8);
+player_pos_text:SetPoint("BOTTOMLEFT", 12, 80);
+player_pos_text:SetText("")
+
+function update_player_pos_text(arg)
+	player_pos_text:SetText("|cFFFFD100" .. arg)
+end
+
+local target_pos_text = lole_frame:CreateFontString(nil, "OVERLAY");
+target_pos_text:SetFont("Fonts\\FRIZQT__.TTF", 8);
+target_pos_text:SetPoint("BOTTOMLEFT", 12, 66);
+target_pos_text:SetText("")
+
+function update_target_pos_text(arg)
+	target_pos_text:SetText("|cFFFFD100" .. arg)
 end
