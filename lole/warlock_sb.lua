@@ -86,8 +86,8 @@ combat_warlock_sb = function()
 		-- end
 	-- end
 
-	if not has_debuff("target", "Curse of the Elements") then
-		CastSpellByName("Curse of the Elements")
+	if not has_debuff("target", "Curse of Weakness") then
+		CastSpellByName("Curse of Weakness")
 		return;
 	end
 
