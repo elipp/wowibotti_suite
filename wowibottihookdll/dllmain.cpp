@@ -20,7 +20,9 @@
 #include "opcodes.h"
 #include "timer.h"
 
-#define ENABLE_DEBUG_CONSOLE
+#ifdef _DEBUG
+#define DEBUG_CONSOLE
+#endif
 
 HINSTANCE  inj_hModule;          // HANDLE for injected module
 HANDLE glhProcess;
@@ -290,21 +292,20 @@ static int handle_login_creds() {
 
 
 DWORD WINAPI ThreadProc(LPVOID lpParam) {
-	handle_login_creds();
+	//handle_login_creds();
 
 	hook_all();
 
-	DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
 
 	MSG messages;
 	
-	dscript_t s;
-	s.read_from_file("C:\\Users\\Elias\\Documents\\Visual Studio 2015\\Projects\\wowibotti_suite\\Release\\dscript\\sp_test.lole");
+	//dscript_t s;
+	//s.read_from_file("C:\\Users\\Elias\\Documents\\Visual Studio 2015\\Projects\\wowibotti_suite\\Release\\dscript\\sp_test.lole");
 
-	while (GetMessage(&messages, NULL, 0, 0)) {
-		TranslateMessage(&messages);
-		DispatchMessage(&messages);
-	}
+	//while (GetMessage(&messages, NULL, 0, 0)) {
+	//	TranslateMessage(&messages);
+	//	DispatchMessage(&messages);
+	//}
 
 	return 1;
 }
@@ -313,6 +314,7 @@ DWORD WINAPI ThreadProc(LPVOID lpParam) {
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
 
 	HANDLE hProcess = GetCurrentProcess();
+	DWORD processID = GetCurrentProcessId();
 	HANDLE hook_thread = INVALID_HANDLE_VALUE;
 
 	glhProcess = hProcess;
@@ -321,13 +323,17 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH:
 		
+		DebugActiveProcess(processID);
 		patch_LUA_prot(hProcess);
-		//hook_all();
-		hook_thread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
+		hook_all();
+		//hook_thread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
 		inj_hModule = hModule;
 
+		DebugActiveProcessStop(processID);
 
-#ifdef ENABLE_DEBUG_CONSOLE
+		DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
+
+#ifdef DEBUG_CONSOLE
 		AllocConsole();
 		freopen("CONOUT$", "wb", stdout);
 #endif

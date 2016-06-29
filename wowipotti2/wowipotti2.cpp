@@ -26,6 +26,10 @@ static HWND updown_hWnd;
 
 #define MAX_LOADSTRING 100
 
+#ifdef _DEBUG
+#define DEBUG_CONSOLE
+#endif
+
 struct wowcl {
 	HWND window_handle;
 	std::string window_title;
@@ -690,8 +694,10 @@ int APIENTRY WinMain(_In_ HINSTANCE hInstance,
 
 	InitCommonControlsEx(&ic);
 
+#ifdef DEBUG_CONSOLE
 	AllocConsole();
 	freopen("CONOUT$", "wb", stdout);
+#endif
 
 	if (!InitInstance(hInstance, nCmdShow)) {
 		return FALSE;
