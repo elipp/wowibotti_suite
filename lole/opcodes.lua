@@ -21,14 +21,13 @@ LOLE_OPCODE_AVOID_SPELL_OBJECT,
 LOLE_OPCODE_HUG_SPELL_OBJECT,
 LOLE_OPCODE_SPREAD,
 LOLE_OPCODE_PULL_MOB,
-LOLE_OPCODE_PATCH
+
 
 = "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04",
 "LOP_05", "LOP_06", "LOP_07", "LOP_08",
 "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C",
 "LOP_0D", "LOP_0E", "LOP_0F", "LOP_10",
-"LOP_11", "LOP_12", "LOP_13", "LOP_14",
-"LOP_15"
+"LOP_11", "LOP_12", "LOP_13", "LOP_14"
 
 local
 LOLE_DEBUG_OPCODE_NOP,
@@ -178,11 +177,6 @@ end
 
 function hug_spell_with_spellID(spellID)
 	DelIgnore(LOLE_OPCODE_HUG_SPELL_OBJECT .. ":" .. tostring(spellID))
-end
-
-
-function lole_patch_memory()
-	DelIgnore(LOLE_OPCODE_PATCH)
 end
 
 
