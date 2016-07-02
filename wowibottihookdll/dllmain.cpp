@@ -261,7 +261,7 @@ static int handle_login_creds() {
 
 	HANDLE login_map = OpenFileMapping(FILE_MAP_ALL_ACCESS, NULL, cred_fd.c_str());
 	DWORD err = GetLastError();
-	if (err == NO_ERROR) {
+	if (err != NO_ERROR) {
 		// then the lole launcher has assigned this client some login credentials to use
 		char buf[BUF_SIZE];
 		LPVOID fd_addr = MapViewOfFile(login_map, FILE_MAP_ALL_ACCESS, 0, 0, BUF_SIZE);
