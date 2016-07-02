@@ -35,7 +35,7 @@ static int enter_world = 0;
 struct cred_t {
 	std::string account, password, char_name;
 	std::string login_script;
-	cred_t(const std::string &acc, const std::string &pw, const std::string ch) : account(acc), password(pw), char_name(ch) {
+	cred_t(const std::string &acc, const std::string &pw, const std::string &ch) : account(acc), password(pw), char_name(ch) {
 		char buf[512];
 
 		sprintf(buf, "if (AccountLoginUI and AccountLoginUI:IsShown()) then AccountLoginUI:Hide(); DefaultServerLogin('%s', '%s');\
@@ -44,6 +44,8 @@ struct cred_t {
 					if (name and name == '%s') then CharacterSelect_SelectCharacter(i); end end EnterWorld(); end", account.c_str(), password.c_str(), char_name.c_str());
 		
 		login_script = std::string(buf);
+
+		printf("got credentials %s, %s, %s\n", acc.c_str(), pw.c_str(), ch.c_str());
 	}
 
 	cred_t() {
@@ -112,8 +114,6 @@ static void __stdcall EndScene_hook() {
 	static int every_third_frame = 0;
 	static int every_thirty_frames = 0;
 	
-	printf("endscene\n");
-
 	if (every_third_frame == 0) {
 		refollow_if_needed();
 		ctm_act();
@@ -253,10 +253,15 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam) {
 }
 
 static int handle_login_creds() {
+
+	printf("@ handle_login_creds\n");
 	static const size_t BUF_SIZE = 256;
 
-	HANDLE login_map = OpenFileMapping(FILE_MAP_ALL_ACCESS, NULL, ("Local\\lole_login_" + std::to_string(GetCurrentProcessId())).c_str());
-	if (GetLastError() == NO_ERROR) {
+	std::string cred_fd = "Local\\lole_login_" + std::to_string(GetCurrentProcessId());
+
+	HANDLE login_map = OpenFileMapping(FILE_MAP_ALL_ACCESS, NULL, cred_fd.c_str());
+	DWORD err = GetLastError();
+	if (err == NO_ERROR) {
 		// then the lole launcher has assigned this client some login credentials to use
 		char buf[BUF_SIZE];
 		LPVOID fd_addr = MapViewOfFile(login_map, FILE_MAP_ALL_ACCESS, 0, 0, BUF_SIZE);
@@ -279,23 +284,13 @@ static int handle_login_creds() {
 		credentials = cred_t(cred_tokens[0], cred_tokens[1], cred_tokens[2]);
 
 	}
+	else {
+		printf("warning: OpenFileMapping returned error %d for account credential handling! fd name: %s\n", err, cred_fd.c_str());
+	}
 
 	CloseHandle(login_map);
 
 	return 1;
-}
-
-
-
-void init_task() {
-
-//	handle_login_creds();
-//	patch_LUA_prot();
-//	hook_all();
-	
-	//dscript_t s;
-	//s.read_from_file("C:\\Users\\Elias\\Documents\\Visual Studio 2015\\Projects\\wowibotti_suite\\Release\\dscript\\sp_test.lole");
-	printf("JEAH!!\n");
 }
 
 
@@ -312,19 +307,17 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	case DLL_PROCESS_ATTACH: {
 
 		inj_hModule = hModule;
-//#ifdef DEBUG_CONSOLE
+#ifdef DEBUG_CONSOLE
 		AllocConsole();
 		freopen("CONOUT$", "wb", stdout);
-//#endif
-		//hook_all();
-		//DebugActiveProcess(processID);
-		printf("Mu pallit haisen\n");
-		//// this needs to be done in another thread because we need to create a D3D9 device to get to the vtable
-		std::thread hook_thread = std::thread(init_task);
-		printf("waiting\n");
-		hook_thread.join();
-		printf("done waiting\n");
-		////DebugActiveProcessStop(processID);
+#endif
+		DebugActiveProcess(processID); // this is like a TINKERING_BEGIN
+
+			handle_login_creds();
+			patch_LUA_prot();
+			hook_all();
+
+		DebugActiveProcessStop(processID); // TINKERING_END
 
 		DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
 

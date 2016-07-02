@@ -75,37 +75,13 @@ static int prepare_EndScene_patch(LPVOID hook_func_addr, hookable &h) {
 
 	printf("Preparing EndScene patch...\n");
 
-	LPDIRECT3D9 c = Direct3DCreate9(D3D_SDK_VERSION);
+	unsigned char *wow_static_DX9 = *(unsigned char**)0xD2A15C;
+	unsigned char *tmp1 = *(unsigned char**)(wow_static_DX9 + 0x3864);
+	unsigned char *tmp2 = *(unsigned char**)(tmp1);
 
-	if (!c) {
-		printf("Direct3DCreate9 failed.\n");
-		return 0;
-	}
-
-	D3DPRESENT_PARAMETERS d3dpp;
-	ZeroMemory(&d3dpp, sizeof(d3dpp));
-	d3dpp.Windowed = TRUE;
-	d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
-	d3dpp.BackBufferFormat = D3DFMT_UNKNOWN;
-
-	LPDIRECT3DDEVICE9 temp_dev;
-	HRESULT r;
-	if (FAILED(r = c->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, GetDesktopWindow(), D3DCREATE_HARDWARE_VERTEXPROCESSING, &d3dpp, &temp_dev))) {
-		printf("CreateDevice failed with error: %lX\n", r);
-		c->Release();
-		return 0;
-	}
-	unsigned long* vtable = (unsigned long*)*((unsigned long*)temp_dev);
-
-	printf("Found EndScene at: %X\n", vtable[0x2A]); // d3d9.h, line 476
-
-	EndScene = (HRESULT(*)(void))vtable[0x2A];
-
+	auto EndScene = (HRESULT(*)(void))*(unsigned char**)(tmp2 + 0xA8);
+	printf("Found EndScene at %p\n(Details:\n[0xD2A15C] = %p\n[[0xD2A15C] + 0x3864] = %p\n[[[0xD2A15C] + 0x3864]] = %p)\n\n", EndScene, wow_static_DX9, tmp1, tmp2);
 	h.address = EndScene;
-
-	temp_dev->Release();
-	c->Release();
-
 
 	static BYTE EndScene_trampoline[] = {
 		// original EndScene opcodes follow

@@ -255,11 +255,15 @@ static int create_account_assignments() {
 	}
 
 	// gather all checked clients to a vector
-	std::vector <wowaccount> assigned_accs;
+	std::vector <std::pair<wowaccount, wowcl>> assigned_accs;
+	int n = 0;
 	for (const auto &account : config_state.accounts) {
 		HWND hWnd = char_select_checkboxes[account.char_name];
 		LRESULT state = SendMessage(hWnd, BM_GETCHECK, 0, 0);
-		if (state == BST_CHECKED) assigned_accs.push_back(account);
+		if (state == BST_CHECKED) {
+			assigned_accs.push_back(std::make_pair(account, wow_handles[n]));
+			++n;
+		}
 	}
 
 	if (num_characters_selected != assigned_accs.size()) {
@@ -268,26 +272,39 @@ static int create_account_assignments() {
 
 	for (int i = 0; i < num_to_process; ++i) {
 
-		wowcl &c = wow_handles[i];
+		DWORD err;
+		
+		wowcl &c = assigned_accs[i].second;
 
-		HANDLE filemap = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, BUF_MAX, ("Local\\lole_login_" + std::to_string(c.pid)).c_str());
+		std::string cred_fd = "Local\\lole_login_" + std::to_string(c.pid);
 
-		if (GetLastError() != NO_ERROR) {
-			error_box("Rekt. CreateFileMapping failed!");
+		HANDLE filemap = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, BUF_MAX, cred_fd.c_str());
+		err = GetLastError();
+
+		if (err != NO_ERROR) {
+			error_box("Error. CreateFileMapping failed!");
+			printf("CreateFileMapping failed! %d\n", err);
 			return 0;
 		}
 
 		cred_file_map_handles.push_back(filemap);
 
 		auto buf = MapViewOfFile(filemap, FILE_MAP_ALL_ACCESS, 0, 0, BUF_MAX);
-		printf("error after MapViewOfFile: %d\n", GetLastError());
+		err = GetLastError();
+		
+		if (err != NO_ERROR) {
+			error_box("Error. MapViewOfFile failed!");
+			printf("MapViewOfFile: error: %d\n", err);
+		}
 	
-		const wowaccount &acc = assigned_accs[i];
+		const wowaccount &acc = assigned_accs[i].first;
 
 		std::string content = acc.login_name + "," + acc.password + "," + acc.char_name;
 
 		CopyMemory(buf, content.c_str(), content.size());
 		UnmapViewOfFile(buf);
+
+		printf("Assigned account %s to pid %d (cred_fd name: %s)\n", acc.login_name.c_str(), c.pid, cred_fd.c_str());
 	}
 
 	return TRUE;
@@ -804,16 +821,17 @@ int APIENTRY WinMain(_In_ HINSTANCE hInstance,
 	freopen("CONOUT$", "wb", stdout);
 #endif
 
+	if (!obtain_debug_privileges()) {
+		//printf("\nwowipotti2: ERROR: couldn't obtain debug privileges.\n(Are you running as administrator?)\n\nPress enter to exit.\n");
+		//getchar();
+		error_box("Couldn't obtain debug privileges. Please re-run this program with administrator privileges.");
+		return 0;
+	}
+
 	if (!InitInstance(hInstance, nCmdShow)) {
 		return FALSE;
 	}
 
-	if (!obtain_debug_privileges()) {
-		//printf("\nwowipotti2: ERROR: couldn't obtain debug privileges.\n(Are you running as administrator?)\n\nPress enter to exit.\n");
-		//getchar();
-		error_box("Couldn't obtain debug privileges. Please re-run this with administrator privileges.");
-		return 0;
-	}
 
 	MSG msg;
 	int ret;
