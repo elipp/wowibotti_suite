@@ -449,6 +449,11 @@ static void LOP_pull_mob(const std::string &arg) {
 	GUID_t GUID = strtoull(arg.c_str(), &endptr, 16);
 }
 
+
+static void LOP_patch(const std::string &arg) {
+	
+}
+
 static void LOPDBG_dump(const std::string &arg) {
 	dump_wowobjects_to_log();
 }
@@ -490,7 +495,8 @@ static const struct {
 	{ "LOLE_OPCODE_AVOID_SPELL_OBJECT", LOP_avoid_spell_object, 1 },
 	{ "LOLE_OPCODE_HUG_SPELL_OBJECT", LOP_hug_spell_object, 1 },
 	{ "LOLE_OPCODE_SPREAD", LOP_spread, 0 },
-	{ "LOLE_OPCODE_PULL_MOB", LOP_nop, 0 }
+	{ "LOLE_OPCODE_PULL_MOB", LOP_nop, 0 },
+	{ "LOLE_OPCODE_PATCH", LOP_patch, 0 }
 };
 
 static const struct {

@@ -20,13 +20,15 @@ LOLE_OPCODE_MAIN_TANK,
 LOLE_OPCODE_AVOID_SPELL_OBJECT,
 LOLE_OPCODE_HUG_SPELL_OBJECT,
 LOLE_OPCODE_SPREAD,
-LOLE_OPCODE_PULL_MOB
+LOLE_OPCODE_PULL_MOB,
+LOLE_OPCODE_PATCH
 
 = "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04",
 "LOP_05", "LOP_06", "LOP_07", "LOP_08",
 "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C",
 "LOP_0D", "LOP_0E", "LOP_0F", "LOP_10",
-"LOP_11", "LOP_12", "LOP_13", "LOP_14"
+"LOP_11", "LOP_12", "LOP_13", "LOP_14",
+"LOP_15"
 
 local
 LOLE_DEBUG_OPCODE_NOP,
@@ -178,6 +180,12 @@ function hug_spell_with_spellID(spellID)
 	DelIgnore(LOLE_OPCODE_HUG_SPELL_OBJECT .. ":" .. tostring(spellID))
 end
 
+
+function lole_patch_memory()
+	DelIgnore(LOLE_OPCODE_PATCH)
+end
+
+
 function lole_debug_dump_wowobjects()
 	DelIgnore(LOLE_DEBUG_OPCODE_DUMP);
 	echo("|cFF00FF96Dumped WowObjects to <DESKTOPDIR>\\wodump.log (if you're injected!) ;)")
@@ -191,7 +199,6 @@ end
 function lole_debug_query_injected()
 	DelIgnore(LOLE_DEBUG_OPCODE_QUERY_INJECTED)
 end
-
 
 
 ------------------------------------------------------------------------------

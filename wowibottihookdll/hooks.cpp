@@ -1,8 +1,185 @@
 #include "hooks.h"
 #include "addrs.h"
 #include "defs.h"
+#include "opcodes.h"
+#include "ctm.h"
+#include "creds.h"
 
 static HRESULT(*EndScene)(void);
+
+static int patch_LUA_prot() {
+	printf("Patching LUA protection function...");
+	static LPVOID lua_prot_addr = (LPVOID)0x49DBA0;
+	static BYTE patch[] = { 0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3 };
+	WriteProcessMemory(glhProcess, lua_prot_addr, patch, sizeof(patch), NULL);
+	printf("OK!\n");
+	return 1;
+}
+
+
+static void update_hwevent_tick() {
+	typedef int tick_count_t(void);
+	int ticks = ((tick_count_t*)GetOSTickCount)();
+
+	*(int*)(TicksSinceLastHWEvent) = ticks;
+	// this should make us immune to AFK ^^
+}
+
+
+static void attempt_login() {
+	//printf("attempting login with account %s\n", credentials.account.c_str());
+	DoString(credentials.login_script.c_str());
+}
+
+static void update_debug_positions() {
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	vec3 ppos = p.get_pos();
+	char buf[128];
+
+	sprintf(buf, "(%.1f, %.1f, %.1f)", ppos.x, ppos.y, ppos.z);
+	DoString("SetCVar(\"movieSubtitle\", \"%s\", \"player_pos\")", buf);
+
+	if (get_target_GUID() != 0) {
+		auto t = OM.get_object_by_GUID(get_target_GUID());
+		vec3 tpos = t.get_pos();
+		sprintf(buf, "(%.1f, %.1f, %.1f)", tpos.x, tpos.y, tpos.z);
+
+		DoString("SetCVar(\"movieSubtitle\", \"%s\", \"target_pos\")", buf);
+	}
+	else {
+		DoString("SetCVar(\"movieSubtitle\", \"-\", \"target_pos\")");
+	}
+}
+
+
+static void __stdcall EndScene_hook() {
+
+	static int every_third_frame = 0;
+	static int every_thirty_frames = 0;
+
+	if (every_third_frame == 0) {
+		refollow_if_needed();
+		ctm_act();
+	}
+
+	if (every_thirty_frames == 0) {
+		update_debug_positions();
+		update_hwevent_tick();
+		attempt_login();
+	}
+
+	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
+	every_thirty_frames = every_thirty_frames > 29 ? 0 : every_thirty_frames + 1;
+
+}
+
+
+
+static void __stdcall broadcast_CTM(float *coords, int action) {
+
+	float x, y, z;
+
+	x = coords[0];
+	y = coords[1];
+	z = coords[2];
+
+	printf("broadcast_CTM: got CTM coords: (%f, %f %f), action = %d\n", x, y, z, action);
+
+	char sprintf_buf[128];
+
+	sprintf(sprintf_buf, "%.1f,%.1f,%.1f", x, y, z);
+
+	// the CTM mode is determined in the LUA logic, in the subcommand handler.
+
+	DoString("RunMacroText(\"/lole ctm %s\")", sprintf_buf);
+}
+
+
+static void __stdcall DelIgnore_hub(const char* arg_) {
+	// the opcodes sent by the addon all begin with the sequence "LOP_"
+	static const std::string opcode_prefix("LOP_");
+
+	const std::string arg(arg_);
+
+	if (strncmp(arg.c_str(), opcode_prefix.c_str(), opcode_prefix.length()) != 0) {
+		printf("DelIgnore_hub: invalid opcode \"%s\": DelIgnore_hub opcodes must begin with the sequence \"%s\"\n", arg_, opcode_prefix.c_str());
+		return;
+	}
+
+	if (arg.length() < 6) {
+		printf("DelIgnore_hub: invalid opcode \"%s\"\n", arg.c_str());
+		return;
+	}
+
+	std::string opstr = arg.substr(4, 2);
+	char *endptr;
+	unsigned long op = strtoul(opstr.c_str(), &endptr, 16);
+
+	if (op & 0x80) {
+		int debug_op = op & 0x7F;
+		opcode_debug_call(debug_op, arg);
+		printf("DelIgnore_hub: got DEBUG opcode %lu -> %s\n", op, opcode_get_funcname(debug_op).c_str());
+		return;
+	}
+
+	printf("DelIgnore_hub: got opcode %lu -> %s\n", op, opcode_get_funcname(op).c_str());
+
+	int num_args = opcode_get_num_args(op);
+
+	if (num_args > 0) {
+		// then we expect to find a ':' and arguments separated by ',':s
+		size_t pos;
+		if ((pos = arg.find(':', 5)) == std::string::npos) {
+			printf("DelIgnore_hub: error: opcode %lu (%s) expects %d arguments, none found! (did you forget ':'?)\n",
+				op, opcode_get_funcname(op).c_str(), num_args);
+			return;
+		}
+		std::string args = arg.substr(pos + 1);
+		printf("DelIgnore_hub: calling func %s with args \"%s\"\n", opcode_get_funcname(op).c_str(), args.c_str());
+
+		opcode_call(op, args); // call the func with args
+	}
+	else {
+		opcode_call(op, "");
+	}
+
+}
+
+static void __stdcall CTM_finished_hookfunc() {
+	ctm_commit();
+}
+
+
+int hook_all() {
+
+	install_hook("DelIgnore", DelIgnore_hub);
+
+	install_hook("CTM_main", broadcast_CTM);
+	install_hook("CTM_update", CTM_finished_hookfunc);
+	
+	install_hook("EndScene", EndScene_hook);
+
+	return 1;
+}
+
+static int unhook_all() {
+
+	uninstall_hook("EndScene");
+	uninstall_hook("DelIgnore");
+	uninstall_hook("ClosePetStables");
+	uninstall_hook("CTM_main");
+	uninstall_hook("CTM_update");
+
+	return 1;
+}
+
+int patch_DelIgnore() {
+	install_hook("DelIgnore", DelIgnore_hub);
+
+	return 1;
+}
+
 
 struct hookable {
 	std::string funcname;
@@ -362,7 +539,7 @@ int install_hook(const std::string &funcname, LPVOID hook_func_addr) {
 		//const hookable &h = hookable_functions[i];
 		if (funcname == h.funcname) {
 			h.prepare_patch(hook_func_addr, h);
-			DWORD bytes;
+			SIZE_T bytes;
 			printf("Patching func \"%s\" at %X...", funcname.c_str(), (DWORD)h.address);
 			WriteProcessMemory(glhProcess, h.address, h.patch, h.patch_size, &bytes);
 			printf("OK!\n");
@@ -380,7 +557,7 @@ int uninstall_hook(const std::string &funcname) {
 	for (auto &h : hookable_functions) {
 		//	const hookable &h = hookable_functions[i];
 		if (funcname == h.funcname) {
-			DWORD bytes;
+			SIZE_T bytes;
 			printf("Unpatching func \"%s\" at %X...", funcname.c_str(), (DWORD)h.address);
 			WriteProcessMemory(glhProcess, h.address, h.original_opcodes, h.patch_size, &bytes);
 			printf("OK!\n");

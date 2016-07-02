@@ -448,7 +448,7 @@ HWND create_button(const std::string &text, int pos_x, int pos_y, int width, int
 		height,        // Button height
 		parent_hWnd,     // Parent window
 		NULL,       // No menu.
-		(HINSTANCE)GetWindowLong(main_window_hWnd, GWL_HINSTANCE),
+		(HINSTANCE)GetWindowLongPtr(main_window_hWnd, GWLP_HINSTANCE),
 		NULL);      // Pointer not needed.
 
 	if (!btn_hWnd) {
@@ -465,7 +465,8 @@ HWND create_button(const std::string &text, int pos_x, int pos_y, int width, int
 }
 
 HWND create_checkbox(const std::string &text, int pos_x, int pos_y, HWND parent_hWnd) {
-	HWND hWnd = CreateWindow("BUTTON", text.c_str(), WS_VISIBLE | WS_CHILD |  BS_CHECKBOX, pos_x, pos_y, CHAR_POS_DX-8, 20, parent_hWnd, NULL, (HINSTANCE)GetWindowLong(main_window_hWnd, GWL_HINSTANCE), NULL);
+	HWND hWnd = CreateWindow("BUTTON", text.c_str(), WS_VISIBLE | WS_CHILD |  BS_CHECKBOX, 
+		pos_x, pos_y, CHAR_POS_DX-8, 20, parent_hWnd, NULL, (HINSTANCE)GetWindowLongPtr(main_window_hWnd, GWLP_HINSTANCE), NULL);
 	if (!hWnd) {
 		error_box("Rekt. create_checkbox() whaled: " + std::to_string(GetLastError()));
 		return NULL;
@@ -719,10 +720,10 @@ static int setup_char_checkboxes(const potti_config &c) {
 		int pos_x = char_posx_offset + cl.second * dx - 4;
 		int pos_y = char_posy_offset - 3;
 		int width = CHAR_POS_DX - 2;
-		int height = class_num_map[cl.first] * dy - 3;
+		int height = class_num_map[cl.first] * dy;
 		
 		HWND static_frame = CreateWindow("STATIC", (cl.first + "_staticframe").c_str(), WS_CHILD | WS_VISIBLE | SS_ETCHEDFRAME,
-			pos_x, pos_y, width, height, main_window_hWnd, NULL, (HINSTANCE)GetWindowLong(main_window_hWnd, GWL_HINSTANCE), NULL);
+			pos_x, pos_y, width, height, main_window_hWnd, NULL, (HINSTANCE)GetWindowLongPtr(main_window_hWnd, GWLP_HINSTANCE), NULL);
 		
 		std::string image_filename = "images\\" + cl.first + ".bmp";
 		HBITMAP class_image = (HBITMAP)LoadImage(GetModuleHandle(NULL), image_filename.c_str(), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
@@ -731,7 +732,7 @@ static int setup_char_checkboxes(const potti_config &c) {
 	
 		if (class_image != NULL) {
 			HWND class_icon_hWnd = CreateWindow("STATIC", (cl.first + "_staticicon").c_str(), WS_CHILD | WS_VISIBLE | SS_BITMAP | SS_CENTERIMAGE,
-				pos_x + 16, pos_y - 42, 32, 32, main_window_hWnd, NULL, (HINSTANCE)GetWindowLong(main_window_hWnd, GWL_HINSTANCE), NULL);
+				pos_x + 16, pos_y - 42, 32, 32, main_window_hWnd, NULL, (HINSTANCE)GetWindowLongPtr(main_window_hWnd, GWLP_HINSTANCE), NULL);
 
 			SendMessage(class_icon_hWnd, STM_SETIMAGE, (WPARAM)IMAGE_BITMAP, (LPARAM)class_image);
 

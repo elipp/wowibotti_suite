@@ -18,22 +18,22 @@ void DoString(const char* format, ...) {
 
 // this __declspec(noinline) thing has got to do with the msvc optimizer.
 // seems like the inline assembly is discarded when this func is inlined, in which case were fucked
-__declspec(noinline) static void set_facing(float x) {
-	void const (*SetFacing)(float) = (void const (*)(float))0x007B9DE0;
-
-	uint this_ecx = DEREF(0xE29D28) + 0xBE0;
-
-	// printf("set_facing: this_ecx: %X\n", this_ecx);
-	// this is due to the fact that SetFacing is uses a __thiscall calling convention, 
-	// so the base addr needs to be passed in ECX. no idea which base address this is though,
-	// but it seems to be constant enough :D
-
-	__asm push ecx
-	__asm mov ecx, this_ecx
-	SetFacing(x);
-	__asm pop ecx;
-
-}
+//__declspec(noinline) static void set_facing(float x) {
+//	void const (*SetFacing)(float) = (void const (*)(float))0x007B9DE0;
+//
+//	uint this_ecx = DEREF(0xE29D28) + 0xBE0;
+//
+//	// printf("set_facing: this_ecx: %X\n", this_ecx);
+//	// this is due to the fact that SetFacing is uses a __thiscall calling convention, 
+//	// so the base addr needs to be passed in ECX. no idea which base address this is though,
+//	// but it seems to be constant enough :D
+//
+//	__asm push ecx
+//	__asm mov ecx, this_ecx
+//	SetFacing(x);
+//	__asm pop ecx;
+//
+//}
 
 GUID_t get_raid_target_GUID(int index) {
 	GUID_t GUID;

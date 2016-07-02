@@ -373,6 +373,10 @@ local function lole_pull(arg)
 	send_opcode_addonmsg_to(LOLE_OPCODE_PULL_MOB, arg, MAIN_TANK);
 end
 
+local function lole_patch()
+
+end
+
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
 	buffcheck = lole_buffcheck;
@@ -395,6 +399,7 @@ lole_subcommands = {
 	release = lole_release;
 	mt = lole_maintank;
 	clearcc = lole_clearcc;
+	patch = lole_patch;
 
 	dump = lole_debug_dump_wowobjects;
 	loot = lole_debug_loot_all;
