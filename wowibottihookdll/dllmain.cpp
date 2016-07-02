@@ -44,8 +44,6 @@ struct cred_t {
 					if (name and name == '%s') then CharacterSelect_SelectCharacter(i); end end EnterWorld(); end", account.c_str(), password.c_str(), char_name.c_str());
 		
 		login_script = std::string(buf);
-
-		printf("got credentials %s, %s, %s\n", acc.c_str(), pw.c_str(), ch.c_str());
 	}
 
 	cred_t() {
