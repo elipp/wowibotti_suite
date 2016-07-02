@@ -10,6 +10,7 @@
 #include <random>
 #include <unordered_map>
 #include <algorithm>
+#include <thread>
 
 #include "addrs.h"
 #include "ctm.h"
@@ -24,12 +25,12 @@
 #define DEBUG_CONSOLE
 #endif
 
-HINSTANCE  inj_hModule;          // HANDLE for injected module
+static HINSTANCE inj_hModule;          // HANDLE for injected module
 HANDLE glhProcess;
 HWND wow_hWnd;
 
 int afkjump_keyup_queued = 0;
-int enter_world = 0;
+static int enter_world = 0;
 
 struct cred_t {
 	std::string account, password, char_name;
@@ -61,11 +62,11 @@ void __stdcall print_errcode(int code) {
 	printf("Spell cast failed, errcode %d\n", code);
 }
 
-static int patch_LUA_prot(HANDLE hProcess) {
+static int patch_LUA_prot() {
 	printf("Patching LUA protection function...");
 	static LPVOID lua_prot_addr = (LPVOID)0x49DBA0;
 	static BYTE patch[] = { 0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3 };
-	WriteProcessMemory(hProcess, lua_prot_addr, patch, sizeof(patch), NULL);
+	WriteProcessMemory(glhProcess, lua_prot_addr, patch, sizeof(patch), NULL);
 	printf("OK!\n");
 	return 1;
 }
@@ -81,6 +82,7 @@ static void update_hwevent_tick() {
 
 
 static void attempt_login() {
+	//printf("attempting login with account %s\n", credentials.account.c_str());
 	DoString(credentials.login_script.c_str());
 }
 
@@ -109,20 +111,12 @@ static void __stdcall EndScene_hook() {
 
 	static int every_third_frame = 0;
 	static int every_thirty_frames = 0;
+	
+	printf("endscene\n");
 
 	if (every_third_frame == 0) {
 		refollow_if_needed();
-		
-		//if (afkjump_keyup_queued > 1) --afkjump_keyup_queued;
-
-		//if (afkjump_keyup_queued == 1) {
-		//	PostMessage(wow_hWnd, WM_KEYUP, VK_LEFT, get_KEYUP_LPARAM(VK_LEFT));
-		//	afkjump_keyup_queued = 0;
-		//}
-
-
 		ctm_act();
-
 	}
 
 	if (every_thirty_frames == 0) {
@@ -230,6 +224,8 @@ static int unhook_all() {
 	uninstall_hook("EndScene");
 	uninstall_hook("DelIgnore");
 	uninstall_hook("ClosePetStables");
+	uninstall_hook("CTM_main");
+	uninstall_hook("CTM_update");
 	
 	return 1;
 }
@@ -291,23 +287,15 @@ static int handle_login_creds() {
 
 
 
-DWORD WINAPI ThreadProc(LPVOID lpParam) {
-	//handle_login_creds();
+void init_task() {
 
-	hook_all();
-
-
-	MSG messages;
+//	handle_login_creds();
+//	patch_LUA_prot();
+//	hook_all();
 	
 	//dscript_t s;
 	//s.read_from_file("C:\\Users\\Elias\\Documents\\Visual Studio 2015\\Projects\\wowibotti_suite\\Release\\dscript\\sp_test.lole");
-
-	//while (GetMessage(&messages, NULL, 0, 0)) {
-	//	TranslateMessage(&messages);
-	//	DispatchMessage(&messages);
-	//}
-
-	return 1;
+	printf("JEAH!!\n");
 }
 
 
@@ -315,31 +303,34 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 
 	HANDLE hProcess = GetCurrentProcess();
 	DWORD processID = GetCurrentProcessId();
-	HANDLE hook_thread = INVALID_HANDLE_VALUE;
+	//std::thread hook_thread;
 
 	glhProcess = hProcess;
 
 
 	switch (ul_reason_for_call) {
-	case DLL_PROCESS_ATTACH:
-		
-		DebugActiveProcess(processID);
-		patch_LUA_prot(hProcess);
-		hook_all();
-		//hook_thread = CreateThread(0, NULL, ThreadProc, (LPVOID)"Dump", NULL, NULL);
-		inj_hModule = hModule;
+	case DLL_PROCESS_ATTACH: {
 
-		DebugActiveProcessStop(processID);
+		inj_hModule = hModule;
+//#ifdef DEBUG_CONSOLE
+		AllocConsole();
+		freopen("CONOUT$", "wb", stdout);
+//#endif
+		//hook_all();
+		//DebugActiveProcess(processID);
+		printf("Mu pallit haisen\n");
+		//// this needs to be done in another thread because we need to create a D3D9 device to get to the vtable
+		std::thread hook_thread = std::thread(init_task);
+		printf("waiting\n");
+		hook_thread.join();
+		printf("done waiting\n");
+		////DebugActiveProcessStop(processID);
 
 		DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
 
-#ifdef DEBUG_CONSOLE
-		AllocConsole();
-		freopen("CONOUT$", "wb", stdout);
-#endif
-	
-		break;
 
+		break;
+	}
 	case DLL_THREAD_ATTACH:
 		break;
 
@@ -349,7 +340,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	case DLL_PROCESS_DETACH:
 		printf("DLL DETACHED! Unhooking all functions.\n");
 
-		PostThreadMessage(GetThreadId(hook_thread), WM_DESTROY, 0, 0);
+//		PostThreadMessage(GetThreadId(hook_thread), WM_DESTROY, 0, 0);
 		//WaitForSingleObject(windowThread, INFINITE);
 		unhook_all();
 

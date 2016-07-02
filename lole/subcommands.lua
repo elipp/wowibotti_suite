@@ -369,6 +369,10 @@ local function lole_clearcc()
 	disable_all_cc_targets()
 end
 
+local function lole_pull(arg)
+	send_opcode_addonmsg_to(LOLE_OPCODE_PULL_MOB, arg, MAIN_TANK);
+end
+
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
 	buffcheck = lole_buffcheck;

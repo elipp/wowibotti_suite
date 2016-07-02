@@ -10,12 +10,12 @@
 #include <string>
 #include <cassert>
 #include <fstream>
+#include <unordered_map>
 
 #include "wowipotti2.h"
 
 static HINSTANCE hInst;	
 static HWND main_window_hWnd;
-static WNDPROC editbox_original_wndproc;
 
 static HWND edit_num_clients_hWnd;
 static HWND button_launch_hWnd;
@@ -24,7 +24,13 @@ static HWND button_affinity_hWnd;
 static HWND button_inject_hWnd;
 static HWND updown_hWnd;
 
+static int num_characters_selected = 0;
+
+static std::unordered_map <std::string, HWND> char_select_checkboxes;
+
 #define MAX_LOADSTRING 100
+
+#define CHAR_POS_DX 78
 
 #ifdef _DEBUG
 #define DEBUG_CONSOLE
@@ -43,8 +49,12 @@ struct wowcl {
 };
 
 static std::vector<wowcl> wow_handles;
-
 static std::vector<HANDLE> cred_file_map_handles;
+
+struct wowaccount {
+	std::string login_name, password, char_name, class_name;
+	wowaccount(std::string ln, std::string pw, std::string chn, std::string cln) : login_name(ln), password(pw), char_name(chn), class_name(cln) {}
+};
 
 static void error_box(const std::string &msg) {
 	MessageBox(NULL, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
@@ -85,10 +95,6 @@ static int find_stuff_between(const std::string &in_str, char c, std::string &ou
 }
 
 
-struct wowaccount {
-	std::string login_name, password, char_name, class_name;
-	wowaccount(std::string ln, std::string pw, std::string chn, std::string cln) : login_name(ln), password(pw), char_name(chn), class_name(cln) {}
-};
 
 struct potti_config {
 	std::string client_exe_path;
@@ -243,9 +249,21 @@ static int create_account_assignments() {
 
 	if (wow_handles.size() < 1) { return 1; }
 
-	int num_to_process = wow_handles.size();
-	if (wow_handles.size() > config_state.accounts.size()) {
-		num_to_process = config_state.accounts.size();
+	int num_to_process = num_characters_selected;
+	if (wow_handles.size() < num_to_process) {
+		num_to_process = wow_handles.size();
+	}
+
+	// gather all checked clients to a vector
+	std::vector <wowaccount> assigned_accs;
+	for (const auto &account : config_state.accounts) {
+		HWND hWnd = char_select_checkboxes[account.char_name];
+		LRESULT state = SendMessage(hWnd, BM_GETCHECK, 0, 0);
+		if (state == BST_CHECKED) assigned_accs.push_back(account);
+	}
+
+	if (num_characters_selected != assigned_accs.size()) {
+		printf("WARNING: create_account_assignments: num_characters_selected (%d) != assigned_accs.size() (%d)!!\n", num_characters_selected, assigned_accs.size());
 	}
 
 	for (int i = 0; i < num_to_process; ++i) {
@@ -264,7 +282,7 @@ static int create_account_assignments() {
 		auto buf = MapViewOfFile(filemap, FILE_MAP_ALL_ACCESS, 0, 0, BUF_MAX);
 		printf("error after MapViewOfFile: %d\n", GetLastError());
 	
-		wowaccount &acc = config_state.accounts[i];
+		const wowaccount &acc = assigned_accs[i];
 
 		std::string content = acc.login_name + "," + acc.password + "," + acc.char_name;
 
@@ -401,7 +419,7 @@ static int validate_editbox_value_apply(HWND hWnd) {
 }
 
 
-HWND create_button(const std::string &text, int pos_x, int pos_y, int width, int height, int resourceID, HWND parent_hWnd) {
+HWND create_button(const std::string &text, int pos_x, int pos_y, int width, int height, HWND parent_hWnd) {
 	
 	HWND btn_hWnd = CreateWindow(
 		"BUTTON",  // Predefined class; Unicode assumed 
@@ -417,7 +435,7 @@ HWND create_button(const std::string &text, int pos_x, int pos_y, int width, int
 		NULL);      // Pointer not needed.
 
 	if (!btn_hWnd) {
-		error_box("Rekt. create_button() fayaled: " + std::to_string(GetLastError()));
+		error_box("Rekt. create_button() whaled: " + std::to_string(GetLastError()));
 		return NULL;
 	}
 
@@ -429,31 +447,19 @@ HWND create_button(const std::string &text, int pos_x, int pos_y, int width, int
 	return btn_hWnd;
 }
 
-LRESULT CALLBACK numeric_editbox_wndproc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-
-	switch (msg) {
-
-	case WM_KEYDOWN:
-		switch (wParam) {
-		case VK_RETURN:
-			validate_editbox_value_apply(hWnd);
-			break;
-		default:
-			break;
-		}
-
-		break;
-
-	case WM_KILLFOCUS:
-		validate_editbox_value_apply(hWnd);
-		CallWindowProc(editbox_original_wndproc, hWnd, msg, wParam, lParam);
-		break;
-
-	default:
-		return CallWindowProc(editbox_original_wndproc, hWnd, msg, wParam, lParam);
+HWND create_checkbox(const std::string &text, int pos_x, int pos_y, HWND parent_hWnd) {
+	HWND hWnd = CreateWindow("BUTTON", text.c_str(), WS_VISIBLE | WS_CHILD |  BS_CHECKBOX, pos_x, pos_y, CHAR_POS_DX-8, 20, parent_hWnd, NULL, (HINSTANCE)GetWindowLong(main_window_hWnd, GWL_HINSTANCE), NULL);
+	if (!hWnd) {
+		error_box("Rekt. create_checkbox() whaled: " + std::to_string(GetLastError()));
+		return NULL;
 	}
+	
+	SendMessage(hWnd,
+		WM_SETFONT,
+		(WPARAM)GetStockObject(DEFAULT_GUI_FONT),
+		MAKELPARAM(FALSE, 0));
 
-	return 0;
+	return hWnd;
 }
 
 static int launch_clients() {
@@ -504,6 +510,21 @@ static int set_affinities() {
 	return 1;
 }
 
+static LRESULT handle_checkbox_action(HWND hWnd) {
+
+	LRESULT state = SendMessage(hWnd, BM_GETCHECK, 0, 0);
+	num_characters_selected = state == BST_UNCHECKED ? num_characters_selected + 1 : num_characters_selected - 1;
+
+	std::string numstr = std::to_string(num_characters_selected);
+
+	SendMessage(edit_num_clients_hWnd, WM_SETTEXT, NULL, (LPARAM)numstr.c_str());
+	SendMessage(updown_hWnd, UDM_SETRANGE32, num_characters_selected, 25);
+
+
+//	printf("num_checked = %d\n", num_checked);
+
+	return SendMessage(hWnd, BM_SETCHECK, state == BST_UNCHECKED ? BST_CHECKED : BST_UNCHECKED, 0);
+}
 
 
 INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -534,7 +555,11 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 				create_account_assignments();
 				return TRUE;
 			}
-
+			else {
+				// then it's most likely from one of the checkboxes
+				handle_checkbox_action((HWND)lParam);
+				return TRUE;
+			}
 		}
 
 		switch (lo) {
@@ -587,10 +612,10 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 		SendMessage(edit_num_clients_hWnd, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), MAKELPARAM(FALSE, 0));
 		SendMessage(edit_num_clients_hWnd, WM_SETTEXT, NULL, (LPARAM)"0");
 		
-		button_launch_hWnd = create_button("Launch!", 240, 20, 100, 30, ID_BUTTON_LAUNCH, hWnd);
-		button_affinity_hWnd = create_button("Set CPU affinities", 30, 80, 100, 30, ID_BUTTON_AFFINITY, hWnd);
-		button_assign_hWnd = create_button("Assign login creds", 30, 120, 100, 30, ID_BUTTON_ASSIGN, hWnd);
-		button_inject_hWnd = create_button("Inject DLL", 150, 80, 100, 30, ID_BUTTON_INJECT, hWnd);
+		button_launch_hWnd = create_button("Launch!", 240, 20, 100, 30, hWnd);
+		button_affinity_hWnd = create_button("Set CPU affinities", 30, 80, 100, 30, hWnd);
+		button_assign_hWnd = create_button("Assign login creds", 30, 120, 100, 30, hWnd);
+		button_inject_hWnd = create_button("Inject DLL", 150, 80, 100, 30, hWnd);
 
 		HWND num_clients_static = CreateWindowEx(0,
 			"STATIC",
@@ -606,6 +631,8 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 			WM_SETFONT,
 			(WPARAM)GetStockObject(DEFAULT_GUI_FONT),
 			MAKELPARAM(FALSE, 0));
+
+
 
 		break;
 	}
@@ -626,6 +653,80 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 	}
 
 	return FALSE;
+}
+
+static int setup_char_checkboxes(const potti_config &c) {
+	int char_posx_offset = 25;
+	int char_posy_offset = 225;
+	int dx = CHAR_POS_DX;
+	int dy = 25;
+
+	std::unordered_map<std::string, int> class_indices = {
+		{ "druid", 0 },
+		{ "hunter", 1 },
+		{ "mage", 2 },
+		{ "paladin", 3 },
+		{ "priest", 4 },
+		{ "rogue", 5 },
+		{ "shaman", 6 },
+		{ "warlock", 7 },
+		{ "warrior", 8 }
+	};
+
+
+	std::unordered_map<std::string, int> class_num_map = {
+		{ "druid", 0 },
+		{ "hunter", 0 },
+		{ "mage", 0 },
+		{ "paladin", 0 },
+		{ "priest", 0 },
+		{ "rogue", 0 },
+		{ "shaman", 0 },
+		{ "warlock", 0 },
+		{ "warrior", 0 }
+	};
+
+	for (auto &k : c.accounts) {
+		int *num = &class_num_map[k.class_name];
+	
+		int pos_x = char_posx_offset + class_indices[k.class_name] * dx;
+		int pos_y = char_posy_offset + (*num) * dy;
+		
+		char_select_checkboxes[k.char_name] = create_checkbox(k.char_name, pos_x, pos_y, main_window_hWnd);
+		
+		++(*num);
+		//printf("added %s:%s (num = %d, pos_x = %d, pos_y = %d)\n", k.char_name.c_str(), k.class_name.c_str(), *num, pos_x, pos_y);
+	}
+
+	for (auto &cl : class_indices) {
+		int pos_x = char_posx_offset + cl.second * dx - 4;
+		int pos_y = char_posy_offset - 3;
+		int width = CHAR_POS_DX - 2;
+		int height = class_num_map[cl.first] * dy - 3;
+		
+		HWND static_frame = CreateWindow("STATIC", (cl.first + "_staticframe").c_str(), WS_CHILD | WS_VISIBLE | SS_ETCHEDFRAME,
+			pos_x, pos_y, width, height, main_window_hWnd, NULL, (HINSTANCE)GetWindowLong(main_window_hWnd, GWL_HINSTANCE), NULL);
+		
+		std::string image_filename = "images\\" + cl.first + ".bmp";
+		HBITMAP class_image = (HBITMAP)LoadImage(GetModuleHandle(NULL), image_filename.c_str(), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+		
+	//	printf("image_filename = %s, class_image: %X\n", image_filename.c_str(), (int)class_image);
+	
+		if (class_image != NULL) {
+			HWND class_icon_hWnd = CreateWindow("STATIC", (cl.first + "_staticicon").c_str(), WS_CHILD | WS_VISIBLE | SS_BITMAP | SS_CENTERIMAGE,
+				pos_x + 16, pos_y - 42, 32, 32, main_window_hWnd, NULL, (HINSTANCE)GetWindowLong(main_window_hWnd, GWL_HINSTANCE), NULL);
+
+			SendMessage(class_icon_hWnd, STM_SETIMAGE, (WPARAM)IMAGE_BITMAP, (LPARAM)class_image);
+
+		}
+		else {
+			printf("loading the bitmap file %s failed. GetLastError(): %d\n", image_filename.c_str(), GetLastError());
+		}
+
+	}
+
+	return 1;
+
 }
 
 
@@ -659,7 +760,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nShowCmd) {
 		WS_OVERLAPPEDWINDOW,
 		200,
 		200,
-		640,
+		750,
 		480,
 		NULL,
 		NULL,
@@ -671,10 +772,14 @@ BOOL InitInstance(HINSTANCE hInstance, int nShowCmd) {
 		return FALSE;
 	}
 
-	ShowWindow(hWnd, nShowCmd);
 	main_window_hWnd = hWnd;
 
 	if (!config_state.read_from_file("potti.conf")) return FALSE;
+
+	setup_char_checkboxes(config_state);
+
+	ShowWindow(hWnd, nShowCmd);
+
 
 	return TRUE;
 }
