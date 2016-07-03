@@ -98,6 +98,16 @@ static int handle_login_creds() {
 	return 1;
 }
 
+DWORD WINAPI init_func(LPVOID lpParam) {
+	handle_login_creds();
+	// for whatever reason, the endscene hook only works in Debug mode.
+	hook_all();
+
+	DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
+
+	return 1;
+}
+
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
 
@@ -116,10 +126,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		AllocConsole();
 		freopen("CONOUT$", "wb", stdout);
 #endif
-
-		handle_login_creds();
-		// for whatever reason, the endscene hook only works in Debug mode.
-		hook_all();
+		CreateThread(NULL, 0, init_func, NULL, 0, NULL);
 
 		break;
 	}
@@ -130,10 +137,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		break;
 
 	case DLL_PROCESS_DETACH:
-
 		break;
 	}
-	//logfile.close();
+
 	return TRUE;
 }
 

@@ -153,6 +153,8 @@ static void __stdcall CTM_finished_hookfunc() {
 
 int hook_all() {
 
+	patch_LUA_prot();
+
 	install_hook("DelIgnore", DelIgnore_hub);
 
 	install_hook("CTM_main", broadcast_CTM);
