@@ -144,7 +144,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 			printf("Writing to pipe %s failed, error: 0x%X\n", pipe_name.c_str(), GetLastError());
 		}
 		else {
-			printf("Sent our patch data to pipe server!\n", write_buf);
+			printf("Sent our patch data to pipe server!\n");
 		}
 
 		sc = ReadFile(hPipe, read_buf, PIPE_READ_BUF_SIZE, &num_bytes, NULL);

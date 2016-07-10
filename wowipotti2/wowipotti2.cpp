@@ -34,9 +34,9 @@ static std::unordered_map <std::string, HWND> char_select_checkboxes;
 
 #define CHAR_POS_DX 78
 
-#ifdef _DEBUG
+//#ifdef _DEBUG
 #define DEBUG_CONSOLE
-#endif
+//#endif
 
 struct wowcl {
 	HWND window_handle;
@@ -400,7 +400,12 @@ static int remote_thread_dll(DWORD pid) {
 	return 1;
 }
 
-static int validate_pipe_response(const BYTE *resp) {
+struct patch_t {
+	UINT32 patch_addr, patch_size;
+	BYTE *original_opcodes, *patch_opcodes;
+};
+
+static int parse_pipe_response(const BYTE *resp, std::vector<patch_t> &patches) {
 
 #define PIPE_PROTOCOL_MAGIC 0xAB30DD13
 
@@ -412,6 +417,62 @@ static int validate_pipe_response(const BYTE *resp) {
 	if (magic == PIPE_PROTOCOL_MAGIC) {
 		printf("PIPE_PROTOCOL_MAGIC MATCHES! Client sent %d patches. (meta_size = %d)\n", num_patches, meta_size);
 	}
+	else {
+		printf("ERROR: PIPE_PROTOCOL_MAGIC mismatch! (What!?)\n");
+		return 0;
+	}
+
+	const BYTE *iter = &resp[3*sizeof(UINT32)];
+
+	for (int i = 0; i < num_patches; ++i) {
+		patch_t p;
+
+		memcpy(&p.patch_addr, &iter[0*sizeof(UINT32)], sizeof(UINT32));
+		memcpy(&p.patch_size, &iter[1*sizeof(UINT32)], sizeof(UINT32));
+		printf("patch #%d: iter = %d, patch addr: 0x%08X, size = %u\n", i+1, (int)(iter - resp), p.patch_addr, p.patch_size);
+		
+		p.original_opcodes = new BYTE[p.patch_size];
+		memcpy(p.original_opcodes, &iter[2 * sizeof(UINT32)], p.patch_size);
+
+		p.patch_opcodes = new BYTE[p.patch_size];
+		memcpy(p.patch_opcodes, &iter[2 * sizeof(UINT32) + p.patch_size], p.patch_size);
+		
+		iter += 2 * sizeof(UINT32) + 2 * p.patch_size;
+		
+		patches.push_back(p);
+	}
+
+
+	return 1;
+}
+
+static int suspend_and_apply_patches(DWORD pid, const std::vector<patch_t> patches) {
+	printf("Suspending Wow.exe with PID %d for patching...\n", pid);
+	DebugActiveProcess(pid);
+//	Sleep(500);
+
+	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+
+	if (!hProcess) {
+		printf("OpenProcess(PROCESS_ALL_ACCESS, FALSE, %d) failed. GetLastError() = %d\n", pid, GetLastError());
+		return 0;
+	}
+
+	for (const auto &p : patches) {
+		SIZE_T num_bytes;
+		BOOL r = WriteProcessMemory(hProcess, (LPVOID)p.patch_addr, p.patch_opcodes, p.patch_size, &num_bytes);
+
+		if (r == 0) {
+			printf("WriteProcessMemory failed: %d\n", GetLastError());
+			return 0;
+		}
+	}
+
+	CloseHandle(hProcess);
+
+	DebugActiveProcessStop(pid);
+
+	printf("Patching done. Resumed Wow.exe with PID %d!\n", pid);
 
 	return 1;
 }
@@ -429,7 +490,7 @@ static int do_pipe_operations(DWORD pid) {
 		PIPE_UNLIMITED_INSTANCES, PIPE_READ_BUF_SIZE, PIPE_WRITE_BUF_SIZE, 0, NULL);
 
 	if (!hPipe) {
-		printf("CreateNamedPipe failed: %d\n", GetLastError);
+		printf("CreateNamedPipe failed: %d\n", GetLastError());
 		return 1;
 	}
 
@@ -453,7 +514,7 @@ static int do_pipe_operations(DWORD pid) {
 				//printf("pipe thread: WARNING: ERROR_PIPE_LISTENING!\n");
 			}
 			else if (GetLastError() == ERROR_BROKEN_PIPE) {
-				printf("pipe thread: ERROR_BROKEN_PIPE\n", GetLastError());
+				printf("pipe thread: ERROR_BROKEN_PIPE\n");
 				break;
 			}
 			else {
@@ -468,10 +529,14 @@ static int do_pipe_operations(DWORD pid) {
 		Sleep(200);
 	}
 
-	if (validate_pipe_response(read_buf)) {
+	std::vector<patch_t> patches;
+
+	if (parse_pipe_response(read_buf, patches)) {
 		memcpy_s(write_buf, PIPE_WRITE_BUF_SIZE, PATCH_OK.c_str(), PATCH_OK.length() + 1);
+		suspend_and_apply_patches(pid, patches);
 	}
 	else {
+		printf("parse_pipe_response() failed :(\n");
 		memcpy_s(write_buf, PIPE_WRITE_BUF_SIZE, PATCH_FAIL.c_str(), PATCH_FAIL.length() + 1);
 	}
 

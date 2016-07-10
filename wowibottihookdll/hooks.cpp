@@ -530,8 +530,7 @@ int prepare_patches_and_pipe_data() {
 
 	PIPEDATA.add_patch(patch_serialized(LUA_prot, sizeof(LUA_prot_patch), LUA_prot_original, LUA_prot_patch));
 	PIPEDATA.add_patch(patch_serialized(DelIgnore_hookaddr, sizeof(DelIgnore_patch), DelIgnore_original, DelIgnore_patch));
-	PIPEDATA.add_patch(patch_serialized(CTM_main, sizeof(CTM_main_patch), CTM_main_original, CTM_main_patch));
-	PIPEDATA.add_patch(patch_serialized(CTM_update, sizeof(CTM_aux_patch), CTM_aux_original, CTM_aux_patch));
+	PIPEDATA.add_patch(patch_serialized(CTM_main, sizeof(CTM_main_patch), CTM_main_original, CTM_main_patch));//PIPEDATA.add_patch(patch_serialized(CTM_update, sizeof(CTM_aux_patch), CTM_aux_original, CTM_aux_patch));
 	PIPEDATA.add_patch(patch_serialized((UINT32)EndScene, sizeof(EndScene_patch), EndScene_original, EndScene_patch));
 
 	return 1;
