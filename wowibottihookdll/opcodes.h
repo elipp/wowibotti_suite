@@ -31,6 +31,7 @@ typedef void(*hubfunc_t)(const std::string &);
 #define LOLE_OPCODE_HUG_SPELL_OBJECT	0x12
 #define LOLE_OPCODE_SPREAD				0x13
 #define LOLE_OPCODE_PULL_MOB			0x14
+#define LOLE_OPCODE_PATCH_ENDSCENE		0x15
 
 #define LOLE_DEBUG_OPCODE_DUMP			0xF1
 #define LOLE_DEBUG_LOOT_ALL				0xF2

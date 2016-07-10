@@ -4,6 +4,7 @@
 #include "opcodes.h"
 #include "ctm.h"
 #include "timer.h"
+#include "hooks.h"
 
 extern HWND wow_hWnd;
 extern int afkjump_keyup_queued;
@@ -449,6 +450,28 @@ static void LOP_pull_mob(const std::string &arg) {
 	GUID_t GUID = strtoull(arg.c_str(), &endptr, 16);
 }
 
+static DWORD WINAPI patch_func(LPVOID param) {
+	DWORD main_thread_id = *(DWORD*)param;
+	HANDLE t = OpenThread(THREAD_ALL_ACCESS, FALSE, main_thread_id);
+
+	if (!t) {
+		printf("OpenThread failed: %d\n", GetLastError());
+		return 0;
+	}
+
+	SuspendThread(t);
+
+	hook_EndScene();
+
+	ResumeThread(t);
+
+}
+
+static void LOP_patch_EndScene(const std::string &arg) {
+	DWORD tid = GetCurrentThreadId();
+	CreateThread(NULL, 0, patch_func, (LPVOID)&tid, NULL, NULL);
+}
+
 
 static void LOPDBG_dump(const std::string &arg) {
 	dump_wowobjects_to_log();
@@ -492,6 +515,7 @@ static const struct {
 	{ "LOLE_OPCODE_HUG_SPELL_OBJECT", LOP_hug_spell_object, 1 },
 	{ "LOLE_OPCODE_SPREAD", LOP_spread, 0 },
 	{ "LOLE_OPCODE_PULL_MOB", LOP_nop, 0 },
+	{ "LOLE_OPCODE_PATCH_ENDSCENE", LOP_patch_EndScene, 0}
 };
 
 static const struct {

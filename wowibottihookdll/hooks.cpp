@@ -72,6 +72,7 @@ static void __stdcall EndScene_hook() {
 	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
 	every_thirty_frames = every_thirty_frames > 29 ? 0 : every_thirty_frames + 1;
 
+	printf("PELILU\n");
 }
 
 
@@ -151,36 +152,7 @@ static void __stdcall CTM_finished_hookfunc() {
 }
 
 
-int hook_all() {
 
-	patch_LUA_prot();
-
-	install_hook("DelIgnore", DelIgnore_hub);
-
-	install_hook("CTM_main", broadcast_CTM);
-	install_hook("CTM_update", CTM_finished_hookfunc);
-	
-	install_hook("EndScene", EndScene_hook);
-
-	return 1;
-}
-
-static int unhook_all() {
-
-	uninstall_hook("EndScene");
-	uninstall_hook("DelIgnore");
-	uninstall_hook("ClosePetStables");
-	uninstall_hook("CTM_main");
-	uninstall_hook("CTM_update");
-
-	return 1;
-}
-
-int patch_DelIgnore() {
-	install_hook("DelIgnore", DelIgnore_hub);
-
-	return 1;
-}
 
 
 struct hookable {
@@ -302,7 +274,6 @@ static int prepare_DelIgnore_patch(LPVOID hook_func_addr, hookable &h) {
 
 	printf("Preparing DelIgnore patch...\n");
 
-
 	uint PATCH_ADDR = 0x7BA4C1;
 
 	static BYTE DelIgnore_trampoline[] = {
@@ -314,7 +285,7 @@ static int prepare_DelIgnore_patch(LPVOID hook_func_addr, hookable &h) {
 		0x68, 0x00, 0x00, 0x00, 0x00, // push return address (5BA4C1 + 7 = 5BA4C8)
 		0x60, // pushad
 		0x50, // push EAX, we know that eax contains string address at this point
-		0xE8, 0x00, 0x00, 0x00, 0x00, // call targeting function :D loloz
+		0xE8, 0x00, 0x00, 0x00, 0x00, // hookfunc addr
 		0x61, // popad
 		0xC3 //ret
 	};
@@ -535,7 +506,7 @@ static hookable hookable_functions[] = {
 
 
 
-int install_hook(const std::string &funcname, LPVOID hook_func_addr) {
+static int install_hook(const std::string &funcname, LPVOID hook_func_addr) {
 	//for (int i = 0; i < sizeof(hookable_functions) / sizeof(hookable_functions[0]); ++i) {
 	for (auto &h : hookable_functions) {
 		//const hookable &h = hookable_functions[i];
@@ -554,7 +525,7 @@ int install_hook(const std::string &funcname, LPVOID hook_func_addr) {
 	return 0;
 }
 
-int uninstall_hook(const std::string &funcname) {
+static int uninstall_hook(const std::string &funcname) {
 	//for (int i = 0; i < sizeof(hookable_functions) / sizeof(hookable_functions[0]); ++i) {
 	for (auto &h : hookable_functions) {
 		//	const hookable &h = hookable_functions[i];
@@ -572,3 +543,39 @@ int uninstall_hook(const std::string &funcname) {
 	return 0;
 }
 
+int hook_all() {
+
+	patch_LUA_prot();
+
+	install_hook("DelIgnore", DelIgnore_hub);
+
+	install_hook("CTM_main", broadcast_CTM);
+	install_hook("CTM_update", CTM_finished_hookfunc);
+
+	//install_hook("EndScene", EndScene_hook);
+
+	return 1;
+}
+
+int unhook_all() {
+
+	uninstall_hook("EndScene");
+	uninstall_hook("DelIgnore");
+	uninstall_hook("ClosePetStables");
+	uninstall_hook("CTM_main");
+	uninstall_hook("CTM_update");
+
+	return 1;
+}
+
+int hook_EndScene() {
+	install_hook("EndScene", EndScene_hook);
+
+	return 1;
+}
+
+int patch_DelIgnore() {
+	install_hook("DelIgnore", DelIgnore_hub);
+
+	return 1;
+}

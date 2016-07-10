@@ -24,6 +24,8 @@ static HWND button_affinity_hWnd;
 static HWND button_inject_hWnd;
 static HWND updown_hWnd;
 
+static std::vector<HANDLE> thread_handles;
+
 static int num_characters_selected = 0;
 
 static std::unordered_map <std::string, HWND> char_select_checkboxes;
@@ -354,16 +356,28 @@ static int obtain_debug_privileges() {
 	return 1;
 }
 
+static int validate_response(const char *resp) {
 
+	printf("got response \"%s\"\n", resp);
+	return 1;
+}
 
-static int inject_dll(HWND window_handle) {
+static DWORD WINAPI inject_threadfunc(LPVOID param) {
 
-	char* DirPath = new char[MAX_PATH];
-	char* FullPath = new char[MAX_PATH];
+	// lol. each thread needs to individually obtain debug privileges..
+
+	if (!obtain_debug_privileges()) {
+		printf("Couldn't obtain debug privileges. Please re-run this program with administrator privileges.");
+		return 0;
+	}
+
+	char DirPath[MAX_PATH];
+	char FullPath[MAX_PATH];
 	GetCurrentDirectory(MAX_PATH, DirPath);
 
+	HWND window_handle = (HWND)param;
+
 	sprintf_s(FullPath, MAX_PATH, "%s\\wowibottihookdll.dll", DirPath);
-	//sprintf_s(FullPath, MAX_PATH, "C:\\Users\\Elias\\Documents\\Visual Studio 2015\\Projects\\wowibottihookdll\\Release\\wowibottihookdll.dll");
 	printf("%s\n", FullPath);
 
 	DWORD pid;
@@ -372,41 +386,118 @@ static int inject_dll(HWND window_handle) {
 	printf("pid = %d, tid = %d\n", pid, tid);
 
 	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
-	if (hProcess == NULL) { fprintf(stderr, "OpenProcess failed: %d\n", GetLastError()); return 0; }
+	if (hProcess == NULL) { printf("OpenProcess failed: %d\n", GetLastError()); return 0; }
 
 	LPVOID LoadLibraryAddr = (LPVOID)GetProcAddress(GetModuleHandle("kernel32.dll"), "LoadLibraryA");
-	if (LoadLibraryAddr == NULL) { fprintf(stderr, "LoadLibraryA failed: %d\n", GetLastError()); return 0; }
+	if (LoadLibraryAddr == NULL) { printf("LoadLibraryA failed: %d\n", GetLastError()); return 0; }
 
 	LPVOID LLParam = (LPVOID)VirtualAllocEx(hProcess, NULL, strlen(FullPath),
 		MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-	if (LLParam == NULL) { fprintf(stderr, "VirtualAllocEx failed: %d\n", GetLastError()); return 0; }
+	if (LLParam == NULL) { printf("VirtualAllocEx failed: %d\n", GetLastError()); return 0; }
 
 	DWORD ret = WriteProcessMemory(hProcess, LLParam, FullPath, strlen(FullPath), NULL);
-	if (ret == 0) { fprintf(stderr, "WriteProcessMemory failed: %d\n", GetLastError()); return 0; }
+	if (ret == 0) { printf("WriteProcessMemory failed: %d\n", GetLastError()); return 0; }
 
 	HANDLE rt = CreateRemoteThread(hProcess, NULL, NULL, (LPTHREAD_START_ROUTINE)LoadLibraryAddr,
 		LLParam, NULL, NULL);
-	if (rt == NULL) { fprintf(stderr, "CreateRemoteThread failed: %d\n", GetLastError()); return 0; }
+
+	if (rt == NULL) { printf("CreateRemoteThread failed: %d\n", GetLastError()); return 0; }
+
 
 	CloseHandle(hProcess);
 
-	printf("DLL injection to pid %d successful!\n", pid);
-	delete[] DirPath;
-	delete[] FullPath;
+#define PIPE_READ_BUF_SIZE 1024
+#define PIPE_WRITE_BUF_SIZE 16
+
+	std::string pipename = "\\\\.\\pipe\\" + std::to_string(pid);
+
+	printf("Creating pipe %s...\n", pipename.c_str());
+
+	HANDLE pipe = CreateNamedPipe(pipename.c_str(), PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+		PIPE_UNLIMITED_INSTANCES, PIPE_READ_BUF_SIZE, PIPE_WRITE_BUF_SIZE, 0, NULL);
+
+	if (!pipe) {
+		printf("CreateNamedPipe failed: %d\n", GetLastError);
+		return 1;
+	}
+
+	HANDLE hHeap = GetProcessHeap();
+	char *read_buf = (char*)HeapAlloc(hHeap, 0, PIPE_READ_BUF_SIZE*sizeof(char));
+	char *write_buf = (char*)HeapAlloc(hHeap, 0, PIPE_WRITE_BUF_SIZE*sizeof(char));
+
+	static const std::string PATCH_OK = "PATCH_OK";
+	static const std::string PATCH_FAIL = "PATCH_FAIL";
+
+	DWORD sc = 0;
+
+	DWORD num_bytes = 0;
+
+	printf("Pipe created; waiting for client to send data...\n");
+
+	Sleep(1000);
+
+	while (1) {
+		sc = ReadFile(pipe, read_buf, PIPE_READ_BUF_SIZE*sizeof(char), &num_bytes, NULL); // wait for client to propagate patch addresses
+
+		if (!sc || num_bytes == 0) {
+			if (GetLastError() == ERROR_PIPE_LISTENING) {
+				printf("pipe thread: WARNING: ERROR_PIPE_LISTENING!\n");
+			}
+			else if (GetLastError() == ERROR_BROKEN_PIPE) {
+				printf("pipe thread: ERROR_BROKEN_PIPE\n", GetLastError());
+				break;
+			}
+			else {
+				printf("pipe thread: ERROR: 0x%X\n", GetLastError());
+				break;
+			}
+		}
+		else {
+			break; // successe'd
+		}
+	}
+
+	if (validate_response(read_buf)) {
+		memcpy_s(write_buf, PIPE_WRITE_BUF_SIZE, PATCH_OK.c_str(), PATCH_OK.length() + 1);
+	}
+	else {
+		memcpy_s(write_buf, PIPE_WRITE_BUF_SIZE, PATCH_FAIL.c_str(), PATCH_FAIL.length() + 1);
+	}
+
+	sc = WriteFile(pipe, write_buf, strlen(write_buf), &num_bytes, NULL);
+
+	FlushFileBuffers(pipe);
+	DisconnectNamedPipe(pipe);
+	CloseHandle(pipe);
+	
+	printf("Sent %s to client %d. Exiting.\n", write_buf, pid);
+
+	HeapFree(hHeap, 0, read_buf);
+	HeapFree(hHeap, 0, write_buf);
 
 	return 1;
+}
+
+
+static HANDLE inject_dll(HWND window_handle) {
+
+	HANDLE hThread = CreateThread(NULL, 0, inject_threadfunc, (LPVOID)window_handle, 0, NULL);
+	return hThread;
 
 }
 
 static int inject_to_all() {
 
 	wow_handles = std::vector<wowcl>();
+	thread_handles = std::vector<HANDLE>();
 
 	EnumWindows(EnumWindowsProc, NULL);
 
 	for (auto c : wow_handles) {
-		if (!inject_dll(c.window_handle)) return 0;
+		thread_handles.push_back(inject_dll(c.window_handle));
 	}
+
+	WaitForMultipleObjects(thread_handles.size(), &thread_handles[0], TRUE, INFINITE);
 
 	return 1;
 }
