@@ -356,15 +356,15 @@ static int obtain_debug_privileges() {
 	return 1;
 }
 
-static int validate_response(const char *resp) {
+static int suspend_process_for(DWORD pid, DWORD ms) {
+	DebugActiveProcess(pid);
+	Sleep(ms);
+	DebugActiveProcessStop(pid);
 
-	printf("got response \"%s\"\n", resp);
 	return 1;
 }
 
-static DWORD WINAPI inject_threadfunc(LPVOID param) {
-
-	// lol. each thread needs to individually obtain debug privileges..
+static int remote_thread_dll(DWORD pid) {
 
 	if (!obtain_debug_privileges()) {
 		printf("Couldn't obtain debug privileges. Please re-run this program with administrator privileges.");
@@ -375,15 +375,7 @@ static DWORD WINAPI inject_threadfunc(LPVOID param) {
 	char FullPath[MAX_PATH];
 	GetCurrentDirectory(MAX_PATH, DirPath);
 
-	HWND window_handle = (HWND)param;
-
 	sprintf_s(FullPath, MAX_PATH, "%s\\wowibottihookdll.dll", DirPath);
-	printf("%s\n", FullPath);
-
-	DWORD pid;
-	DWORD tid = GetWindowThreadProcessId(window_handle, &pid);
-
-	printf("pid = %d, tid = %d\n", pid, tid);
 
 	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 	if (hProcess == NULL) { printf("OpenProcess failed: %d\n", GetLastError()); return 0; }
@@ -403,8 +395,28 @@ static DWORD WINAPI inject_threadfunc(LPVOID param) {
 
 	if (rt == NULL) { printf("CreateRemoteThread failed: %d\n", GetLastError()); return 0; }
 
-
 	CloseHandle(hProcess);
+
+	return 1;
+}
+
+static int validate_pipe_response(const BYTE *resp) {
+
+#define PIPE_PROTOCOL_MAGIC 0xAB30DD13
+
+	UINT32 magic, num_patches, meta_size;
+	memcpy(&magic, &resp[0], sizeof(UINT32));
+	memcpy(&num_patches, &resp[1 * sizeof(UINT32)], sizeof(UINT32));
+	memcpy(&meta_size, &resp[2 * sizeof(UINT32)], sizeof(UINT32));
+
+	if (magic == PIPE_PROTOCOL_MAGIC) {
+		printf("PIPE_PROTOCOL_MAGIC MATCHES! Client sent %d patches. (meta_size = %d)\n", num_patches, meta_size);
+	}
+
+	return 1;
+}
+
+static int do_pipe_operations(DWORD pid) {
 
 #define PIPE_READ_BUF_SIZE 1024
 #define PIPE_WRITE_BUF_SIZE 16
@@ -413,35 +425,32 @@ static DWORD WINAPI inject_threadfunc(LPVOID param) {
 
 	printf("Creating pipe %s...\n", pipename.c_str());
 
-	HANDLE pipe = CreateNamedPipe(pipename.c_str(), PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+	HANDLE hPipe = CreateNamedPipe(pipename.c_str(), PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
 		PIPE_UNLIMITED_INSTANCES, PIPE_READ_BUF_SIZE, PIPE_WRITE_BUF_SIZE, 0, NULL);
 
-	if (!pipe) {
+	if (!hPipe) {
 		printf("CreateNamedPipe failed: %d\n", GetLastError);
 		return 1;
 	}
 
 	HANDLE hHeap = GetProcessHeap();
-	char *read_buf = (char*)HeapAlloc(hHeap, 0, PIPE_READ_BUF_SIZE*sizeof(char));
+	BYTE *read_buf = (BYTE*)HeapAlloc(hHeap, 0, PIPE_READ_BUF_SIZE*sizeof(BYTE));
 	char *write_buf = (char*)HeapAlloc(hHeap, 0, PIPE_WRITE_BUF_SIZE*sizeof(char));
 
 	static const std::string PATCH_OK = "PATCH_OK";
 	static const std::string PATCH_FAIL = "PATCH_FAIL";
 
 	DWORD sc = 0;
-
 	DWORD num_bytes = 0;
 
 	printf("Pipe created; waiting for client to send data...\n");
 
-	Sleep(1000);
-
 	while (1) {
-		sc = ReadFile(pipe, read_buf, PIPE_READ_BUF_SIZE*sizeof(char), &num_bytes, NULL); // wait for client to propagate patch addresses
+		sc = ReadFile(hPipe, read_buf, PIPE_READ_BUF_SIZE*sizeof(char), &num_bytes, NULL); // wait for client to propagate patch addresses
 
 		if (!sc || num_bytes == 0) {
 			if (GetLastError() == ERROR_PIPE_LISTENING) {
-				printf("pipe thread: WARNING: ERROR_PIPE_LISTENING!\n");
+				//printf("pipe thread: WARNING: ERROR_PIPE_LISTENING!\n");
 			}
 			else if (GetLastError() == ERROR_BROKEN_PIPE) {
 				printf("pipe thread: ERROR_BROKEN_PIPE\n", GetLastError());
@@ -455,21 +464,23 @@ static DWORD WINAPI inject_threadfunc(LPVOID param) {
 		else {
 			break; // successe'd
 		}
+
+		Sleep(200);
 	}
 
-	if (validate_response(read_buf)) {
+	if (validate_pipe_response(read_buf)) {
 		memcpy_s(write_buf, PIPE_WRITE_BUF_SIZE, PATCH_OK.c_str(), PATCH_OK.length() + 1);
 	}
 	else {
 		memcpy_s(write_buf, PIPE_WRITE_BUF_SIZE, PATCH_FAIL.c_str(), PATCH_FAIL.length() + 1);
 	}
 
-	sc = WriteFile(pipe, write_buf, strlen(write_buf), &num_bytes, NULL);
+	sc = WriteFile(hPipe, write_buf, strlen(write_buf), &num_bytes, NULL);
 
-	FlushFileBuffers(pipe);
-	DisconnectNamedPipe(pipe);
-	CloseHandle(pipe);
-	
+	FlushFileBuffers(hPipe);
+	DisconnectNamedPipe(hPipe);
+	CloseHandle(hPipe);
+
 	printf("Sent %s to client %d. Exiting.\n", write_buf, pid);
 
 	HeapFree(hHeap, 0, read_buf);
@@ -478,12 +489,32 @@ static DWORD WINAPI inject_threadfunc(LPVOID param) {
 	return 1;
 }
 
+static DWORD WINAPI inject_threadfunc(LPVOID param) {
+
+	// lol. each thread needs to individually obtain debug privileges..
+	DWORD pid;
+	
+	DWORD tid = GetWindowThreadProcessId((HWND)param, &pid);
+
+	if (!remote_thread_dll(pid)) {
+		printf("remote_thread_dll() failed. Exiting.\n");
+		return 0;
+	}
+	
+	if (!do_pipe_operations(pid)) {
+		printf("do_pipe_operations() failed. Exiting.\n");
+		return 0;
+	}
+
+	//suspend_process_for(pid, 5000);
+
+	return 1;
+}
+
 
 static HANDLE inject_dll(HWND window_handle) {
-
 	HANDLE hThread = CreateThread(NULL, 0, inject_threadfunc, (LPVOID)window_handle, 0, NULL);
 	return hThread;
-
 }
 
 static int inject_to_all() {
@@ -497,7 +528,9 @@ static int inject_to_all() {
 		thread_handles.push_back(inject_dll(c.window_handle));
 	}
 
-	WaitForMultipleObjects(thread_handles.size(), &thread_handles[0], TRUE, INFINITE);
+	if (thread_handles.size() > 0) {
+		WaitForMultipleObjects(thread_handles.size(), &thread_handles[0], TRUE, INFINITE);
+	}
 
 	return 1;
 }

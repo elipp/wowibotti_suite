@@ -98,57 +98,37 @@ static int handle_login_creds() {
 	return 1;
 }
 
-DWORD WINAPI init_func(LPVOID lpParam) {
-	DWORD main_tid = *(DWORD*)lpParam;
-	HANDLE main_thread = OpenThread(THREAD_ALL_ACCESS, FALSE, main_tid);
-	if (!main_thread) {
-		printf("Couldn't open main thread: %d\n", GetLastError());
-		return 0;
-	}
-	SuspendThread(main_thread);
-
-	handle_login_creds();
-	// for whatever reason, the endscene hook only works in Debug mode.
-	hook_all();
-	hook_EndScene();
-
-	ResumeThread(main_thread);
-
-	CloseHandle(main_thread);
-
-	return 1;
-}
-
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
 
 	HANDLE hProcess = GetCurrentProcess();
-	DWORD processID = GetCurrentProcessId();
-	//std::thread hook_thread;
-
+	DWORD pid = GetCurrentProcessId();
+	inj_hModule = hModule;
 	glhProcess = hProcess;
 
 #define PIPE_WRITE_BUF_SIZE 1024
 #define PIPE_READ_BUF_SIZE 16
 
-	std::string pipe_name = "\\\\.\\pipe\\" + std::to_string(processID);
+	std::string pipe_name;
 	HANDLE hPipe;
-	char *write_buf = new char[PIPE_WRITE_BUF_SIZE];
-	char *read_buf = new char[PIPE_READ_BUF_SIZE];
+	char *write_buf, *read_buf;
 	DWORD num_bytes;
-
-	strcpy(write_buf, (std::string("HELLOU MATAFAKAAZ FROM ") + std::to_string(processID)).c_str());
-
 	DWORD sc;
+
 
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH: {
-
-		inj_hModule = hModule;
 #ifdef DEBUG_CONSOLE
 		AllocConsole();
 		freopen("CONOUT$", "wb", stdout);
 #endif
+
+		prepare_patches_and_pipe_data(); 
+
+		pipe_name = "\\\\.\\pipe\\" + std::to_string(pid);
+
+		write_buf = new char[PIPE_WRITE_BUF_SIZE];
+		read_buf = new char[PIPE_READ_BUF_SIZE];
 
 		hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
 		while (!hPipe) {
@@ -156,14 +136,15 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		}
 
 		printf("Got connection to pipe %s!\n", pipe_name.c_str());
+		printf("PIPEDATA.data.size() = %d\n", PIPEDATA.data.size());
 
-		sc = WriteFile(hPipe, write_buf, strlen(write_buf) + 1, &num_bytes, NULL);
+		sc = WriteFile(hPipe, &PIPEDATA.data[0], PIPEDATA.data.size(), &num_bytes, NULL);
 
 		if (!sc || num_bytes == 0) {
 			printf("Writing to pipe %s failed, error: 0x%X\n", pipe_name.c_str(), GetLastError());
 		}
 		else {
-			printf("Sent response %s to pipe server!\n", write_buf);
+			printf("Sent our patch data to pipe server!\n", write_buf);
 		}
 
 		sc = ReadFile(hPipe, read_buf, PIPE_READ_BUF_SIZE, &num_bytes, NULL);
@@ -173,7 +154,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		}
 		else {
 			read_buf[num_bytes] = '\0';
-
 			printf("Got response %s from pipe server\n", read_buf);
 		}
 
@@ -181,7 +161,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 
 //		DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
 
-
+		delete[] read_buf;
+		delete[] write_buf;
 
 		break;
 	}
@@ -192,7 +173,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		break;
 
 	case DLL_PROCESS_DETACH:
-		delete[] write_buf;
 		break;
 	}
 

@@ -6,16 +6,9 @@
 #include "creds.h"
 
 static HRESULT(*EndScene)(void);
+pipe_data PIPEDATA;
 
-static int patch_LUA_prot() {
-	printf("Patching LUA protection function...");
-	static LPVOID lua_prot_addr = (LPVOID)0x49DBA0;
-	static BYTE patch[] = { 0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3 };
-	WriteProcessMemory(glhProcess, lua_prot_addr, patch, sizeof(patch), NULL);
-	printf("OK!\n");
-	return 1;
-}
-
+const UINT32 PIPE_PROTOCOL_MAGIC = 0xAB30DD13;
 
 static void update_hwevent_tick() {
 	typedef int tick_count_t(void);
@@ -24,7 +17,6 @@ static void update_hwevent_tick() {
 	*(int*)(TicksSinceLastHWEvent) = ticks;
 	// this should make us immune to AFK ^^
 }
-
 
 static void attempt_login() {
 	//printf("attempting login with account %s\n", credentials.account.c_str());
@@ -72,7 +64,6 @@ static void __stdcall EndScene_hook() {
 	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
 	every_thirty_frames = every_thirty_frames > 29 ? 0 : every_thirty_frames + 1;
 
-	printf("PELILU\n");
 }
 
 
@@ -152,9 +143,6 @@ static void __stdcall CTM_finished_hookfunc() {
 }
 
 
-
-
-
 struct hookable {
 	std::string funcname;
 	LPVOID address;
@@ -162,6 +150,18 @@ struct hookable {
 	BYTE *patch;
 	size_t patch_size;
 	int(*prepare_patch)(LPVOID, hookable&);
+};
+
+static const BYTE LUA_prot_original[] = {
+	// we're just making an early exit, so nevermind opcode boundaries
+	0x55,
+	0x8B, 0xEC,
+	0x83, 0x3D, 0x40 // this one is cut in the middle
+};
+
+static BYTE LUA_prot_patch[] = {
+	0xB8, 0x01, 0x00, 0x00, 0x00, // MOV EAX, 1
+	0xC3						  // RET
 };
 
 
@@ -220,6 +220,10 @@ static BYTE CTM_finished_patch[] = {
 	0xE9, 0x00, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90, 0x90
 };
 
+static int prepare_LUA_prot_patch(LPVOID hook_func_addr, hookable &h) {
+	return 1;
+}
+
 static int prepare_EndScene_patch(LPVOID hook_func_addr, hookable &h) {
 
 	// this actually seems to work :)
@@ -230,7 +234,7 @@ static int prepare_EndScene_patch(LPVOID hook_func_addr, hookable &h) {
 	unsigned char *tmp1 = *(unsigned char**)(wow_static_DX9 + 0x3864);
 	unsigned char *tmp2 = *(unsigned char**)(tmp1);
 
-	auto EndScene = (HRESULT(*)(void))*(unsigned char**)(tmp2 + 0xA8);
+	EndScene = (HRESULT(*)(void))*(unsigned char**)(tmp2 + 0xA8);
 	printf("Found EndScene at %p\n(Details:\n[0xD2A15C] = %p\n[[0xD2A15C] + 0x3864] = %p\n[[[0xD2A15C] + 0x3864]] = %p)\n\n", EndScene, wow_static_DX9, tmp1, tmp2);
 	h.address = EndScene;
 
@@ -244,7 +248,6 @@ static int prepare_EndScene_patch(LPVOID hook_func_addr, hookable &h) {
 		0x61, // popad
 		0xC3 //ret
 	};
-
 
 	DWORD tr_offset = ((DWORD)EndScene_trampoline - (DWORD)EndScene - 5);
 	memcpy(EndScene_patch + 1, &tr_offset, sizeof(tr_offset));
@@ -496,6 +499,7 @@ static int prepare_CTM_finished_patch(LPVOID hook_func_addr, hookable &h) {
 }
 
 static hookable hookable_functions[] = {
+	{ "LUA_prot", (LPVOID)LUA_prot, LUA_prot_original, LUA_prot_patch, sizeof(LUA_prot_original), prepare_LUA_prot_patch},
 	{ "EndScene", 0x0, EndScene_original, EndScene_patch, sizeof(EndScene_original), prepare_EndScene_patch},
 	{ "DelIgnore", (LPVOID)DelIgnore_hookaddr, DelIgnore_original, DelIgnore_patch, sizeof(DelIgnore_original), prepare_DelIgnore_patch },
 	{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, sizeof(ClosePetStables_original), prepare_ClosePetStables_patch },
@@ -504,12 +508,38 @@ static hookable hookable_functions[] = {
 	{ "CTM_update", (LPVOID)CTM_update_hookaddr, CTM_finished_original, CTM_finished_patch, sizeof(CTM_finished_original), prepare_CTM_finished_patch}
 };
 
+static int prepare_patch(const std::string &funcname, LPVOID hook_func_addr) {
+	for (auto &h : hookable_functions) {
+		if (funcname == h.funcname) {
+			h.prepare_patch(hook_func_addr, h);
+			printf("prepare_patch successful for function %s!\n", funcname.c_str());
+			return 1;
+		}
+	}
 
+	return 0;
+}
+
+int prepare_patches_and_pipe_data() {
+
+	prepare_patch("LUA_prot", 0x0);
+	prepare_patch("DelIgnore", DelIgnore_hub);
+	prepare_patch("CTM_main", broadcast_CTM);
+	prepare_patch("CTM_update", CTM_finished_hookfunc);
+	prepare_patch("EndScene", EndScene_hook);
+
+	PIPEDATA.add_patch(patch_serialized(LUA_prot, sizeof(LUA_prot_patch), LUA_prot_original, LUA_prot_patch));
+	PIPEDATA.add_patch(patch_serialized(DelIgnore_hookaddr, sizeof(DelIgnore_patch), DelIgnore_original, DelIgnore_patch));
+	PIPEDATA.add_patch(patch_serialized(CTM_main, sizeof(CTM_main_patch), CTM_main_original, CTM_main_patch));
+	PIPEDATA.add_patch(patch_serialized(CTM_update, sizeof(CTM_aux_patch), CTM_aux_original, CTM_aux_patch));
+	PIPEDATA.add_patch(patch_serialized((UINT32)EndScene, sizeof(EndScene_patch), EndScene_original, EndScene_patch));
+
+	return 1;
+}
 
 static int install_hook(const std::string &funcname, LPVOID hook_func_addr) {
-	//for (int i = 0; i < sizeof(hookable_functions) / sizeof(hookable_functions[0]); ++i) {
+
 	for (auto &h : hookable_functions) {
-		//const hookable &h = hookable_functions[i];
 		if (funcname == h.funcname) {
 			h.prepare_patch(hook_func_addr, h);
 			SIZE_T bytes;
@@ -545,14 +575,10 @@ static int uninstall_hook(const std::string &funcname) {
 
 int hook_all() {
 
-	patch_LUA_prot();
-
 	install_hook("DelIgnore", DelIgnore_hub);
-
 	install_hook("CTM_main", broadcast_CTM);
 	install_hook("CTM_update", CTM_finished_hookfunc);
-
-	//install_hook("EndScene", EndScene_hook);
+	install_hook("EndScene", EndScene_hook);
 
 	return 1;
 }
@@ -579,3 +605,26 @@ int patch_DelIgnore() {
 
 	return 1;
 }
+
+
+
+patch_serialized::patch_serialized(UINT32 patch_addr, UINT32 patch_size, const BYTE *original_opcodes, const BYTE *patch_opcodes) {
+	buffer_size = 2 * sizeof(UINT32) + 2 * patch_size;
+	
+	buffer = new BYTE[buffer_size];
+
+	memcpy(buffer + 0 * sizeof(UINT32), &patch_addr, sizeof(UINT32));
+	memcpy(buffer + 1 * sizeof(UINT32), &patch_size, sizeof(UINT32));
+	memcpy(buffer + 2 * sizeof(UINT32), original_opcodes, patch_size);
+	memcpy(buffer + 2 * sizeof(UINT32) + patch_size, patch_opcodes, patch_size);
+
+}
+
+int pipe_data::add_patch(const patch_serialized &p) {
+	data.insert(data.end(), &p.buffer[0], &p.buffer[p.buffer_size]);
+	++num_patches;
+	memcpy(&data[4], &num_patches, sizeof(UINT32));
+
+	return num_patches;
+}
+

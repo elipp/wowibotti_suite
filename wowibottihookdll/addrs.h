@@ -2,6 +2,7 @@
 
 #include "defs.h"
 
+#define LUA_prot 0x49DBA0
 #define DelIgnore 0x5BA4B0
 #define DelIgnore_hookaddr (DelIgnore + 0x11)
 #define ClosePetStables 0x4FACA0
