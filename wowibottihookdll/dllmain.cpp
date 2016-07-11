@@ -98,23 +98,108 @@ static int handle_login_creds() {
 	return 1;
 }
 
-
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
-
-	HANDLE hProcess = GetCurrentProcess();
-	DWORD pid = GetCurrentProcessId();
-	inj_hModule = hModule;
-	glhProcess = hProcess;
-
+int handle_pipe_stuff() {
 #define PIPE_WRITE_BUF_SIZE 1024
-#define PIPE_READ_BUF_SIZE 16
+#define PIPE_READ_BUF_SIZE 1024
 
-	std::string pipe_name;
 	HANDLE hPipe;
-	char *write_buf, *read_buf;
 	DWORD num_bytes;
 	DWORD sc;
 
+	DWORD pid = GetCurrentProcessId();
+
+	prepare_patches_and_pipe_data();
+
+	std::string pipe_name = "\\\\.\\pipe\\" + std::to_string(pid);
+
+	char *write_buf = new char[PIPE_WRITE_BUF_SIZE];
+	char *read_buf = new char[PIPE_READ_BUF_SIZE];
+
+	hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+	while (!hPipe) {
+		CreateFile(pipe_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+	}
+
+	printf("Got connection to pipe %s!\n", pipe_name.c_str());
+	printf("PIPEDATA.data.size() = %d\n", PIPEDATA.data.size());
+
+	sc = WriteFile(hPipe, &PIPEDATA.data[0], PIPEDATA.data.size(), &num_bytes, NULL);
+
+	if (!sc || num_bytes == 0) {
+		printf("Writing to pipe %s failed, error: 0x%X\n", pipe_name.c_str(), GetLastError());
+		return 0;
+	}
+	else {
+		printf("Sent our patch data to pipe server!\n");
+	}
+
+	sc = ReadFile(hPipe, read_buf, PIPE_READ_BUF_SIZE, &num_bytes, NULL);
+
+	if (!sc || num_bytes == 0) {
+		printf("Reading from pipe %s failed, error: 0x%X\n", pipe_name.c_str(), GetLastError());
+		return 0;
+	}
+	else {
+		read_buf[num_bytes] = '\0';
+		printf("Got response %s from pipe server\n", read_buf);
+	}
+
+	std::vector<std::string> tokens;
+	tokenize_string(read_buf, ";", tokens);
+
+	cred_t creds;
+
+	if (tokens.size() > 1) {
+		printf("DEBUG got more than 1 tokens\n");
+		
+		for (auto &s : tokens) {
+			std::vector<std::string> L2;
+			tokenize_string(s, "=", L2);
+
+			if (L2.size() > 1) {
+		
+				if (L2[0] == "CREDENTIALS") {
+					if (L2.size() != 2) {
+						printf("parse_credentials: error: malformed credentials (tokenized vector size != 2!)\n");
+						break;
+					}
+					std::vector<std::string> L3;
+					tokenize_string(L2[1], ",", L3);
+
+					if (L3.size() != 3) {
+						printf("parse_credentials: error: invalid number of members in credential string! Expected 3, got %d\n", L3.size());
+						break;
+					}
+
+					creds = cred_t(L3[0], L3[1], L3[2]);
+				}
+			}
+		}
+	}
+	else {
+		if (tokens[0] == "PATCH_FAIL") {
+			printf("Got PATCH_FAIL. RIP. No idea what's going to happen next.\n");
+		}
+		else if (tokens[0] == "PATCH_OK") {
+			printf("Got PATCH_OK. No login credentials sent.\n");
+		}
+	}
+
+	CloseHandle(hPipe);
+
+	//		DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
+
+	delete[] read_buf;
+	delete[] write_buf;
+
+	return 1;
+
+}
+
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+
+	inj_hModule = hModule;
+	glhProcess = GetCurrentProcess;
 
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH: {
@@ -123,47 +208,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		freopen("CONOUT$", "wb", stdout);
 #endif
 
-		prepare_patches_and_pipe_data(); 
-
-		pipe_name = "\\\\.\\pipe\\" + std::to_string(pid);
-
-		write_buf = new char[PIPE_WRITE_BUF_SIZE];
-		read_buf = new char[PIPE_READ_BUF_SIZE];
-
-		hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-		while (!hPipe) {
-			CreateFile(pipe_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-		}
-
-		printf("Got connection to pipe %s!\n", pipe_name.c_str());
-		printf("PIPEDATA.data.size() = %d\n", PIPEDATA.data.size());
-
-		sc = WriteFile(hPipe, &PIPEDATA.data[0], PIPEDATA.data.size(), &num_bytes, NULL);
-
-		if (!sc || num_bytes == 0) {
-			printf("Writing to pipe %s failed, error: 0x%X\n", pipe_name.c_str(), GetLastError());
-		}
-		else {
-			printf("Sent our patch data to pipe server!\n");
-		}
-
-		sc = ReadFile(hPipe, read_buf, PIPE_READ_BUF_SIZE, &num_bytes, NULL);
-
-		if (!sc || num_bytes == 0) {
-			printf("Reading from pipe %s failed, error: 0x%X\n", pipe_name.c_str(), GetLastError());
-		}
-		else {
-			read_buf[num_bytes] = '\0';
-			printf("Got response %s from pipe server\n", read_buf);
-		}
-
-		CloseHandle(hPipe);
-
-//		DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
-
-		delete[] read_buf;
-		delete[] write_buf;
-
+		handle_pipe_stuff();
+	
 		break;
 	}
 	case DLL_THREAD_ATTACH:

@@ -38,25 +38,36 @@ static std::unordered_map <std::string, HWND> char_select_checkboxes;
 #define DEBUG_CONSOLE
 //#endif
 
-struct wowcl {
+struct wowcl_t {
 	HWND window_handle;
 	std::string window_title;
 	int valid;
 	DWORD pid;
-	wowcl() {};
-	wowcl(HWND hWnd, std::string &title)
+	wowcl_t() {};
+	wowcl_t(HWND hWnd, std::string &title)
 		: window_handle(hWnd), window_title(title), valid(1) {
 		GetWindowThreadProcessId(hWnd, &pid);
 	}
 };
 
-static std::vector<wowcl> wow_handles;
+static std::vector<wowcl_t> wow_handles;
 static std::vector<HANDLE> cred_file_map_handles;
 
-struct wowaccount {
+struct wowaccount_t {
 	std::string login_name, password, char_name, class_name;
-	wowaccount(std::string ln, std::string pw, std::string chn, std::string cln) : login_name(ln), password(pw), char_name(chn), class_name(cln) {}
+	int valid;
+	wowaccount_t(std::string ln, std::string pw, std::string chn, std::string cln) 
+		: login_name(ln), password(pw), char_name(chn), class_name(cln), valid(1) {}
+
+	wowaccount_t() : valid(0) {}
+
+	std::string get_pipe_formatted_cred_string() const {
+		return login_name + "," + password + "," + char_name;
+	}
 };
+
+static std::unordered_map <DWORD, wowaccount_t> creds;
+
 
 static void error_box(const std::string &msg) {
 	MessageBox(NULL, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
@@ -100,7 +111,7 @@ static int find_stuff_between(const std::string &in_str, char c, std::string &ou
 
 struct potti_config {
 	std::string client_exe_path;
-	std::vector<wowaccount> accounts;
+	std::vector<wowaccount_t> accounts;
 
 	int read_from_file(const char* filename) {
 		std::ifstream conf_file(filename);
@@ -153,7 +164,7 @@ struct potti_config {
 						return 0;
 					}
 
-					this->accounts.push_back(wowaccount(L2_tokens[0], L2_tokens[1], L2_tokens[2], L2_tokens[3]));
+					this->accounts.push_back(wowaccount_t(L2_tokens[0], L2_tokens[1], L2_tokens[2], L2_tokens[3]));
 				}
 
 			}
@@ -182,7 +193,7 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam) {
 	GetWindowText(hWnd, title, sizeof(title));
 
 	if (strcmp(title, "World of Warcraft") == 0) {
-		wow_handles.push_back(wowcl(hWnd, std::string(title)));
+		wow_handles.push_back(wowcl_t(hWnd, std::string(title)));
 	}
 
 	return TRUE;
@@ -243,10 +254,83 @@ static BOOL SetPrivilege(HANDLE hToken, LPCTSTR Privilege, BOOL bEnablePrivilege
 	return TRUE;
 }
 
-static int create_account_assignments() {
+//static int create_account_assignments() {
+//	static const size_t BUF_MAX = 256;
+//
+//	// empty these
+//	wow_handles = std::vector<wowcl_t>();
+//	creds = std::unordered_map<DWORD, wowaccount_t>();
+//
+//	EnumWindows(EnumWindowsProc, NULL);
+//
+//	if (wow_handles.size() < 1) { return 1; }
+//
+//	int num_to_process = num_characters_selected;
+//	if (wow_handles.size() < num_to_process) {
+//		num_to_process = wow_handles.size();
+//	}
+//
+//	// gather all checked clients to a vector
+//	std::vector <std::pair<wowaccount_t, wowcl_t>> assigned_accs;
+//	int n = 0;
+//	for (const auto &account : config_state.accounts) {
+//		HWND hWnd = char_select_checkboxes[account.char_name];
+//		LRESULT state = SendMessage(hWnd, BM_GETCHECK, 0, 0);
+//		if (state == BST_CHECKED) {
+//			assigned_accs.push_back(std::make_pair(account, wow_handles[n]));
+//			++n;
+//		}
+//	}
+//
+//	if (num_characters_selected != assigned_accs.size()) {
+//		printf("WARNING: create_account_assignments: num_characters_selected (%d) != assigned_accs.size() (%d)!!\n", num_characters_selected, assigned_accs.size());
+//	}
+//
+//	for (int i = 0; i < num_to_process; ++i) {
+//
+//		DWORD err;
+//		
+//		wowcl_t &c = assigned_accs[i].second;
+//
+//		std::string cred_fd = "Local\\lole_login_" + std::to_string(c.pid);
+//
+//		HANDLE filemap = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, BUF_MAX, cred_fd.c_str());
+//		err = GetLastError();
+//
+//		if (err != NO_ERROR) {
+//			error_box("Error. CreateFileMapping failed!");
+//			printf("CreateFileMapping failed! %d\n", err);
+//			return 0;
+//		}
+//
+//		cred_file_map_handles.push_back(filemap);
+//
+//		auto buf = MapViewOfFile(filemap, FILE_MAP_ALL_ACCESS, 0, 0, BUF_MAX);
+//		err = GetLastError();
+//		
+//		if (err != NO_ERROR) {
+//			error_box("Error. MapViewOfFile failed!");
+//			printf("MapViewOfFile: error: %d\n", err);
+//		}
+//	
+//		const wowaccount_t &acc = assigned_accs[i].first;
+//
+//		std::string content = acc.login_name + "," + acc.password + "," + acc.char_name;
+//
+//		CopyMemory(buf, content.c_str(), content.size());
+//		UnmapViewOfFile(buf);
+//
+//		printf("Assigned account %s to pid %d (cred_fd name: %s)\n", acc.login_name.c_str(), c.pid, cred_fd.c_str());
+//	}
+//
+//	return TRUE;
+//
+//}
+
+static int create_account_assignments2() {
 	static const size_t BUF_MAX = 256;
 
-	wow_handles = std::vector<wowcl>();
+	wow_handles = std::vector<wowcl_t>();
 	EnumWindows(EnumWindowsProc, NULL);
 
 	if (wow_handles.size() < 1) { return 1; }
@@ -257,7 +341,7 @@ static int create_account_assignments() {
 	}
 
 	// gather all checked clients to a vector
-	std::vector <std::pair<wowaccount, wowcl>> assigned_accs;
+	std::vector <std::pair<wowaccount_t, wowcl_t>> assigned_accs;
 	int n = 0;
 	for (const auto &account : config_state.accounts) {
 		HWND hWnd = char_select_checkboxes[account.char_name];
@@ -267,7 +351,7 @@ static int create_account_assignments() {
 			++n;
 		}
 	}
-
+	
 	if (num_characters_selected != assigned_accs.size()) {
 		printf("WARNING: create_account_assignments: num_characters_selected (%d) != assigned_accs.size() (%d)!!\n", num_characters_selected, assigned_accs.size());
 	}
@@ -275,41 +359,19 @@ static int create_account_assignments() {
 	for (int i = 0; i < num_to_process; ++i) {
 
 		DWORD err;
-		
-		wowcl &c = assigned_accs[i].second;
 
-		std::string cred_fd = "Local\\lole_login_" + std::to_string(c.pid);
+		const wowcl_t &c = assigned_accs[i].second;
+		const wowaccount_t &acc = assigned_accs[i].first;
 
-		HANDLE filemap = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, BUF_MAX, cred_fd.c_str());
-		err = GetLastError();
+		//std::string content = acc.login_name + "," + acc.password + "," + acc.char_name;
 
-		if (err != NO_ERROR) {
-			error_box("Error. CreateFileMapping failed!");
-			printf("CreateFileMapping failed! %d\n", err);
-			return 0;
-		}
+		creds[c.pid] = acc;
 
-		cred_file_map_handles.push_back(filemap);
-
-		auto buf = MapViewOfFile(filemap, FILE_MAP_ALL_ACCESS, 0, 0, BUF_MAX);
-		err = GetLastError();
-		
-		if (err != NO_ERROR) {
-			error_box("Error. MapViewOfFile failed!");
-			printf("MapViewOfFile: error: %d\n", err);
-		}
-	
-		const wowaccount &acc = assigned_accs[i].first;
-
-		std::string content = acc.login_name + "," + acc.password + "," + acc.char_name;
-
-		CopyMemory(buf, content.c_str(), content.size());
-		UnmapViewOfFile(buf);
-
-		printf("Assigned account %s to pid %d (cred_fd name: %s)\n", acc.login_name.c_str(), c.pid, cred_fd.c_str());
+		printf("Assigned account %s to pid %d\n", acc.login_name.c_str(), c.pid);
 	}
 
 	return TRUE;
+
 
 }
 
@@ -449,7 +511,6 @@ static int parse_pipe_response(const BYTE *resp, std::vector<patch_t> &patches) 
 static int suspend_and_apply_patches(DWORD pid, const std::vector<patch_t> patches) {
 	printf("Suspending Wow.exe with PID %d for patching...\n", pid);
 	DebugActiveProcess(pid);
-//	Sleep(500);
 
 	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 
@@ -477,6 +538,26 @@ static int suspend_and_apply_patches(DWORD pid, const std::vector<patch_t> patch
 	return 1;
 }
 
+static int get_credentials(DWORD pid, std::string *cred_str) {
+
+	if (creds.size() < 1) {
+		printf("(send_credentials: no credentials appear to have been assigned. Skipping!)\n");
+		return 0;
+	}
+
+	if (creds.find(pid) == creds.end()) {
+		printf("send_credentials: No credentials were assigned to pid %d. Exiting.\n", pid);
+		return 0;
+	}
+
+	const wowaccount_t &account = creds[pid];
+
+	*cred_str = account.get_pipe_formatted_cred_string();
+
+	return 1;
+
+}
+
 static int do_pipe_operations(DWORD pid) {
 
 #define PIPE_READ_BUF_SIZE 1024
@@ -496,7 +577,6 @@ static int do_pipe_operations(DWORD pid) {
 
 	HANDLE hHeap = GetProcessHeap();
 	BYTE *read_buf = (BYTE*)HeapAlloc(hHeap, 0, PIPE_READ_BUF_SIZE*sizeof(BYTE));
-	char *write_buf = (char*)HeapAlloc(hHeap, 0, PIPE_WRITE_BUF_SIZE*sizeof(char));
 
 	static const std::string PATCH_OK = "PATCH_OK";
 	static const std::string PATCH_FAIL = "PATCH_FAIL";
@@ -531,25 +611,32 @@ static int do_pipe_operations(DWORD pid) {
 
 	std::vector<patch_t> patches;
 
+	std::string response_str;
+
 	if (parse_pipe_response(read_buf, patches)) {
-		memcpy_s(write_buf, PIPE_WRITE_BUF_SIZE, PATCH_OK.c_str(), PATCH_OK.length() + 1);
+		response_str = PATCH_OK;
 		suspend_and_apply_patches(pid, patches);
+		
+		std::string cred_str;
+		if (get_credentials(pid, &cred_str)) {
+			response_str.append(";CREDENTIALS=" + cred_str);
+		}
+	
 	}
 	else {
+		response_str = PATCH_FAIL;
 		printf("parse_pipe_response() failed :(\n");
-		memcpy_s(write_buf, PIPE_WRITE_BUF_SIZE, PATCH_FAIL.c_str(), PATCH_FAIL.length() + 1);
 	}
 
-	sc = WriteFile(hPipe, write_buf, strlen(write_buf), &num_bytes, NULL);
+	sc = WriteFile(hPipe, response_str.c_str(), response_str.length()+1, &num_bytes, NULL);
 
 	FlushFileBuffers(hPipe);
 	DisconnectNamedPipe(hPipe);
 	CloseHandle(hPipe);
 
-	printf("Sent %s to client %d. Exiting.\n", write_buf, pid);
+	printf("Sent response %s to client %d. Exiting.\n", response_str.c_str(), pid);
 
 	HeapFree(hHeap, 0, read_buf);
-	HeapFree(hHeap, 0, write_buf);
 
 	return 1;
 }
@@ -584,7 +671,7 @@ static HANDLE inject_dll(HWND window_handle) {
 
 static int inject_to_all() {
 
-	wow_handles = std::vector<wowcl>();
+	wow_handles = std::vector<wowcl_t>();
 	thread_handles = std::vector<HANDLE>();
 
 	EnumWindows(EnumWindowsProc, NULL);
@@ -692,7 +779,7 @@ static int launch_clients() {
 
 static int set_affinities() {
 	
-	wow_handles = std::vector<wowcl>();
+	wow_handles = std::vector<wowcl_t>();
 
 	EnumWindows(EnumWindowsProc, NULL);
 
@@ -759,7 +846,7 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 				return TRUE;
 			}
 			else if ((HWND)lParam == button_assign_hWnd) {
-				create_account_assignments();
+				create_account_assignments2();
 				return TRUE;
 			}
 			else {
