@@ -134,6 +134,8 @@ private:
 	unsigned int base_addr;                       // the base address of the object manager
 	GUID_t localGUID;
 
+	int invalid;
+
 public:
 
 	int valid() const;

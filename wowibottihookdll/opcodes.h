@@ -31,14 +31,18 @@ typedef void(*hubfunc_t)(const std::string &);
 #define LOLE_OPCODE_HUG_SPELL_OBJECT	0x12
 #define LOLE_OPCODE_SPREAD				0x13
 #define LOLE_OPCODE_PULL_MOB			0x14
-#define LOLE_OPCODE_PATCH_ENDSCENE		0x15
+#define LOLE_OPCODE_REPORT_LOGIN		0x15
 
-#define LOLE_DEBUG_OPCODE_DUMP			0xF1
-#define LOLE_DEBUG_LOOT_ALL				0xF2
+#define LOLE_DEBUG_OPCODE_NOP			0x80
+#define LOLE_DEBUG_OPCODE_DUMP			0x81
+#define LOLE_DEBUG_OPCODE_LOOT_ALL		0x82
+#define LOLE_DEBUG_OPCODE_QUERY_INJECTED 0x83
 
 int opcode_call(int opcode, const std::string &arg);
 int opcode_debug_call(int debug_opcode, const std::string &arg);
 const std::string &opcode_get_funcname(int opcode);
+const std::string &debug_opcode_get_funcname(int opcode_unmasked);
+
 int opcode_get_num_args(int opcode);
 
 void refollow_if_needed();

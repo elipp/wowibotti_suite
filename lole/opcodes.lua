@@ -21,7 +21,7 @@ LOLE_OPCODE_AVOID_SPELL_OBJECT,
 LOLE_OPCODE_HUG_SPELL_OBJECT,
 LOLE_OPCODE_SPREAD,
 LOLE_OPCODE_PULL_MOB,
-LOLE_OPCODE_PATCH_ENDSCENE
+LOLE_OPCODE_REPORT_LOGIN
 
 = "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04",
 "LOP_05", "LOP_06", "LOP_07", "LOP_08",
@@ -180,6 +180,15 @@ function hug_spell_with_spellID(spellID)
 	DelIgnore(LOLE_OPCODE_HUG_SPELL_OBJECT .. ":" .. tostring(spellID))
 end
 
+function report_login(flag)
+	local str_arg = ""
+	if flag == true then
+		str_arg = "1"
+	else
+		str_arg = "0"
+	end
+	DelIgnore(LOLE_OPCODE_REPORT_LOGIN .. ":" .. str_arg)
+end
 
 function lole_debug_dump_wowobjects()
 	DelIgnore(LOLE_DEBUG_OPCODE_DUMP);

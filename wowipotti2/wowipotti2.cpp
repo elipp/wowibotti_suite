@@ -484,6 +484,7 @@ static int parse_pipe_response(const BYTE *resp, std::vector<patch_t> &patches) 
 		return 0;
 	}
 
+
 	const BYTE *iter = &resp[3*sizeof(UINT32)];
 
 	for (int i = 0; i < num_patches; ++i) {

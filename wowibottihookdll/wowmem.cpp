@@ -1,6 +1,8 @@
 #include "wowmem.h"
 #include "ctm.h"
 
+#include "creds.h"
+
 
 int const (*LUA_DoString)(const char*, const char*, const char*) = (int const(*)(const char*, const char*, const char*)) LUA_DoString_addr;
 int const (*SelectUnit)(GUID_t) = (int const(*)(GUID_t)) SelectUnit_addr;
@@ -322,10 +324,16 @@ vec3 WowObject::DO_get_pos() const {
 
 
 void ObjectManager::LoadAddresses() {
-	unsigned int currentManager_pre = 0;
+
+	if (!credentials.logged_in) { this->invalid = 1; return; }
+
+	DWORD currentManager_pre = 0;
 	readAddr(clientConnection_addr_static, &currentManager_pre, sizeof(currentManager_pre));
 	readAddr(currentManager_pre + objectManagerOffset, &base_addr, sizeof(base_addr));
 	readAddr(base_addr + localGUIDOffset, &localGUID, sizeof(localGUID));
+
+	this->invalid = 0;
+
 }
 
 
@@ -354,7 +362,7 @@ WowObject ObjectManager::get_object_by_GUID(GUID_t GUID) const {
 GUID_t ObjectManager::get_local_GUID() const { return localGUID; }
 
 int ObjectManager::valid() const {
-	return !base_addr;
+	return !base_addr || !invalid;
 }
 
 WowObject ObjectManager::get_local_object() const {

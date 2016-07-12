@@ -9,7 +9,9 @@ lole_frame:RegisterEvent("RESURRECT_REQUEST")
 lole_frame:RegisterEvent("CONFIRM_SUMMON")
 lole_frame:RegisterEvent("LOOT_OPENED")
 lole_frame:RegisterEvent("CVAR_UPDATE")
-lole_frame:RegisterEvent("TRADE_SHOW");
+lole_frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+lole_frame:RegisterEvent("PLAYER_LOGOUT")
+lole_frame:RegisterEvent("TRADE_SHOW")
 
 local every_nth_frame = 4
 local frame_modulo = 0
@@ -161,6 +163,12 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 			AcceptTrade()
 			self:UnregisterEvent("TRADE_ACCEPT_UPDATE")
 		end
+
+	elseif event == "PLAYER_ENTERING_WORLD" then
+		report_login(true);
+
+	elseif event == "PLAYER_LOGOUT" then
+		report_login(false)
 	end
 
 

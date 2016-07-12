@@ -18,21 +18,30 @@ static void update_hwevent_tick() {
 	// this should make us immune to AFK ^^
 }
 
-static void attempt_login() {
-	//printf("attempting login with account %s\n", credentials.account.c_str());
-	DoString(credentials.login_script.c_str());
-}
-
 static void update_debug_positions() {
+
 	ObjectManager OM;
+
+	if (!OM.valid()) {
+		printf("ObjectManager not ready.\n");
+		return;
+	}
+
 	auto p = OM.get_local_object();
+	if (!p.valid()) { 
+		printf("local GUID = %llX, but get_local_object returned an invalid object!\n", OM.get_local_GUID());
+		return; 
+	}
 	vec3 ppos = p.get_pos();
 	char buf[128];
 
+
 	sprintf(buf, "(%.1f, %.1f, %.1f)", ppos.x, ppos.y, ppos.z);
+	printf("dbg_pos: local_GUID = %llX, target_GUID = %llX, buf: %s\n", OM.get_local_GUID(), get_target_GUID(), buf);
+
 	DoString("SetCVar(\"movieSubtitle\", \"%s\", \"player_pos\")", buf);
 
-	if (get_target_GUID() != 0) {
+	if (get_target_GUID() != (GUID_t)0) {
 		auto t = OM.get_object_by_GUID(get_target_GUID());
 		vec3 tpos = t.get_pos();
 		sprintf(buf, "(%.1f, %.1f, %.1f)", tpos.x, tpos.y, tpos.z);
@@ -56,9 +65,14 @@ static void __stdcall EndScene_hook() {
 	}
 
 	if (every_thirty_frames == 0) {
-		update_debug_positions();
 		update_hwevent_tick();
-		attempt_login();
+
+		if (credentials.valid && !credentials.logged_in) credentials.try_login();
+
+		if (credentials.logged_in) {
+			update_debug_positions();
+		}
+			
 	}
 
 	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
@@ -111,7 +125,7 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 	if (op & 0x80) {
 		int debug_op = op & 0x7F;
 		opcode_debug_call(debug_op, arg);
-		printf("DelIgnore_hub: got DEBUG opcode %lu -> %s\n", op, opcode_get_funcname(debug_op).c_str());
+		printf("DelIgnore_hub: got DEBUG opcode %lu -> %s\n", op, debug_opcode_get_funcname(debug_op).c_str());
 		return;
 	}
 
@@ -277,7 +291,7 @@ static int prepare_DelIgnore_patch(LPVOID hook_func_addr, hookable &h) {
 
 	printf("Preparing DelIgnore patch...\n");
 
-	uint PATCH_ADDR = 0x7BA4C1;
+	//uint PATCH_ADDR = 0x7BA4C1;
 
 	static BYTE DelIgnore_trampoline[] = {
 		// from the original DelIgnore func
@@ -508,6 +522,19 @@ static hookable hookable_functions[] = {
 	{ "CTM_update", (LPVOID)CTM_update_hookaddr, CTM_finished_original, CTM_finished_patch, sizeof(CTM_finished_original), prepare_CTM_finished_patch}
 };
 
+static hookable *find_hookable(const std::string &funcname) {
+	for (auto &h : hookable_functions) {
+		if (h.funcname == funcname) {
+			return &h;
+		}
+	}
+	return NULL;
+}
+
+static patch_serialized get_patch_from_hookable(const hookable *hook) {
+	return patch_serialized((DWORD)hook->address, hook->patch_size, hook->original_opcodes, hook->patch);
+}
+
 static int prepare_patch(const std::string &funcname, LPVOID hook_func_addr) {
 	for (auto &h : hookable_functions) {
 		if (funcname == h.funcname) {
@@ -528,11 +555,11 @@ int prepare_patches_and_pipe_data() {
 	prepare_patch("CTM_update", CTM_finished_hookfunc);
 	prepare_patch("EndScene", EndScene_hook);
 
-	PIPEDATA.add_patch(patch_serialized(LUA_prot, sizeof(LUA_prot_patch), LUA_prot_original, LUA_prot_patch));
-	PIPEDATA.add_patch(patch_serialized(DelIgnore_hookaddr, sizeof(DelIgnore_patch), DelIgnore_original, DelIgnore_patch));
-	PIPEDATA.add_patch(patch_serialized(CTM_main, sizeof(CTM_main_patch), CTM_main_original, CTM_main_patch));
-	PIPEDATA.add_patch(patch_serialized(CTM_update, sizeof(CTM_finished_patch), CTM_finished_original, CTM_finished_patch));
-	PIPEDATA.add_patch(patch_serialized((UINT32)EndScene, sizeof(EndScene_patch), EndScene_original, EndScene_patch));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("DelIgnore")));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("LUA_prot")));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_main")));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));
 
 	return 1;
 }

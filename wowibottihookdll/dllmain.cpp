@@ -23,7 +23,7 @@
 #include "creds.h"
 
 #ifdef _DEBUG
-#define DEBUG_CONSOLE
+//#define DEBUG_CONSOLE
 #endif
 
 static HINSTANCE inj_hModule;          // HANDLE for injected module
@@ -56,47 +56,6 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam) {
 	return TRUE;
 }
 
-static int handle_login_creds() {
-
-	printf("@ handle_login_creds\n");
-	static const size_t BUF_SIZE = 256;
-
-	std::string cred_fd = "Local\\lole_login_" + std::to_string(GetCurrentProcessId());
-
-	HANDLE login_map = OpenFileMapping(FILE_MAP_ALL_ACCESS, NULL, cred_fd.c_str());
-	DWORD err = GetLastError();
-	
-	if (err == NO_ERROR) {
-		// then the lole launcher has assigned this client some login credentials to use
-		char buf[BUF_SIZE];
-		LPVOID fd_addr = MapViewOfFile(login_map, FILE_MAP_ALL_ACCESS, 0, 0, BUF_SIZE);
-
-		if (fd_addr == NULL) {
-			MessageBox(NULL, ("error with MapViewOfFile: " + std::to_string(GetLastError())).c_str(), "mro", MB_OK);
-			return 1;
-		}
-
-		CopyMemory(buf, fd_addr, BUF_SIZE);
-
-		std::vector<std::string> cred_tokens;
-		tokenize_string(buf, ",", cred_tokens);
-
-		if (cred_tokens.size() != 3) {
-			MessageBox(NULL, "The login credentials assigned to us were invalid. Expected 3 elements.", "mro", MB_OK);
-			return 0;
-		}
-
-//		credentials = cred_t(cred_tokens[0], cred_tokens[1], cred_tokens[2]);
-
-	}
-	else {
-		printf("warning: OpenFileMapping returned error %d for account credential handling! fd name: %s\n", err, cred_fd.c_str());
-	}
-
-	CloseHandle(login_map);
-
-	return 1;
-}
 
 int handle_pipe_stuff() {
 #define PIPE_WRITE_BUF_SIZE 1024
@@ -117,6 +76,7 @@ int handle_pipe_stuff() {
 
 	hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
 	while (!hPipe) {
+		Sleep(250);
 		CreateFile(pipe_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
 	}
 
@@ -147,8 +107,6 @@ int handle_pipe_stuff() {
 	std::vector<std::string> tokens;
 	tokenize_string(read_buf, ";", tokens);
 
-	cred_t creds;
-
 	if (tokens.size() > 1) {
 		printf("DEBUG got more than 1 tokens\n");
 		
@@ -171,7 +129,7 @@ int handle_pipe_stuff() {
 						break;
 					}
 
-					creds = cred_t(L3[0], L3[1], L3[2]);
+					credentials = cred_t(L3[0], L3[1], L3[2]);
 				}
 			}
 		}
@@ -199,7 +157,7 @@ int handle_pipe_stuff() {
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
 
 	inj_hModule = hModule;
-	glhProcess = GetCurrentProcess;
+	glhProcess = GetCurrentProcess();
 
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH: {

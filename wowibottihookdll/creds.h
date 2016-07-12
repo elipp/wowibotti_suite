@@ -2,10 +2,14 @@
 
 #include <string>
 
+#include "wowmem.h"
+
 struct cred_t {
 	std::string account_name, password, character_name;
 	std::string login_script;
-	cred_t(const std::string &account, const std::string &pw, const std::string &ch) : account_name(account), password(pw), character_name(ch) {
+	int valid, logged_in;
+	cred_t(const std::string &account, const std::string &pw, const std::string &ch) 
+		: account_name(account), password(pw), character_name(ch), valid(1), logged_in(0) {
 		char buf[512];
 
 		sprintf(buf, "if (AccountLoginUI and AccountLoginUI:IsShown()) then AccountLoginUI:Hide(); DefaultServerLogin('%s', '%s');\
@@ -23,6 +27,12 @@ struct cred_t {
 		password = "";
 		character_name = "";
 		login_script = "do end";
+		valid = 0;
+		logged_in = 0;
+	}
+
+	void try_login() const {
+		DoString(login_script.c_str());
 	}
 };
 

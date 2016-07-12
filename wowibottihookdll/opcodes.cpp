@@ -5,6 +5,7 @@
 #include "ctm.h"
 #include "timer.h"
 #include "hooks.h"
+#include "creds.h"
 
 extern HWND wow_hWnd;
 extern int afkjump_keyup_queued;
@@ -450,6 +451,14 @@ static void LOP_pull_mob(const std::string &arg) {
 	GUID_t GUID = strtoull(arg.c_str(), &endptr, 16);
 }
 
+static void LOP_report_login(const std::string &arg) {
+	if (arg == "1") {
+		credentials.logged_in = 1;
+	}
+	else {
+		credentials.logged_in = 0;
+	}
+}
 
 static void LOPDBG_dump(const std::string &arg) {
 	dump_wowobjects_to_log();
@@ -489,11 +498,11 @@ static const struct {
 	{ "LOLE_AFK_CLEAR", LOP_afk_clear, 0},
 	{ "LOLE_RELEASE_SPIRIT", LOP_nop, 0},
 	{ "LOLE_MAIN_TANK", LOP_nop, 0},
-	{ "LOLE_OPCODE_AVOID_SPELL_OBJECT", LOP_avoid_spell_object, 1 },
-	{ "LOLE_OPCODE_HUG_SPELL_OBJECT", LOP_hug_spell_object, 1 },
-	{ "LOLE_OPCODE_SPREAD", LOP_spread, 0 },
-	{ "LOLE_OPCODE_PULL_MOB", LOP_nop, 0 },
-	{ "LOLE_OPCODE_PATCH_ENDSCENE", LOP_nop, 0}
+	{ "LOLE_AVOID_SPELL_OBJECT", LOP_avoid_spell_object, 1 },
+	{ "LOLE_HUG_SPELL_OBJECT", LOP_hug_spell_object, 1 },
+	{ "LOLE_SPREAD", LOP_spread, 0 },
+	{ "LOLE_PULL_MOB", LOP_nop, 0 },
+	{ "LOLE_OPCODE_REPORT_LOGIN", LOP_report_login, 1 }
 };
 
 static const struct {
@@ -556,6 +565,17 @@ const std::string &opcode_get_funcname(int opcode) {
 	}
 
 	return opcode_funcs[opcode].name;
+}
+
+const std::string &debug_opcode_get_funcname(int opcode_unmasked) {
+	static std::string err = "ERROR";
+
+	if (opcode_unmasked > num_debug_opcode_funcs - 1) {
+		printf("opcode_get_funcname: error: unknown DEBUG opcode %lu. (valid range: 0 - %lu)\n", opcode_unmasked, num_debug_opcode_funcs);
+		return err;
+	}
+
+	return debug_opcode_funcs[opcode_unmasked].name;
 }
 
 // follow stuff
