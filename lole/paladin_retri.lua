@@ -11,13 +11,13 @@ combat_paladin_retri = function()
         jud_on_cd = false;
     end
 
-    -- if not jud_on_cd and not has_debuff("target", "Judgement of the Crusader") then
-	-- 	if not has_buff("player", "Seal of the Crusader") then
-	-- 		cast_if_nocd("Seal of the Crusader");
-	-- 	end
-	-- 	cast_if_nocd("Judgement");
-	-- 	return;
-	-- end
+    if not jud_on_cd and not has_debuff("target", "Judgement of the Crusader") then
+		if not has_buff("player", "Seal of the Crusader") then
+			cast_if_nocd("Seal of the Crusader");
+		end
+		cast_if_nocd("Judgement");
+		return;
+	end
 
 	if not has_buff("player", "Seal of Blood") then
 		cast_if_nocd("Seal of Blood");
