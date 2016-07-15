@@ -42,6 +42,9 @@ LOLE_DEBUG_OPCODE_QUERY_INJECTED
 
 function send_opcode_addonmsg(opcode, message)
 	SendAddonMessage("lole_opcode", opcode .. ":" .. message, "RAID");
+    SendAddonMessage("lole_opcode", opcode .. ":" .. message, "WHISPER", "Josp");
+    SendAddonMessage("lole_opcode", opcode .. ":" .. message, "WHISPER", "Dissona");
+    SendAddonMessage("lole_opcode", opcode .. ":" .. message, "WHISPER", "Consona");
 end
 
 function send_opcode_addonmsg_to(opcode, message, to)

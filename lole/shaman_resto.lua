@@ -28,16 +28,16 @@ local function get_total_deficit(hp_deficits)
 end
 
 local TOTEMS = {
-["air"] = "Windfury Totem",
+--["air"] = "Windfury Totem",
 --["air"] = "Wrath of Air Totem",
 
-["earth"] = "Tremor Totem",
+--["earth"] = "Tremor Totem",
 --["earth"] = "Strength of Earth Totem",
---["earth"] = "Stoneskin Totem",
+["earth"] = "Stoneskin Totem",
 
-["water"] = "Mana Spring Totem",
+--["water"] = "Mana Spring Totem",
 
-["fire"] = "Frost Resistance Totem"
+--["fire"] = "Frost Resistance Totem"
 }
 
 
@@ -63,8 +63,8 @@ combat_shaman_resto = function()
 	if (HP_deficits[lowest] < 1500) then
 		return;
 	end
-
-	TargetUnit(lowest);
+    
+    TargetUnit(lowest);
 	caster_range_check(35);
 
 	local total_deficit = get_total_deficit(HP_deficits)
@@ -78,15 +78,28 @@ combat_shaman_resto = function()
 		return;
 	end
 
-	-- if HP_deficits[lowest] > 3000 then -- this was actually really good for vexallus :O
-	-- 	cast_spell("Lesser Healing Wave")
-	-- 	return;
-	-- end
+	if HP_deficits[lowest] > 3000 then -- this was actually really good for vexallus :O
+		cast_spell("Lesser Healing Wave")
+		return;
+	end
 
 	if total_deficit > 6000 then
 		cast_spell("Chain Heal")
 		return;
 	end
+
+    -- TargetUnit(MAIN_TANK);
+    --caster_range_check(35);
+
+    -- if has_buff("target", "Blessing of Sanctuary") or has_buff("target", "Blessing of Wisdom") then
+    --     if (UnitHealth("target") < UnitHealthMax("target") * 0.35) then
+    --         cast_spell("Healing Wave");
+    --     elseif (UnitHealth("player") < UnitHealthMax("player") * 0.50) then
+    --         TargetUnit("player");
+    --         cast_spell("Healing Wave");
+    --     end
+    --     return;
+    -- end
 
 
 end
