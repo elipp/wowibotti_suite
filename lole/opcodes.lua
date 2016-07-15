@@ -21,14 +21,15 @@ LOLE_OPCODE_AVOID_SPELL_OBJECT,
 LOLE_OPCODE_HUG_SPELL_OBJECT,
 LOLE_OPCODE_SPREAD,
 LOLE_OPCODE_PULL_MOB,
-LOLE_OPCODE_REPORT_LOGIN
+LOLE_OPCODE_REPORT_LOGIN,
+LOLE_OPCODE_WALK_TO_PULLING_RANGE
 
 = "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04",
 "LOP_05", "LOP_06", "LOP_07", "LOP_08",
 "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C",
 "LOP_0D", "LOP_0E", "LOP_0F", "LOP_10",
 "LOP_11", "LOP_12", "LOP_13", "LOP_14",
-"LOP_15"
+"LOP_15", "LOP_16"
 
 local
 LOLE_DEBUG_OPCODE_NOP,
@@ -178,6 +179,15 @@ end
 
 function hug_spell_with_spellID(spellID)
 	DelIgnore(LOLE_OPCODE_HUG_SPELL_OBJECT .. ":" .. tostring(spellID))
+end
+
+function pull_target()
+	CastSpellByName("Avenger Shield")
+end
+
+function walk_to_pulling_range()
+	-- assuming the pull target is already selected
+	DelIgnore(LOLE_OPCODE_WALK_TO_PULLING_RANGE)
 end
 
 function report_login(flag)
@@ -366,10 +376,6 @@ local function OCB_main_tank(arg)
 	MAIN_TANK = first_to_upper(arg)
 	update_main_tank(MAIN_TANK)
 	echo("Main tank set to " .. MAIN_TANK .. ". (change with /lole mt <mtname>)")
-end
-
-local function OCB_pull_mob(GUID)
-
 end
 
 lole_opcode_funcs = {

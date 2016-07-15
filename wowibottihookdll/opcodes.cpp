@@ -460,6 +460,34 @@ static void LOP_report_login(const std::string &arg) {
 	}
 }
 
+static void pull_mob() {
+	DoString("/lole pull");
+}
+
+static void LOP_walk_to_pull(const std::string &arg) {
+	ObjectManager OM;
+	WowObject p = OM.get_local_object();
+	WowObject t = OM.get_object_by_GUID(get_target_GUID());
+
+	vec3 ppos = p.get_pos(), tpos = t.get_pos();
+	vec3 d = tpos - ppos, dn = d.unit();
+
+	if (d.length() > 30) {
+		vec3 newpos = tpos - 29 * dn;
+		CTM_t c(newpos, CTM_MOVE, 0, 0, 0.5);
+		c.set_posthook(pull_mob);
+		ctm_add(c);
+	}
+	else {
+		CTM_t c(ppos, CTM_MOVE, 0, 0, 0.5);
+		c.set_posthook(pull_mob);
+		ctm_add(c);
+	}
+
+	ctm_act();
+
+}
+
 static void LOPDBG_dump(const std::string &arg) {
 	dump_wowobjects_to_log();
 }
@@ -502,7 +530,8 @@ static const struct {
 	{ "LOLE_HUG_SPELL_OBJECT", LOP_hug_spell_object, 1 },
 	{ "LOLE_SPREAD", LOP_spread, 0 },
 	{ "LOLE_PULL_MOB", LOP_nop, 0 },
-	{ "LOLE_OPCODE_REPORT_LOGIN", LOP_report_login, 1 }
+	{ "LOLE_REPORT_LOGIN", LOP_report_login, 1 },
+	{ "LOLE_WALK_TO_PULLING_RANGE", LOP_walk_to_pull, 0}
 };
 
 static const struct {

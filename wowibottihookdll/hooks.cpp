@@ -153,6 +153,8 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 }
 
 static void __stdcall CTM_finished_hookfunc() {
+	CTM_t c = ctm_pop();
+	c.run_posthook();
 	ctm_commit();
 }
 
@@ -599,40 +601,6 @@ static int uninstall_hook(const std::string &funcname) {
 
 	return 0;
 }
-
-int hook_all() {
-
-	install_hook("DelIgnore", DelIgnore_hub);
-	install_hook("CTM_main", broadcast_CTM);
-	install_hook("CTM_update", CTM_finished_hookfunc);
-	install_hook("EndScene", EndScene_hook);
-
-	return 1;
-}
-
-int unhook_all() {
-
-	uninstall_hook("EndScene");
-	uninstall_hook("DelIgnore");
-	uninstall_hook("ClosePetStables");
-	uninstall_hook("CTM_main");
-	uninstall_hook("CTM_update");
-
-	return 1;
-}
-
-int hook_EndScene() {
-	install_hook("EndScene", EndScene_hook);
-
-	return 1;
-}
-
-int patch_DelIgnore() {
-	install_hook("DelIgnore", DelIgnore_hub);
-
-	return 1;
-}
-
 
 
 patch_serialized::patch_serialized(UINT32 patch_addr, UINT32 patch_size, const BYTE *original_opcodes, const BYTE *patch_opcodes) {

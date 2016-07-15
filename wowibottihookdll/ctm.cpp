@@ -27,14 +27,16 @@ void ctm_commit() {
 	if (ctm_queue.empty()) return;
 	
 	ctm_unlock();
-
-	ctm_act();
-	ctm_queue.pop();
-	
+	ctm_act();	
 	ctm_lock();
 
 }
 
+CTM_t ctm_pop() {
+	CTM_t c = ctm_queue.front();
+	ctm_queue.pop();
+	return c;
+}
 
 static const uint
 	CTM_X = 0xD68A18,
