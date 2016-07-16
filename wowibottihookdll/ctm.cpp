@@ -5,9 +5,31 @@
 static std::queue<CTM_t> ctm_queue;
 static int ctm_locked = 0;
 
+static void ctm_increment_posthook_framecount() {
+	CTM_t &c = ctm_queue.front();
+	++c.posthook->frame_counter;
+}
+
+static int ctm_get_posthook_framecount() {
+	const CTM_t &c = ctm_get_current_action();
+	return c.posthook->frame_counter;
+}
+
+static int ctm_posthook_delay_active() {
+	if (ctm_queue.size() < 1) { return 0; }
+
+	const CTM_t &c = ctm_get_current_action();
+	if (!c.posthook) return 0;
+
+	if (c.posthook->active) return 1;
+
+	return 0;
+}
+
+
 void ctm_add(const CTM_t &ctm) {
 	if (ctm_queue.size() > 5) return;
-
+	printf("called ctm_ADD with %.3f, %.3f, %.3f, prio %d, action 0x%X\n", ctm.destination.x, ctm.destination.y, ctm.destination.z, ctm.priority, ctm.action);
 	ctm_queue.push(ctm);
 }
 
@@ -15,20 +37,25 @@ void ctm_act() {
 
 	if (ctm_locked) return;
 	if (ctm_queue.empty()) return;
+	if (ctm_posthook_delay_active()) return;
 
-	auto &CTM = ctm_queue.front();
-	click_to_move(CTM);
+	auto &ctm = ctm_queue.front();
+
+	printf("called ctm_act with %.3f, %.3f, %.3f, prio %d, action 0x%X\n", ctm.destination.x, ctm.destination.y, ctm.destination.z, ctm.priority, ctm.action);
+
+	click_to_move(ctm);
 
 	ctm_lock();
 }
 
-void ctm_commit() {
+void ctm_next() {
 
 	if (ctm_queue.empty()) return;
 	
 	ctm_unlock();
-	ctm_act();	
-	ctm_lock();
+	ctm_pop();
+
+	printf("called ctm_next()\n");
 
 }
 
@@ -36,6 +63,27 @@ CTM_t ctm_pop() {
 	CTM_t c = ctm_queue.front();
 	ctm_queue.pop();
 	return c;
+}
+
+
+const CTM_t &ctm_get_current_action() {
+	return ctm_queue.front();
+}
+
+
+void ctm_handle_delayed_posthook() {
+	if (ctm_posthook_delay_active()) {
+		CTM_t &c = ctm_queue.front();
+
+		if (c.posthook->frame_counter < c.posthook->delay_frames) {
+			++c.posthook->frame_counter;
+		}
+		else {
+			c.posthook->active = 0;
+			c.posthook->callback();
+			ctm_next();
+		}
+	}
 }
 
 static const uint
@@ -70,6 +118,8 @@ void ctm_lock() {
 void ctm_unlock() {
 	ctm_locked = 0;
 }
+
+
 
 void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_distance) {
 

@@ -4,6 +4,7 @@
 #include "opcodes.h"
 #include "ctm.h"
 #include "creds.h"
+#include "timer.h"
 
 static HRESULT(*EndScene)(void);
 pipe_data PIPEDATA;
@@ -35,9 +36,7 @@ static void update_debug_positions() {
 	vec3 ppos = p.get_pos();
 	char buf[128];
 
-
 	sprintf(buf, "(%.1f, %.1f, %.1f)", ppos.x, ppos.y, ppos.z);
-	printf("dbg_pos: local_GUID = %llX, target_GUID = %llX, buf: %s\n", OM.get_local_GUID(), get_target_GUID(), buf);
 
 	DoString("SetCVar(\"movieSubtitle\", \"%s\", \"player_pos\")", buf);
 
@@ -56,15 +55,19 @@ static void update_debug_positions() {
 
 static void __stdcall EndScene_hook() {
 
-	static int every_third_frame = 0;
-	static int every_thirty_frames = 0;
+	static Timer every_50_ms;
+	static Timer every_500_ms;
 
-	if (every_third_frame == 0) {
+	ctm_handle_delayed_posthook();
+
+	if (every_50_ms.get_ms() > 50) {
 		refollow_if_needed();
-		ctm_act();
+		//ctm_act();
+
+		every_50_ms.start();
 	}
 
-	if (every_thirty_frames == 0) {
+	if (every_500_ms.get_ms() > 500) {
 		update_hwevent_tick();
 
 		if (credentials.valid && !credentials.logged_in) credentials.try_login();
@@ -73,10 +76,9 @@ static void __stdcall EndScene_hook() {
 			update_debug_positions();
 		}
 			
+		every_500_ms.start();
 	}
 
-	every_third_frame = every_third_frame > 2 ? 0 : every_third_frame + 1;
-	every_thirty_frames = every_thirty_frames > 29 ? 0 : every_thirty_frames + 1;
 
 }
 
@@ -104,6 +106,11 @@ static void __stdcall broadcast_CTM(float *coords, int action) {
 
 static void __stdcall DelIgnore_hub(const char* arg_) {
 	// the opcodes sent by the addon all begin with the sequence "LOP_"
+
+	if (!arg_) {
+		printf("DelIgnore_hub: warning: NULL argument!\n");
+		return;
+	}
 	static const std::string opcode_prefix("LOP_");
 
 	const std::string arg(arg_);
@@ -153,9 +160,8 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 }
 
 static void __stdcall CTM_finished_hookfunc() {
-	CTM_t c = ctm_pop();
-	c.run_posthook();
-	ctm_commit();
+	const CTM_t &c = ctm_get_current_action();
+	c.handle_posthook();
 }
 
 

@@ -370,11 +370,8 @@ local function lole_clearcc()
 end
 
 local function lole_pull(arg)
-	send_opcode_addonmsg_to(LOLE_OPCODE_PULL_MOB, arg, MAIN_TANK);
-end
-
-local function lole_patch()
-
+	--send_opcode_addonmsg_to(LOLE_OPCODE_PULL_MOB, arg, MAIN_TANK);
+	walk_to_pulling_range()
 end
 
 lole_subcommands = {
@@ -399,7 +396,7 @@ lole_subcommands = {
 	release = lole_release;
 	mt = lole_maintank;
 	clearcc = lole_clearcc;
-	patch = lole_patch;
+	pull = lole_pull;
 
 	dump = lole_debug_dump_wowobjects;
 	loot = lole_debug_loot_all;

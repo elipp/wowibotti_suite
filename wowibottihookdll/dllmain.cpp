@@ -23,7 +23,7 @@
 #include "creds.h"
 
 #ifdef _DEBUG
-//#define DEBUG_CONSOLE
+#define DEBUG_CONSOLE
 #endif
 
 static HINSTANCE inj_hModule;          // HANDLE for injected module
