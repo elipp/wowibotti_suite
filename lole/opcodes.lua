@@ -16,7 +16,7 @@ LOLE_OPCODE_MELEE_BEHIND,
 LOLE_OPCODE_LEAVE_PARTY,
 LOLE_OPCODE_AFK_CLEAR,
 LOLE_OPCODE_RELEASE_SPIRIT,
-LOLE_OPCODE_MAIN_TANK,
+LOLE_OPCODE_MAIN_TANK, -- 0x10
 LOLE_OPCODE_AVOID_SPELL_OBJECT,
 LOLE_OPCODE_HUG_SPELL_OBJECT,
 LOLE_OPCODE_SPREAD,
@@ -35,9 +35,11 @@ local
 LOLE_DEBUG_OPCODE_NOP,
 LOLE_DEBUG_OPCODE_DUMP,
 LOLE_DEBUG_OPCODE_LOOT_ALL,
-LOLE_DEBUG_OPCODE_QUERY_INJECTED
+LOLE_DEBUG_OPCODE_QUERY_INJECTED,
+LOLE_DEBUG_OPCODE_PULL_TEST
 
-= "LOP_80", "LOP_81", "LOP_82", "LOP_83"
+= "LOP_80", "LOP_81", "LOP_82", "LOP_83",
+"LOP_84"
 
 ----------------------------
 ---- public functions ------
@@ -214,6 +216,9 @@ function lole_debug_query_injected()
 	DelIgnore(LOLE_DEBUG_OPCODE_QUERY_INJECTED)
 end
 
+function lole_debug_pull_test()
+	DelIgnore(LOLE_DEBUG_OPCODE_PULL_TEST)
+end
 
 ------------------------------------------------------------------------------
 ----- OPCODE callback (or "OCB") funcs. called in lole.lua:handle_opcode -----

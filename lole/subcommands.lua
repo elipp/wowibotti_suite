@@ -371,7 +371,7 @@ end
 
 local function lole_pull(arg)
 	--send_opcode_addonmsg_to(LOLE_OPCODE_PULL_MOB, arg, MAIN_TANK);
-	walk_to_pulling_range()
+	lole_debug_pull_test()
 end
 
 lole_subcommands = {

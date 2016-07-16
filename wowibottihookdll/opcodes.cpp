@@ -504,6 +504,29 @@ static void LOPDBG_query_injected(const std::string &arg) {
 	DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
 }
 
+static void LOPDBG_pull_test(const std::string &arg) {
+
+	vec3 pull_pos(-1787, 4867, 0.5);
+
+	CTM_t test1(vec3(-1837, 4862, 2), CTM_MOVE, 0, 0, 0.5);
+	CTM_t test2(pull_pos, CTM_MOVE, 0, 0, 0.5);
+
+	ObjectManager OM;
+
+	WowObject p = OM.get_local_object();
+	WowObject t = OM.get_object_by_GUID(get_target_GUID());
+
+	vec3 ppos = p.get_pos(), tpos = t.get_pos();
+	vec3 dir = (tpos - ppos).unit();
+	CTM_t test3(pull_pos + dir, CTM_MOVE, 0, 0, 0.5);
+
+	test3.set_posthook(CTM_posthook_t(pull_mob, 30));
+
+	ctm_add(test1);
+	ctm_add(test2);
+	ctm_add(test3);
+	
+}
 
 static const struct {
 	std::string name;
@@ -543,7 +566,8 @@ static const struct {
 	{ "LOLE_DEBUG_NOP", LOP_nop, 0 },
 	{ "LOLE_DEBUG_DUMP", LOPDBG_dump, 0 },
 	{ "LOLE_DEBUG_LOOT_ALL", LOPDBG_loot, 0},
-	{ "LOLE_DEBUG_QUERY_INJECTED", LOPDBG_query_injected, 0 }
+	{ "LOLE_DEBUG_QUERY_INJECTED", LOPDBG_query_injected, 0 },
+	{ "LOLE_DEBUG_PULL_TEST", LOPDBG_pull_test, 0 }
 };
 
 static const size_t num_opcode_funcs = sizeof(opcode_funcs) / sizeof(opcode_funcs[0]);

@@ -40,3 +40,21 @@ public:
 
 };
 
+struct timer_interval_t {
+	Timer t;
+	int interval;
+
+	int passed() {
+		return t.get_ms() > interval;
+	}
+
+	void reset() {
+		t.start();
+	}
+
+	timer_interval_t(int interval_ms) : interval(interval_ms) {
+		t.init();
+		t.start();
+	}
+};
+

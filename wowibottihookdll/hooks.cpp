@@ -55,19 +55,19 @@ static void update_debug_positions() {
 
 static void __stdcall EndScene_hook() {
 
-	static Timer every_50_ms;
-	static Timer every_500_ms;
+	static timer_interval_t fifty_ms(50);
+	static timer_interval_t half_second(500);
 
 	ctm_handle_delayed_posthook();
 
-	if (every_50_ms.get_ms() > 50) {
+	if (fifty_ms.passed()) {
 		refollow_if_needed();
-		//ctm_act();
+		ctm_act();
 
-		every_50_ms.start();
+		fifty_ms.reset();
 	}
 
-	if (every_500_ms.get_ms() > 500) {
+	if (half_second.passed()) {
 		update_hwevent_tick();
 
 		if (credentials.valid && !credentials.logged_in) credentials.try_login();
@@ -76,12 +76,11 @@ static void __stdcall EndScene_hook() {
 			update_debug_positions();
 		}
 			
-		every_500_ms.start();
+		half_second.reset();
 	}
 
 
 }
-
 
 
 static void __stdcall broadcast_CTM(float *coords, int action) {

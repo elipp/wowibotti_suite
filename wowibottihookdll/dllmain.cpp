@@ -75,8 +75,9 @@ int handle_pipe_stuff() {
 	char *read_buf = new char[PIPE_READ_BUF_SIZE];
 
 	hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-	while (!hPipe) {
-		Sleep(250);
+	while (hPipe == INVALID_HANDLE_VALUE) {
+	//	Sleep(250);
+		printf("CreateFile for pipe %s returned INVALID_HANDLE_VALUE; GetLastError() = %d. Retrying.\n", pipe_name.c_str(), GetLastError());
 		CreateFile(pipe_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
 	}
 

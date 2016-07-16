@@ -4,6 +4,8 @@
 #include "stdafx.h"
 #include <Windows.h>
 #include <CommCtrl.h>
+#include <AclAPI.h>
+
 #include <vector>
 #include <cstdio>
 #include <tchar.h>
@@ -29,6 +31,8 @@ static std::vector<HANDLE> thread_handles;
 static int num_characters_selected = 0;
 
 static std::unordered_map <std::string, HWND> char_select_checkboxes;
+
+static std::string DLL_path;
 
 #define MAX_LOADSTRING 100
 
@@ -254,79 +258,6 @@ static BOOL SetPrivilege(HANDLE hToken, LPCTSTR Privilege, BOOL bEnablePrivilege
 	return TRUE;
 }
 
-//static int create_account_assignments() {
-//	static const size_t BUF_MAX = 256;
-//
-//	// empty these
-//	wow_handles = std::vector<wowcl_t>();
-//	creds = std::unordered_map<DWORD, wowaccount_t>();
-//
-//	EnumWindows(EnumWindowsProc, NULL);
-//
-//	if (wow_handles.size() < 1) { return 1; }
-//
-//	int num_to_process = num_characters_selected;
-//	if (wow_handles.size() < num_to_process) {
-//		num_to_process = wow_handles.size();
-//	}
-//
-//	// gather all checked clients to a vector
-//	std::vector <std::pair<wowaccount_t, wowcl_t>> assigned_accs;
-//	int n = 0;
-//	for (const auto &account : config_state.accounts) {
-//		HWND hWnd = char_select_checkboxes[account.char_name];
-//		LRESULT state = SendMessage(hWnd, BM_GETCHECK, 0, 0);
-//		if (state == BST_CHECKED) {
-//			assigned_accs.push_back(std::make_pair(account, wow_handles[n]));
-//			++n;
-//		}
-//	}
-//
-//	if (num_characters_selected != assigned_accs.size()) {
-//		printf("WARNING: create_account_assignments: num_characters_selected (%d) != assigned_accs.size() (%d)!!\n", num_characters_selected, assigned_accs.size());
-//	}
-//
-//	for (int i = 0; i < num_to_process; ++i) {
-//
-//		DWORD err;
-//		
-//		wowcl_t &c = assigned_accs[i].second;
-//
-//		std::string cred_fd = "Local\\lole_login_" + std::to_string(c.pid);
-//
-//		HANDLE filemap = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, BUF_MAX, cred_fd.c_str());
-//		err = GetLastError();
-//
-//		if (err != NO_ERROR) {
-//			error_box("Error. CreateFileMapping failed!");
-//			printf("CreateFileMapping failed! %d\n", err);
-//			return 0;
-//		}
-//
-//		cred_file_map_handles.push_back(filemap);
-//
-//		auto buf = MapViewOfFile(filemap, FILE_MAP_ALL_ACCESS, 0, 0, BUF_MAX);
-//		err = GetLastError();
-//		
-//		if (err != NO_ERROR) {
-//			error_box("Error. MapViewOfFile failed!");
-//			printf("MapViewOfFile: error: %d\n", err);
-//		}
-//	
-//		const wowaccount_t &acc = assigned_accs[i].first;
-//
-//		std::string content = acc.login_name + "," + acc.password + "," + acc.char_name;
-//
-//		CopyMemory(buf, content.c_str(), content.size());
-//		UnmapViewOfFile(buf);
-//
-//		printf("Assigned account %s to pid %d (cred_fd name: %s)\n", acc.login_name.c_str(), c.pid, cred_fd.c_str());
-//	}
-//
-//	return TRUE;
-//
-//}
-
 static int create_account_assignments2() {
 	static const size_t BUF_MAX = 256;
 
@@ -439,6 +370,10 @@ static int remote_thread_dll(DWORD pid) {
 
 	sprintf_s(FullPath, MAX_PATH, "%s\\wowibottihookdll.dll", DirPath);
 
+	DLL_path = std::string(FullPath);
+
+	printf("Attempting to inject DLL %s to process %d...\n", FullPath, pid);
+
 	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 	if (hProcess == NULL) { printf("OpenProcess failed: %d\n", GetLastError()); return 0; }
 
@@ -458,6 +393,8 @@ static int remote_thread_dll(DWORD pid) {
 	if (rt == NULL) { printf("CreateRemoteThread failed: %d\n", GetLastError()); return 0; }
 
 	CloseHandle(hProcess);
+
+	printf("DLL injection to pid %d successful!\n", pid);
 
 	return 1;
 }
@@ -559,17 +496,143 @@ static int get_credentials(DWORD pid, std::string *cred_str) {
 
 }
 
+static int create_secattr_for_pipe(PSECURITY_ATTRIBUTES *sa) {
+	DWORD dwRes, dwDisposition;
+	PSID pEveryoneSID = NULL, pAdminSID = NULL;
+	PACL pACL = NULL;
+	PSECURITY_DESCRIPTOR pSD = NULL;
+	EXPLICIT_ACCESS ea[2];
+	SID_IDENTIFIER_AUTHORITY SIDAuthWorld = SECURITY_WORLD_SID_AUTHORITY;
+	SID_IDENTIFIER_AUTHORITY SIDAuthNT = SECURITY_NT_AUTHORITY;
+	LONG lRes;
+	HKEY hkSub = NULL;
+
+	int ret_val = 1;
+
+	// Create a well-known SID for the Everyone group.
+	if (!AllocateAndInitializeSid(&SIDAuthWorld, 1,
+		SECURITY_WORLD_RID,
+		0, 0, 0, 0, 0, 0, 0,
+		&pEveryoneSID))
+	{
+		_tprintf(_T("AllocateAndInitializeSid Error %u\n"), GetLastError());
+		ret_val = 0;
+		goto Cleanup;
+	}
+
+	// Initialize an EXPLICIT_ACCESS structure for an ACE.
+	// The ACE will allow Everyone read access to the key.
+	ZeroMemory(&ea, 2 * sizeof(EXPLICIT_ACCESS));
+	ea[0].grfAccessPermissions = STANDARD_RIGHTS_ALL;
+	ea[0].grfAccessMode = SET_ACCESS;
+	ea[0].grfInheritance = NO_INHERITANCE;
+	ea[0].Trustee.TrusteeForm = TRUSTEE_IS_SID;
+	ea[0].Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
+	ea[0].Trustee.ptstrName = (LPTSTR)pEveryoneSID;
+
+	// Create a SID for the BUILTIN\Administrators group.
+	if (!AllocateAndInitializeSid(&SIDAuthNT, 2,
+		SECURITY_BUILTIN_DOMAIN_RID,
+		DOMAIN_ALIAS_RID_ADMINS,
+		0, 0, 0, 0, 0, 0,
+		&pAdminSID))
+	{
+		_tprintf(_T("AllocateAndInitializeSid Error %u\n"), GetLastError());
+		ret_val = 0;
+		goto Cleanup;
+	}
+
+	// Initialize an EXPLICIT_ACCESS structure for an ACE.
+	// The ACE will allow the Administrators group full access to
+	// the key.
+	ea[1].grfAccessPermissions = KEY_ALL_ACCESS;
+	ea[1].grfAccessMode = SET_ACCESS;
+	ea[1].grfInheritance = NO_INHERITANCE;
+	ea[1].Trustee.TrusteeForm = TRUSTEE_IS_SID;
+	ea[1].Trustee.TrusteeType = TRUSTEE_IS_GROUP;
+	ea[1].Trustee.ptstrName = (LPTSTR)pAdminSID;
+
+	// Create a new ACL that contains the new ACEs.
+	dwRes = SetEntriesInAcl(2, ea, NULL, &pACL);
+	if (ERROR_SUCCESS != dwRes)
+	{
+		_tprintf(_T("SetEntriesInAcl Error %u\n"), GetLastError());
+		ret_val = 0;
+		goto Cleanup;
+	}
+
+	// Initialize a security descriptor.  
+	pSD = (PSECURITY_DESCRIPTOR)LocalAlloc(LPTR,
+		SECURITY_DESCRIPTOR_MIN_LENGTH);
+	if (NULL == pSD)
+	{
+		_tprintf(_T("LocalAlloc Error %u\n"), GetLastError());
+		ret_val = 0;
+		goto Cleanup;
+	}
+
+	if (!InitializeSecurityDescriptor(pSD,
+		SECURITY_DESCRIPTOR_REVISION))
+	{
+		_tprintf(_T("InitializeSecurityDescriptor Error %u\n"),
+			GetLastError());
+		ret_val = 0;
+		goto Cleanup;
+	}
+
+	// Add the ACL to the security descriptor. 
+	if (!SetSecurityDescriptorDacl(pSD,
+		TRUE,     // bDaclPresent flag   
+		pACL,
+		FALSE))   // not a default DACL 
+	{
+		_tprintf(_T("SetSecurityDescriptorDacl Error %u\n"),
+			GetLastError());
+		ret_val = 0;
+		goto Cleanup;
+	}
+
+	// Initialize a security attributes structure.
+	*sa = new SECURITY_ATTRIBUTES;
+
+	(*sa)->nLength = sizeof(SECURITY_ATTRIBUTES);
+	(*sa)->lpSecurityDescriptor = pSD;
+	(*sa)->bInheritHandle = FALSE;
+
+Cleanup:
+
+	if (pEveryoneSID)
+		FreeSid(pEveryoneSID);
+	if (pAdminSID)
+		FreeSid(pAdminSID);
+	if (pACL)
+		LocalFree(pACL);
+	if (pSD)
+		LocalFree(pSD);
+	if (hkSub)
+		RegCloseKey(hkSub);
+
+	return ret_val;
+
+}
+
 static int do_pipe_operations(DWORD pid) {
 
 #define PIPE_READ_BUF_SIZE 1024
 #define PIPE_WRITE_BUF_SIZE 16
+
+	PSECURITY_ATTRIBUTES sa = NULL;
+
+	//if (!create_secattr_for_pipe(&sa)) {
+	//	printf("Creating security attributes for pipe failed :(\n");
+	//}
 
 	std::string pipename = "\\\\.\\pipe\\" + std::to_string(pid);
 
 	printf("Creating pipe %s...\n", pipename.c_str());
 
 	HANDLE hPipe = CreateNamedPipe(pipename.c_str(), PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
-		PIPE_UNLIMITED_INSTANCES, PIPE_READ_BUF_SIZE, PIPE_WRITE_BUF_SIZE, 0, NULL);
+		PIPE_UNLIMITED_INSTANCES, PIPE_READ_BUF_SIZE, PIPE_WRITE_BUF_SIZE, 0, sa);
 
 	if (!hPipe) {
 		printf("CreateNamedPipe failed: %d\n", GetLastError());
@@ -658,8 +721,6 @@ static DWORD WINAPI inject_threadfunc(LPVOID param) {
 		printf("do_pipe_operations() failed. Exiting.\n");
 		return 0;
 	}
-
-	//suspend_process_for(pid, 5000);
 
 	return 1;
 }
