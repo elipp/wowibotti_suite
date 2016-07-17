@@ -38,7 +38,8 @@ function get_desired_buffs(role)
     local common_buffs = {
         "Power Word: Fortitude",
         "Divine Spirit",
-        "Mark of the Wild"
+        "Mark of the Wild",
+        "Amplify Magic",
     };
 
     local caster_buffs = {
@@ -91,7 +92,7 @@ function get_desired_buffs(role)
         return {};
     end
 
-    paladins = get_paladins();
+    paladins = get_chars_of_class("Paladin");
     if #paladins == 1 then
         table.remove(desired_buffs, 3);
         table.remove(desired_buffs, 2);
@@ -366,20 +367,20 @@ function lole_selfbuffs()
     end
 end
 
-function get_paladins()
+function get_chars_of_class(class)
 
-    local paladins = {};
+    local chars = {};
 
     if GetNumRaidMembers() == 0 then
-        if UnitClass("player") == "Paladin" then
+        if UnitClass("player") == class then
             local name = UnitName("player");
-            table.insert(paladins, name);
+            table.insert(chars, name);
         end
         local num_party_members = GetNumPartyMembers();
         for i = 1, num_party_members do
-            if UnitClass("party" .. i) == "Paladin" then
+            if UnitClass("party" .. i) == class then
                 local name = UnitName("party" .. i);
-                table.insert(paladins, name);
+                table.insert(chars, name);
             end
         end
     else
@@ -387,14 +388,47 @@ function get_paladins()
         while GetRaidRosterInfo(i) do
             local raid_info = {GetRaidRosterInfo(i)};
             if raid_info[3] == 1 or raid_info[3] == 2 or GetNumRaidMembers() > 15 then
-                if raid_info[5] == "Paladin" then
-                    table.insert(paladins, raid_info[1]);
+                if raid_info[5] == class then
+                    table.insert(chars, raid_info[1]);
                 end
             end
             i = i + 1;
         end
     end
 
-    return paladins;
+    return chars;
+
+end
+
+function need_to_buff()
+
+    local self_name = UnitName("player");
+    local self_class = UnitClass("player");
+    local colleagues = {};
+
+    if self_class == "Paladin" or get_current_config().name == "priest_holy_ds" then
+        return true;
+    elseif self_class == "Druid" then
+        colleagues = {"Kusip", "Gawk", "Teline"};
+    elseif self_class == "Mage" then
+        colleagues = {"Dissona", "Consona"};
+    elseif self_class == "Priest" then
+        colleagues = {"Mam", "Bogomips", "Pussu", "Kasio"}; -- The one with Divine Spirit should be last.
+    else
+        return false;
+    end
+
+    local present_colleagues = get_chars_of_class(self_class);    
+    for i, char in ipairs(colleagues) do
+        if table.contains(present_colleagues, char) then
+            if char == self_name then
+                return true;
+            else
+                return false;
+            end
+        end
+    end
+
+    return true
 
 end
