@@ -48,5 +48,4 @@ combat_rogue_combat = function()
 
     CastSpellByName("Eviscerate")
 
-
 end

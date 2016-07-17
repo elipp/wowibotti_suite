@@ -9,7 +9,7 @@ combat_druid_resto = function()
 		if stacks < 3 then
 			CastSpellByName("Lifebloom")
 			return
-		else if timeleft < 0.7 then
+		elseif timeleft < 0.7 then
 			CastSpellByName("Lifebloom")
 			return
 		end
