@@ -164,7 +164,8 @@ int handle_pipe_stuff() {
 	
 	FlushFileBuffers(hPipe);
 	DisconnectNamedPipe(hPipe);
-	CloseHandle(hPipe);
+
+//	CloseHandle(hPipe);
 
 	delete[] read_buf;
 	delete[] write_buf;

@@ -168,7 +168,7 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		report_login(true);
 
 	elseif event == "PLAYER_LOGOUT" then
-		report_login(false)
+		-- report_login(false) -- disable this 
 	end
 
 
