@@ -372,12 +372,14 @@ function get_paladins()
 
     if GetNumRaidMembers() == 0 then
         if UnitClass("player") == "Paladin" then
-            table.insert(paladins, UnitName("player"));
+            local name = UnitName("player");
+            table.insert(paladins, name);
         end
         local num_party_members = GetNumPartyMembers();
         for i = 1, num_party_members do
             if UnitClass("party" .. i) == "Paladin" then
-                table.insert(paladins, UnitName("party" .. i));
+                local name = UnitName("party" .. i);
+                table.insert(paladins, name);
             end
         end
     else
