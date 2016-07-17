@@ -640,7 +640,7 @@ Cleanup:
 static int do_pipe_operations(DWORD pid) {
 
 #define PIPE_READ_BUF_SIZE 1024
-#define PIPE_WRITE_BUF_SIZE 16
+#define PIPE_WRITE_BUF_SIZE 1024
 
 	HANDLE hPipe;
 	DWORD last_err;
@@ -651,12 +651,19 @@ static int do_pipe_operations(DWORD pid) {
 
 	hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | FILE_WRITE_DATA, 0, NULL, OPEN_EXISTING, 0, NULL);
 
+	const int num_retries = 4;
+	int rnum = 1; 
 	while (hPipe == INVALID_HANDLE_VALUE) {
+
+		if (rnum > num_retries) {
+			printf("do_pipe_operations: maximum number of retries reached; client could have already been injected to (or crashed).\n");
+			return 0;
+		}
+
 		last_err = GetLastError();
 		if (last_err == ERROR_FILE_NOT_FOUND) {
-			// then we can say fairly confidently that the client DLL just hasn't created it yet
-			printf("pipe descriptor %s not yet available (ERROR_FILE_NOT_FOUND), retrying after 250ms...\n", pipe_name.c_str());
-			Sleep(250);
+			printf("(warning: pipe descriptor %s not (yet?) available (ERROR_FILE_NOT_FOUND), retrying after 500 ms (%d/%d)...)\n", pipe_name.c_str(), rnum, num_retries);
+			Sleep(500);
 			hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | FILE_WRITE_DATA, 0, NULL, OPEN_EXISTING, 0, NULL);
 		}
 		else {
@@ -664,10 +671,11 @@ static int do_pipe_operations(DWORD pid) {
 			return 0;
 		}
 
+		++rnum;
+
 	}
 
-	HANDLE hHeap = GetProcessHeap();
-	BYTE *read_buf = (BYTE*)HeapAlloc(hHeap, 0, PIPE_READ_BUF_SIZE*sizeof(BYTE));
+	BYTE *read_buf = new BYTE[PIPE_READ_BUF_SIZE];
 
 	static const std::string PATCH_OK = "PATCH_OK";
 	static const std::string PATCH_FAIL = "PATCH_FAIL";
@@ -707,7 +715,7 @@ static int do_pipe_operations(DWORD pid) {
 
 	CloseHandle(hPipe);
 
-	HeapFree(hHeap, 0, read_buf);
+	delete[] read_buf;
 
 	return 1;
 }

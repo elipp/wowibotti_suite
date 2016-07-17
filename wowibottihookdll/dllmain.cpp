@@ -77,8 +77,6 @@ int handle_pipe_stuff() {
 	hPipe = CreateNamedPipe(pipe_name.c_str(), PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
 		1, PIPE_READ_BUF_SIZE, PIPE_WRITE_BUF_SIZE, 0, NULL);
 
-//	hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | FILE_WRITE_DATA, 0, NULL, OPEN_EXISTING, 0, NULL);
-	
 	if (!hPipe) {
 		printf("CreateNamedPipe for pipe %s returned INVALID_HANDLE_VALUE; GetLastError() = %d. Retrying.\n", pipe_name.c_str(), GetLastError());
 		return 0;
@@ -86,8 +84,6 @@ int handle_pipe_stuff() {
 
 	printf("Successfully created pipe %s!\n", pipe_name.c_str());
 	printf("PIPEDATA.data.size() = %d\n", PIPEDATA.data.size());
-
-//	sc = WriteFile(hPipe, &PIPEDATA.data[0], PIPEDATA.data.size(), &num_bytes, NULL);
 
 	while (1) {
 		sc = WriteFile(hPipe, &PIPEDATA.data[0], PIPEDATA.data.size(), &num_bytes, NULL);
@@ -165,7 +161,7 @@ int handle_pipe_stuff() {
 	FlushFileBuffers(hPipe);
 	DisconnectNamedPipe(hPipe);
 
-//	CloseHandle(hPipe);
+	CloseHandle(hPipe);
 
 	delete[] read_buf;
 	delete[] write_buf;
