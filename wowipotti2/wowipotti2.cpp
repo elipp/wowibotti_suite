@@ -289,8 +289,6 @@ static int create_account_assignments2() {
 
 	for (int i = 0; i < num_to_process; ++i) {
 
-		DWORD err;
-
 		const wowcl_t &c = assigned_accs[i].second;
 		const wowaccount_t &acc = assigned_accs[i].first;
 
@@ -509,85 +507,108 @@ static int create_secattr_for_pipe(PSECURITY_ATTRIBUTES *sa) {
 
 	int ret_val = 1;
 
-	// Create a well-known SID for the Everyone group.
-	if (!AllocateAndInitializeSid(&SIDAuthWorld, 1,
-		SECURITY_WORLD_RID,
-		0, 0, 0, 0, 0, 0, 0,
-		&pEveryoneSID))
+	//// Create a well-known SID for the Everyone group.
+	//if (!AllocateAndInitializeSid(&SIDAuthWorld, 1,
+	//	SECURITY_WORLD_RID,
+	//	0, 0, 0, 0, 0, 0, 0,
+	//	&pEveryoneSID))
+	//{
+	//	_tprintf(_T("AllocateAndInitializeSid Error %u\n"), GetLastError());
+	//	ret_val = 0;
+	//	goto Cleanup;
+	//}
+
+	//// Initialize an EXPLICIT_ACCESS structure for an ACE.
+	//// The ACE will allow Everyone read access to the key.
+	//ZeroMemory(&ea, 2 * sizeof(EXPLICIT_ACCESS));
+	//ea[0].grfAccessPermissions = GENERIC_READ | FILE_WRITE_DATA;
+	//ea[0].grfAccessMode = SET_ACCESS;
+	//ea[0].grfInheritance = NO_INHERITANCE;
+	//ea[0].Trustee.TrusteeForm = TRUSTEE_IS_SID;
+	//ea[0].Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
+	//ea[0].Trustee.ptstrName = (LPTSTR)pEveryoneSID;
+
+	//// Create a SID for the BUILTIN\Administrators group.
+	//if (!AllocateAndInitializeSid(&SIDAuthNT, 2,
+	//	SECURITY_BUILTIN_DOMAIN_RID,
+	//	DOMAIN_ALIAS_RID_ADMINS,
+	//	0, 0, 0, 0, 0, 0,
+	//	&pAdminSID))
+	//{
+	//	_tprintf(_T("AllocateAndInitializeSid Error %u\n"), GetLastError());
+	//	ret_val = 0;
+	//	goto Cleanup;
+	//}
+
+	//// Initialize an EXPLICIT_ACCESS structure for an ACE.
+	//// The ACE will allow the Administrators group full access to
+	//// the key.
+	//ea[1].grfAccessPermissions = KEY_ALL_ACCESS;
+	//ea[1].grfAccessMode = SET_ACCESS;
+	//ea[1].grfInheritance = NO_INHERITANCE;
+	//ea[1].Trustee.TrusteeForm = TRUSTEE_IS_SID;
+	//ea[1].Trustee.TrusteeType = TRUSTEE_IS_GROUP;
+	//ea[1].Trustee.ptstrName = (LPTSTR)pAdminSID;
+
+	//// Create a new ACL that contains the new ACEs.
+	//dwRes = SetEntriesInAcl(2, ea, NULL, &pACL);
+	//if (ERROR_SUCCESS != dwRes)
+	//{
+	//	_tprintf(_T("SetEntriesInAcl Error %u\n"), GetLastError());
+	//	ret_val = 0;
+	//	goto Cleanup;
+	//}
+
+	//// Initialize a security descriptor.  
+	//pSD = (PSECURITY_DESCRIPTOR)LocalAlloc(LPTR,
+	//	SECURITY_DESCRIPTOR_MIN_LENGTH);
+	//if (NULL == pSD)
+	//{
+	//	_tprintf(_T("LocalAlloc Error %u\n"), GetLastError());
+	//	ret_val = 0;
+	//	goto Cleanup;
+	//}
+
+	//if (!InitializeSecurityDescriptor(pSD,
+	//	SECURITY_DESCRIPTOR_REVISION))
+	//{
+	//	_tprintf(_T("InitializeSecurityDescriptor Error %u\n"),
+	//		GetLastError());
+	//	ret_val = 0;
+	//	goto Cleanup;
+	//}
+
+	//// Add the ACL to the security descriptor. 
+	//if (!SetSecurityDescriptorDacl(pSD,
+	//	TRUE,     // bDaclPresent flag   
+	//	pACL,
+	//	FALSE))   // not a default DACL 
+	//{
+	//	_tprintf(_T("SetSecurityDescriptorDacl Error %u\n"),
+	//		GetLastError());
+	//	ret_val = 0;
+	//	goto Cleanup;
+	//}
+
+
+	pSD = (PSECURITY_DESCRIPTOR)LocalAlloc(LPTR, SECURITY_DESCRIPTOR_MIN_LENGTH);
+	if (!pSD)
 	{
-		_tprintf(_T("AllocateAndInitializeSid Error %u\n"), GetLastError());
+		printf("LocalAlloc failed: %d.\n", GetLastError());
 		ret_val = 0;
 		goto Cleanup;
 	}
 
-	// Initialize an EXPLICIT_ACCESS structure for an ACE.
-	// The ACE will allow Everyone read access to the key.
-	ZeroMemory(&ea, 2 * sizeof(EXPLICIT_ACCESS));
-	ea[0].grfAccessPermissions = STANDARD_RIGHTS_ALL;
-	ea[0].grfAccessMode = SET_ACCESS;
-	ea[0].grfInheritance = NO_INHERITANCE;
-	ea[0].Trustee.TrusteeForm = TRUSTEE_IS_SID;
-	ea[0].Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
-	ea[0].Trustee.ptstrName = (LPTSTR)pEveryoneSID;
-
-	// Create a SID for the BUILTIN\Administrators group.
-	if (!AllocateAndInitializeSid(&SIDAuthNT, 2,
-		SECURITY_BUILTIN_DOMAIN_RID,
-		DOMAIN_ALIAS_RID_ADMINS,
-		0, 0, 0, 0, 0, 0,
-		&pAdminSID))
+	if (!InitializeSecurityDescriptor(pSD, SECURITY_DESCRIPTOR_REVISION))
 	{
-		_tprintf(_T("AllocateAndInitializeSid Error %u\n"), GetLastError());
+		printf("InitializeSecurityDescriptor failed. %d\n", GetLastError());
 		ret_val = 0;
 		goto Cleanup;
 	}
 
-	// Initialize an EXPLICIT_ACCESS structure for an ACE.
-	// The ACE will allow the Administrators group full access to
-	// the key.
-	ea[1].grfAccessPermissions = KEY_ALL_ACCESS;
-	ea[1].grfAccessMode = SET_ACCESS;
-	ea[1].grfInheritance = NO_INHERITANCE;
-	ea[1].Trustee.TrusteeForm = TRUSTEE_IS_SID;
-	ea[1].Trustee.TrusteeType = TRUSTEE_IS_GROUP;
-	ea[1].Trustee.ptstrName = (LPTSTR)pAdminSID;
-
-	// Create a new ACL that contains the new ACEs.
-	dwRes = SetEntriesInAcl(2, ea, NULL, &pACL);
-	if (ERROR_SUCCESS != dwRes)
+	if (!SetSecurityDescriptorDacl(pSD, TRUE, NULL, FALSE))
 	{
-		_tprintf(_T("SetEntriesInAcl Error %u\n"), GetLastError());
-		ret_val = 0;
-		goto Cleanup;
-	}
-
-	// Initialize a security descriptor.  
-	pSD = (PSECURITY_DESCRIPTOR)LocalAlloc(LPTR,
-		SECURITY_DESCRIPTOR_MIN_LENGTH);
-	if (NULL == pSD)
-	{
-		_tprintf(_T("LocalAlloc Error %u\n"), GetLastError());
-		ret_val = 0;
-		goto Cleanup;
-	}
-
-	if (!InitializeSecurityDescriptor(pSD,
-		SECURITY_DESCRIPTOR_REVISION))
-	{
-		_tprintf(_T("InitializeSecurityDescriptor Error %u\n"),
-			GetLastError());
-		ret_val = 0;
-		goto Cleanup;
-	}
-
-	// Add the ACL to the security descriptor. 
-	if (!SetSecurityDescriptorDacl(pSD,
-		TRUE,     // bDaclPresent flag   
-		pACL,
-		FALSE))   // not a default DACL 
-	{
-		_tprintf(_T("SetSecurityDescriptorDacl Error %u\n"),
-			GetLastError());
+		printf("SetSecurityDescriptorDacl failed. %d\n", GetLastError());
 		ret_val = 0;
 		goto Cleanup;
 	}
@@ -621,22 +642,28 @@ static int do_pipe_operations(DWORD pid) {
 #define PIPE_READ_BUF_SIZE 1024
 #define PIPE_WRITE_BUF_SIZE 16
 
-	PSECURITY_ATTRIBUTES sa = NULL;
+	HANDLE hPipe;
+	DWORD last_err;
 
-	//if (!create_secattr_for_pipe(&sa)) {
-	//	printf("Creating security attributes for pipe failed :(\n");
-	//}
+	std::string pipe_name = "\\\\.\\pipe\\" + std::to_string(pid);
 
-	std::string pipename = "\\\\.\\pipe\\" + std::to_string(pid);
+	printf("Trying to connect to pipe %s...\n", pipe_name.c_str());
 
-	printf("Creating pipe %s...\n", pipename.c_str());
+	hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | FILE_WRITE_DATA, 0, NULL, OPEN_EXISTING, 0, NULL);
 
-	HANDLE hPipe = CreateNamedPipe(pipename.c_str(), PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
-		PIPE_UNLIMITED_INSTANCES, PIPE_READ_BUF_SIZE, PIPE_WRITE_BUF_SIZE, 0, sa);
+	while (hPipe == INVALID_HANDLE_VALUE) {
+		last_err = GetLastError();
+		if (last_err == ERROR_FILE_NOT_FOUND) {
+			// then we can say fairly confidently that the client DLL just hasn't created it yet
+			printf("pipe descriptor %s not yet available (ERROR_FILE_NOT_FOUND), retrying after 250ms...\n", pipe_name.c_str());
+			Sleep(250);
+			hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | FILE_WRITE_DATA, 0, NULL, OPEN_EXISTING, 0, NULL);
+		}
+		else {
+			printf("CreateFile failed with error %d, aborting!\n", GetLastError());
+			return 0;
+		}
 
-	if (!hPipe) {
-		printf("CreateNamedPipe failed: %d\n", GetLastError());
-		return 1;
 	}
 
 	HANDLE hHeap = GetProcessHeap();
@@ -648,29 +675,12 @@ static int do_pipe_operations(DWORD pid) {
 	DWORD sc = 0;
 	DWORD num_bytes = 0;
 
-	printf("Pipe created; waiting for client to send data...\n");
+	printf("pipe connection established; waiting for client to send data...\n");
 
-	while (1) {
-		sc = ReadFile(hPipe, read_buf, PIPE_READ_BUF_SIZE*sizeof(char), &num_bytes, NULL); // wait for client to propagate patch addresses
+	sc = ReadFile(hPipe, read_buf, PIPE_READ_BUF_SIZE*sizeof(char), &num_bytes, NULL); // wait for client to propagate patch addresses
 
-		if (!sc || num_bytes == 0) {
-			if (GetLastError() == ERROR_PIPE_LISTENING) {
-				//printf("pipe thread: WARNING: ERROR_PIPE_LISTENING!\n");
-			}
-			else if (GetLastError() == ERROR_BROKEN_PIPE) {
-				printf("pipe thread: ERROR_BROKEN_PIPE\n");
-				break;
-			}
-			else {
-				printf("pipe thread: ERROR: 0x%X\n", GetLastError());
-				break;
-			}
-		}
-		else {
-			break; // successe'd
-		}
-
-		Sleep(200);
+	if (!sc || num_bytes == 0) {
+		printf("pipe %s: ReadFile returned %d; last error: %d\n", pipe_name.c_str(), sc, GetLastError());
 	}
 
 	std::vector<patch_t> patches;
@@ -693,12 +703,9 @@ static int do_pipe_operations(DWORD pid) {
 	}
 
 	sc = WriteFile(hPipe, response_str.c_str(), response_str.length()+1, &num_bytes, NULL);
+	printf("Sent response %s to client %d. Closing pipe.\n", response_str.c_str(), pid);
 
-	FlushFileBuffers(hPipe);
-	DisconnectNamedPipe(hPipe);
 	CloseHandle(hPipe);
-
-	printf("Sent response %s to client %d. Exiting.\n", response_str.c_str(), pid);
 
 	HeapFree(hHeap, 0, read_buf);
 

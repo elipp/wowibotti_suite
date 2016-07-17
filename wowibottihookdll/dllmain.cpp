@@ -74,26 +74,44 @@ int handle_pipe_stuff() {
 	char *write_buf = new char[PIPE_WRITE_BUF_SIZE];
 	char *read_buf = new char[PIPE_READ_BUF_SIZE];
 
-	hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-	while (hPipe == INVALID_HANDLE_VALUE) {
-	//	Sleep(250);
-		printf("CreateFile for pipe %s returned INVALID_HANDLE_VALUE; GetLastError() = %d. Retrying.\n", pipe_name.c_str(), GetLastError());
-		CreateFile(pipe_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-	}
+	hPipe = CreateNamedPipe(pipe_name.c_str(), PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+		1, PIPE_READ_BUF_SIZE, PIPE_WRITE_BUF_SIZE, 0, NULL);
 
-	printf("Got connection to pipe %s!\n", pipe_name.c_str());
-	printf("PIPEDATA.data.size() = %d\n", PIPEDATA.data.size());
-
-	sc = WriteFile(hPipe, &PIPEDATA.data[0], PIPEDATA.data.size(), &num_bytes, NULL);
-
-	if (!sc || num_bytes == 0) {
-		printf("Writing to pipe %s failed, error: 0x%X\n", pipe_name.c_str(), GetLastError());
+//	hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | FILE_WRITE_DATA, 0, NULL, OPEN_EXISTING, 0, NULL);
+	
+	if (!hPipe) {
+		printf("CreateNamedPipe for pipe %s returned INVALID_HANDLE_VALUE; GetLastError() = %d. Retrying.\n", pipe_name.c_str(), GetLastError());
 		return 0;
 	}
-	else {
-		printf("Sent our patch data to pipe server!\n");
-	}
 
+	printf("Successfully created pipe %s!\n", pipe_name.c_str());
+	printf("PIPEDATA.data.size() = %d\n", PIPEDATA.data.size());
+
+//	sc = WriteFile(hPipe, &PIPEDATA.data[0], PIPEDATA.data.size(), &num_bytes, NULL);
+
+	while (1) {
+		sc = WriteFile(hPipe, &PIPEDATA.data[0], PIPEDATA.data.size(), &num_bytes, NULL);
+
+		if (!sc || num_bytes == 0) {
+			if (GetLastError() == ERROR_PIPE_LISTENING) {
+				//printf("pipe thread: WARNING: ERROR_PIPE_LISTENING!\n");
+			}
+			else if (GetLastError() == ERROR_BROKEN_PIPE) {
+				printf("pipe thread: ERROR_BROKEN_PIPE\n");
+				break;
+			}
+			else {
+				printf("pipe thread: ERROR: 0x%X\n", GetLastError());
+				break;
+			}
+		}
+		else {
+			break; // successe'd
+		}
+
+		//Sleep(200);
+	}
+	
 	sc = ReadFile(hPipe, read_buf, PIPE_READ_BUF_SIZE, &num_bytes, NULL);
 
 	if (!sc || num_bytes == 0) {
@@ -143,10 +161,10 @@ int handle_pipe_stuff() {
 			printf("Got PATCH_OK. No login credentials sent.\n");
 		}
 	}
-
+	
+	FlushFileBuffers(hPipe);
+	DisconnectNamedPipe(hPipe);
 	CloseHandle(hPipe);
-
-	//		DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
 
 	delete[] read_buf;
 	delete[] write_buf;
