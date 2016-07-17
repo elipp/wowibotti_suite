@@ -335,15 +335,6 @@ static int obtain_debug_privileges() {
 		return 0;
 	}
 
-	/*if (!SetPrivilege(hToken, SE_CREATE_GLOBAL_NAME, TRUE)) {
-		printf("SetPrivilege for SE_CREATE_GLOBAL_NAME pheyled.\n");
-		printf("ERROR: WINAPI SetPrivilege() failed! DLL injection will fail.\n");
-
-		CloseHandle(hToken);
-
-		return 0;
-	}*/
-
 	return 1;
 }
 
@@ -362,15 +353,7 @@ static int remote_thread_dll(DWORD pid) {
 		return 0;
 	}
 
-	char DirPath[MAX_PATH];
-	char FullPath[MAX_PATH];
-	GetCurrentDirectory(MAX_PATH, DirPath);
-
-	sprintf_s(FullPath, MAX_PATH, "%s\\wowibottihookdll.dll", DirPath);
-
-	DLL_path = std::string(FullPath);
-
-	printf("Attempting to inject DLL %s to process %d...\n", FullPath, pid);
+	printf("Attempting to inject DLL %s to process %d...\n", DLL_path.c_str(), pid);
 
 	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 	if (hProcess == NULL) { printf("OpenProcess failed: %d\n", GetLastError()); return 0; }
@@ -378,11 +361,11 @@ static int remote_thread_dll(DWORD pid) {
 	LPVOID LoadLibraryAddr = (LPVOID)GetProcAddress(GetModuleHandle("kernel32.dll"), "LoadLibraryA");
 	if (LoadLibraryAddr == NULL) { printf("LoadLibraryA failed: %d\n", GetLastError()); return 0; }
 
-	LPVOID LLParam = (LPVOID)VirtualAllocEx(hProcess, NULL, strlen(FullPath),
+	LPVOID LLParam = (LPVOID)VirtualAllocEx(hProcess, NULL, DLL_path.length(),
 		MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	if (LLParam == NULL) { printf("VirtualAllocEx failed: %d\n", GetLastError()); return 0; }
 
-	DWORD ret = WriteProcessMemory(hProcess, LLParam, FullPath, strlen(FullPath), NULL);
+	DWORD ret = WriteProcessMemory(hProcess, LLParam, DLL_path.c_str(), DLL_path.length(), NULL);
 	if (ret == 0) { printf("WriteProcessMemory failed: %d\n", GetLastError()); return 0; }
 
 	HANDLE rt = CreateRemoteThread(hProcess, NULL, NULL, (LPTHREAD_START_ROUTINE)LoadLibraryAddr,
@@ -402,7 +385,7 @@ struct patch_t {
 	BYTE *original_opcodes, *patch_opcodes;
 };
 
-static int parse_pipe_response(const BYTE *resp, std::vector<patch_t> &patches) {
+static int parse_pipe_response(const BYTE *resp, size_t resp_length, std::vector<patch_t> &patches) {
 
 #define PIPE_PROTOCOL_MAGIC 0xAB30DD13
 
@@ -412,7 +395,7 @@ static int parse_pipe_response(const BYTE *resp, std::vector<patch_t> &patches) 
 	memcpy(&meta_size, &resp[2 * sizeof(UINT32)], sizeof(UINT32));
 
 	if (magic == PIPE_PROTOCOL_MAGIC) {
-		printf("PIPE_PROTOCOL_MAGIC MATCHES! Client sent %d patches. (meta_size = %d)\n", num_patches, meta_size);
+		printf("PIPE_PROTOCOL_MAGIC MATCHES! Client sent %d patches in a total of %d bytes. (meta_size = %d)\n", num_patches, resp_length, meta_size);
 	}
 	else {
 		printf("ERROR: PIPE_PROTOCOL_MAGIC mismatch! (What!?)\n");
@@ -675,7 +658,6 @@ static int do_pipe_operations(DWORD pid) {
 
 	}
 
-	//BYTE *read_buf = new BYTE[PIPE_READ_BUF_SIZE];
 	BYTE read_buf[PIPE_READ_BUF_SIZE];
 
 	static const std::string PATCH_OK = "PATCH_OK";
@@ -696,9 +678,14 @@ static int do_pipe_operations(DWORD pid) {
 
 	std::string response_str;
 
-	if (parse_pipe_response(read_buf, patches)) {
+	if (parse_pipe_response(read_buf, num_bytes, patches)) {
 		response_str = PATCH_OK;
 		suspend_and_apply_patches(pid, patches);
+
+		for (auto &p : patches) {
+			delete[] p.original_opcodes;
+			delete[] p.patch_opcodes;
+		}
 		
 		std::string cred_str;
 		if (get_credentials(pid, &cred_str)) {
@@ -711,12 +698,10 @@ static int do_pipe_operations(DWORD pid) {
 		printf("parse_pipe_response() failed :(\n");
 	}
 
-	sc = WriteFile(hPipe, response_str.c_str(), response_str.length(), &num_bytes, NULL);
+	sc = WriteFile(hPipe, response_str.c_str(), response_str.length() + 1, &num_bytes, NULL);
 	printf("Sent response %s to client %d. Closing pipe.\n", response_str.c_str(), pid);
 
 	CloseHandle(hPipe);
-
-	//delete[] read_buf;
 
 	return 1;
 }
@@ -724,9 +709,14 @@ static int do_pipe_operations(DWORD pid) {
 static DWORD WINAPI inject_threadfunc(LPVOID param) {
 
 	// lol. each thread needs to individually obtain debug privileges..
-	DWORD pid;
+	DWORD pid = 0;
 	
 	DWORD tid = GetWindowThreadProcessId((HWND)param, &pid);
+
+	if (tid == 0 || pid == 0) {
+		printf("error: GetWindowThreadProcessId() returned 0. GetLastError() = %d. Exiting.\n", GetLastError());
+		return 0;
+	}
 
 	if (!remote_thread_dll(pid)) {
 		printf("remote_thread_dll() failed. Exiting.\n");
@@ -737,7 +727,7 @@ static DWORD WINAPI inject_threadfunc(LPVOID param) {
 		printf("do_pipe_operations() failed. Exiting.\n");
 		return 0;
 	}
-
+	
 	return 1;
 }
 
@@ -761,7 +751,9 @@ static int inject_to_all() {
 	}
 
 	if (thread_handles.size() > 0) {
-		WaitForMultipleObjects(thread_handles.size(), &thread_handles[0], TRUE, INFINITE);
+		if (WaitForMultipleObjects(thread_handles.size(), &thread_handles[0], TRUE, INFINITE) == WAIT_FAILED) {
+			printf("WaitForMultipleObjects failed: error %d\n", GetLastError());
+		}
 	}
 
 	EnableWindow(button_inject_hWnd, TRUE);
@@ -1180,9 +1172,16 @@ int APIENTRY WinMain(_In_ HINSTANCE hInstance,
 	freopen("CONOUT$", "wb", stdout);
 #endif
 
+
+	char DirPath[MAX_PATH];
+	char FullPath[MAX_PATH];
+	GetCurrentDirectory(MAX_PATH, DirPath);
+
+	sprintf_s(FullPath, MAX_PATH, "%s\\wowibottihookdll.dll", DirPath);
+
+	DLL_path = std::string(FullPath);
+
 	if (!obtain_debug_privileges()) {
-		//printf("\nwowipotti2: ERROR: couldn't obtain debug privileges.\n(Are you running as administrator?)\n\nPress enter to exit.\n");
-		//getchar();
 		error_box("Couldn't obtain debug privileges. Please re-run this program with administrator privileges.");
 		return 0;
 	}
@@ -1190,7 +1189,6 @@ int APIENTRY WinMain(_In_ HINSTANCE hInstance,
 	if (!InitInstance(hInstance, nCmdShow)) {
 		return FALSE;
 	}
-
 
 	MSG msg;
 	int ret;
