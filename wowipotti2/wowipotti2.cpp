@@ -675,7 +675,8 @@ static int do_pipe_operations(DWORD pid) {
 
 	}
 
-	BYTE *read_buf = new BYTE[PIPE_READ_BUF_SIZE];
+	//BYTE *read_buf = new BYTE[PIPE_READ_BUF_SIZE];
+	BYTE read_buf[PIPE_READ_BUF_SIZE];
 
 	static const std::string PATCH_OK = "PATCH_OK";
 	static const std::string PATCH_FAIL = "PATCH_FAIL";
@@ -685,7 +686,7 @@ static int do_pipe_operations(DWORD pid) {
 
 	printf("pipe connection established; waiting for client to send data...\n");
 
-	sc = ReadFile(hPipe, read_buf, PIPE_READ_BUF_SIZE*sizeof(char), &num_bytes, NULL); // wait for client to propagate patch addresses
+	sc = ReadFile(hPipe, read_buf, PIPE_READ_BUF_SIZE, &num_bytes, NULL); // wait for client to propagate patch addresses
 
 	if (!sc || num_bytes == 0) {
 		printf("pipe %s: ReadFile returned %d; last error: %d\n", pipe_name.c_str(), sc, GetLastError());
@@ -710,12 +711,12 @@ static int do_pipe_operations(DWORD pid) {
 		printf("parse_pipe_response() failed :(\n");
 	}
 
-	sc = WriteFile(hPipe, response_str.c_str(), response_str.length()+1, &num_bytes, NULL);
+	sc = WriteFile(hPipe, response_str.c_str(), response_str.length(), &num_bytes, NULL);
 	printf("Sent response %s to client %d. Closing pipe.\n", response_str.c_str(), pid);
 
 	CloseHandle(hPipe);
 
-	delete[] read_buf;
+	//delete[] read_buf;
 
 	return 1;
 }
@@ -748,6 +749,8 @@ static HANDLE inject_dll(HWND window_handle) {
 
 static int inject_to_all() {
 
+	EnableWindow(button_inject_hWnd, FALSE);
+
 	wow_handles = std::vector<wowcl_t>();
 	thread_handles = std::vector<HANDLE>();
 
@@ -760,6 +763,8 @@ static int inject_to_all() {
 	if (thread_handles.size() > 0) {
 		WaitForMultipleObjects(thread_handles.size(), &thread_handles[0], TRUE, INFINITE);
 	}
+
+	EnableWindow(button_inject_hWnd, TRUE);
 
 	return 1;
 }
