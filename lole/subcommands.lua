@@ -5,6 +5,9 @@ local available_configs = {
 	default =
 	class_config_create("default", {}, {}, "FFFFFF", function() end, {}, 0),
 
+	druid_feral =
+	class_config_create("druid_feral", {"Mark of the Wild", "Thorns"}, {}, get_class_color("druid"), combat_druid_feral, {"Omen of Clarity"}, ROLES.warrior_tank),
+
 	druid_resto =
 	class_config_create("druid_resto", {"Mark of the Wild", "Thorns"}, {}, get_class_color("druid"), combat_druid_resto, {}, ROLES.caster),
 
@@ -34,6 +37,9 @@ local available_configs = {
 
 	priest_shadow =
 	class_config_create("priest_shadow", {"Power Word: Fortitude", "Shadow Protection"}, {"Shadowform", "Inner Fire"}, get_class_color("priest"), combat_priest_shadow, {"Inner Focus"}, ROLES.caster),
+
+	rogue_combat =
+	class_config_create("rogue_combat", {}, {}, get_class_color("rogue"), combat_rogue_combat, {"Adrenaline Rush", "Blade Flurry"}, ROLES.warrior_tank),
 
 	shaman_enh =
 	class_config_create("shaman_enh", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_enh, {"Bloodlust", "Shamanistic Rage"}, ROLES.warrior_tank),

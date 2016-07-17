@@ -1,46 +1,31 @@
 combat_druid_resto = function()
 
-	TargetUnit("Josp"); 
-	local health_max = UnitHealthMax("target");
-	local health_cur = UnitHealth("target");
-	
-	local own_hp_max = UnitHealthMax("player");
-	local own_hp_cur = UnitHealth("player");
-	
-	if GetSpellCooldown("Remove Curse") > 0 then -- dont waste cycles on GCD
-		return;
-	end
-	
-	if own_hp_cur < 5500 then 
-		TargetUnit("player")
-	end
-	
-	--if not has_buff("player", "Tree of Life") then
-		--CastSpellByName("Tree of Life");
-		--return;
-	--end
-	
-	if has_debuff_of_type("target", "Curse") then
-		CastSpellByName("Remove Curse");
-		return;
-	end
-	
-	if not has_buff("target", "Lifebloom") then
-		CastSpellByName("Lifebloom");
-		return;
-	end
-	
-	if (health_cur < health_max * 0.88) then
-		if not has_buff("target", "Rejuvenation") then
-			CastSpellByName("Rejuvenation");
+	TargetUnit("focus");
+	local mana_left = UnitMana("player");
+
+	local has, stacks, timeleft = has_buff("focus", "Lifebloom")
+
+	if has then
+		if stacks < 3 then
+			CastSpellByName("Lifebloom")
+			return
+		else if timeleft < 0.7 then
+			CastSpellByName("Lifebloom")
+			return
 		end
-	elseif (UnitHealth("player") < UnitHealthMax("player")*0.80) then
-		TargetUnit("player");
-		if not has_buff("target", "Rejuvenation") then
-			CastSpellByName("Rejuvenation");
-		end
+	else
+		CastSpellByName("Lifebloom")
+		return
 	end
-	
+
+	if (not has_buff("focus", "Rejuvenation")) then
+		CastSpellByName("Rejuvenation")
+		return
+	end
+
+	if (UnitHealth("focus") < 5500) then
+		CastSpellByName("Swiftmend")
+		return
+	end
 
 end
-

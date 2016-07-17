@@ -8,6 +8,7 @@ lole_buffs.lua
 
 class_config.lua
 
+druid_feral.lua
 druid_resto.lua
 druid_balance.lua
 hunter.lua
@@ -18,6 +19,7 @@ mage_fire.lua
 mage_frost.lua
 priest_holy.lua
 priest_shadow.lua
+rogue_combat.lua
 warlock_affli.lua
 warlock_sb.lua
 warrior_prot.lua

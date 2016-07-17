@@ -388,7 +388,7 @@ function has_debuff(targetname, debuff_name)
 	local fnd = false;
 	local timeleft = 999;
 	for i=1,16,1 do name, _, _, _, _, _, timeleft = UnitDebuff(targetname,i)
-		if(name ~= nil and string.find(name, debuff_name)) then
+		if (name ~= nil and string.find(name, debuff_name)) then
 			fnd=true;
 			break;
 		end
@@ -426,27 +426,29 @@ end
 
 function has_buff(targetname, buff_name)
 	local fnd = false;
-	for i=1,16,1 do name, _, icon, _, _, timeLeft = UnitBuff(targetname, i)
+	local timeleft = 999;
+	local stacks = 0;
+	for i=1,16,1 do name, _, icon, stacks, _, timeleft = UnitBuff(targetname, i)
 		if(name ~= nil and string.find(name, buff_name)) then
 			fnd=true;
 			break;
 		end
 	end
-	return fnd, timeleft;
+	return fnd, timeleft, stacks;
 
 end
 
 function has_debuff_of_type(targetname, typename)
 	local fnd = false;
 
-	for i=1,16,1 do _, _, _, _, debuffType, timeLeft = UnitDebuff(targetname,i)
+	for i=1,16,1 do _, _, _, _, debuffType, timeleft = UnitDebuff(targetname,i)
 		if(debuffType ~= nil and string.find(debuffType, typename)) then
 			fnd = true;
 			break;
 		end
 	end
 
-	return fnd,timeLeft;
+	return fnd,timeleft;
 
 end
 

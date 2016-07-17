@@ -39,6 +39,10 @@ local function handle_subcommand(args)
 end
 
 function lole_main(args)
+--- DEBUG!!!
+	get_current_config().combat();
+
+
 	if args and args ~= "" then
 		handle_subcommand(args)
 		return;
