@@ -43,8 +43,11 @@ private:
 		Y = X + 4,
 		Z = X + 8,
 		R = X + 12,
-		info_field = 0x120,
+		unit_info_field = 0x120,
 		Name = 0xDB8,
+
+		UnitHealth = 0x40,
+
 		NPCcurrentHealth = 0x11E8,
 		NPCcurrentMana = 0x11EC,
 		NPCcurrentRage = 0x11F0,
@@ -100,6 +103,8 @@ public:
 	GUID_t unit_get_target_GUID() const;
 
 	int in_combat() const;
+
+	uint unit_get_cur_HP() const;
 
 	uint unit_get_buff(int index) const;
 	uint unit_get_debuff(int index) const;

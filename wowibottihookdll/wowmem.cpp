@@ -247,6 +247,16 @@ std::string WowObject::unit_get_name() const {
 	return ret;
 }
 
+uint WowObject::unit_get_cur_HP() const {
+	uint info_field;
+	readAddr(base + unit_info_field, &info_field, sizeof(uint));
+
+	uint cur_HP = 0;
+	readAddr(info_field + UnitHealth, &cur_HP, sizeof(cur_HP));
+	return cur_HP;
+}
+
+
 GUID_t WowObject::NPC_get_target_GUID() const {
 	GUID_t target_GUID;
 	readAddr(base + 0xF08, &target_GUID, sizeof(target_GUID));

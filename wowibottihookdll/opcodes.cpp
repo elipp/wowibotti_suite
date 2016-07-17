@@ -45,8 +45,8 @@ static int dump_wowobjects_to_log() {
 	if (fp) {
 		printf("Dumping WowObjects to file \"%s\"!\n", log_path.c_str());
 		WowObject next = OM.get_first_object();
-		GUID_t target_GUID;
-		readAddr(PLAYER_TARGET_ADDR, &target_GUID, sizeof(target_GUID));
+		GUID_t target_GUID = get_target_GUID();
+
 		fprintf(fp, "local GUID = 0x%016llX, player target: %016llX\n", OM.get_local_GUID(), target_GUID);
 
 		while (next.valid()) {
@@ -60,9 +60,9 @@ static int dump_wowobjects_to_log() {
 
 					if (next.get_type() == OBJECT_TYPE_NPC) {
 						fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", next.NPC_get_name().c_str(), next.NPC_getCurHealth(), next.NPC_getMaxHealth(), next.NPC_get_target_GUID(), next.in_combat());
-					}
+				}
 					else if (next.get_type() == OBJECT_TYPE_UNIT) {
-						fprintf(fp, "name: %s, target GUID: 0x%016llX, combat = %d\n", next.unit_get_name().c_str(), next.unit_get_target_GUID(), next.in_combat());
+						fprintf(fp, "name: %s, current health: %u, target GUID: 0x%016llX, combat = %d\n", next.unit_get_name().c_str(), next.unit_get_cur_HP(), next.unit_get_target_GUID(), next.in_combat());
 						fprintf(fp, "buffs (by spellID):\n");
 						for (int n = 1; n <= 16; ++n) {
 							int spellID = next.unit_get_buff(n);
@@ -489,6 +489,23 @@ static void LOP_walk_to_pull(const std::string &arg) {
 
 }
 
+static void LOP_get_best_CH(const std::string &arg) {
+	ObjectManager OM;
+	
+	std::vector<std::pair<GUID_t, int>> deficits;
+
+	WowObject next = OM.get_first_object();
+
+	while (next.valid()) {
+		if (next.get_type() == OBJECT_TYPE_UNIT) {
+			int HP;
+		}
+
+		next = next.getNextObject();
+	}
+}
+
+
 static void LOPDBG_dump(const std::string &arg) {
 	dump_wowobjects_to_log();
 }
@@ -555,7 +572,8 @@ static const struct {
 	{ "LOLE_SPREAD", LOP_spread, 0 },
 	{ "LOLE_PULL_MOB", LOP_nop, 0 },
 	{ "LOLE_REPORT_LOGIN", LOP_report_login, 1 },
-	{ "LOLE_WALK_TO_PULLING_RANGE", LOP_walk_to_pull, 0}
+	{ "LOLE_WALK_TO_PULLING_RANGE", LOP_walk_to_pull, 0 },
+	{ "LOLE_GET_BEST_CHAINHEAL_TARGET", LOP_get_best_CH, 0}
 };
 
 static const struct {
