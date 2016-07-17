@@ -246,20 +246,32 @@ local function do_buffs(missing_buffs)
         local GROUP_BUFF_MAP, buffs = {}, {}
 		local config_name = get_current_config().name;
 
-        if string.find(config_name, "paladin") then
-		    local num_paladins = get_num_paladins();
-		    if num_paladins < 2 then
+        if UnitClass("player") == "Paladin" then
+		    local paladins = get_paladins();
+		    if #paladins == 1 then
 		        buffs["Greater Blessing of Kings"] = missing_buffs["Blessing of Kings"];
 	            buffs["Greater Blessing of Salvation"] = missing_buffs["Blessing of Salvation"];
 	            buffs["Greater Blessing of Wisdom"] = missing_buffs["Blessing of Wisdom"];
 	            buffs["Greater Blessing of Might"] = missing_buffs["Blessing of Might"];
-	        elseif config_name == "paladin_prot" then
-	        	buffs["Greater Blessing of Kings"] = missing_buffs["Blessing of Kings"];
-	        else
-	            buffs["Greater Blessing of Salvation"] = missing_buffs["Blessing of Salvation"];
-	            buffs["Greater Blessing of Wisdom"] = missing_buffs["Blessing of Wisdom"];
-	            buffs["Greater Blessing of Might"] = missing_buffs["Blessing of Might"];
-	        end
+            elseif #paladins == 2 then
+                if config_name == "paladin_holy" or (config_name == "paladin_retri" and table.contains(paladins, "Adieux")) then
+                    buffs["Greater Blessing of Salvation"] = missing_buffs["Blessing of Salvation"];
+                    buffs["Greater Blessing of Wisdom"] = missing_buffs["Blessing of Wisdom"];
+                    buffs["Greater Blessing of Might"] = missing_buffs["Blessing of Might"];
+    	        else
+    	        	buffs["Greater Blessing of Kings"] = missing_buffs["Blessing of Kings"];
+    	        end
+            elseif #paladins == 3 then
+                if config_name == "paladin_prot" then
+                    buffs["Greater Blessing of Kings"] = missing_buffs["Blessing of Kings"];
+                elseif config_name == "paladin_retri" then
+                    buffs["Greater Blessing of Salvation"] = missing_buffs["Blessing of Salvation"];
+                    buffs["Greater Blessing of Light"] = missing_buffs["Blessing of Light"];
+                else
+                    buffs["Greater Blessing of Wisdom"] = missing_buffs["Blessing of Wisdom"];
+                    buffs["Greater Blessing of Might"] = missing_buffs["Blessing of Might"];
+                end
+            end
        	else
 			for k, buff in pairs(get_current_config().buffs) do
 				if BUFF_ALIASES[buff] then
@@ -277,7 +289,7 @@ local function do_buffs(missing_buffs)
 
         local num_requests = get_num_buff_requests(buffs);
         if num_requests > 0 then
-        	if string.find(config_name, "paladin") then
+        	if UnitClass("player") == "Paladin" then
         		SPAM_TABLE = get_paladin_spam_table(buffs, num_requests);
         	else
             	SPAM_TABLE = get_spam_table(buffs, GROUP_BUFF_MAP);

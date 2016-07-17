@@ -213,6 +213,14 @@ function table.tostring( tbl )
   return "{" .. table.concat( result, "," ) .. "}"
 end
 
+function table.contains(table, element)
+  for _, value in pairs(table) do
+    if value == element then
+      return true
+    end
+  end
+  return false
+end
 
 function get_available_class_configs()
 	return get_list_of_keys(available_configs)

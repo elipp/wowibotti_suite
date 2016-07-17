@@ -29,6 +29,8 @@ BUFF_ALIASES = {
 --  ["Greater Blessing of Salvation"] = "Blessing of Salvation"
 
     ["Blessing of Might"] = "Greater Blessing of Might",
+    
+    ["Blessing of Light"] = "Greater Blessing of Light",
 };
 
 function get_desired_buffs(role)
@@ -42,24 +44,28 @@ function get_desired_buffs(role)
     local caster_buffs = {
         "Blessing of Salvation",
         "Blessing of Kings",
+        "Blessing of Wisdom",
         "Arcane Intellect",
     };
 
     local healer_buffs = {
         "Blessing of Kings",
         "Blessing of Wisdom",
+        "Blessing of Salvation",
         "Arcane Intellect",
     };
 
 	local warrior_tank_buffs = {
 		"Blessing of Kings",
         "Blessing of Might",
+        "Blessing of Light",
         "Thorns"
 	}
 
     local paladin_tank_buffs = {
         "Blessing of Kings",
         "Blessing of Wisdom",
+        "Blessing of Light",
         "Arcane Intellect",
         "Thorns"
     }
@@ -67,6 +73,7 @@ function get_desired_buffs(role)
     local melee_buffs = {
         "Blessing of Salvation",
         "Blessing of Kings",
+        "Blessing of Might",
     }
 
     local desired_buffs;
@@ -84,8 +91,12 @@ function get_desired_buffs(role)
         return {};
     end
 
-    if get_num_paladins() < 2 then
+    paladins = get_paladins();
+    if #paladins == 1 then
+        table.remove(desired_buffs, 3);
         table.remove(desired_buffs, 2);
+    elseif #paladins == 2 then
+        table.remove(desired_buffs, 3);
     end
 
     for key, buff in pairs(common_buffs) do
@@ -290,6 +301,7 @@ function get_paladin_spam_table(buffs, num_requests)
         [2] = "Greater Blessing of Kings",
         [3] = "Greater Blessing of Wisdom",
         [4] = "Greater Blessing of Might",
+        [5] = "Greater Blessing of Light",
     };
 
     local spam_table = {};
@@ -354,33 +366,33 @@ function lole_selfbuffs()
     end
 end
 
-function get_num_paladins()
+function get_paladins()
 
-    local num_paladins = 0;
+    local paladins = {};
 
     if GetNumRaidMembers() == 0 then
         if UnitClass("player") == "Paladin" then
-            num_paladins = num_paladins + 1;
+            table.insert(paladins, UnitName("player"));
         end
         local num_party_members = GetNumPartyMembers();
         for i = 1, num_party_members do
             if UnitClass("party" .. i) == "Paladin" then
-                num_paladins = num_paladins + 1;
+                table.insert(paladins, UnitName("party" .. i));
             end
         end
     else
         local i = 1;
         while GetRaidRosterInfo(i) do
             local raid_info = {GetRaidRosterInfo(i)};
-            if raid_info[3] == 1 or raid_info[3] == 2 then
+            if raid_info[3] == 1 or raid_info[3] == 2 or GetNumRaidMembers() > 15 then
                 if raid_info[5] == "Paladin" then
-                    num_paladins = num_paladins + 1;
+                    table.insert(paladins, raid_info[1]);
                 end
             end
             i = i + 1;
         end
     end
 
-    return num_paladins;
+    return paladins;
 
 end
