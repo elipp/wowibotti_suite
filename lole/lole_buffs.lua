@@ -266,7 +266,7 @@ function get_spam_table(buffs, group_buff_map)
     for buff, chars in pairs(buffs) do
         grouped_requests[buff] = {};
         for grp, tbl in pairs(groups) do
-            table.insert(grouped_requests[buff], {});
+            table.insert(grouped_requests[buff], grp, {});
         end
         for char in pairs(chars) do
             for grp, tbl in pairs(groups) do
