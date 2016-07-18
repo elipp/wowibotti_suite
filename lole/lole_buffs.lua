@@ -315,7 +315,9 @@ function get_paladin_spam_table(buffs, num_requests)
             if chars then
                 for character in pairs(chars) do
                     local class = UnitClass(character);
-                    if buff_given[class] then
+                    if class == nil then
+                        -- character has left the party
+                    elseif buff_given[class] then
                         buffed_characters[character] = true;
                     elseif not buffed_classes[class] then
                         table.insert(spam_table, {[character] = buff});
