@@ -142,62 +142,62 @@ std::string WowObject::get_type_name() const {
 }
 
 
-int WowObject::NPC_getCurHealth() const {
+int WowObject::NPC_get_health() const {
 	int h;
-	readAddr(base + NPCcurrentHealth, &h, sizeof(h));
+	readAddr(base + NPCHealth, &h, sizeof(h));
 	return h;
 }
 
-int WowObject::NPC_getMaxHealth() const {
+int WowObject::NPC_get_health_max() const {
 	int h;
-	readAddr(base + NPCmaxHealth, &h, sizeof(h));
+	readAddr(base + NPCHealthMax, &h, sizeof(h));
 	return h;
 }
 
-int WowObject::NPC_getCurMana() const {
+int WowObject::NPC_get_mana() const {
 	int h;
-	readAddr(base + NPCcurrentMana, &h, sizeof(h));
+	readAddr(base + NPCMana, &h, sizeof(h));
 	return h;
 }
 
-int WowObject::NPC_getMaxMana() const {
+int WowObject::NPC_get_mana_max() const {
 	int h;
-	readAddr(base + NPCmaxMana, &h, sizeof(h));
+	readAddr(base + NPCManaMax, &h, sizeof(h));
 	return h;
 }
 
-int WowObject::NPC_getCurRage() const {
+int WowObject::NPC_get_rage() const {
 	int h;
-	readAddr(base + NPCcurrentRage, &h, sizeof(h));
+	readAddr(base + NPCRage, &h, sizeof(h));
 	return h;
 }
 
-int WowObject::NPC_getMaxRage() const {
+int WowObject::NPC_get_rage_max() const {
 	int h;
-	readAddr(base + NPCmaxRage, &h, sizeof(h));
+	readAddr(base + NPCRageMax, &h, sizeof(h));
 	return h;
 }
-int WowObject::NPC_getCurEnergy() const {
+int WowObject::NPC_get_energy() const {
 	int h;
-	readAddr(base + NPCcurrentHealth, &h, sizeof(h));
-	return h;
-}
-
-int WowObject::NPC_getMaxEnergy() const {
-	int h;
-	readAddr(base + NPCmaxEnergy, &h, sizeof(h));
+	readAddr(base + NPCEnergy, &h, sizeof(h));
 	return h;
 }
 
-int WowObject::NPC_getCurFocus() const {
+int WowObject::NPC_get_energy_max() const {
 	int h;
-	readAddr(base + NPCcurrentFocus, &h, sizeof(h));
+	readAddr(base + NPCEnergyMax, &h, sizeof(h));
 	return h;
 }
 
-int WowObject::NPC_getMaxFocus() const {
+int WowObject::NPC_get_focus() const {
 	int h;
-	readAddr(base + NPCmaxFocus, &h, sizeof(h));
+	readAddr(base + NPCFocus, &h, sizeof(h));
+	return h;
+}
+
+int WowObject::NPC_get_focus_max() const {
+	int h;
+	readAddr(base + NPCFocusMax, &h, sizeof(h));
 	return h;
 }
 
@@ -247,7 +247,7 @@ std::string WowObject::unit_get_name() const {
 	return ret;
 }
 
-uint WowObject::unit_get_cur_HP() const {
+uint WowObject::unit_get_health() const {
 	uint info_field;
 	readAddr(base + unit_info_field, &info_field, sizeof(uint));
 
@@ -256,6 +256,14 @@ uint WowObject::unit_get_cur_HP() const {
 	return cur_HP;
 }
 
+uint WowObject::unit_get_health_max() const {
+	uint info_field;
+	readAddr(base + unit_info_field, &info_field, sizeof(uint));
+
+	uint max_HP = 0;
+	readAddr(info_field + UnitHealthMax, &max_HP, sizeof(max_HP));
+	return max_HP;
+}
 
 GUID_t WowObject::NPC_get_target_GUID() const {
 	GUID_t target_GUID;

@@ -47,18 +47,19 @@ private:
 		Name = 0xDB8,
 
 		UnitHealth = 0x40,
+		UnitHealthMax = 0x58,
 
-		NPCcurrentHealth = 0x11E8,
-		NPCcurrentMana = 0x11EC,
-		NPCcurrentRage = 0x11F0,
-		NPCcurrentEnergy = 0x11F4,
-		NPCcurrentFocus = 0x11F8,
+		NPCHealth = 0x11E8,
+		NPCMana = 0x11EC,
+		NPCRage = 0x11F0,
+		NPCEnergy = 0x11F4,
+		NPCFocus = 0x11F8,
 
-		NPCmaxHealth = 0x1200,
-		NPCmaxMana = 0x1204,
-		NPCmaxRage = 0x1208,
-		NPCmaxEnergy = 0x120C,
-		NPCmaxFocus = 0x1210,
+		NPCHealthMax = 0x1200,
+		NPCManaMax = 0x1204,
+		NPCRageMax = 0x1208,
+		NPCEnergyMax = 0x120C,
+		NPCFocusMax = 0x1210,
 
 		UnitTargetGUID = 0x2680;
 
@@ -79,32 +80,31 @@ public:
 
 	int get_type() const;
 
-	int NPC_getCurHealth() const;
-	int NPC_getMaxHealth() const;
+	int NPC_get_health() const;
+	int NPC_get_health_max() const;
 
-	int NPC_getCurMana() const;
-	int NPC_getMaxMana() const;
+	int NPC_get_mana() const;
+	int NPC_get_mana_max() const;
 
-	int NPC_getCurRage() const;
-	int NPC_getMaxRage() const;
+	int NPC_get_rage() const;
+	int NPC_get_rage_max() const;
 
-	int NPC_getCurEnergy() const;
-	int NPC_getMaxEnergy() const;
+	int NPC_get_energy() const;
+	int NPC_get_energy_max() const;
 
-	int NPC_getCurFocus() const;
-	int NPC_getMaxFocus() const;
+	int NPC_get_focus() const;
+	int NPC_get_focus_max() const;
 
 	std::string NPC_get_name() const;
-
 	GUID_t NPC_get_target_GUID() const;
 
 	std::string unit_get_name() const;
-
 	GUID_t unit_get_target_GUID() const;
 
 	int in_combat() const;
 
-	uint unit_get_cur_HP() const;
+	uint unit_get_health() const;
+	uint unit_get_health_max() const;
 
 	uint unit_get_buff(int index) const;
 	uint unit_get_debuff(int index) const;

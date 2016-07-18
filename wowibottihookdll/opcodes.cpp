@@ -59,10 +59,10 @@ static int dump_wowobjects_to_log() {
 					fprintf(fp, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, next.get_rot());
 
 					if (next.get_type() == OBJECT_TYPE_NPC) {
-						fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", next.NPC_get_name().c_str(), next.NPC_getCurHealth(), next.NPC_getMaxHealth(), next.NPC_get_target_GUID(), next.in_combat());
+						fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", next.NPC_get_name().c_str(), next.NPC_get_health(), next.NPC_get_health_max(), next.NPC_get_target_GUID(), next.in_combat());
 				}
 					else if (next.get_type() == OBJECT_TYPE_UNIT) {
-						fprintf(fp, "name: %s, current health: %u, target GUID: 0x%016llX, combat = %d\n", next.unit_get_name().c_str(), next.unit_get_cur_HP(), next.unit_get_target_GUID(), next.in_combat());
+						fprintf(fp, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", next.unit_get_name().c_str(), next.unit_get_health(), next.unit_get_health_max(), next.unit_get_target_GUID(), next.in_combat());
 						fprintf(fp, "buffs (by spellID):\n");
 						for (int n = 1; n <= 16; ++n) {
 							int spellID = next.unit_get_buff(n);
@@ -498,7 +498,8 @@ static void LOP_get_best_CH(const std::string &arg) {
 
 	while (next.valid()) {
 		if (next.get_type() == OBJECT_TYPE_UNIT) {
-			int HP;
+			int health = next.unit_get_health();
+			int health_max = next.unit_get_health_max();
 		}
 
 		next = next.getNextObject();
