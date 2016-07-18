@@ -19,6 +19,8 @@ BUFF_ALIASES = {
     ["Divine Spirit"] = "Prayer of Spirit",
 --  ["Prayer of Spirit"] = "Divine Spirit",
 
+    ["Shadow Protection"] = "Prayer of Shadow Protection",
+
     ["Blessing of Kings"] = "Greater Blessing of Kings",
 --  ["Greater Blessing of Kings"] = "Blessing of Kings",
 
@@ -39,7 +41,8 @@ function get_desired_buffs(role)
         "Power Word: Fortitude",
         "Divine Spirit",
         "Mark of the Wild",
-        "Amplify Magic",
+        --"Amplify Magic",
+        --"Shadow Protection",
     };
 
     local caster_buffs = {
