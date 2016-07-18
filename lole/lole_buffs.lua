@@ -387,10 +387,11 @@ function get_chars_of_class(class)
         local i = 1;
         while GetRaidRosterInfo(i) do
             local raid_info = {GetRaidRosterInfo(i)};
-            if raid_info[3] == 1 or raid_info[3] == 2 or GetNumRaidMembers() > 15 then
-                if raid_info[5] == class then
-                    table.insert(chars, raid_info[1]);
-                end
+            local instance = GetRealZoneText();
+            -- Don't account for chars outside groups 1 and 2 when in Kara or ZA.
+            if (instance == "Karazhan" or instance == "Zul'Aman") and raid_info[3] > 2 then
+            elseif raid_info[5] == class then
+                table.insert(chars, raid_info[1]);
             end
             i = i + 1;
         end
