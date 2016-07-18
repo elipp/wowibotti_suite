@@ -32,6 +32,10 @@ combat_shaman_enh = function()
     if not validate_target() then return end
 	melee_attack_behind()
 
+    if not has_buff("player", "Water Shield") then
+        CastSpellByName("Water Shield")
+        return
+    end
 
     if cast_if_nocd("Stormstrike") then return end
 
