@@ -135,7 +135,7 @@ function lole_leaderbuffcheck(arg)
     if arg == "clean" then
         msgstr = msgstr .. " " .. arg;
     end
-    SendAddonMessage("lole_buffcheck", msgstr, "RAID", UnitName("player"));
+    SendAddonMessage("lole_buffcheck", msgstr, "RAID");
 
 end
 
@@ -214,7 +214,7 @@ function lole_buffcheck(arg, verbose)
 
     local msgstr = table.concat(missing_table, ",");
 
-    SendAddonMessage("lole_buffs", msgstr, "RAID", UnitName("player"));
+    SendAddonMessage("lole_buffs", msgstr, "RAID");
     LAST_BUFF_CHECK = time();
     BUFFS_CHECKED = true;
 
