@@ -490,19 +490,79 @@ static void LOP_walk_to_pull(const std::string &arg) {
 }
 
 static void LOP_get_best_CH(const std::string &arg) {
-	ObjectManager OM;
-	
-	std::vector<std::pair<GUID_t, int>> deficits;
+	struct WO_cached {
+		GUID_t GUID;
+		vec3 pos;
+		uint health;
+		uint health_max;
+		int deficit;
 
-	WowObject next = OM.get_first_object();
-
-	while (next.valid()) {
-		if (next.get_type() == OBJECT_TYPE_UNIT) {
-			int health = next.unit_get_health();
-			int health_max = next.unit_get_health_max();
+		WO_cached(GUID_t guid, vec3 p, uint hp, uint hp_max) : GUID(guid), pos(p), health(hp), health_max(hp_max) {
+			deficit = hp_max - hp;
 		}
 
+		WO_cached() {
+			memset(this, 0, sizeof(*this));
+		}
+	};
+	
+	ObjectManager OM;
+	
+	WowObject next = OM.get_first_object();
+
+	// cache units for easier access
+
+	std::vector <WO_cached> units;
+	while (next.valid()) {
+		if (next.get_type() == OBJECT_TYPE_UNIT) {
+			units.push_back(WO_cached(next.get_GUID(), next.get_pos(), next.unit_get_health(), next.unit_get_health_max()));
+		}
 		next = next.getNextObject();
+	}
+
+	std::unordered_map<GUID_t, WO_cached> deficit_candidates;
+
+	for (auto &u : units) {
+		if (u.deficit > 2000) {
+			deficit_candidates[u.GUID] = u;
+		}
+	}
+
+	struct chain_heal_trio {
+		WO_cached *trio[3];
+		int total_deficit;
+	};
+
+	chain_heal_trio optimal;
+
+	memset(&optimal, 0, sizeof(optimal));
+	
+	for (auto &d : deficit_candidates) {
+		// scan vicinity for hurt chars within 12.5 yards
+
+		std::pair<GUID_t, int> deficits[2] = { {0,0}, {0,0} };
+	
+		for (auto &u : units) {
+
+			if (d.second.GUID == u.GUID) continue;
+
+			vec3 diff = u.pos - d.second.pos;
+
+			if (diff.length() < 12.5) {
+
+				if (u.deficit > deficits[0].second) {
+					if (u.deficit > deficits[1].second) {
+						deficits[0] = deficits[1];
+						deficits[1] = std::make_pair(u.GUID, u.deficit);
+					}
+					else {
+						deficits[0] = std::make_pair(u.GUID, u.deficit);
+					}
+				}
+
+
+			}
+		}
 	}
 }
 
