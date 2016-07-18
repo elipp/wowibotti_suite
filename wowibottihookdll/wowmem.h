@@ -156,3 +156,21 @@ public:
 	std::vector<WowObject> get_spell_objects_with_spellID(long spellID);
 
 };
+
+struct WO_cached {
+	GUID_t GUID;
+	vec3 pos;
+	uint health;
+	uint health_max;
+	int deficit;
+	std::string name;
+
+	WO_cached(GUID_t guid, vec3 p, uint hp, uint hp_max, const std::string &n) 
+		: GUID(guid), pos(p), health(hp), health_max(hp_max), name(n) {
+		deficit = hp_max - hp;
+	}
+
+	WO_cached() {
+		memset(this, 0, sizeof(*this));
+	}
+};

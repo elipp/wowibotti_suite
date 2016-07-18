@@ -405,7 +405,8 @@ end
 
 local function lole_pull(arg)
 	--send_opcode_addonmsg_to(LOLE_OPCODE_PULL_MOB, arg, MAIN_TANK);
-	lole_debug_pull_test()
+--	lole_debug_pull_test()
+	target_best_CH_target()
 end
 
 lole_subcommands = {

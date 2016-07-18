@@ -43,8 +43,8 @@ inline vec3 operator*(float  f, const vec3 &v);
 
 struct vec3 {
 	float x, y, z;
-	vec3 operator+(const vec3 &p) { return vec3(x + p.x, y + p.y, z + p.z); }
-	vec3 operator-(const vec3 &p) { return vec3(x - p.x, y - p.y, z - p.z); }
+	vec3 operator+(const vec3 &p) const { return vec3(x + p.x, y + p.y, z + p.z); }
+	vec3 operator-(const vec3 &p) const { return vec3(x - p.x, y - p.y, z - p.z); }
 
 	float length() const { return sqrt(dot(*this, *this)); };
 

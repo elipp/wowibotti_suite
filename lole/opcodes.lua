@@ -203,6 +203,10 @@ function report_login(flag)
 	DelIgnore(LOLE_OPCODE_REPORT_LOGIN .. ":" .. str_arg)
 end
 
+function target_best_CH_target()
+	DelIgnore(LOLE_OPCODE_GET_BEST_CHAINHEAL_TARGET)
+end
+
 function lole_debug_dump_wowobjects()
 	DelIgnore(LOLE_DEBUG_OPCODE_DUMP);
 	echo("|cFF00FF96Dumped WowObjects to <DESKTOPDIR>\\wodump.log (if you're injected!) ;)")

@@ -10,6 +10,8 @@
 extern HWND wow_hWnd;
 extern int afkjump_keyup_queued;
 
+static int dump_wowobjects_to_log();
+
 static struct follow_state_t {
 	int close_enough = 1;
 	Timer timer;
@@ -27,75 +29,6 @@ static struct follow_state_t {
 	}
 
 } follow_state;
-
-static int dump_wowobjects_to_log() {
-
-	ObjectManager OM;
-
-	char desktop_path[MAX_PATH];
-
-	if (!SUCCEEDED(SHGetFolderPath(NULL, CSIDL_DESKTOPDIRECTORY | CSIDL_FLAG_CREATE, NULL, SHGFP_TYPE_CURRENT, desktop_path))) {
-		printf("SHGetFolderPath for CSIDL_DESKTOPDIRECTORY failed, errcode %d\n", GetLastError());
-		return 0;
-	}
-
-	static const std::string log_path = std::string(desktop_path) + "\\wodump.log";
-	FILE *fp = fopen(log_path.c_str(), "w");
-
-	if (fp) {
-		printf("Dumping WowObjects to file \"%s\"!\n", log_path.c_str());
-		WowObject next = OM.get_first_object();
-		GUID_t target_GUID = get_target_GUID();
-
-		fprintf(fp, "local GUID = 0x%016llX, player target: %016llX\n", OM.get_local_GUID(), target_GUID);
-
-		while (next.valid()) {
-
-			if (!(next.get_type() == OBJECT_TYPE_ITEM || next.get_type() == OBJECT_TYPE_CONTAINER)) {  // filter out items and containers :P
-				fprintf(fp, "object GUID: 0x%016llX, base addr = %X, type: %s\n", next.get_GUID(), next.get_base(), next.get_type_name().c_str());
-
-				if (next.get_type() == OBJECT_TYPE_NPC || next.get_type() == OBJECT_TYPE_UNIT) {
-					vec3 pos = next.get_pos();
-					fprintf(fp, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, next.get_rot());
-
-					if (next.get_type() == OBJECT_TYPE_NPC) {
-						fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", next.NPC_get_name().c_str(), next.NPC_get_health(), next.NPC_get_health_max(), next.NPC_get_target_GUID(), next.in_combat());
-				}
-					else if (next.get_type() == OBJECT_TYPE_UNIT) {
-						fprintf(fp, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", next.unit_get_name().c_str(), next.unit_get_health(), next.unit_get_health_max(), next.unit_get_target_GUID(), next.in_combat());
-						fprintf(fp, "buffs (by spellID):\n");
-						for (int n = 1; n <= 16; ++n) {
-							int spellID = next.unit_get_buff(n);
-							if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
-						}
-
-						fprintf(fp, "----\ndebuffs (by spellID)\n");
-
-						for (int n = 1; n <= 16; ++n) {
-							int spellID = next.unit_get_debuff(n);
-							if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
-						}
-
-						fprintf(fp, "----\n");
-					}
-				}
-				else if (next.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
-					vec3 DO_pos = next.DO_get_pos();
-					fprintf(fp, "position: (%f, %f, %f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, next.DO_get_spellID());
-				}
-
-			}
-			next = next.getNextObject();
-		}
-		fclose(fp);
-
-	}
-	else {
-		printf("Opening file \"%s\" failed!\n", log_path.c_str());
-	}
-	return 1;
-}
-
 
 
 static void __stdcall walk_to_target() {
@@ -489,22 +422,45 @@ static void LOP_walk_to_pull(const std::string &arg) {
 
 }
 
+static const WO_cached *find_most_hurt_within_CH_bounce(const WO_cached *unit, const WO_cached *unit2, const std::vector<WO_cached> &candidates) {
+
+	if (!unit) return NULL;
+
+	const WO_cached *most_hurt = NULL;
+
+//	printf("calling CHbounce with unit %s, unit2 %s\n", unit->name.c_str(), unit2 ? unit2->name.c_str() : "NULL");
+
+	for (int i = 0; i < candidates.size(); ++i) {
+		const WO_cached *c = &candidates[i];
+		if (c->GUID == unit->GUID) { continue; }
+		if (unit2 && c->GUID == unit2->GUID) { continue; }
+
+		if ((c->pos - unit->pos).length() < 12.5) {
+			if (!most_hurt) {
+				most_hurt = c;
+			}
+			else {
+				if (most_hurt->deficit < c->deficit) {
+					most_hurt = c;
+				}
+			}
+			//printf("new most_hurt = %s\n", most_hurt->name.c_str());
+		}
+	}
+	
+	if (most_hurt) {
+		//printf("best next CH target for %s is %s with %u/%u HP\n\n", unit->name.c_str(), most_hurt->name.c_str(), most_hurt->health, most_hurt->health_max);
+	}
+	else {
+		//printf("couldn't find a suitable CH target for %s\n\n", unit->name.c_str());
+	}
+
+	return most_hurt;
+
+}
+
 static void LOP_get_best_CH(const std::string &arg) {
-	struct WO_cached {
-		GUID_t GUID;
-		vec3 pos;
-		uint health;
-		uint health_max;
-		int deficit;
 
-		WO_cached(GUID_t guid, vec3 p, uint hp, uint hp_max) : GUID(guid), pos(p), health(hp), health_max(hp_max) {
-			deficit = hp_max - hp;
-		}
-
-		WO_cached() {
-			memset(this, 0, sizeof(*this));
-		}
-	};
 	
 	ObjectManager OM;
 	
@@ -515,55 +471,62 @@ static void LOP_get_best_CH(const std::string &arg) {
 	std::vector <WO_cached> units;
 	while (next.valid()) {
 		if (next.get_type() == OBJECT_TYPE_UNIT) {
-			units.push_back(WO_cached(next.get_GUID(), next.get_pos(), next.unit_get_health(), next.unit_get_health_max()));
+			units.push_back(WO_cached(next.get_GUID(), next.get_pos(), next.unit_get_health(), next.unit_get_health_max(), next.unit_get_name()));
 		}
 		next = next.getNextObject();
 	}
 
-	std::unordered_map<GUID_t, WO_cached> deficit_candidates;
+	std::vector<WO_cached> deficit_candidates;
 
 	for (auto &u : units) {
-		if (u.deficit > 2000) {
-			deficit_candidates[u.GUID] = u;
+		if (u.deficit > 1500) {
+			deficit_candidates.push_back(u);
+			//printf("candidate %s with %u/%u hp added (deficit == %d > 1500)\n", u.name.c_str(), u.health, u.health_max, u.deficit);
 		}
 	}
 
 	struct chain_heal_trio {
-		WO_cached *trio[3];
+		const WO_cached *trio[3];
 		int total_deficit;
 	};
 
-	chain_heal_trio optimal;
+	chain_heal_trio o;
 
-	memset(&optimal, 0, sizeof(optimal));
+	memset(&o, 0, sizeof(o));
 	
-	for (auto &d : deficit_candidates) {
+	for (int i = 0; i < deficit_candidates.size(); ++i) {
 		// scan vicinity for hurt chars within 12.5 yards
 
-		std::pair<GUID_t, int> deficits[2] = { {0,0}, {0,0} };
+		const WO_cached *c = &deficit_candidates[i];
+
+	//	printf("trying to find good CH targets for primary target %s...\n", c->name.c_str());
+		
+		const WO_cached *most_hurt[2];
+		memset(most_hurt, 0, sizeof(most_hurt));
+
+		most_hurt[0] = find_most_hurt_within_CH_bounce(c, NULL, deficit_candidates);
+		most_hurt[1] = find_most_hurt_within_CH_bounce(most_hurt[0], c, deficit_candidates);
+
+		int total_deficit = c->deficit + (most_hurt[0] ? most_hurt[0]->deficit : 0) + (most_hurt[1] ? most_hurt[1]->deficit : 0);
 	
-		for (auto &u : units) {
-
-			if (d.second.GUID == u.GUID) continue;
-
-			vec3 diff = u.pos - d.second.pos;
-
-			if (diff.length() < 12.5) {
-
-				if (u.deficit > deficits[0].second) {
-					if (u.deficit > deficits[1].second) {
-						deficits[0] = deficits[1];
-						deficits[1] = std::make_pair(u.GUID, u.deficit);
-					}
-					else {
-						deficits[0] = std::make_pair(u.GUID, u.deficit);
-					}
-				}
-
-
-			}
+		if (total_deficit > o.total_deficit) {
+		//	printf("found better one with deficit %d\n", total_deficit);
+			o.trio[0] = c;
+			o.trio[1] = most_hurt[0];
+			o.trio[2] = most_hurt[1];
+			o.total_deficit = total_deficit;
 		}
+		
 	}
+
+	/*printf("Found optimal CH targets: %s (%u/%u), %s (%u/%u), %s (%u/%u); total deficit = %d\n",
+		(o.trio[0] ? o.trio[0]->name.c_str() : "NULL"), (o.trio[0] ? o.trio[0]->health : 0), (o.trio[0] ? o.trio[0]->health_max : 0),
+		(o.trio[1] ? o.trio[1]->name.c_str() : "NULL"), (o.trio[1] ? o.trio[1]->health : 0), (o.trio[1] ? o.trio[1]->health_max : 0),
+		(o.trio[2] ? o.trio[2]->name.c_str() : "NULL"), (o.trio[2] ? o.trio[2]->health : 0), (o.trio[2] ? o.trio[2]->health_max : 0),
+		o.total_deficit);*/
+
+	if (o.trio[0]) DoString("TargetUnit(\"%s\")", o.trio[0]->name.c_str());
+
 }
 
 
@@ -715,4 +678,76 @@ const std::string &debug_opcode_get_funcname(int opcode_unmasked) {
 
 void refollow_if_needed() {
 	if (!follow_state.close_enough) LOP_follow_GUID(follow_state.target_GUID);
+}
+
+static int dump_wowobjects_to_log() {
+
+	printf("DEBUG: CH targets address: %p\n", &LOP_get_best_CH);
+	return 0;
+
+	ObjectManager OM;
+
+	char desktop_path[MAX_PATH];
+
+
+	if (!SUCCEEDED(SHGetFolderPath(NULL, CSIDL_DESKTOPDIRECTORY | CSIDL_FLAG_CREATE, NULL, SHGFP_TYPE_CURRENT, desktop_path))) {
+		printf("SHGetFolderPath for CSIDL_DESKTOPDIRECTORY failed, errcode %d\n", GetLastError());
+		return 0;
+	}
+
+	static const std::string log_path = std::string(desktop_path) + "\\wodump.log";
+	FILE *fp = fopen(log_path.c_str(), "w");
+
+	if (fp) {
+		printf("Dumping WowObjects to file \"%s\"!\n", log_path.c_str());
+		WowObject next = OM.get_first_object();
+		GUID_t target_GUID = get_target_GUID();
+
+		fprintf(fp, "local GUID = 0x%016llX, player target: %016llX\n", OM.get_local_GUID(), target_GUID);
+
+		while (next.valid()) {
+
+			if (!(next.get_type() == OBJECT_TYPE_ITEM || next.get_type() == OBJECT_TYPE_CONTAINER)) {  // filter out items and containers :P
+				fprintf(fp, "object GUID: 0x%016llX, base addr = %X, type: %s\n", next.get_GUID(), next.get_base(), next.get_type_name().c_str());
+
+				if (next.get_type() == OBJECT_TYPE_NPC || next.get_type() == OBJECT_TYPE_UNIT) {
+					vec3 pos = next.get_pos();
+					fprintf(fp, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, next.get_rot());
+
+					if (next.get_type() == OBJECT_TYPE_NPC) {
+						fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", next.NPC_get_name().c_str(), next.NPC_get_health(), next.NPC_get_health_max(), next.NPC_get_target_GUID(), next.in_combat());
+					}
+					else if (next.get_type() == OBJECT_TYPE_UNIT) {
+						fprintf(fp, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", next.unit_get_name().c_str(), next.unit_get_health(), next.unit_get_health_max(), next.unit_get_target_GUID(), next.in_combat());
+						fprintf(fp, "buffs (by spellID):\n");
+						for (int n = 1; n <= 16; ++n) {
+							int spellID = next.unit_get_buff(n);
+							if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
+						}
+
+						fprintf(fp, "----\ndebuffs (by spellID)\n");
+
+						for (int n = 1; n <= 16; ++n) {
+							int spellID = next.unit_get_debuff(n);
+							if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
+						}
+
+						fprintf(fp, "----\n");
+					}
+				}
+				else if (next.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
+					vec3 DO_pos = next.DO_get_pos();
+					fprintf(fp, "position: (%f, %f, %f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, next.DO_get_spellID());
+				}
+
+			}
+			next = next.getNextObject();
+		}
+		fclose(fp);
+
+	}
+	else {
+		printf("Opening file \"%s\" failed!\n", log_path.c_str());
+	}
+	return 1;
 }
