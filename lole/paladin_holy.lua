@@ -1,6 +1,6 @@
 combat_paladin_holy = function()
 
-	TargetUnit("focus");
+	TargetUnit(MAIN_TANK);
 	local mana_left = UnitMana("player");
 
 	if mana_left < 6000 then
@@ -16,14 +16,14 @@ combat_paladin_holy = function()
 	end
 
 	if casting_legit_heal() then return end
-	
+
 	local health_max = UnitHealthMax("target");
 	local health_cur = UnitHealth("target");
-	
+
 	if has_debuff("target", "Shadow Word: Pain") then
 		cast_spell("Cleanse");
 	end
-	
+
 	if (health_cur < health_max * 0.60) then
 		cast_spell("Holy Light");
 	elseif (health_cur < health_max * 0.88) then
@@ -32,7 +32,6 @@ combat_paladin_holy = function()
 		TargetUnit("player");
 		cast_spell("Flash of Light");
 	end
-	
+
 
 end
-

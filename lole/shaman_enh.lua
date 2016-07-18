@@ -13,10 +13,21 @@ local TOTEMS = {
 --["fire"] = "Totem of Wrath"
 }
 
+function check_WF()
+    local has_mh, mh_exp, mh_charges, has_oh, oh_exp, oh_charges = GetWeaponEnchantInfo()
+    --echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
+
+    if (not has_mh or not has_oh) then
+        CastSpellByName("Windfury Weapon")
+    end
+
+end
 
 combat_shaman_enh = function()
 
     if refresh_totems(TOTEMS) then return; end
+
+    check_WF()
 
     if not validate_target() then return end
 	melee_attack_behind()

@@ -1,9 +1,9 @@
 combat_druid_resto = function()
 
-	TargetUnit("focus");
+	TargetUnit(MAIN_TANK);
 	local mana_left = UnitMana("player");
 
-	local has, stacks, timeleft = has_buff("focus", "Lifebloom")
+	local has, stacks, timeleft = has_buff("target", "Lifebloom")
 
 	if has then
 		if stacks < 3 then
