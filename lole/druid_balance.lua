@@ -8,7 +8,7 @@ combat_druid_balance = function()
 
     TargetUnit("Kiggler the Crazed");
 
-	caster_range_check(30)
+	--caster_range_check(30);
 
 	if not has_debuff("target", "Insect Swarm") then
 		CastSpellByName("Insect Swarm");
