@@ -4,7 +4,9 @@ combat_druid_balance = function()
 
 	--if decurse_party("Curse of the Shattered Hand") then return; end
 
-	if not validate_target() then return end
+	--if not validate_target() then return end
+
+    TargetUnit("Kiggler the Crazed");
 
 	caster_range_check(30)
 

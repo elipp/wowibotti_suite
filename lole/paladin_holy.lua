@@ -1,4 +1,5 @@
 combat_paladin_holy = function()
+    MAIN_TANK = "Dissona";
 
 	TargetUnit(MAIN_TANK);
 	local mana_left = UnitMana("player");
