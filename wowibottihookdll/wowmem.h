@@ -98,6 +98,9 @@ public:
 	std::string NPC_get_name() const;
 	GUID_t NPC_get_target_GUID() const;
 
+	uint NPC_get_buff(int index) const;
+	uint NPC_get_debuff(int index) const;
+
 	std::string unit_get_name() const;
 	GUID_t unit_get_target_GUID() const;
 

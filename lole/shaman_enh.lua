@@ -1,16 +1,14 @@
 local TOTEMS = {
-["air"] = "Grace of Air Totem",
+--["air"] = "Grace of Air Totem",
 
---["air"] = "Windfury Totem",
+["air"] = "Windfury Totem",
 --["air"] = "Wrath of Air Totem",
 
 --["earth"] = "Tremor Totem",
 ["earth"] = "Strength of Earth Totem",
 --["earth"] = "Stoneskin Totem",
 
---["water"] = "Mana Spring Totem",
-
---["fire"] = "Totem of Wrath"
+["water"] = "Mana Spring Totem",
 }
 
 function check_WF()

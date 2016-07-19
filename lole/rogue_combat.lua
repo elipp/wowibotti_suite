@@ -18,7 +18,10 @@ function check_apply_OH_poison()
 end
 
 combat_rogue_combat = function()
-	if not validate_target() then return end
+
+    check_apply_OH_poison()
+
+    if not validate_target() then return end
 
 	melee_attack_behind()
 
@@ -26,9 +29,7 @@ combat_rogue_combat = function()
 	    CastSpellByName("Stealth")
 		return;
 	end
-
-    check_apply_OH_poison()
-
+    
     if (GetComboPoints("player", "target") < 5) then
         CastSpellByName("Sinister Strike")
         return

@@ -37,10 +37,14 @@ local function vexallus()
 
 end
 
+local function MAULGAR()
+	warlock_banish_felhound()
+end
+
 combat_warlock_sb = function()
 
-	--vexallus()
-	--if true then return end;
+	MAULGAR()
+	if UnitExists("target") then return end
 
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
@@ -71,8 +75,8 @@ combat_warlock_sb = function()
 	end
 
 	if (GetItemCount(6265) < 20) then -- 6265 -- soul shard
-		if (UnitExists("target") and not UnitIsDead("target") and UnitHealth("target") < 8000) then
-			SpellStopCasting();
+		if (UnitExists("target") and not UnitIsDead("target") and UnitHealth("target") < 20000) then
+			--SpellStopCasting();
 			CastSpellByName("Drain Soul");
 			return;
 		end

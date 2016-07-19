@@ -21,7 +21,29 @@ local function delrissa()
 
 end
 
+local function MAULGAR_KROSH()
+	if not UnitName("player") == "Dissona"
+		return false
+	end
+
+	TargetUnit("Krosh Firehand")
+
+	if UnitIsDead("target") then return false end
+
+	if (has_buff("target", "Spell Shield")) then
+		CastSpellByName("Spellsteal")
+	end
+
+	CastSpellByName("Fireball")
+
+	return true;
+
+end
+
+
 combat_mage_fire = function()
+
+	if MAULGAR_KROSH() then return end
 
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end -- mainly in reference to evocation
@@ -30,7 +52,6 @@ combat_mage_fire = function()
 		CastSpellByName("Conjure Mana Emerald");
 		return;
 	end
-
 
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
@@ -47,6 +68,7 @@ combat_mage_fire = function()
 			CastSpellByName("Evocation");
 		end
 	end
+
 
 	if not validate_target() then return end
 

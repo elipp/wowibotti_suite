@@ -272,6 +272,32 @@ GUID_t WowObject::NPC_get_target_GUID() const {
 }
 
 
+uint WowObject::NPC_get_buff(int index) const {
+	if (!(DEREF(base + 0xF18) & 0x40000)) {
+		// the function 615D40 will set up this flag. The first time one calls WOWAPI UnitBuff(), this is called. 
+		// Segfault otherwise (ie. doing this without the flag 40000 set)
+		GUID_t GUID = get_GUID();
+		SelectUnit(GUID);
+
+		DoString("UnitBuff(\"target\", 1)"); 
+	}
+
+	// 5469BA is the place where the buff first appears in EAX
+
+	uint buff_spellid = DEREF(index * 4 + DEREF(base + 0x120) + 0xA8);
+
+//	printf("base: %p, [%p + 0x120] = %X, [%d * 4 + [%p + 0x120] + 0xA8] = %X\n",
+	//	get_base(), get_base(), DEREF(base + 0x120), index, get_base(), buff_spellid);
+
+	return buff_spellid;
+}
+
+uint WowObject::NPC_get_debuff(int index) const {
+	return NPC_get_buff(index+0x27);
+}
+
+
+
 GUID_t WowObject::unit_get_target_GUID() const {
 	GUID_t target_GUID;
 	readAddr(base + UnitTargetGUID, &target_GUID, sizeof(target_GUID));
@@ -343,7 +369,7 @@ vec3 WowObject::DO_get_pos() const {
 
 void ObjectManager::LoadAddresses() {
 
-	if (!credentials.logged_in) { this->invalid = 1; return; }
+	//if (!credentials.logged_in) { this->invalid = 1; return; }
 
 	DWORD currentManager_pre = 0;
 	readAddr(clientConnection_addr_static, &currentManager_pre, sizeof(currentManager_pre));

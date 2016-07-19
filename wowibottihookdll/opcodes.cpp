@@ -461,7 +461,6 @@ static const WO_cached *find_most_hurt_within_CH_bounce(const WO_cached *unit, c
 
 static void LOP_get_best_CH(const std::string &arg) {
 
-	
 	ObjectManager OM;
 	
 	WowObject next = OM.get_first_object();
@@ -529,6 +528,38 @@ static void LOP_get_best_CH(const std::string &arg) {
 
 }
 
+static int mob_has_debuff(const WowObject &mob, uint debuff_spellID) {
+	for (int i = 0; i < 16; ++i) {
+		uint spellID = mob.NPC_get_debuff(i);
+		if (spellID == debuff_spellID) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static void LOP_maulgar_get_felhound(const std::string &arg) {
+	ObjectManager OM;
+
+	WowObject next = OM.get_first_object();
+
+	while (next.valid()) {
+
+		if (next.get_type() == OBJECT_TYPE_NPC) {
+			if (next.NPC_get_name() == "Wild Fel Stalker") {
+				if (!mob_has_debuff(next, 18647)) { // this is Banish (Rank 2)
+					SelectUnit(next.get_GUID());
+					DoString("RunMacroText(\"/stopcasting /cast Banish\")");
+					return;
+				}
+			}
+		}
+
+		next = next.getNextObject();
+	}
+
+	SelectUnit(0);
+}
 
 static void LOPDBG_dump(const std::string &arg) {
 	dump_wowobjects_to_log();
@@ -597,7 +628,8 @@ static const struct {
 	{ "LOLE_PULL_MOB", LOP_nop, 0 },
 	{ "LOLE_REPORT_LOGIN", LOP_report_login, 1 },
 	{ "LOLE_WALK_TO_PULLING_RANGE", LOP_walk_to_pull, 0 },
-	{ "LOLE_GET_BEST_CHAINHEAL_TARGET", LOP_get_best_CH, 0}
+	{ "LOLE_GET_BEST_CHAINHEAL_TARGET", LOP_get_best_CH, 0},
+	{ "LOLE_MAULGAR_GET_UNBANISHED_FELHOUND", LOP_maulgar_get_felhound, 0 }
 };
 
 static const struct {
@@ -682,13 +714,7 @@ void refollow_if_needed() {
 
 static int dump_wowobjects_to_log() {
 
-	printf("DEBUG: CH targets address: %p\n", &LOP_get_best_CH);
-	return 0;
-
-	ObjectManager OM;
-
 	char desktop_path[MAX_PATH];
-
 
 	if (!SUCCEEDED(SHGetFolderPath(NULL, CSIDL_DESKTOPDIRECTORY | CSIDL_FLAG_CREATE, NULL, SHGFP_TYPE_CURRENT, desktop_path))) {
 		printf("SHGetFolderPath for CSIDL_DESKTOPDIRECTORY failed, errcode %d\n", GetLastError());
@@ -698,56 +724,73 @@ static int dump_wowobjects_to_log() {
 	static const std::string log_path = std::string(desktop_path) + "\\wodump.log";
 	FILE *fp = fopen(log_path.c_str(), "w");
 
-	if (fp) {
-		printf("Dumping WowObjects to file \"%s\"!\n", log_path.c_str());
-		WowObject next = OM.get_first_object();
-		GUID_t target_GUID = get_target_GUID();
-
-		fprintf(fp, "local GUID = 0x%016llX, player target: %016llX\n", OM.get_local_GUID(), target_GUID);
-
-		while (next.valid()) {
-
-			if (!(next.get_type() == OBJECT_TYPE_ITEM || next.get_type() == OBJECT_TYPE_CONTAINER)) {  // filter out items and containers :P
-				fprintf(fp, "object GUID: 0x%016llX, base addr = %X, type: %s\n", next.get_GUID(), next.get_base(), next.get_type_name().c_str());
-
-				if (next.get_type() == OBJECT_TYPE_NPC || next.get_type() == OBJECT_TYPE_UNIT) {
-					vec3 pos = next.get_pos();
-					fprintf(fp, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, next.get_rot());
-
-					if (next.get_type() == OBJECT_TYPE_NPC) {
-						fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", next.NPC_get_name().c_str(), next.NPC_get_health(), next.NPC_get_health_max(), next.NPC_get_target_GUID(), next.in_combat());
-					}
-					else if (next.get_type() == OBJECT_TYPE_UNIT) {
-						fprintf(fp, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", next.unit_get_name().c_str(), next.unit_get_health(), next.unit_get_health_max(), next.unit_get_target_GUID(), next.in_combat());
-						fprintf(fp, "buffs (by spellID):\n");
-						for (int n = 1; n <= 16; ++n) {
-							int spellID = next.unit_get_buff(n);
-							if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
-						}
-
-						fprintf(fp, "----\ndebuffs (by spellID)\n");
-
-						for (int n = 1; n <= 16; ++n) {
-							int spellID = next.unit_get_debuff(n);
-							if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
-						}
-
-						fprintf(fp, "----\n");
-					}
-				}
-				else if (next.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
-					vec3 DO_pos = next.DO_get_pos();
-					fprintf(fp, "position: (%f, %f, %f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, next.DO_get_spellID());
-				}
-
-			}
-			next = next.getNextObject();
-		}
-		fclose(fp);
-
-	}
-	else {
+	if (!fp) {
 		printf("Opening file \"%s\" failed!\n", log_path.c_str());
+		return 0;
 	}
+
+	ObjectManager OM;
+
+	printf("Dumping WowObjects to file \"%s\"!\n", log_path.c_str());
+	WowObject next = OM.get_first_object();
+	GUID_t target_GUID = get_target_GUID();
+
+	fprintf(fp, "local GUID = 0x%016llX, player target: %016llX, first object base = %p, next.next base = %p\n", OM.get_local_GUID(), target_GUID, next.get_base(), next.get_base());
+
+	while (next.valid()) {
+		if (!(next.get_type() == OBJECT_TYPE_ITEM || next.get_type() == OBJECT_TYPE_CONTAINER)) {  // filter out items and containers :P
+			fprintf(fp, "object GUID: 0x%016llX, base addr = %X, type: %s\n", next.get_GUID(), next.get_base(), next.get_type_name().c_str());
+
+			if (next.get_type() == OBJECT_TYPE_NPC || next.get_type() == OBJECT_TYPE_UNIT) {
+				vec3 pos = next.get_pos();
+				fprintf(fp, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, next.get_rot());
+
+				if (next.get_type() == OBJECT_TYPE_NPC) {
+					fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", next.NPC_get_name().c_str(), next.NPC_get_health(), next.NPC_get_health_max(), next.NPC_get_target_GUID(), next.in_combat());
+					fprintf(fp, "buffs (by spellID):\n");
+					for (int n = 1; n <= 16; ++n) {
+						uint spellID = next.NPC_get_buff(n);
+						if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
+					}
+
+					fprintf(fp, "----\ndebuffs (by spellID)\n");
+
+					for (int n = 1; n <= 16; ++n) {
+						uint spellID = next.NPC_get_debuff(n);
+						if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
+					}
+
+				
+				}
+				else if (next.get_type() == OBJECT_TYPE_UNIT) {
+					fprintf(fp, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", next.unit_get_name().c_str(), next.unit_get_health(), next.unit_get_health_max(), next.unit_get_target_GUID(), next.in_combat());
+					fprintf(fp, "buffs (by spellID):\n");
+					for (int n = 1; n <= 16; ++n) {
+						uint spellID = next.unit_get_buff(n);
+						if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
+					}
+
+					fprintf(fp, "----\ndebuffs (by spellID)\n");
+
+					for (int n = 1; n <= 16; ++n) {
+						uint spellID = next.unit_get_debuff(n);
+						if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
+					}
+
+					fprintf(fp, "----\n");
+				}
+			}
+			else if (next.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
+				vec3 DO_pos = next.DO_get_pos();
+				fprintf(fp, "position: (%f, %f, %f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, next.DO_get_spellID());
+			}
+
+		}
+		next = next.getNextObject();
+	}
+	
+	
+	fclose(fp);
+
 	return 1;
 }
