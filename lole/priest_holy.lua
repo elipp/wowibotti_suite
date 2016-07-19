@@ -1,5 +1,5 @@
 local pom_time = 0;
-local mt_healer = false;
+local mt_healer = true;
 
 local function should_cast_PoH()
 	local r = false;
@@ -21,6 +21,11 @@ local function should_cast_PoH()
 end
 
 combat_priest_holy = function()
+    if UnitName("player") == "Kasio" then
+        MAIN_TANK = "Adieux";
+    else
+        MAIN_TANK = "Noctur";
+    end
 
 	if casting_legit_heal() then return end
 

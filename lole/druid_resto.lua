@@ -1,4 +1,5 @@
 combat_druid_resto = function()
+    MAIN_TANK = "Gawk";
 
 	TargetUnit(MAIN_TANK);
 	local mana_left = UnitMana("player");
