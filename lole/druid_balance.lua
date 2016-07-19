@@ -1,3 +1,8 @@
+local function MAULGAR()
+
+
+end
+
 combat_druid_balance = function()
 
 	if UnitCastingInfo("player") then return; end

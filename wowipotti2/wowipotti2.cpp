@@ -13,6 +13,7 @@
 #include <cassert>
 #include <fstream>
 #include <unordered_map>
+#include <thread>
 
 #include "wowipotti2.h"
 
@@ -859,6 +860,10 @@ static int set_affinities() {
 
 	int n = 0;
 
+	const unsigned int ncores = std::thread::hardware_concurrency();
+
+	printf("set_affinities: detected %u CPU cores.\n", ncores);
+
 	for (auto c : wow_handles) {
 
 		HANDLE proc_handle = OpenProcess(PROCESS_ALL_ACCESS, TRUE, c.pid);
@@ -867,7 +872,7 @@ static int set_affinities() {
 
 		SetProcessAffinityMask(proc_handle, aff_mask);
 		SetPriorityClass(proc_handle, ABOVE_NORMAL_PRIORITY_CLASS);
-		n = (n < 3) ? (n + 1) : 0;
+		n = (n < (ncores/2 - 1)) ? (n + 1) : 0;
 
 		printf("proc_handle = %X, PID = %d, aff_mask = %X\n", (DWORD)proc_handle, c.pid, aff_mask);
 

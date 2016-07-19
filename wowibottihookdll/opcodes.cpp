@@ -549,7 +549,7 @@ static void LOP_maulgar_get_felhound(const std::string &arg) {
 			if (next.NPC_get_name() == "Wild Fel Stalker") {
 				if (!mob_has_debuff(next, 18647)) { // this is Banish (Rank 2)
 					SelectUnit(next.get_GUID());
-					DoString("RunMacroText(\"/stopcasting /cast Banish\")");
+					DoString("CastSpellByName(\"Banish\")");
 					return;
 				}
 			}

@@ -11,6 +11,12 @@ local function refresh_ES(targetname)
 		return true;
 	end
 
+	if not has_buff("Noctur", "Earth Shield") then
+		TargetUnit("Noctur")
+		CastSpellByName("Earth Shield");
+		return true;
+	end
+
 	return false
 
 end

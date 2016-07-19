@@ -39,6 +39,7 @@ local function handle_subcommand(args)
 end
 
 function lole_main(args)
+
 	if args and args ~= "" then
 		handle_subcommand(args)
 		return;
