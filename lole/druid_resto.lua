@@ -1,5 +1,10 @@
+MAIN_TANK = "Gawk";
 combat_druid_resto = function()
-    MAIN_TANK = "Gawk";
+    if MAIN_TANK == "Gawk" then
+    	MAIN_TANK = "Noctur"
+    else
+    	MAIN_TANK = "Gawk"
+    end
 
 	TargetUnit(MAIN_TANK);
 	local mana_left = UnitMana("player");
