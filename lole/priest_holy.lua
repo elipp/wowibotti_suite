@@ -20,11 +20,21 @@ local function should_cast_PoH()
 	return r;
 end
 
+local last_target_checked = nil
+
+local function alternate_targets()
+	if not last_target_checked then
+		last_target_checked = MAIN_TANK
+	else if last_target_checked == MAIN_TANK
+		last_target_checked = OFF_TANK
+	else
+		last_target_checked = OFF_TANK
+	end
+end
+
 combat_priest_holy = function()
     if UnitName("player") == "Kasio" then
-        MAIN_TANK = "Adieux";
-    else
-        MAIN_TANK = "Noctur";
+		alternate_targets()
     end
 
 	if casting_legit_heal() then return end
@@ -40,7 +50,7 @@ combat_priest_holy = function()
 		return;
 	end
 
-	TargetUnit(MAIN_TANK);
+	TargetUnit(last_target_checked);
 
 	if time() - pom_time > 10 then
 		if cast_if_nocd("Prayer of Mending") then
