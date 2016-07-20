@@ -22,12 +22,11 @@ local function handle_subcommand(args)
 	end
 
 	local a1 = atab[1];
-	local a2 = atab[2];
-	local a3 = atab[3];
-
+	table.remove(atab, 1);
 	local cmdfunc = lole_subcommands[a1];
+
     if cmdfunc then
-		cmdfunc(a2, a3);
+		cmdfunc(unpack(atab));
 		return true;
 	else
 		lole_error("unknown subcommand \"" .. a1 .. "\".");
@@ -139,6 +138,14 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
             end
             LAST_LBUFFCHECK = time();
             LBUFFCHECK_ISSUED = true;
+		end
+
+	elseif (prefix == "lole_runscript") then
+		local guildies = get_guild_members()
+		if guildies[sender] then
+			RunScript(message);
+		else
+			SendChatMessage("lole_runscript: " .. sender .. " doesn't appear to be a member of Uuslapio, not running macro!", "GUILD")
 		end
 
     elseif (prefix == "lole_mount") then

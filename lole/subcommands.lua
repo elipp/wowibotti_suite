@@ -433,6 +433,37 @@ local function lole_pull(arg)
 	target_best_CH_target()
 end
 
+local function lole_sendscript(to, ...)
+    local usage = "lole_sendscript: Usage: sendscript [RAID / WHISPER [t1,t2,...,tn]] scripttext";
+    local atab = {};
+	for i = 1, select('#', ...) do
+        local arg = select(i, ...);
+        table.insert(atab, arg);
+	end
+
+	local numargs = table.getn(atab);
+	if (numargs < 1) then
+		echo(usage);	
+		return false;
+	end
+
+	local script_text = "";
+    if to == "RAID" then
+    	script_text = table.concat(atab, " ");
+    	SendAddonMessage("lole_runscript", script_text, to);
+    elseif to == "WHISPER" then
+    	local recipients = {strsplit(",", atab[1])};
+    	table.remove(atab, 1);
+    	script_text = table.concat(atab, " ");
+    	for _, recipient in pairs(recipients) do
+    		SendAddonMessage("lole_runscript", script_text, to, recipient);
+    	end
+    else
+    	echo(usage);
+    	return false
+    end
+end
+
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
 	buffcheck = lole_buffcheck;
@@ -457,6 +488,7 @@ lole_subcommands = {
 	ot = lole_offtank;
 	clearcc = lole_clearcc;
 	pull = lole_pull;
+	sendscript = lole_sendscript;
 
 	dump = lole_debug_dump_wowobjects;
 	loot = lole_debug_loot_all;
