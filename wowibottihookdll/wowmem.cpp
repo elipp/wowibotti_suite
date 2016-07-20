@@ -282,20 +282,70 @@ uint WowObject::NPC_get_buff(int index) const {
 		DoString("UnitBuff(\"target\", 1)"); 
 	}
 
-	// 5469BA is the place where the buff first appears in EAX
+	// 5469BA is the place where the buff spellID first appears in EAX
+	
+	uint spellid_addr = index * 4 + DEREF(base + 0x120) + 0xA8;
+	uint buff_spellID = DEREF(spellid_addr);
+	
+	if (buff_spellID != 0) printf("base: %X, spellid_addr = %X, spellID = %u\n", get_base(), spellid_addr, buff_spellID);
 
-	uint buff_spellid = DEREF(index * 4 + DEREF(base + 0x120) + 0xA8);
+	return buff_spellID;
 
-//	printf("base: %p, [%p + 0x120] = %X, [%d * 4 + [%p + 0x120] + 0xA8] = %X\n",
-	//	get_base(), get_base(), DEREF(base + 0x120), index, get_base(), buff_spellid);
+	// UnitDebuff notes: the debuff duration is retrieved at 60B97E
 
-	return buff_spellid;
 }
 
 uint WowObject::NPC_get_debuff(int index) const {
 	return NPC_get_buff(index+0x27);
 }
 
+uint WowObject::NPC_get_buff_duration(int index, uint spellID) const {
+	uint EDX1;
+	readAddr(base + 0x116C, &EDX1, sizeof(EDX1));
+
+	if (EDX1 == 0) {
+		printf("EDX1 was 0\n");
+		return 0;
+	}
+
+	uint EDI1;
+	readAddr(base + 0x1170, &EDI1, sizeof(EDI1));
+
+	uint EAX1 = (EDX1 << 0x4) + EDI1;
+
+	while(1) {
+
+		EAX1 -= 0x10;
+		EDX1 -= 0x1;
+
+		uint EAX_content = DEREF(EAX1);
+		if (index == EAX_content) {
+			uint EAX_spellid_content = DEREF(EAX1 + 0x4);
+			if (EAX_spellid_content == spellID) {
+				printf("EAX_spellid_content == spellID!\n");
+				break;
+			}
+		}
+	}
+
+	EDX1 = EDX1 << 0x4;
+
+	if (DEREF(EDI1 + EDX1 + 0x8) == 0) {
+		printf("EDI1+EDX1+0x8 was 0 :(\n");
+		return 0;
+	}
+
+	uint duration = DEREF(EDX1 + EAX1 + 0x8);
+
+	printf("returned duration %u :D\n", duration);
+
+	return duration;
+
+}
+
+uint WowObject::NPC_get_debuff_duration(int index, uint spellID) const {
+	return NPC_get_debuff_duration(index + 0x27, spellID);
+}
 
 
 GUID_t WowObject::unit_get_target_GUID() const {

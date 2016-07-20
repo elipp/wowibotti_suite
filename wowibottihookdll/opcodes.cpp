@@ -629,7 +629,8 @@ static const struct {
 	{ "LOLE_REPORT_LOGIN", LOP_report_login, 1 },
 	{ "LOLE_WALK_TO_PULLING_RANGE", LOP_walk_to_pull, 0 },
 	{ "LOLE_GET_BEST_CHAINHEAL_TARGET", LOP_get_best_CH, 0},
-	{ "LOLE_MAULGAR_GET_UNBANISHED_FELHOUND", LOP_maulgar_get_felhound, 0 }
+	{ "LOLE_MAULGAR_GET_UNBANISHED_FELHOUND", LOP_maulgar_get_felhound, 0 },
+	{ "LOLE_OFF_TANK", LOP_nop, 0},
 };
 
 static const struct {
@@ -732,61 +733,66 @@ static int dump_wowobjects_to_log() {
 	ObjectManager OM;
 
 	printf("Dumping WowObjects to file \"%s\"!\n", log_path.c_str());
-	WowObject next = OM.get_first_object();
 	GUID_t target_GUID = get_target_GUID();
 
-	fprintf(fp, "local GUID = 0x%016llX, player target: %016llX, first object base = %p, next.next base = %p\n", OM.get_local_GUID(), target_GUID, next.get_base(), next.get_base());
+	fprintf(fp, "Basic info: ObjectManager base: %X, local GUID = 0x%016llX, player target: %016llX\n\n", OM.get_base_address(), OM.get_local_GUID(), target_GUID);
 
-	while (next.valid()) {
-		if (!(next.get_type() == OBJECT_TYPE_ITEM || next.get_type() == OBJECT_TYPE_CONTAINER)) {  // filter out items and containers :P
-			fprintf(fp, "object GUID: 0x%016llX, base addr = %X, type: %s\n", next.get_GUID(), next.get_base(), next.get_type_name().c_str());
+	for (WowObject next = OM.get_first_object(); next.valid(); next = next.getNextObject()) {
+		uint type = next.get_type();
+		if (type == OBJECT_TYPE_ITEM || type == OBJECT_TYPE_CONTAINER) { continue; }  
+		
+		fprintf(fp, "object GUID: 0x%016llX, base addr = %X, type: %s\n", next.get_GUID(), next.get_base(), next.get_type_name().c_str());
 
-			if (next.get_type() == OBJECT_TYPE_NPC || next.get_type() == OBJECT_TYPE_UNIT) {
-				vec3 pos = next.get_pos();
-				fprintf(fp, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, next.get_rot());
+		if (type == OBJECT_TYPE_NPC || type == OBJECT_TYPE_UNIT) {
+			vec3 pos = next.get_pos();
+			fprintf(fp, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, next.get_rot());
 
-				if (next.get_type() == OBJECT_TYPE_NPC) {
-					fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", next.NPC_get_name().c_str(), next.NPC_get_health(), next.NPC_get_health_max(), next.NPC_get_target_GUID(), next.in_combat());
-					fprintf(fp, "buffs (by spellID):\n");
-					for (int n = 1; n <= 16; ++n) {
-						uint spellID = next.NPC_get_buff(n);
-						if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
+			if (type == OBJECT_TYPE_NPC) {
+				fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", next.NPC_get_name().c_str(), next.NPC_get_health(), next.NPC_get_health_max(), next.NPC_get_target_GUID(), next.in_combat());
+				fprintf(fp, "buffs (by spellID):\n");
+				for (int n = 1; n <= 16; ++n) {
+					uint spellID = next.NPC_get_buff(n);
+					if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
+				}
+
+				fprintf(fp, "\ndebuffs (by spellID):\n");
+
+				for (int n = 1; n <= 16; ++n) {
+					uint spellID = next.NPC_get_debuff(n);
+					if (spellID != 0) {
+						uint duration = next.NPC_get_debuff_duration(n, spellID);
+						fprintf(fp, "%d: %u, duration = %u\n", n, spellID, duration);
 					}
+				}
 
-					fprintf(fp, "----\ndebuffs (by spellID)\n");
-
-					for (int n = 1; n <= 16; ++n) {
-						uint spellID = next.NPC_get_debuff(n);
-						if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
-					}
-
+				fprintf(fp, "\n");
 				
-				}
-				else if (next.get_type() == OBJECT_TYPE_UNIT) {
-					fprintf(fp, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", next.unit_get_name().c_str(), next.unit_get_health(), next.unit_get_health_max(), next.unit_get_target_GUID(), next.in_combat());
-					fprintf(fp, "buffs (by spellID):\n");
-					for (int n = 1; n <= 16; ++n) {
-						uint spellID = next.unit_get_buff(n);
-						if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
-					}
-
-					fprintf(fp, "----\ndebuffs (by spellID)\n");
-
-					for (int n = 1; n <= 16; ++n) {
-						uint spellID = next.unit_get_debuff(n);
-						if (spellID) fprintf(fp, "%d: %u\n", n, spellID);
-					}
-
-					fprintf(fp, "----\n");
-				}
 			}
-			else if (next.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
-				vec3 DO_pos = next.DO_get_pos();
-				fprintf(fp, "position: (%f, %f, %f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, next.DO_get_spellID());
-			}
+			else if (type == OBJECT_TYPE_UNIT) {
+				fprintf(fp, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", next.unit_get_name().c_str(), next.unit_get_health(), next.unit_get_health_max(), next.unit_get_target_GUID(), next.in_combat());
+				fprintf(fp, "buffs (by spellID):\n");
+				for (int n = 1; n <= 16; ++n) {
+					uint spellID = next.unit_get_buff(n);
+					if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
+				}
 
+				fprintf(fp, "debuffs (by spellID)\n");
+
+				for (int n = 1; n <= 16; ++n) {
+					uint spellID = next.unit_get_debuff(n);
+					if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
+				}
+
+				fprintf(fp, "\n");
+			}
 		}
-		next = next.getNextObject();
+		else if (next.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
+			vec3 DO_pos = next.DO_get_pos();
+			fprintf(fp, "position: (%f, %f, %f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, next.DO_get_spellID());
+		}
+
+		fprintf(fp, "----------------------------------------------------------------------------\n");
+
 	}
 	
 	

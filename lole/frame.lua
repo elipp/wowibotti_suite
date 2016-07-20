@@ -123,6 +123,10 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 
 		lole_subcommands.drink()
 
+		if get_durability_status() == false then
+			SendChatMessage("RIP i hawe progen kears!!")
+		end
+
 	elseif event == "CONFIRM_SUMMON" then
 		local summoner = GetSummonConfirmSummoner() -- weird ass API..
 		local guildies = get_guild_members()
@@ -168,7 +172,7 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		report_login(true);
 
 	elseif event == "PLAYER_LOGOUT" then
-		-- report_login(false) -- disable this 
+		-- report_login(false) -- disable this
 	end
 
 
@@ -176,7 +180,7 @@ end
 
 lole_frame:SetScript("OnEvent", LOLE_EventHandler);
 
-lole_frame:SetHeight(350)
+lole_frame:SetHeight(380)
 lole_frame:SetWidth(250)
 lole_frame:SetPoint("RIGHT", -25, 0)
 
@@ -732,16 +736,31 @@ create_simple_button("add_cc_button", lole_frame, 22, -175, "Add CC...", 85, 27,
 
 local main_tank_string = lole_frame:CreateFontString(nil, "OVERLAY");
 main_tank_string:SetFont("Fonts\\FRIZQT__.TTF", 9);
-main_tank_string:SetPoint("BOTTOMLEFT", 15, 15);
+main_tank_string:SetPoint("BOTTOMLEFT", 15, 25);
 main_tank_string:SetText("|cFFFFD100Main tank:")
 
 local main_tank_name_string = lole_frame:CreateFontString(nil, "OVERLAY")
 main_tank_name_string:SetFont("Fonts\\FRIZQT__.TTF", 9);
-main_tank_name_string:SetPoint("BOTTOMLEFT", 70, 15);
+main_tank_name_string:SetPoint("BOTTOMLEFT", 70, 25);
 main_tank_name_string:SetText("-none-")
+
+
+local off_tank_string = lole_frame:CreateFontString(nil, "OVERLAY");
+off_tank_string:SetFont("Fonts\\FRIZQT__.TTF", 9);
+off_tank_string:SetPoint("BOTTOMLEFT", 15, 15);
+off_tank_string:SetText("|cFFFFD100Off tank:")
+
+local off_tank_name_string = lole_frame:CreateFontString(nil, "OVERLAY")
+off_tank_name_string:SetFont("Fonts\\FRIZQT__.TTF", 9);
+off_tank_name_string:SetPoint("BOTTOMLEFT", 70, 15);
+off_tank_name_string:SetText("-none-")
 
 function update_main_tank(name)
 	main_tank_name_string:SetText("|cFF" .. get_class_color(UnitClass(name)) .. name)
+end
+
+function update_off_tank(name)
+	off_tank_name_string:SetText("|cFF" .. get_class_color(UnitClass(name)) .. name)
 end
 
 local inject_status_text = lole_frame:CreateFontString(nil, "OVERLAY");

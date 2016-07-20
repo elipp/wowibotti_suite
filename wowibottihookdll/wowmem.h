@@ -101,6 +101,9 @@ public:
 	uint NPC_get_buff(int index) const;
 	uint NPC_get_debuff(int index) const;
 
+	uint NPC_get_buff_duration(int index, uint spellID) const;
+	uint NPC_get_debuff_duration(int index, uint spellID) const;
+
 	std::string unit_get_name() const;
 	GUID_t unit_get_target_GUID() const;
 
@@ -155,6 +158,7 @@ public:
 	WowObject get_object_by_GUID(GUID_t GUID) const;
 	GUID_t get_local_GUID() const;
 	WowObject get_local_object() const;
+	uint get_base_address() const { return base_addr; }
 
 	std::vector<WowObject> get_spell_objects_with_spellID(long spellID);
 

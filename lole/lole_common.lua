@@ -6,6 +6,7 @@ BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 
 MAIN_TANK = nil
+OFF_TANK = nil
 
 ROLES = { healer = 1, caster = 2, warrior_tank = 3, paladin_tank = 4, melee = 5 }
 
@@ -308,19 +309,22 @@ end
 function get_lowest_hp(hp_deficits)
 
 	local lowest = nil;
+	local lowest_deficit = 0;
 
 	for name,hp_deficit in pairs(hp_deficits) do
 
 		if not lowest then
-			lowest = name;
+			lowest = name
+			lowest_deficit = hp_deficit
 		else
 			if hp_deficit > hp_deficits[lowest] then
-				lowest = name;
+				lowest = name
+				lowest_deficit = hp_deficit
 			end
 		end
 	end
 
-	return lowest;
+	return lowest, lowest_deficit;
 
 end
 
@@ -646,4 +650,22 @@ function tablelength(T)
   local count = 0
   for _ in pairs(T) do count = count + 1 end
   return count
+end
+
+function get_durability_status()
+	for i=1,10,1 do
+		local dur, max = GetInventoryItemDurability(i)
+		if dur and dur == 0 then
+			return false
+		end
+	end
+
+	for i=16,18,1 do
+		local dur, max = GetInventoryItemDurability(i)
+		if dur and dur == 0 then
+			return false
+		end
+	end
+
+	return true
 end

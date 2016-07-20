@@ -396,7 +396,31 @@ local function lole_leaveparty()
 end
 
 local function lole_maintank(arg)
-	broadcast_main_tank(arg)
+	if not arg then
+		echo("lole_maintank: no argument supplied!")
+		return;
+	end
+
+	if first_to_upper(arg) == OFF_TANK then
+		echo("lole_maintank: can't set MT == OT.")
+		return;
+	end
+
+	broadcast_main_tank(first_to_upper(arg))
+end
+
+local function lole_offtank(arg)
+	if not arg then
+		echo("lole_offtank: no argument supplied!")
+		return;
+	end
+
+	if first_to_upper(arg) == MAIN_TANK then
+		echo("lole_maintank: can't set OT == MT.")
+		return;
+	end
+
+	broadcast_off_tank(first_to_upper(arg))
 end
 
 local function lole_clearcc()
@@ -430,6 +454,7 @@ lole_subcommands = {
 	leaveparty = lole_leaveparty;
 	release = lole_release;
 	mt = lole_maintank;
+	ot = lole_offtank;
 	clearcc = lole_clearcc;
 	pull = lole_pull;
 

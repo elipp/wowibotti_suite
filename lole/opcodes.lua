@@ -24,14 +24,16 @@ LOLE_OPCODE_PULL_MOB,
 LOLE_OPCODE_REPORT_LOGIN,
 LOLE_OPCODE_WALK_TO_PULLING_RANGE,
 LOLE_OPCODE_GET_BEST_CHAINHEAL_TARGET,
-LOLE_OPCODE_MAULGAR_GET_UNBANISHED_FELHOUND
+LOLE_OPCODE_MAULGAR_GET_UNBANISHED_FELHOUND,
+LOLE_OPCODE_OFF_TANK
 
 = "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04",
 "LOP_05", "LOP_06", "LOP_07", "LOP_08",
 "LOP_09", "LOP_0A", "LOP_0B", "LOP_0C",
 "LOP_0D", "LOP_0E", "LOP_0F", "LOP_10",
 "LOP_11", "LOP_12", "LOP_13", "LOP_14",
-"LOP_15", "LOP_16", "LOP_17", "LOP_18"
+"LOP_15", "LOP_16", "LOP_17", "LOP_18",
+"LOP_19"
 
 local
 LOLE_DEBUG_OPCODE_NOP,
@@ -107,6 +109,10 @@ end
 
 function broadcast_main_tank(arg)
 	send_opcode_addonmsg(LOLE_OPCODE_MAIN_TANK, arg)
+end
+
+function broadcast_off_tank(arg)
+	send_opcode_addonmsg(LOLE_OPCODE_OFF_TANK, arg)
 end
 
 function set_target(target_GUID)
@@ -388,9 +394,15 @@ local function OCB_release_spirit()
 end
 
 local function OCB_main_tank(arg)
-	MAIN_TANK = first_to_upper(arg)
+	MAIN_TANK = arg
 	update_main_tank(MAIN_TANK)
 	echo("Main tank set to " .. MAIN_TANK .. ". (change with /lole mt <mtname>)")
+end
+
+local function OCB_off_tank(arg)
+	OFF_TANK = arg
+	update_off_tank(OFF_TANK)
+	echo("Off tank set to " .. OFF_TANK .. ". (change with /lole ot <otname>)")
 end
 
 lole_opcode_funcs = {
@@ -411,4 +423,5 @@ lole_opcode_funcs = {
 	[LOLE_OPCODE_RELEASE_SPIRIT] =		OCB_release_spirit,
 	[LOLE_OPCODE_MAIN_TANK] =			OCB_main_tank,
 	[LOLE_OPCODE_PULL_MOB] = 			OCB_pull_mob,
+	[LOLE_OPCODE_OFF_TANK] =			OCB_off_tank
 }

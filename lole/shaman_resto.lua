@@ -46,6 +46,9 @@ local TOTEMS = {
 ["fire"] = "Frost Resistance Totem"
 }
 
+local function NS_heal_on_tank()
+
+end
 
 combat_shaman_resto = function()
 
@@ -57,45 +60,33 @@ combat_shaman_resto = function()
 	end
 
 	if refresh_totems(TOTEMS) then return; end
-
 	if refresh_ES(MAIN_TANK) then return end
 
-	local HP_deficits = get_HP_deficits();
-	if next(HP_deficits) == nil then return; end
-
-	local lowest = get_lowest_hp(HP_deficits);
-	if not lowest then return; end
-
-	if (HP_deficits[lowest] < 1500) then
-		return;
-	end
-
-	--TargetUnit(lowest);
-
-	target_best_CH_target()
+	target_best_CH_target();
+	if not UnitExists("target") then return end
 
 	caster_range_check(35);
+	cast_spell("Chain Heal")
 
-	local total_deficit = get_total_deficit(HP_deficits)
+	return;
 
-	if (HP_deficits[lowest] > 7000) then
-		cast_if_nocd("Nature's Swiftness");
-		UseInventoryItem(13);
-		UseInventoryItem(14);
-		cast_spell("Healing Wave");
-
-		return;
-	end
+--	local total_deficit = get_total_deficit(HP_deficits)
+	--
+	-- if (HP_deficits[lowest] > 7000) then
+	-- 	if cast_if_nocd("Nature's Swiftness") then
+	-- 		UseInventoryItem(13);
+	-- 		UseInventoryItem(14);
+	-- 		cast_spell("Healing Wave");
+	-- 	end
+	-- 	return;
+	-- end
 
 	-- if HP_deficits[lowest] > 3000 then -- this was actually really good for vexallus :O
 	-- 	cast_spell("Lesser Healing Wave")
 	-- 	return;
 	-- end
 
-	if total_deficit > 6000 then
-		cast_spell("Chain Heal")
-		return;
-	end
+
 
 
 end
