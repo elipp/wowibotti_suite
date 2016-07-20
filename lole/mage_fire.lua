@@ -31,6 +31,7 @@ local function MAULGAR_KROSH()
 	if UnitIsDead("target") then return false end
 
 	if (has_buff("target", "Spell Shield")) then
+		SpellStopCasting()
 		CastSpellByName("Spellsteal")
 	end
 
