@@ -24,7 +24,7 @@ local function check_durability()
 		if get_durability_status() == false then
 			SendChatMessage("RIP i hawe progen kears!!", "GUILD")
 		end
-	else
+	end
 
 	time_since_dcheck = time()
 end
