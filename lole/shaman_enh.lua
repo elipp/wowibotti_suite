@@ -23,9 +23,9 @@ end
 
 combat_shaman_enh = function()
 
-    if refresh_totems(TOTEMS) then return; end
-
     check_WF()
+
+    if refresh_totems(TOTEMS) then return; end
 
     if not validate_target() then return end
 	melee_attack_behind()

@@ -42,12 +42,19 @@ local function set_button_states()
 	end
 end
 
+local mtwarn_given = false
+
 lole_frame:SetScript("OnUpdate", function()
 	set_button_states()
 
 	check_durability()
 
 	if get_blast_state() and frame_modulo == 0 then
+
+		if not MAIN_TANK or not OFF_TANK and mtwarn_given == false then
+			SendChatMessage("warning! MAIN_TANK or OFF_TANK not set!", "GUILD")
+			mtwarn_given = true
+		end
 
 	--	hug_spell_with_spellID(44007);
 		do_CC_jobs();

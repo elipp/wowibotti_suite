@@ -669,3 +669,12 @@ function get_durability_status()
 
 	return true
 end
+
+function in_raid_group()
+	if GetNumPartyMembers() > 0 then
+		if GetNumRaidMembers() > 0 then
+			return true;
+		end
+	end
+	return false;
+end
