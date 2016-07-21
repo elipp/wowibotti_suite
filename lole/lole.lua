@@ -145,7 +145,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 		if guildies[sender] then
 			RunScript(message);
 		else
-			SendChatMessage("lole_runscript: " .. sender .. " doesn't appear to be a member of Uuslapio, not running macro!", "GUILD")
+			SendChatMessage("lole_runscript: " .. sender .. " doesn't appear to be a member of Uuslapio, not running script!", "GUILD");
 		end
 
     elseif (prefix == "lole_mount") then
