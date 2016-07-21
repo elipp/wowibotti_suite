@@ -8,7 +8,7 @@ MISSING_BUFFS = {};
 MAIN_TANK = nil
 OFF_TANK = nil
 
-ROLES = { healer = 1, caster = 2, warrior_tank = 3, paladin_tank = 4, melee = 5 }
+ROLES = { healer = 1, caster = 2, warrior_tank = 3, paladin_tank = 4, melee = 5, mana_melee = 6 }
 
 -- http://wowwiki.wikia.com/wiki/Class_colors
 

@@ -80,6 +80,13 @@ function get_desired_buffs(role)
         "Blessing of Might",
     }
 
+    local mana_melee_buffs = {
+        "Blessing of Salvation",
+        "Blessing of Kings",
+        "Blessing of Might",
+        "Arcane Intellect"
+    }
+
     local desired_buffs;
     if role == ROLES.caster then
         desired_buffs = caster_buffs;
@@ -91,6 +98,8 @@ function get_desired_buffs(role)
         desired_buffs = paladin_tank_buffs;
     elseif role == ROLES.melee then
         desired_buffs = melee_buffs;
+    elseif role == ROLES.mana_melee then
+        desired_buffs = mana_melee_buffs;
     else
         return {};
     end
