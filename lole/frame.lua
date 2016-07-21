@@ -16,6 +16,19 @@ lole_frame:RegisterEvent("TRADE_SHOW")
 local every_nth_frame = 4
 local frame_modulo = 0
 
+local time_since_dcheck = 0
+
+local function check_durability()
+
+	if (time() - time_since_dcheck > 300) then
+		if get_durability_status() == false then
+			SendChatMessage("RIP i hawe progen kears!!", "GUILD")
+		end
+	else
+
+	time_since_dcheck = time()
+end
+
 local function set_button_states()
 	-- is this really necessary? :P
 	if not IsRaidLeader() then -- it just wasn't reliable enough to do this in ADDON_LOADED
@@ -32,11 +45,14 @@ end
 lole_frame:SetScript("OnUpdate", function()
 	set_button_states()
 
+	check_durability()
+
 	if get_blast_state() and frame_modulo == 0 then
 
 	--	hug_spell_with_spellID(44007);
 		do_CC_jobs();
 		lole_main();
+
 	end
 
 	frame_modulo = frame_modulo >= every_nth_frame and 0 or (frame_modulo + 1)
@@ -122,10 +138,6 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		StaticPopup_Hide("RESURRECT_NO_TIMER")
 
 		lole_subcommands.drink()
-
-		if get_durability_status() == false then
-			SendChatMessage("RIP i hawe progen kears!!", "GUILD")
-		end
 
 	elseif event == "CONFIRM_SUMMON" then
 		local summoner = GetSummonConfirmSummoner() -- weird ass API..
