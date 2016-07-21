@@ -60,9 +60,11 @@ combat_shaman_resto = function()
 		if refresh_ES(MAIN_TANK) then return end
 	end
 
-	if (UnitHealthMax(OFF_TANK) - UnitHealth(OFF_TANK)) > 2000 then
-		TargetUnit(OFF_TANK)
-		cast_spell("Healing Wave")
+	if OFF_TANK then
+		if (UnitHealthMax(OFF_TANK) - UnitHealth(OFF_TANK)) > 2000 then
+			TargetUnit(OFF_TANK)
+			cast_spell("Healing Wave")
+		end
 	end
 
 	target_best_CH_target();

@@ -204,6 +204,9 @@ int WowObject::NPC_get_focus_max() const {
 std::string WowObject::NPC_get_name() const {
 	unsigned int name;
 	readAddr(base + Name, &name, sizeof(name));
+	if (!name) {
+		return "null";
+	}
 	return *(char**)(name + 0x40);
 }
 
