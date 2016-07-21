@@ -25,7 +25,7 @@ local last_target_checked = nil
 local function alternate_targets()
 	if not last_target_checked then
 		last_target_checked = MAIN_TANK
-	else if last_target_checked == MAIN_TANK
+	elseif last_target_checked == MAIN_TANK then
 		last_target_checked = OFF_TANK
 	else
 		last_target_checked = OFF_TANK
