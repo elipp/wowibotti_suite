@@ -11,12 +11,6 @@ local function refresh_ES(targetname)
 		return true;
 	end
 
-	if not has_buff("Noctur", "Earth Shield") then
-		TargetUnit("Noctur")
-		CastSpellByName("Earth Shield");
-		return true;
-	end
-
 	return false
 
 end
@@ -60,7 +54,16 @@ combat_shaman_resto = function()
 	end
 
 	if refresh_totems(TOTEMS) then return; end
-	if refresh_ES(MAIN_TANK) then return end
+	if UnitName("player") == "Igop" then
+		if refresh_ES(OFF_TANK) then return end
+	else
+		if refresh_ES(MAIN_TANK) then return end
+	end
+
+	if (UnitHealthMax(OFF_TANK) - UnitHealth(OFF_TANK)) > 2000 then
+		TargetUnit(OFF_TANK)
+		cast_spell("Healing Wave")
+	end
 
 	target_best_CH_target();
 	if not UnitExists("target") then return end
