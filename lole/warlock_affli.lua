@@ -40,7 +40,6 @@ local function vexallus()
 
 end
 
-
 local function MAULGAR()
 	warlock_banish_felhound()
 end
@@ -48,7 +47,6 @@ end
 combat_warlock_affli = function()
 
 	MAULGAR()
-	if UnitExists("target") then return end
 
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
