@@ -35,7 +35,9 @@ end
 combat_priest_holy = function()
     if UnitName("player") == "Kasio" then
 		alternate_targets()
-    end
+    else
+		last_target_checked = MAIN_TANK
+	end
 
 	if casting_legit_heal() then return end
 

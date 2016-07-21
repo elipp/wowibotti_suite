@@ -443,7 +443,7 @@ local function lole_sendscript(to, ...)
 
 	local numargs = table.getn(atab);
 	if (numargs < 1) then
-		echo(usage);	
+		echo(usage);
 		return false;
 	end
 
@@ -462,6 +462,12 @@ local function lole_sendscript(to, ...)
     	echo(usage);
     	return false
     end
+end
+
+local function lole_durability()
+	if get_durability_status() == false then
+		SendChatMessage("VITTUJEE", "GUILD")
+	end
 end
 
 lole_subcommands = {
@@ -489,6 +495,7 @@ lole_subcommands = {
 	clearcc = lole_clearcc;
 	pull = lole_pull;
 	sendscript = lole_sendscript;
+	durability = lole_durability;
 
 	dump = lole_debug_dump_wowobjects;
 	loot = lole_debug_loot_all;

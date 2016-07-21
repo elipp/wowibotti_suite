@@ -124,7 +124,7 @@ local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
 		lole_subcommands.drink()
 
 		if get_durability_status() == false then
-			SendChatMessage("RIP i hawe progen kears!!")
+			SendChatMessage("RIP i hawe progen kears!!", "GUILD")
 		end
 
 	elseif event == "CONFIRM_SUMMON" then
