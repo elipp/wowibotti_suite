@@ -37,7 +37,6 @@ combat_druid_resto = function()
 	end
 
 	if (not has_buff("target", "Rejuvenation")) then
-		echo(stacks);
 		CastSpellByName("Rejuvenation")
 		return
 	end
