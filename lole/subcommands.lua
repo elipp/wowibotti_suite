@@ -6,10 +6,10 @@ local available_configs = {
 	class_config_create("default", {}, {}, "FFFFFF", function() end, {}, 0),
 
 	druid_feral =
-	class_config_create("druid_feral", {"Mark of the Wild", "Thorns"}, {}, get_class_color("druid"), combat_druid_feral, {"Omen of Clarity"}, ROLES.melee),
+	class_config_create("druid_feral", {"Mark of the Wild", "Thorns"}, {"Omen of Clarity", "Cat Form"}, get_class_color("druid"), combat_druid_feral, {}, ROLES.mana_melee),
 
 	druid_resto =
-	class_config_create("druid_resto", {"Mark of the Wild", "Thorns"}, {}, get_class_color("druid"), combat_druid_resto, {}, ROLES.healer),
+	class_config_create("druid_resto", {"Mark of the Wild", "Thorns"}, {"Tree of Life"}, get_class_color("druid"), combat_druid_resto, {"Barkskin"}, ROLES.healer),
 
 	druid_balance =
 	class_config_create("druid_balance", {"Mark of the Wild", "Thorns"}, {"Moonkin Form"}, get_class_color("druid"), combat_druid_balance, {"Barkskin"}, ROLES.caster),
