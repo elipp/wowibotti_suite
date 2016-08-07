@@ -525,7 +525,7 @@ function validate_target()
 			local c = get_current_config()
 			if not c.role == ROLES.caster then
 				if UnitName("focus") == "Krosh Firehand" then
-					TargetUnit("Kiggler the Crazed")
+					AssistUnit("Gawk")
 					return true;
 				end
 			end
