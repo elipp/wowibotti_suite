@@ -14,7 +14,7 @@
 #include <unordered_map>
 #include <thread>
 
-#include "wowipotti2.h"
+#include "UI.h"
 
 static HINSTANCE hInst;	
 static HWND main_window_hWnd;
