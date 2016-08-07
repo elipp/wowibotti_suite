@@ -525,8 +525,8 @@ function validate_target()
 			local c = get_current_config()
 			if not c.role == ROLES.caster then
 				if UnitName("focus") == "Krosh Firehand" then
-					ClearTarget()
-					return false;
+					TargetUnit("Kiggler the Crazed")
+					return true;
 				end
 			end
 			if has_debuff("focus", "Polymorph") or has_debuff("focus", "Shackle") then
