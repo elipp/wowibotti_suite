@@ -67,6 +67,11 @@ combat_shaman_resto = function()
 		end
 	end
 
+	if UnitMana("player") < 5000 then
+		CastSpellByName("Mana Tide Totem")
+		return
+	end
+
 	target_best_CH_target();
 	if not UnitExists("target") then return end
 
