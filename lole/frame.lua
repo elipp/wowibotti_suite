@@ -56,7 +56,7 @@ lole_frame:SetScript("OnUpdate", function()
 			mtwarn_given = true
 		end
 
-	--	hug_spell_with_spellID(44007);
+		--hug_spell_with_spellID(36240); -- Cave In :)
 		do_CC_jobs();
 		lole_main();
 

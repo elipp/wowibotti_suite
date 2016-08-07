@@ -145,6 +145,7 @@ combat_warrior_arms = function()
 	else
 		if UnitMana("player") > 65 then
 		--if GetTime() - swing_starttime < 1.5 then
+			if cast_if_nocd("Whirlwind") then return; end
 			if cast_if_nocd("Slam") then return end;
 		--end
 		end

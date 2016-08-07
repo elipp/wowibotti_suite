@@ -401,10 +401,10 @@ local function lole_maintank(arg)
 		return;
 	end
 
-	if first_to_upper(arg) == OFF_TANK then
-		echo("lole_maintank: can't set MT == OT.")
-		return;
-	end
+	-- if first_to_upper(arg) == OFF_TANK then
+	-- 	echo("lole_maintank: can't set MT == OT.")
+	-- 	return;
+	-- end
 
 	broadcast_main_tank(first_to_upper(arg))
 end
@@ -414,11 +414,11 @@ local function lole_offtank(arg)
 		echo("lole_offtank: no argument supplied!")
 		return;
 	end
-
-	if first_to_upper(arg) == MAIN_TANK then
-		echo("lole_maintank: can't set OT == MT.")
-		return;
-	end
+	-- 
+	-- if first_to_upper(arg) == MAIN_TANK then
+	-- 	echo("lole_maintank: can't set OT == MT.")
+	-- 	return;
+	-- end
 
 	broadcast_off_tank(first_to_upper(arg))
 end
@@ -470,6 +470,11 @@ local function lole_durability()
 	end
 end
 
+local function 	lole_raid_arr()
+
+end
+
+
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
 	buffcheck = lole_buffcheck;
@@ -496,6 +501,7 @@ lole_subcommands = {
 	pull = lole_pull;
 	sendscript = lole_sendscript;
 	durability = lole_durability;
+	raid_arr = lole_raid_arr;
 
 	dump = lole_debug_dump_wowobjects;
 	loot = lole_debug_loot_all;
