@@ -1,5 +1,6 @@
 local pom_time = 0;
 local mt_healer = true;
+local renew_time = 0;
 
 local function should_cast_PoH()
 	local r = false;
@@ -22,9 +23,9 @@ end
 
 combat_priest_holy = function()
     if UnitName("player") == "Kasio" then
-		heal_target = OFF_TANK
+		mt_healer = true;
     else
-		heal_target = MAIN_TANK
+		mt_healer = false;
 	end
 
 	if casting_legit_heal() then return end
@@ -35,6 +36,30 @@ combat_priest_holy = function()
 		CastSpellByName("Shadowfiend");
 		return;
 	end
+
+    local heal_target = "";
+    if not mt_healer then
+        if time() - renew_time > 15 then
+            TargetUnit(MAIN_TANK);
+            if cast_if_nocd("Renew") then
+                renew_time = time();
+                return;
+            end
+        end
+
+        local HP_deficits = get_HP_deficits();
+        if next(HP_deficits) == nil then return; end
+
+        local lowest = get_lowest_hp(HP_deficits);
+        if not lowest then return; end
+
+        if (HP_deficits[lowest] < 1500) then
+            return;
+        end
+        heal_target = lowest;
+    else
+        heal_target = MAIN_TANK;
+    end
 
 	TargetUnit(heal_target);
 
