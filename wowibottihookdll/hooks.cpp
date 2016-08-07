@@ -24,13 +24,13 @@ static void update_debug_positions() {
 	ObjectManager OM;
 
 	if (!OM.valid()) {
-		printf("ObjectManager not ready.\n");
+		PRINT("ObjectManager not ready.\n");
 		return;
 	}
 
 	auto p = OM.get_local_object();
 	if (!p.valid()) { 
-		printf("local GUID = %llX, but get_local_object returned an invalid object!\n", OM.get_local_GUID());
+		PRINT("local GUID = %llX, but get_local_object returned an invalid object!\n", OM.get_local_GUID());
 		return; 
 	}
 	vec3 ppos = p.get_pos();
@@ -58,7 +58,17 @@ static void __stdcall EndScene_hook() {
 	static timer_interval_t fifty_ms(50);
 	static timer_interval_t half_second(500);
 
-	ctm_handle_delayed_posthook();
+	static int prev_CTM_state = 0;
+	int current_CTM_state = get_wow_CTM_state();
+
+	if (!ctm_handle_delayed_posthook()) {
+		if (prev_CTM_state != CTM_DONE && current_CTM_state == CTM_DONE) {
+			PRINT("CTM action completed!\n");
+			ctm_next();
+		}
+	}
+
+	prev_CTM_state = current_CTM_state;
 
 	if (fifty_ms.passed()) {
 		refollow_if_needed();
@@ -91,7 +101,7 @@ static void __stdcall broadcast_CTM(float *coords, int action) {
 	y = coords[1];
 	z = coords[2];
 
-	printf("broadcast_CTM: got CTM coords: (%f, %f %f), action = %d\n", x, y, z, action);
+	PRINT("broadcast_CTM: got CTM coords: (%f, %f %f), action = %d\n", x, y, z, action);
 
 	char sprintf_buf[128];
 
@@ -107,7 +117,7 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 	// the opcodes sent by the addon all begin with the sequence "LOP_"
 
 	if (!arg_) {
-		printf("DelIgnore_hub: warning: NULL argument!\n");
+		PRINT("DelIgnore_hub: warning: NULL argument!\n");
 		return;
 	}
 	static const std::string opcode_prefix("LOP_");
@@ -115,12 +125,12 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 	const std::string arg(arg_);
 
 	if (strncmp(arg.c_str(), opcode_prefix.c_str(), opcode_prefix.length()) != 0) {
-		printf("DelIgnore_hub: invalid opcode \"%s\": DelIgnore_hub opcodes must begin with the sequence \"%s\"\n", arg_, opcode_prefix.c_str());
+		PRINT("DelIgnore_hub: invalid opcode \"%s\": DelIgnore_hub opcodes must begin with the sequence \"%s\"\n", arg_, opcode_prefix.c_str());
 		return;
 	}
 
 	if (arg.length() < 6) {
-		printf("DelIgnore_hub: invalid opcode \"%s\"\n", arg.c_str());
+		PRINT("DelIgnore_hub: invalid opcode \"%s\"\n", arg.c_str());
 		return;
 	}
 
@@ -131,11 +141,11 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 	if (op & 0x80) {
 		int debug_op = op & 0x7F;
 		opcode_debug_call(debug_op, arg);
-		printf("DelIgnore_hub: got DEBUG opcode %lu -> %s\n", op, debug_opcode_get_funcname(debug_op).c_str());
+		PRINT("DelIgnore_hub: got DEBUG opcode %lu -> %s\n", op, debug_opcode_get_funcname(debug_op).c_str());
 		return;
 	}
 
-	printf("DelIgnore_hub: got opcode %lu -> %s\n", op, opcode_get_funcname(op).c_str());
+	PRINT("DelIgnore_hub: got opcode %lu -> %s\n", op, opcode_get_funcname(op).c_str());
 
 	int num_args = opcode_get_num_args(op);
 
@@ -143,12 +153,12 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 		// then we expect to find a ':' and arguments separated by ',':s
 		size_t pos;
 		if ((pos = arg.find(':', 5)) == std::string::npos) {
-			printf("DelIgnore_hub: error: opcode %lu (%s) expects %d arguments, none found! (did you forget ':'?)\n",
+			PRINT("DelIgnore_hub: error: opcode %lu (%s) expects %d arguments, none found! (did you forget ':'?)\n",
 				op, opcode_get_funcname(op).c_str(), num_args);
 			return;
 		}
 		std::string args = arg.substr(pos + 1);
-		printf("DelIgnore_hub: calling func %s with args \"%s\"\n", opcode_get_funcname(op).c_str(), args.c_str());
+		PRINT("DelIgnore_hub: calling func %s with args \"%s\"\n", opcode_get_funcname(op).c_str(), args.c_str());
 
 		opcode_call(op, args); // call the func with args
 	}
@@ -252,14 +262,14 @@ static int prepare_EndScene_patch(LPVOID hook_func_addr, hookable &h) {
 
 	// this actually seems to work :)
 
-	printf("Preparing EndScene patch...\n");
+	PRINT("Preparing EndScene patch...\n");
 
 	unsigned char *wow_static_DX9 = *(unsigned char**)0xD2A15C;
 	unsigned char *tmp1 = *(unsigned char**)(wow_static_DX9 + 0x3864);
 	unsigned char *tmp2 = *(unsigned char**)(tmp1);
 
 	EndScene = (HRESULT(*)(void))*(unsigned char**)(tmp2 + 0xA8);
-	printf("Found EndScene at %p\n(Details:\n[0xD2A15C] = %p\n[[0xD2A15C] + 0x3864] = %p\n[[[0xD2A15C] + 0x3864]] = %p)\n\n", EndScene, wow_static_DX9, tmp1, tmp2);
+	PRINT("Found EndScene at %p\n(Details:\n[0xD2A15C] = %p\n[[0xD2A15C] + 0x3864] = %p\n[[[0xD2A15C] + 0x3864]] = %p)\n\n", EndScene, wow_static_DX9, tmp1, tmp2);
 	h.address = EndScene;
 
 	static BYTE EndScene_trampoline[] = {
@@ -285,7 +295,7 @@ static int prepare_EndScene_patch(LPVOID hook_func_addr, hookable &h) {
 	DWORD oldprotect;
 	VirtualProtect((LPVOID)EndScene_trampoline, sizeof(EndScene_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
 
-	printf("OK. EndScene trampoline: %p, hookfunc addr: %p\n", &EndScene_trampoline, hook_func_addr);
+	PRINT("OK. EndScene trampoline: %p, hookfunc addr: %p\n", &EndScene_trampoline, hook_func_addr);
 
 	return 1;
 
@@ -299,7 +309,7 @@ static int prepare_DelIgnore_patch(LPVOID hook_func_addr, hookable &h) {
 	// but the string appears in EAX after a call to 72DFF0 (called at 5BA4BC)
 	// so hook func at 7BA4C1!
 
-	printf("Preparing DelIgnore patch...\n");
+	PRINT("Preparing DelIgnore patch...\n");
 
 	//uint PATCH_ADDR = 0x7BA4C1;
 
@@ -330,7 +340,7 @@ static int prepare_DelIgnore_patch(LPVOID hook_func_addr, hookable &h) {
 	DWORD oldprotect;
 	VirtualProtect((LPVOID)DelIgnore_trampoline, sizeof(DelIgnore_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
 
-	printf("OK.\nDelIgnore trampoline: %p, hookfunc addr: %p\n", &DelIgnore_trampoline, hook_func_addr);
+	PRINT("OK.\nDelIgnore trampoline: %p, hookfunc addr: %p\n", &DelIgnore_trampoline, hook_func_addr);
 
 
 	return 1;
@@ -338,7 +348,7 @@ static int prepare_DelIgnore_patch(LPVOID hook_func_addr, hookable &h) {
 
 static int prepare_ClosePetStables_patch(LPVOID hook_func_addr, hookable &h) {
 
-	printf("Preparing ClosePetStables patch...\n");
+	PRINT("Preparing ClosePetStables patch...\n");
 
 	// ClosePetStables = 0x4FACA0
 
@@ -370,7 +380,7 @@ static int prepare_ClosePetStables_patch(LPVOID hook_func_addr, hookable &h) {
 	DWORD oldprotect;
 	VirtualProtect((LPVOID)ClosePetStables_trampoline, sizeof(ClosePetStables_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
 
-	printf("OK.\nClosePetStables trampoline: %p, hook_func_addr: %p\n", &ClosePetStables_trampoline, hook_func_addr);
+	PRINT("OK.\nClosePetStables trampoline: %p, hook_func_addr: %p\n", &ClosePetStables_trampoline, hook_func_addr);
 
 	return 1;
 
@@ -378,7 +388,7 @@ static int prepare_ClosePetStables_patch(LPVOID hook_func_addr, hookable &h) {
 
 
 static int prepare_CTM_aux_patch(LPVOID hook_func_addr, hookable &h) {
-	printf("Preparing CTM_aux patch...\n");
+	PRINT("Preparing CTM_aux patch...\n");
 
 	static BYTE CTM_aux_trampoline[] = {
 		// original opcodes from 0x7B8940 "CTM_aux"
@@ -407,7 +417,7 @@ static int prepare_CTM_aux_patch(LPVOID hook_func_addr, hookable &h) {
 	DWORD oldprotect;
 	VirtualProtect((LPVOID)CTM_aux_trampoline, sizeof(CTM_aux_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
 
-	printf("OK.\nCTM_aux trampoline: %p, hook_func_addr: %p\n", &CTM_aux_trampoline, hook_func_addr);
+	PRINT("OK.\nCTM_aux trampoline: %p, hook_func_addr: %p\n", &CTM_aux_trampoline, hook_func_addr);
 
 	return 1;
 }
@@ -415,7 +425,7 @@ static int prepare_CTM_aux_patch(LPVOID hook_func_addr, hookable &h) {
 static int __stdcall get_CTM_retaddr(int action) {
 	static const uint ret_early = 0, ret_late = 1;
 	
-	printf("get_CTM_retaddr: action = %X\n", action);
+	PRINT("get_CTM_retaddr: action = %X\n", action);
 
 	switch (action) {
 	case CTM_MOVE: 
@@ -431,7 +441,7 @@ static int __stdcall get_CTM_retaddr(int action) {
 }
 
 static int prepare_CTM_main_patch(LPVOID hook_func_addr, hookable &h) {
-	printf("Preparing CTM_main patch...\n");
+	PRINT("Preparing CTM_main patch...\n");
 
 	static BYTE CTM_main_trampoline[] = {
 		// original opcodes from 0x612A90 "CTM_main"
@@ -483,14 +493,14 @@ static int prepare_CTM_main_patch(LPVOID hook_func_addr, hookable &h) {
 	DWORD oldprotect;
 	VirtualProtect((LPVOID)CTM_main_trampoline, sizeof(CTM_main_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
 
-	printf("OK.\nCTM_main trampoline: %p, hook_func_addr: %p\n", &CTM_main_trampoline, hook_func_addr);
+	PRINT("OK.\nCTM_main trampoline: %p, hook_func_addr: %p\n", &CTM_main_trampoline, hook_func_addr);
 
 	return 1;
 }
 
 static int prepare_CTM_finished_patch(LPVOID hook_func_addr, hookable &h) {
 
-	printf("Preparing CTM_finished patch...\n");
+	PRINT("Preparing CTM_finished patch...\n");
 
 	static BYTE CTM_finished_trampoline[] = {
 		// original opcodes from ClosePetStables
@@ -516,7 +526,7 @@ static int prepare_CTM_finished_patch(LPVOID hook_func_addr, hookable &h) {
 	DWORD oldprotect;
 	VirtualProtect((LPVOID)CTM_finished_trampoline, sizeof(CTM_finished_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
 
-	printf("OK.\nCTM_finished trampoline: %p, hook_func_addr: %p\n", &CTM_finished_trampoline, hook_func_addr);
+	PRINT("OK.\nCTM_finished trampoline: %p, hook_func_addr: %p\n", &CTM_finished_trampoline, hook_func_addr);
 
 	return 1;
 
@@ -549,7 +559,7 @@ static int prepare_patch(const std::string &funcname, LPVOID hook_func_addr) {
 	for (auto &h : hookable_functions) {
 		if (funcname == h.funcname) {
 			h.prepare_patch(hook_func_addr, h);
-			printf("prepare_patch successful for function %s!\n", funcname.c_str());
+			PRINT("prepare_patch successful for function %s!\n", funcname.c_str());
 			return 1;
 		}
 	}
@@ -580,14 +590,14 @@ static int install_hook(const std::string &funcname, LPVOID hook_func_addr) {
 		if (funcname == h.funcname) {
 			h.prepare_patch(hook_func_addr, h);
 			SIZE_T bytes;
-			printf("Patching func \"%s\" at %X...", funcname.c_str(), (DWORD)h.address);
+			PRINT("Patching func \"%s\" at %X...", funcname.c_str(), (DWORD)h.address);
 			WriteProcessMemory(glhProcess, h.address, h.patch, h.patch_size, &bytes);
-			printf("OK!\n");
+			PRINT("OK!\n");
 			return bytes;
 		}
 	}
 
-	printf("install_hook: error: \"%s\": no such function!\n", funcname.c_str());
+	PRINT("install_hook: error: \"%s\": no such function!\n", funcname.c_str());
 
 	return 0;
 }
@@ -598,14 +608,14 @@ static int uninstall_hook(const std::string &funcname) {
 		//	const hookable &h = hookable_functions[i];
 		if (funcname == h.funcname) {
 			SIZE_T bytes;
-			printf("Unpatching func \"%s\" at %X...", funcname.c_str(), (DWORD)h.address);
+			PRINT("Unpatching func \"%s\" at %X...", funcname.c_str(), (DWORD)h.address);
 			WriteProcessMemory(glhProcess, h.address, h.original_opcodes, h.patch_size, &bytes);
-			printf("OK!\n");
+			PRINT("OK!\n");
 			return bytes;
 		}
 	}
 
-	printf("uninstall_hook: error: \"%s\": no such function!\n", funcname.c_str());
+	PRINT("uninstall_hook: error: \"%s\": no such function!\n", funcname.c_str());
 
 	return 0;
 }

@@ -191,6 +191,10 @@ function hug_spell_with_spellID(spellID)
 	DelIgnore(LOLE_OPCODE_HUG_SPELL_OBJECT .. ":" .. tostring(spellID))
 end
 
+function avoid_spell_with_spellID(spellID)
+	DelIgnore(LOLE_OPCODE_AVOID_SPELL_OBJECT .. ":" .. tostring(spellID))
+end
+
 function pull_target()
 	CastSpellByName("Avenger Shield")
 end

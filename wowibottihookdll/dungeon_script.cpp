@@ -16,7 +16,7 @@ static int parse_coords(const std::string &coords, vec3 &out) {
 	tokenize_string(cvalues, ",", c);
 
 	if (c.size() != 3) {
-		printf("parse_coords: error: expected 3D coords (xyz), got %d (\"%s\")\n", coords.size(), coords.c_str());
+		PRINT("parse_coords: error: expected 3D coords (xyz), got %d (\"%s\")\n", coords.size(), coords.c_str());
 		return 0;
 	}
 
@@ -26,11 +26,11 @@ static int parse_coords(const std::string &coords, vec3 &out) {
 	for (int i = 0; i < 3; i++) {
 		values[i] = strtod(c[i].c_str(), &endptr);
 		if (endptr != (c[i].c_str() + c[i].size())) {
-			printf("parse_coords: error: couldn't fully parse number string \"%s\"\n", c[i].c_str());
+			PRINT("parse_coords: error: couldn't fully parse number string \"%s\"\n", c[i].c_str());
 		}
 	}
 
-	//printf("parse_coords: got (%f, %f, %f)\n", values[0], values[1], values[2]);
+	//PRINT("parse_coords: got (%f, %f, %f)\n", values[0], values[1], values[2]);
 
 	out = vec3(values[0], values[1], values[2]);
 
@@ -43,7 +43,7 @@ static int read_statements(const std::string &statement, dscript_objective_t &o)
 	tokenize_string(statement, "=", e);
 
 	if (e.size() != 2) {
-		printf("dscript-read_statements: invalid statement \"%s\", ignoring.\n", statement.c_str());
+		PRINT("dscript-read_statements: invalid statement \"%s\", ignoring.\n", statement.c_str());
 		return 0;
 	}
 
@@ -68,7 +68,7 @@ static int read_statements(const std::string &statement, dscript_objective_t &o)
 		}
 		
 		else {
-			printf("dscript-read_statements: error: invalid value for pack_type \"%s\", expected either \"static\" or \"patrol\".\n", e[1].c_str());
+			PRINT("dscript-read_statements: error: invalid value for pack_type \"%s\", expected either \"static\" or \"patrol\".\n", e[1].c_str());
 			return 0;
 		}
 	}
@@ -82,7 +82,7 @@ static int read_statements(const std::string &statement, dscript_objective_t &o)
 		o.num_mobs = num;
 	}
 	else {
-		printf("dscript-read_statements: error: unknown parameter \"%s\" with value \"%s\"\n", e[0].c_str(), e[1].c_str());
+		PRINT("dscript-read_statements: error: unknown parameter \"%s\" with value \"%s\"\n", e[0].c_str(), e[1].c_str());
 		return 0;
 	}
 }
@@ -90,7 +90,7 @@ static int read_statements(const std::string &statement, dscript_objective_t &o)
 int dscript_t::read_from_file(const std::string &filename) {
 	std::ifstream scriptfile(filename);
 	if (!scriptfile.is_open()) {
-		printf("dscript_t::read_from_file(): error: couldn't open file \"%s\"!\n", filename.c_str());
+		PRINT("dscript_t::read_from_file(): error: couldn't open file \"%s\"!\n", filename.c_str());
 		return 0;
 	}
 
@@ -106,7 +106,7 @@ int dscript_t::read_from_file(const std::string &filename) {
 				line.erase(std::remove_if(line.begin(), line.end(), ::isspace), line.end());
 				lines.push_back(line);
 
-				//printf("\"%s\"\n", line.c_str());
+				//PRINT("\"%s\"\n", line.c_str());
 			}
 		}
 
@@ -115,7 +115,7 @@ int dscript_t::read_from_file(const std::string &filename) {
 	scriptfile.close();
 
 	if (lines.size() < 1) { 
-		printf("dscript_t::read_from_file: warning: script file \"%s\" seems to be empty!\n", filename.c_str());
+		PRINT("dscript_t::read_from_file: warning: script file \"%s\" seems to be empty!\n", filename.c_str());
 		return 1; 
 	}
 
@@ -123,7 +123,7 @@ int dscript_t::read_from_file(const std::string &filename) {
 		if (l.front() == '{') {
 			if (l.back() != '}') {
 				// then we most likely have a syntax error
-				printf("dscript_t::read_from_file: syntax error: line beginning with '{' didn't end with '}'. \nLine: \"%s\"\n", l.c_str());
+				PRINT("dscript_t::read_from_file: syntax error: line beginning with '{' didn't end with '}'. \nLine: \"%s\"\n", l.c_str());
 				return 0;
 			}
 			else {
@@ -149,7 +149,7 @@ int dscript_t::read_from_file(const std::string &filename) {
 			tokenize_string(l, "=", tt);
 			
 			if (tt.size() != 2) {
-				printf("dscript_t::read_from_file: syntax error: expected an assignment of type \"<var> = value\", got \"%s\"\n", line.c_str());
+				PRINT("dscript_t::read_from_file: syntax error: expected an assignment of type \"<var> = value\", got \"%s\"\n", line.c_str());
 				return 0;
 			}
 
@@ -157,14 +157,14 @@ int dscript_t::read_from_file(const std::string &filename) {
 				if (!find_stuff_between(tt[1], '"', '"', this->script_name)) {
 					return 0;
 				}
-				printf("dscript_t::read_from_file: found scriptname directive: \"%s\"\n", this->script_name.c_str());
+				PRINT("dscript_t::read_from_file: found scriptname directive: \"%s\"\n", this->script_name.c_str());
 			}
 		}
 	}
 
 	if (script_name == "") {
 		script_name = "unnamed_" + std::to_string(num_default_script);
-		printf("dscript_t::read_from_file: didn't find scriptname directive in script. Assigned name \"%s\"\n", script_name.c_str());
+		PRINT("dscript_t::read_from_file: didn't find scriptname directive in script. Assigned name \"%s\"\n", script_name.c_str());
 	}
 	
 

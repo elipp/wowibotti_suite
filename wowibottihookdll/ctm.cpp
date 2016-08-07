@@ -29,8 +29,22 @@ static int ctm_posthook_delay_active() {
 
 void ctm_add(const CTM_t &ctm) {
 	if (ctm_queue.size() > 5) return;
-	printf("called ctm_ADD with %.3f, %.3f, %.3f, prio %d, action 0x%X\n", ctm.destination.x, ctm.destination.y, ctm.destination.z, ctm.priority, ctm.action);
-	ctm_queue.push(ctm);
+
+	if (ctm.priority == CTM_PRIO_EXCLUSIVE) {
+		ctm_queue = std::queue<CTM_t>();
+		ctm_queue.push(ctm);
+		ctm_unlock();
+		ctm_act();
+	}
+	else {
+		if (ctm_queue.size() > 0) {
+			const CTM_t &c = ctm_queue.front();
+			if (c.priority == CTM_PRIO_EXCLUSIVE) return;
+		}
+		
+		PRINT("called ctm_ADD with %.3f, %.3f, %.3f, prio %d, action 0x%X\n", ctm.destination.x, ctm.destination.y, ctm.destination.z, ctm.priority, ctm.action);
+		ctm_queue.push(ctm);
+	}
 }
 
 void ctm_act() {
@@ -41,7 +55,7 @@ void ctm_act() {
 
 	auto &ctm = ctm_queue.front();
 
-	printf("called ctm_act with %.3f, %.3f, %.3f, prio %d, action 0x%X\n", ctm.destination.x, ctm.destination.y, ctm.destination.z, ctm.priority, ctm.action);
+	PRINT("called ctm_act with %.3f, %.3f, %.3f, prio %d, action 0x%X\n", ctm.destination.x, ctm.destination.y, ctm.destination.z, ctm.priority, ctm.action);
 
 	click_to_move(ctm);
 
@@ -55,7 +69,7 @@ void ctm_next() {
 	ctm_unlock();
 	ctm_pop();
 
-	printf("called ctm_next()\n");
+	PRINT("called ctm_next()\n");
 
 }
 
@@ -71,19 +85,23 @@ const CTM_t &ctm_get_current_action() {
 }
 
 
-void ctm_handle_delayed_posthook() {
+int ctm_handle_delayed_posthook() {
 	if (ctm_posthook_delay_active()) {
 		CTM_t &c = ctm_queue.front();
 
 		if (c.posthook->frame_counter < c.posthook->delay_frames) {
 			++c.posthook->frame_counter;
+			return 1;
 		}
 		else {
 			c.posthook->active = 0;
 			c.posthook->callback();
 			ctm_next();
+			return 1;
 		}
 	}
+
+	return 0;
 }
 
 static const uint

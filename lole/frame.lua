@@ -46,7 +46,6 @@ local mtwarn_given = false
 
 lole_frame:SetScript("OnUpdate", function()
 	set_button_states()
-
 	check_durability()
 
 	if get_blast_state() and frame_modulo == 0 then
@@ -56,11 +55,12 @@ lole_frame:SetScript("OnUpdate", function()
 			mtwarn_given = true
 		end
 
-		--hug_spell_with_spellID(36240); -- Cave In :)
 		do_CC_jobs();
 		lole_main();
+		avoid_spell_with_spellID(36240); -- Cave In :)
 
 	end
+
 
 	frame_modulo = frame_modulo >= every_nth_frame and 0 or (frame_modulo + 1)
 

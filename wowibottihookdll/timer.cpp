@@ -1,9 +1,10 @@
 #include "timer.h"
+#include "defs.h"
 
 bool Timer::init() {
 	LARGE_INTEGER li;
 	if (!QueryPerformanceFrequency(&li)) {
-		printf("Timer initialization failed.\n");
+		PRINT("Timer initialization failed.\n");
 		return false;
 	}
 	cpu_freq = double(li.QuadPart);	// in Hz. this is subject to dynamic frequency scaling, though

@@ -414,7 +414,7 @@ local function lole_offtank(arg)
 		echo("lole_offtank: no argument supplied!")
 		return;
 	end
-	-- 
+	--
 	-- if first_to_upper(arg) == MAIN_TANK then
 	-- 	echo("lole_maintank: can't set OT == MT.")
 	-- 	return;
@@ -429,8 +429,8 @@ end
 
 local function lole_pull(arg)
 	--send_opcode_addonmsg_to(LOLE_OPCODE_PULL_MOB, arg, MAIN_TANK);
---	lole_debug_pull_test()
-	target_best_CH_target()
+	lole_debug_pull_test()
+--	target_best_CH_target()
 end
 
 local function lole_sendscript(to, ...)
@@ -470,7 +470,7 @@ local function lole_durability()
 	end
 end
 
-local function 	lole_raid_arr()
+local function lole_raid_arr()
 
 end
 

@@ -49,7 +49,7 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam) {
 		GetWindowThreadProcessId(hWnd, &this_pid);
 		if (pid == this_pid) {
 			wow_hWnd = hWnd;
-			printf("got window HWND! (pid = %d)\n", pid);
+			PRINT("got window HWND! (pid = %d)\n", pid);
 		}
 	}
 
@@ -78,26 +78,26 @@ int handle_pipe_stuff() {
 		1, PIPE_READ_BUF_SIZE, PIPE_WRITE_BUF_SIZE, 0, NULL);
 
 	if (!hPipe) {
-		printf("CreateNamedPipe for pipe %s returned INVALID_HANDLE_VALUE; GetLastError() = %d. Retrying.\n", pipe_name.c_str(), GetLastError());
+		PRINT("CreateNamedPipe for pipe %s returned INVALID_HANDLE_VALUE; GetLastError() = %d. Retrying.\n", pipe_name.c_str(), GetLastError());
 		return 0;
 	}
 
-	printf("Successfully created pipe %s!\n", pipe_name.c_str());
-	printf("PIPEDATA.data.size() = %d\n", PIPEDATA.data.size());
+	PRINT("Successfully created pipe %s!\n", pipe_name.c_str());
+	PRINT("PIPEDATA.data.size() = %d\n", PIPEDATA.data.size());
 
 	while (1) {
 		sc = WriteFile(hPipe, &PIPEDATA.data[0], PIPEDATA.data.size(), &num_bytes, NULL);
 
 		if (!sc || num_bytes == 0) {
 			if (GetLastError() == ERROR_PIPE_LISTENING) {
-				//printf("pipe thread: WARNING: ERROR_PIPE_LISTENING!\n");
+				//PRINT("pipe thread: WARNING: ERROR_PIPE_LISTENING!\n");
 			}
 			else if (GetLastError() == ERROR_BROKEN_PIPE) {
-				printf("pipe thread: ERROR_BROKEN_PIPE\n");
+				PRINT("pipe thread: ERROR_BROKEN_PIPE\n");
 				break;
 			}
 			else {
-				printf("pipe thread: ERROR: 0x%X\n", GetLastError());
+				PRINT("pipe thread: ERROR: 0x%X\n", GetLastError());
 				break;
 			}
 		}
@@ -111,19 +111,19 @@ int handle_pipe_stuff() {
 	sc = ReadFile(hPipe, read_buf, PIPE_READ_BUF_SIZE, &num_bytes, NULL);
 
 	if (!sc || num_bytes == 0) {
-		printf("Reading from pipe %s failed, error: 0x%X\n", pipe_name.c_str(), GetLastError());
+		PRINT("Reading from pipe %s failed, error: 0x%X\n", pipe_name.c_str(), GetLastError());
 		return 0;
 	}
 	else {
 		read_buf[num_bytes] = '\0';
-		printf("Got response %s from pipe server\n", read_buf);
+		PRINT("Got response %s from pipe server\n", read_buf);
 	}
 
 	std::vector<std::string> tokens;
 	tokenize_string(read_buf, ";", tokens);
 
 	if (tokens.size() > 1) {
-		printf("DEBUG got more than 1 tokens\n");
+		PRINT("DEBUG got more than 1 tokens\n");
 		
 		for (auto &s : tokens) {
 			std::vector<std::string> L2;
@@ -133,14 +133,14 @@ int handle_pipe_stuff() {
 		
 				if (L2[0] == "CREDENTIALS") {
 					if (L2.size() != 2) {
-						printf("parse_credentials: error: malformed credentials (tokenized vector size != 2!)\n");
+						PRINT("parse_credentials: error: malformed credentials (tokenized vector size != 2!)\n");
 						break;
 					}
 					std::vector<std::string> L3;
 					tokenize_string(L2[1], ",", L3);
 
 					if (L3.size() != 3) {
-						printf("parse_credentials: error: invalid number of members in credential string! Expected 3, got %d\n", L3.size());
+						PRINT("parse_credentials: error: invalid number of members in credential string! Expected 3, got %d\n", L3.size());
 						break;
 					}
 
@@ -151,10 +151,10 @@ int handle_pipe_stuff() {
 	}
 	else {
 		if (tokens[0] == "PATCH_FAIL") {
-			printf("Got PATCH_FAIL. RIP. No idea what's going to happen next.\n");
+			PRINT("Got PATCH_FAIL. RIP. No idea what's going to happen next.\n");
 		}
 		else if (tokens[0] == "PATCH_OK") {
-			printf("Got PATCH_OK. No login credentials sent.\n");
+			PRINT("Got PATCH_OK. No login credentials sent.\n");
 		}
 	}
 	

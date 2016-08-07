@@ -157,7 +157,7 @@ static void LOP_target_GUID(const std::string &arg) {
 	tokenize_string(arg, ",", tokens);
 
 	if (tokens.size() > 1) {
-		printf("change_target (via DelIgnore_hub): expected 1 argument, got %ul! Ignoring rest.\n", tokens.size());
+		PRINT("change_target (via DelIgnore_hub): expected 1 argument, got %ul! Ignoring rest.\n", tokens.size());
 	}
 
 	std::string GUID_numstr(arg.substr(2, 16)); // better make a copy of it. the GUID_str still has the "0x" prefix in it 
@@ -165,10 +165,10 @@ static void LOP_target_GUID(const std::string &arg) {
 	char *end;
 	GUID_t GUID = strtoull(GUID_numstr.c_str(), &end, 16);
 
-	printf("got LOLE_OPCODE_TARGET_GUID: GUID = %llX\nGUID_str + prefix.length() + 2 = \"%s\"\n", GUID, GUID_numstr.c_str());
+	PRINT("got LOLE_OPCODE_TARGET_GUID: GUID = %llX\nGUID_str + prefix.length() + 2 = \"%s\"\n", GUID, GUID_numstr.c_str());
 
 	if (end != GUID_numstr.c_str() + GUID_numstr.length()) {
-		printf("[WARNING]: change_target: couldn't wholly convert GUID string argument (strtoull(\"%s\", &end, 16) failed, bailing out\n", GUID_numstr.c_str());
+		PRINT("[WARNING]: change_target: couldn't wholly convert GUID string argument (strtoull(\"%s\", &end, 16) failed, bailing out\n", GUID_numstr.c_str());
 		return;
 	}
 
@@ -177,13 +177,13 @@ static void LOP_target_GUID(const std::string &arg) {
 
 static void LOP_blast(const std::string &arg) {
 	if (arg == "1") {
-		printf("got BLAST_ON AddonMessage, enabling blast.\n");
+		PRINT("got BLAST_ON AddonMessage, enabling blast.\n");
 	}
 	else if (arg == "0") {
-		printf("got BLAST_OFF AddonMessage, disabling blast.\n");
+		PRINT("got BLAST_OFF AddonMessage, disabling blast.\n");
 	}
 	else {
-		printf("blast (from DelIgnore_hub): warning: unknown argument \"%s\"\n", arg.c_str());
+		PRINT("blast (from DelIgnore_hub): warning: unknown argument \"%s\"\n", arg.c_str());
 	}
 }
 
@@ -223,7 +223,7 @@ static void LOP_range_check(const std::string& arg) {
 		vec3 rot_unit = vec3(std::cos(rot), std::sin(rot), 0.0);
 		float d = dot(diff, rot_unit);
 
-	//	printf("dot product: %f\n", d);
+	//	PRINT("dot product: %f\n", d);
 
 		if (d < 0) {
 			click_to_move(ppos + diff.unit(), CTM_MOVE, 0, 1.5); // this seems quite stable for just changing orientation.
@@ -243,7 +243,7 @@ static void LOP_follow_GUID(const std::string& arg) {
 	WowObject p = OM.get_local_object();
 
 	if (!p.valid()) {
-		printf("follow_unit_with_GUID: LOLE_OPCODE_FOLLOW: getting local object failed? WTF? XD\n");
+		PRINT("follow_unit_with_GUID: LOLE_OPCODE_FOLLOW: getting local object failed? WTF? XD\n");
 		return;
 	}
 
@@ -258,7 +258,7 @@ static void LOP_follow_GUID(const std::string& arg) {
 	WowObject o = OM.get_object_by_GUID(GUID);
 
 	if (!o.valid()) {
-		printf("follow_unit_with_GUID: LOLE_OPCODE_FOLLOW: couldn't find unit with GUID 0x%016llX (doesn't exist?)\n", GUID);
+		PRINT("follow_unit_with_GUID: LOLE_OPCODE_FOLLOW: couldn't find unit with GUID 0x%016llX (doesn't exist?)\n", GUID);
 		// not reset
 		follow_state.clear();
 
@@ -272,7 +272,7 @@ static void LOP_follow_GUID(const std::string& arg) {
 	click_to_move(o.get_pos(), CTM_MOVE, 0);
 
 	if ((o.get_pos() - p.get_pos()).length() < 10) {
-		printf("follow difference < 10! calling WOWAPI FollowUnit()\n");
+		PRINT("follow difference < 10! calling WOWAPI FollowUnit()\n");
 		DoString("FollowUnit(\"%s\")", o.unit_get_name().c_str());
 		follow_state.clear();
 	}
@@ -303,7 +303,7 @@ static void LOP_CTM_act(const std::string &arg) {
 	tokenize_string(arg, ",", tokens);
 
 	if (tokens.size() != 3) {
-		printf("act_on_CTM_broadcast: error: expected exactly 3 arguments (x,y,z), got %lu!\n", tokens.size());
+		PRINT("act_on_CTM_broadcast: error: expected exactly 3 arguments (x,y,z), got %lu!\n", tokens.size());
 		return;
 	}
 
@@ -345,11 +345,6 @@ static void LOP_afk_clear(const std::string &arg) {
 	afkjump_keyup_queued = 2;
 }
 
-static void LOP_avoid_spell_object(const std::string &arg) {
-	char *endptr;
-	long spellID = strtoul(arg.c_str(), &endptr, 16);
-}
-
 static void LOP_hug_spell_object(const std::string &arg) {
 	char *endptr;
 	long spellID = strtoul(arg.c_str(), &endptr, 10);
@@ -359,19 +354,50 @@ static void LOP_hug_spell_object(const std::string &arg) {
 	auto objs = OM.get_spell_objects_with_spellID(spellID);
 
 	if (objs.empty()) {
-		printf("No objects with spellid %ld\n", spellID);
+		PRINT("No objects with spellid %ld\n", spellID);
 		ctm_unlock();
 		return;
 	}
 	else {
-		printf("hugging %ld!\n", spellID);
+		PRINT("Hugging spellobject with spellID %ld!\n", spellID);
+		//
 	}
 
-	// just run to obj #1 for now
+}
 
-	click_to_move(objs[0].DO_get_pos(), CTM_MOVE, 0);
+static void LOP_avoid_spell_object(const std::string &arg) {
+	char *endptr;
+	long spellID = strtoul(arg.c_str(), &endptr, 10);
 
-	ctm_lock();
+	ObjectManager OM;
+
+	auto objs = OM.get_spell_objects_with_spellID(spellID);
+
+	vec3 escape_pos;
+	int need_to_escape = 0;
+
+	if (objs.empty()) {
+		//PRINT("No objects with spellid %ld\n", spellID);
+		return;
+	}
+	else {
+		vec3 ppos = OM.get_local_object().get_pos();
+
+		for (auto &s : objs) {
+			vec3 spos = s.DO_get_pos();
+			if ((ppos - spos).length() < 9) {
+				// then we need to run away from it :D
+				escape_pos = spos + 13*(ppos - spos).unit();
+				need_to_escape = 1;
+			}
+		}
+	}
+
+	if (!need_to_escape) {
+		return;
+	}
+
+	ctm_add(CTM_t(escape_pos, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 0.5));
 
 }
 
@@ -379,10 +405,6 @@ static void LOP_spread(const std::string &arg) {
 
 }
 
-static void LOP_pull_mob(const std::string &arg) {
-	char *endptr;
-	GUID_t GUID = strtoull(arg.c_str(), &endptr, 16);
-}
 
 static void LOP_report_login(const std::string &arg) {
 	if (arg == "1") {
@@ -428,7 +450,7 @@ static const WO_cached *find_most_hurt_within_CH_bounce(const WO_cached *unit, c
 
 	const WO_cached *most_hurt = NULL;
 
-//	printf("calling CHbounce with unit %s, unit2 %s\n", unit->name.c_str(), unit2 ? unit2->name.c_str() : "NULL");
+//	PRINT("calling CHbounce with unit %s, unit2 %s\n", unit->name.c_str(), unit2 ? unit2->name.c_str() : "NULL");
 
 	for (int i = 0; i < candidates.size(); ++i) {
 		const WO_cached *c = &candidates[i];
@@ -444,15 +466,15 @@ static const WO_cached *find_most_hurt_within_CH_bounce(const WO_cached *unit, c
 					most_hurt = c;
 				}
 			}
-			//printf("new most_hurt = %s\n", most_hurt->name.c_str());
+			//PRINT("new most_hurt = %s\n", most_hurt->name.c_str());
 		}
 	}
 	
 	if (most_hurt) {
-		//printf("best next CH target for %s is %s with %u/%u HP\n\n", unit->name.c_str(), most_hurt->name.c_str(), most_hurt->health, most_hurt->health_max);
+		//PRINT("best next CH target for %s is %s with %u/%u HP\n\n", unit->name.c_str(), most_hurt->name.c_str(), most_hurt->health, most_hurt->health_max);
 	}
 	else {
-		//printf("couldn't find a suitable CH target for %s\n\n", unit->name.c_str());
+		//PRINT("couldn't find a suitable CH target for %s\n\n", unit->name.c_str());
 	}
 
 	return most_hurt;
@@ -480,7 +502,7 @@ static void LOP_get_best_CH(const std::string &arg) {
 	for (auto &u : units) {
 		if (u.deficit > 1500) {
 			deficit_candidates.push_back(u);
-			//printf("candidate %s with %u/%u hp added (deficit == %d > 1500)\n", u.name.c_str(), u.health, u.health_max, u.deficit);
+			//PRINT("candidate %s with %u/%u hp added (deficit == %d > 1500)\n", u.name.c_str(), u.health, u.health_max, u.deficit);
 		}
 	}
 
@@ -498,7 +520,7 @@ static void LOP_get_best_CH(const std::string &arg) {
 
 		const WO_cached *c = &deficit_candidates[i];
 
-	//	printf("trying to find good CH targets for primary target %s...\n", c->name.c_str());
+	//	PRINT("trying to find good CH targets for primary target %s...\n", c->name.c_str());
 		
 		const WO_cached *most_hurt[2];
 		memset(most_hurt, 0, sizeof(most_hurt));
@@ -509,7 +531,7 @@ static void LOP_get_best_CH(const std::string &arg) {
 		int total_deficit = c->deficit + (most_hurt[0] ? most_hurt[0]->deficit : 0) + (most_hurt[1] ? most_hurt[1]->deficit : 0);
 	
 		if (total_deficit > o.total_deficit) {
-		//	printf("found better one with deficit %d\n", total_deficit);
+		//	PRINT("found better one with deficit %d\n", total_deficit);
 			o.trio[0] = c;
 			o.trio[1] = most_hurt[0];
 			o.trio[2] = most_hurt[1];
@@ -518,7 +540,7 @@ static void LOP_get_best_CH(const std::string &arg) {
 		
 	}
 
-	/*printf("Found optimal CH targets: %s (%u/%u), %s (%u/%u), %s (%u/%u); total deficit = %d\n",
+	/*PRINT("Found optimal CH targets: %s (%u/%u), %s (%u/%u), %s (%u/%u); total deficit = %d\n",
 		(o.trio[0] ? o.trio[0]->name.c_str() : "NULL"), (o.trio[0] ? o.trio[0]->health : 0), (o.trio[0] ? o.trio[0]->health_max : 0),
 		(o.trio[1] ? o.trio[1]->name.c_str() : "NULL"), (o.trio[1] ? o.trio[1]->health : 0), (o.trio[1] ? o.trio[1]->health_max : 0),
 		(o.trio[2] ? o.trio[2]->name.c_str() : "NULL"), (o.trio[2] ? o.trio[2]->health : 0), (o.trio[2] ? o.trio[2]->health_max : 0),
@@ -578,26 +600,29 @@ static void LOPDBG_query_injected(const std::string &arg) {
 
 static void LOPDBG_pull_test(const std::string &arg) {
 
-	vec3 pull_pos(-1787, 4867, 0.5);
-
-	CTM_t test1(vec3(-1837, 4862, 2), CTM_MOVE, 0, 0, 0.5);
-	CTM_t test2(pull_pos, CTM_MOVE, 0, 0, 0.5);
-
-	ObjectManager OM;
+	ObjectManager OM;	
+	WowObject t = OM.get_object_by_GUID(get_target_GUID());
+	if (!t.valid()) return;
 
 	WowObject p = OM.get_local_object();
-	WowObject t = OM.get_object_by_GUID(get_target_GUID());
 
-	vec3 ppos = p.get_pos(), tpos = t.get_pos();
-	vec3 dir = (tpos - ppos).unit();
-	CTM_t test3(pull_pos + dir, CTM_MOVE, 0, 0, 0.5);
+	vec3 ppos = p.get_pos();
+	vec3 tpos = t.get_pos();
+	vec3 diff = tpos - ppos;
+	vec3 dir = diff.unit();
 
-	test3.set_posthook(CTM_posthook_t(pull_mob, 30));
+	vec3 pull_pos = ppos;
 
-	ctm_add(test1);
-	ctm_add(test2);
-	ctm_add(test3);
+	if (diff.length() > 20) {
+		pull_pos = tpos - 18 * dir;
+	}
+
+	ctm_add(CTM_t(pull_pos, CTM_MOVE, 0, 0, 0.5));
+
+	CTM_t pull(pull_pos + dir, CTM_MOVE, 0, 0, 0.5);
+	pull.set_posthook(CTM_posthook_t(pull_mob, 30));
 	
+	ctm_add(pull);
 }
 
 static const struct {
@@ -655,7 +680,7 @@ static const size_t num_debug_opcode_funcs = sizeof(debug_opcode_funcs) / sizeof
 int opcode_call(int opcode, const std::string &arg) {
 	
 	if (opcode > num_opcode_funcs-1) {
-		printf("opcode_call: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs);
+		PRINT("opcode_call: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs);
 		return 0;
 	}
 	opcode_funcs[opcode].func(arg);
@@ -665,7 +690,7 @@ int opcode_call(int opcode, const std::string &arg) {
 
 int opcode_debug_call(int debug_opcode, const std::string &arg) {
 	if (debug_opcode > num_debug_opcode_funcs - 1) {
-		printf("opcode_debug_call: error: unknown opcode %lu. (valid range: 0 - %lu)\n", debug_opcode, num_debug_opcode_funcs);
+		PRINT("opcode_debug_call: error: unknown opcode %lu. (valid range: 0 - %lu)\n", debug_opcode, num_debug_opcode_funcs);
 		return 0;
 	}
 
@@ -677,7 +702,7 @@ int opcode_debug_call(int debug_opcode, const std::string &arg) {
 
 int opcode_get_num_args(int opcode) {
 	if (opcode > num_opcode_funcs - 1) {
-		printf("opcode_get_num_args: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs);
+		PRINT("opcode_get_num_args: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs);
 		return -1;
 	}
 
@@ -689,7 +714,7 @@ const std::string &opcode_get_funcname(int opcode) {
 	static std::string err = "ERROR";
 
 	if (opcode > num_opcode_funcs - 1) {
-		printf("opcode_get_funcname: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs);
+		PRINT("opcode_get_funcname: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs);
 		return err;
 	}
 
@@ -700,7 +725,7 @@ const std::string &debug_opcode_get_funcname(int opcode_unmasked) {
 	static std::string err = "ERROR";
 
 	if (opcode_unmasked > num_debug_opcode_funcs - 1) {
-		printf("opcode_get_funcname: error: unknown DEBUG opcode %lu. (valid range: 0 - %lu)\n", opcode_unmasked, num_debug_opcode_funcs);
+		PRINT("opcode_get_funcname: error: unknown DEBUG opcode %lu. (valid range: 0 - %lu)\n", opcode_unmasked, num_debug_opcode_funcs);
 		return err;
 	}
 
@@ -718,7 +743,7 @@ static int dump_wowobjects_to_log() {
 	char desktop_path[MAX_PATH];
 
 	if (!SUCCEEDED(SHGetFolderPath(NULL, CSIDL_DESKTOPDIRECTORY | CSIDL_FLAG_CREATE, NULL, SHGFP_TYPE_CURRENT, desktop_path))) {
-		printf("SHGetFolderPath for CSIDL_DESKTOPDIRECTORY failed, errcode %d\n", GetLastError());
+		PRINT("SHGetFolderPath for CSIDL_DESKTOPDIRECTORY failed, errcode %d\n", GetLastError());
 		return 0;
 	}
 
@@ -726,13 +751,13 @@ static int dump_wowobjects_to_log() {
 	FILE *fp = fopen(log_path.c_str(), "w");
 
 	if (!fp) {
-		printf("Opening file \"%s\" failed!\n", log_path.c_str());
+		PRINT("Opening file \"%s\" failed!\n", log_path.c_str());
 		return 0;
 	}
 
 	ObjectManager OM;
 
-	printf("Dumping WowObjects to file \"%s\"!\n", log_path.c_str());
+	PRINT("Dumping WowObjects to file \"%s\"!\n", log_path.c_str());
 	GUID_t target_GUID = get_target_GUID();
 
 	fprintf(fp, "Basic info: ObjectManager base: %X, local GUID = 0x%016llX, player target: %016llX\n\n", OM.get_base_address(), OM.get_local_GUID(), target_GUID);

@@ -61,7 +61,7 @@ GUID_t get_raid_target_GUID(const std::string &marker_name) {
 
 	auto it = marker_index_map.find(marker);
 	if (it == marker_index_map.end()) {
-		printf("get_raid_target_GUID (const std::string&): error! invalid marker \"%s\"!\n", marker_name.c_str());
+		PRINT("get_raid_target_GUID (const std::string&): error! invalid marker \"%s\"!\n", marker_name.c_str());
 		return 0;
 	}
 
@@ -290,7 +290,7 @@ uint WowObject::NPC_get_buff(int index) const {
 	uint spellid_addr = index * 4 + DEREF(base + 0x120) + 0xA8;
 	uint buff_spellID = DEREF(spellid_addr);
 	
-	if (buff_spellID != 0) printf("base: %X, spellid_addr = %X, spellID = %u\n", get_base(), spellid_addr, buff_spellID);
+	if (buff_spellID != 0) PRINT("base: %X, spellid_addr = %X, spellID = %u\n", get_base(), spellid_addr, buff_spellID);
 
 	return buff_spellID;
 
@@ -307,7 +307,7 @@ uint WowObject::NPC_get_buff_duration(int index, uint spellID) const {
 	readAddr(base + 0x116C, &EDX1, sizeof(EDX1));
 
 	if (EDX1 == 0) {
-		printf("EDX1 was 0\n");
+		PRINT("EDX1 was 0\n");
 		return 0;
 	}
 
@@ -325,7 +325,7 @@ uint WowObject::NPC_get_buff_duration(int index, uint spellID) const {
 		if (index == EAX_content) {
 			uint EAX_spellid_content = DEREF(EAX1 + 0x4);
 			if (EAX_spellid_content == spellID) {
-				printf("EAX_spellid_content == spellID!\n");
+				PRINT("EAX_spellid_content == spellID!\n");
 				break;
 			}
 		}
@@ -334,13 +334,13 @@ uint WowObject::NPC_get_buff_duration(int index, uint spellID) const {
 	EDX1 = EDX1 << 0x4;
 
 	if (DEREF(EDI1 + EDX1 + 0x8) == 0) {
-		printf("EDI1+EDX1+0x8 was 0 :(\n");
+		PRINT("EDI1+EDX1+0x8 was 0 :(\n");
 		return 0;
 	}
 
 	uint duration = DEREF(EDX1 + EAX1 + 0x8);
 
-	printf("returned duration %u :D\n", duration);
+	PRINT("returned duration %u :D\n", duration);
 
 	return duration;
 
@@ -381,7 +381,7 @@ uint WowObject::unit_get_buff(int index) const {
 
 	uint buff_spellid = DEREF(al * 4 + DEREF(base + 0x120) + 0xA8);
 
-	//printf("info = %X, buff_spellid should be at %p\n", info, *(uint*)info + index*4 + 0xA8);
+	//PRINT("info = %X, buff_spellid should be at %p\n", info, *(uint*)info + index*4 + 0xA8);
 
 	return buff_spellid;
 }

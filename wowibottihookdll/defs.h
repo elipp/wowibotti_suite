@@ -22,6 +22,11 @@ inline LPARAM get_KEYUP_LPARAM(int vk) {
 	return lparam;
 }
 
+#ifdef _DEBUG
+#define PRINT(...) printf(__VA_ARGS__)
+#else
+#define PRINT(...) 0
+#endif
 
 enum {
 	CTM_HUNTER_AIMED = 0x0,
@@ -113,7 +118,7 @@ inline int find_stuff_between(const std::string &in_str, char cbegin, char cend,
 	unsigned d_end = in_str.find_last_of(cend);
 
 	if (d_begin == std::string::npos || d_end == std::string::npos || d_begin == d_end) {
-		printf("find_stuff_between: couldn't find content between delimiters '%c' and '%c' in string \"%s\".\n", cbegin, cend, in_str.c_str());
+		PRINT("find_stuff_between: couldn't find content between delimiters '%c' and '%c' in string \"%s\".\n", cbegin, cend, in_str.c_str());
 		return 0;
 	}
 

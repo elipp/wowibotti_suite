@@ -6,7 +6,7 @@
 void ctm_next();
 void ctm_act();
 
-void ctm_handle_delayed_posthook();
+int ctm_handle_delayed_posthook();
 
 void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_distance = 0.0);
 
@@ -24,6 +24,11 @@ struct CTM_posthook_t {
 	int frame_counter, active;
 
 	CTM_posthook_t(CTM_callback_t hookfunc, int frame_delay) : callback(hookfunc), delay_frames(frame_delay), frame_counter(0), active(0) {};
+};
+
+enum {
+	CTM_PRIO_LOW,
+	CTM_PRIO_EXCLUSIVE
 };
 
 
@@ -59,11 +64,11 @@ struct CTM_t {
 
 			if (posthook->delay_frames > 0) {
 				posthook->active = 1;
-				printf("DEBUG: run_posthook: setting posthook->active = 1; delay expected = %d frames\n", posthook->delay_frames);
+				PRINT("DEBUG: run_posthook: setting posthook->active = 1; delay expected = %d frames\n", posthook->delay_frames);
 				return 1;
 			}
 			else {
-				printf("DEBUG: run_posthook: calling posthook callback (without delay)!\n");
+				PRINT("DEBUG: run_posthook: calling posthook callback (without delay)!\n");
 				posthook->callback();
 			}
 			
