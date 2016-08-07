@@ -191,8 +191,8 @@ function hug_spell_with_spellID(spellID)
 	DelIgnore(LOLE_OPCODE_HUG_SPELL_OBJECT .. ":" .. tostring(spellID))
 end
 
-function avoid_spell_with_spellID(spellID)
-	DelIgnore(LOLE_OPCODE_AVOID_SPELL_OBJECT .. ":" .. tostring(spellID))
+function avoid_spell_with_spellID(spellID, radius)
+	DelIgnore(LOLE_OPCODE_AVOID_SPELL_OBJECT .. ":" .. tostring(spellID) .. "," .. tostring(radius))
 end
 
 function pull_target()

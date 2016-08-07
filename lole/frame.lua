@@ -57,7 +57,7 @@ lole_frame:SetScript("OnUpdate", function()
 
 		do_CC_jobs();
 		lole_main();
-		avoid_spell_with_spellID(36240); -- Cave In :)
+		avoid_spell_with_spellID(36240, 8); -- Cave In :)
 
 	end
 

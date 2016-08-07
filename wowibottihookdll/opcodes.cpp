@@ -366,9 +366,20 @@ static void LOP_hug_spell_object(const std::string &arg) {
 }
 
 static void LOP_avoid_spell_object(const std::string &arg) {
+	
 	char *endptr;
-	long spellID = strtoul(arg.c_str(), &endptr, 10);
 
+	std::vector<std::string> tokens;
+	tokenize_string(arg, ",", tokens);
+
+	if (tokens.size() != 2) {
+		PRINT("avoid_spell_object: error: expected exactly 2 arguments (spellID, radius), got %lu!\n", tokens.size());
+		return;
+	}
+
+	long spellID = strtoul(tokens[0].c_str(), &endptr, 10);
+	float radius = strtof(tokens[1].c_str(), &endptr);
+	
 	ObjectManager OM;
 
 	auto objs = OM.get_spell_objects_with_spellID(spellID);
@@ -385,9 +396,9 @@ static void LOP_avoid_spell_object(const std::string &arg) {
 
 		for (auto &s : objs) {
 			vec3 spos = s.DO_get_pos();
-			if ((ppos - spos).length() < 9) {
+			if ((ppos - spos).length() < radius) {
 				// then we need to run away from it :D
-				escape_pos = spos + 13*(ppos - spos).unit();
+				escape_pos = spos + (radius+1.5)*(ppos - spos).unit();
 				need_to_escape = 1;
 			}
 		}
