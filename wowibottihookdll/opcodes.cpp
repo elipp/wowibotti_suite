@@ -132,7 +132,7 @@ static void LOP_melee_behind(const std::string &arg) {
 	vec3 diff = point_behind_ctm - ppos;
 	
 	if (diff.length() > 1.0) {
-		click_to_move(point_behind_ctm, CTM_MOVE, 0);
+		ctm_add(CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_LOW, 0, 0.5));
 	}
 	else {
 		DoString("StartAttack()");
@@ -143,7 +143,7 @@ static void LOP_melee_behind(const std::string &arg) {
 			 // and for auto-attacking, the valid sector is actually rather small, unlike spells,
 			 // for which perfectly perpendicular is ok
 			vec3 face = (tpos - ppos).unit();
-			click_to_move(ppos + face, CTM_MOVE, 0, 1.5);
+			ctm_add(CTM_t(ppos + face, CTM_MOVE, CTM_PRIO_LOW, 0, 1.5));
 		}
 	}
 
