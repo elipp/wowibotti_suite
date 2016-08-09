@@ -796,8 +796,8 @@ static int dump_wowobjects_to_log() {
 				for (int n = 1; n <= 16; ++n) {
 					uint spellID = next.NPC_get_debuff(n);
 					if (spellID != 0) {
-					//	uint duration = next.NPC_get_debuff_duration(n, spellID);
-					//	fprintf(fp, "%d: %u, duration = %u\n", n, spellID, duration);
+						uint duration = next.NPC_get_debuff_duration(n, spellID);
+						fprintf(fp, "%d: %u, duration = %u\n", n, spellID, duration);
 					}
 				}
 

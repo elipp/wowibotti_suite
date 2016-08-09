@@ -12,7 +12,7 @@ void DoString(const char* format, ...) {
 
 	va_list args;
 	va_start(args, format);
-	vsprintf(cmd, format, args);
+	vsprintf_s(cmd, format, args);
 	va_end(args);
 
 	LUA_DoString(cmd, cmd, "");
@@ -347,7 +347,7 @@ uint WowObject::NPC_get_buff_duration(int index, uint spellID) const {
 }
 
 uint WowObject::NPC_get_debuff_duration(int index, uint spellID) const {
-	return NPC_get_debuff_duration(index + 0x27, spellID);
+	return NPC_get_buff_duration(index + 0x27, spellID);
 }
 
 

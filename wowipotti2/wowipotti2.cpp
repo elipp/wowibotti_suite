@@ -266,7 +266,7 @@ static int create_account_assignments2() {
 
 	if (wow_handles.size() < 1) { return 1; }
 
-	int num_to_process = num_characters_selected;
+	size_t num_to_process = num_characters_selected;
 	if (wow_handles.size() < num_to_process) {
 		num_to_process = wow_handles.size();
 	}
@@ -287,7 +287,7 @@ static int create_account_assignments2() {
 		printf("WARNING: create_account_assignments: num_characters_selected (%d) != assigned_accs.size() (%d)!!\n", num_characters_selected, assigned_accs.size());
 	}
 
-	for (int i = 0; i < num_to_process; ++i) {
+	for (unsigned int i = 0; i < num_to_process; ++i) {
 
 		const wowcl_t &c = assigned_accs[i].second;
 		const wowaccount_t &acc = assigned_accs[i].first;
@@ -405,7 +405,7 @@ static int parse_pipe_response(const BYTE *resp, size_t resp_length, std::vector
 
 	const BYTE *iter = &resp[3*sizeof(UINT32)];
 
-	for (int i = 0; i < num_patches; ++i) {
+	for (UINT32 i = 0; i < num_patches; ++i) {
 		patch_t p;
 
 		memcpy(&p.patch_addr, &iter[0*sizeof(UINT32)], sizeof(UINT32));
@@ -477,148 +477,6 @@ static int get_credentials(DWORD pid, std::string *cred_str) {
 
 }
 
-static int create_secattr_for_pipe(PSECURITY_ATTRIBUTES *sa) {
-	DWORD dwRes, dwDisposition;
-	PSID pEveryoneSID = NULL, pAdminSID = NULL;
-	PACL pACL = NULL;
-	PSECURITY_DESCRIPTOR pSD = NULL;
-	EXPLICIT_ACCESS ea[2];
-	SID_IDENTIFIER_AUTHORITY SIDAuthWorld = SECURITY_WORLD_SID_AUTHORITY;
-	SID_IDENTIFIER_AUTHORITY SIDAuthNT = SECURITY_NT_AUTHORITY;
-	LONG lRes;
-	HKEY hkSub = NULL;
-
-	int ret_val = 1;
-
-	//// Create a well-known SID for the Everyone group.
-	//if (!AllocateAndInitializeSid(&SIDAuthWorld, 1,
-	//	SECURITY_WORLD_RID,
-	//	0, 0, 0, 0, 0, 0, 0,
-	//	&pEveryoneSID))
-	//{
-	//	_tprintf(_T("AllocateAndInitializeSid Error %u\n"), GetLastError());
-	//	ret_val = 0;
-	//	goto Cleanup;
-	//}
-
-	//// Initialize an EXPLICIT_ACCESS structure for an ACE.
-	//// The ACE will allow Everyone read access to the key.
-	//ZeroMemory(&ea, 2 * sizeof(EXPLICIT_ACCESS));
-	//ea[0].grfAccessPermissions = GENERIC_READ | FILE_WRITE_DATA;
-	//ea[0].grfAccessMode = SET_ACCESS;
-	//ea[0].grfInheritance = NO_INHERITANCE;
-	//ea[0].Trustee.TrusteeForm = TRUSTEE_IS_SID;
-	//ea[0].Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
-	//ea[0].Trustee.ptstrName = (LPTSTR)pEveryoneSID;
-
-	//// Create a SID for the BUILTIN\Administrators group.
-	//if (!AllocateAndInitializeSid(&SIDAuthNT, 2,
-	//	SECURITY_BUILTIN_DOMAIN_RID,
-	//	DOMAIN_ALIAS_RID_ADMINS,
-	//	0, 0, 0, 0, 0, 0,
-	//	&pAdminSID))
-	//{
-	//	_tprintf(_T("AllocateAndInitializeSid Error %u\n"), GetLastError());
-	//	ret_val = 0;
-	//	goto Cleanup;
-	//}
-
-	//// Initialize an EXPLICIT_ACCESS structure for an ACE.
-	//// The ACE will allow the Administrators group full access to
-	//// the key.
-	//ea[1].grfAccessPermissions = KEY_ALL_ACCESS;
-	//ea[1].grfAccessMode = SET_ACCESS;
-	//ea[1].grfInheritance = NO_INHERITANCE;
-	//ea[1].Trustee.TrusteeForm = TRUSTEE_IS_SID;
-	//ea[1].Trustee.TrusteeType = TRUSTEE_IS_GROUP;
-	//ea[1].Trustee.ptstrName = (LPTSTR)pAdminSID;
-
-	//// Create a new ACL that contains the new ACEs.
-	//dwRes = SetEntriesInAcl(2, ea, NULL, &pACL);
-	//if (ERROR_SUCCESS != dwRes)
-	//{
-	//	_tprintf(_T("SetEntriesInAcl Error %u\n"), GetLastError());
-	//	ret_val = 0;
-	//	goto Cleanup;
-	//}
-
-	//// Initialize a security descriptor.  
-	//pSD = (PSECURITY_DESCRIPTOR)LocalAlloc(LPTR,
-	//	SECURITY_DESCRIPTOR_MIN_LENGTH);
-	//if (NULL == pSD)
-	//{
-	//	_tprintf(_T("LocalAlloc Error %u\n"), GetLastError());
-	//	ret_val = 0;
-	//	goto Cleanup;
-	//}
-
-	//if (!InitializeSecurityDescriptor(pSD,
-	//	SECURITY_DESCRIPTOR_REVISION))
-	//{
-	//	_tprintf(_T("InitializeSecurityDescriptor Error %u\n"),
-	//		GetLastError());
-	//	ret_val = 0;
-	//	goto Cleanup;
-	//}
-
-	//// Add the ACL to the security descriptor. 
-	//if (!SetSecurityDescriptorDacl(pSD,
-	//	TRUE,     // bDaclPresent flag   
-	//	pACL,
-	//	FALSE))   // not a default DACL 
-	//{
-	//	_tprintf(_T("SetSecurityDescriptorDacl Error %u\n"),
-	//		GetLastError());
-	//	ret_val = 0;
-	//	goto Cleanup;
-	//}
-
-
-	pSD = (PSECURITY_DESCRIPTOR)LocalAlloc(LPTR, SECURITY_DESCRIPTOR_MIN_LENGTH);
-	if (!pSD)
-	{
-		printf("LocalAlloc failed: %d.\n", GetLastError());
-		ret_val = 0;
-		goto Cleanup;
-	}
-
-	if (!InitializeSecurityDescriptor(pSD, SECURITY_DESCRIPTOR_REVISION))
-	{
-		printf("InitializeSecurityDescriptor failed. %d\n", GetLastError());
-		ret_val = 0;
-		goto Cleanup;
-	}
-
-	if (!SetSecurityDescriptorDacl(pSD, TRUE, NULL, FALSE))
-	{
-		printf("SetSecurityDescriptorDacl failed. %d\n", GetLastError());
-		ret_val = 0;
-		goto Cleanup;
-	}
-
-	// Initialize a security attributes structure.
-	*sa = new SECURITY_ATTRIBUTES;
-
-	(*sa)->nLength = sizeof(SECURITY_ATTRIBUTES);
-	(*sa)->lpSecurityDescriptor = pSD;
-	(*sa)->bInheritHandle = FALSE;
-
-Cleanup:
-
-	if (pEveryoneSID)
-		FreeSid(pEveryoneSID);
-	if (pAdminSID)
-		FreeSid(pAdminSID);
-	if (pACL)
-		LocalFree(pACL);
-	if (pSD)
-		LocalFree(pSD);
-	if (hkSub)
-		RegCloseKey(hkSub);
-
-	return ret_val;
-
-}
 
 static int do_pipe_operations(DWORD pid) {
 
@@ -857,7 +715,7 @@ static int set_affinities() {
 
 	EnumWindows(EnumWindowsProc, NULL);
 
-	int n = 0;
+	unsigned int n = 0;
 
 	const unsigned int ncores = std::thread::hardware_concurrency();
 

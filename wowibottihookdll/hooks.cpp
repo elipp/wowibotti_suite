@@ -36,14 +36,14 @@ static void update_debug_positions() {
 	vec3 ppos = p.get_pos();
 	char buf[128];
 
-	sprintf(buf, "(%.1f, %.1f, %.1f)", ppos.x, ppos.y, ppos.z);
+	sprintf_s(buf, "(%.1f, %.1f, %.1f)", ppos.x, ppos.y, ppos.z);
 
 	DoString("SetCVar(\"movieSubtitle\", \"%s\", \"player_pos\")", buf);
 
 	if (get_target_GUID() != (GUID_t)0) {
 		auto t = OM.get_object_by_GUID(get_target_GUID());
 		vec3 tpos = t.get_pos();
-		sprintf(buf, "(%.1f, %.1f, %.1f)", tpos.x, tpos.y, tpos.z);
+		sprintf_s(buf, "(%.1f, %.1f, %.1f)", tpos.x, tpos.y, tpos.z);
 
 		DoString("SetCVar(\"movieSubtitle\", \"%s\", \"target_pos\")", buf);
 	}
@@ -105,7 +105,7 @@ static void __stdcall broadcast_CTM(float *coords, int action) {
 
 	char sprintf_buf[128];
 
-	sprintf(sprintf_buf, "%.1f,%.1f,%.1f", x, y, z);
+	sprintf_s(sprintf_buf, "%.1f,%.1f,%.1f", x, y, z);
 
 	// the CTM mode is determined in the LUA logic, in the subcommand handler.
 
