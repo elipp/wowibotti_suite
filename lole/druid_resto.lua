@@ -46,10 +46,10 @@ combat_druid_resto = function()
 		return
 	end
 
-	if MAIN_TANK == "Adieux" then
-    	MAIN_TANK = "Noctur"
-    else
-    	MAIN_TANK = "Adieux"
-    end
+	-- if MAIN_TANK == "Adieux" then
+ --    	MAIN_TANK = "Noctur"
+ --    else
+ --    	MAIN_TANK = "Adieux"
+ --    end
 
 end
