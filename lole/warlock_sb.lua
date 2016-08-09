@@ -91,7 +91,7 @@ local time_from_succubus_summon = 0
 
 combat_warlock_sb = function()
 
-	MAULGAR()
+	--MAULGAR()
 
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
