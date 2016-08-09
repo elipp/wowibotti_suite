@@ -1,15 +1,15 @@
-MAIN_TANK = "Adieux";
-local reverse_target = {Noctur="Adieux", Adieux="Noctur"};
+-- MAIN_TANK = "Adieux";
+-- local reverse_target = {Noctur="Adieux", Adieux="Noctur"};
 
-local function on_spell_sent_event(self, event, caster, spell, rank, target)
-	if reverse_target[target] then
-		MAIN_TANK = reverse_target[target];
-	end
-end
+-- local function on_spell_sent_event(self, event, caster, spell, rank, target)
+-- 	if reverse_target[target] then
+-- 		MAIN_TANK = reverse_target[target];
+-- 	end
+-- end
 
-local spell_sent_frame = CreateFrame("Frame");
-spell_sent_frame:RegisterEvent("UNIT_SPELLCAST_SENT");
-spell_sent_frame:SetScript("OnEvent", on_spell_sent_event);
+-- local spell_sent_frame = CreateFrame("Frame");
+-- spell_sent_frame:RegisterEvent("UNIT_SPELLCAST_SENT");
+-- spell_sent_frame:SetScript("OnEvent", on_spell_sent_event);
 
 combat_druid_resto = function()
    
