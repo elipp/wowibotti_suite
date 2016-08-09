@@ -145,7 +145,7 @@ static void LOP_melee_behind(const std::string &arg) {
 			 // for which perfectly perpendicular is ok
 			vec3 face = (tpos - ppos).unit();
 		//	ctm_add(CTM_t(ppos + face, CTM_MOVE, CTM_PRIO_LOW, 0, 1.5));
-			click_to_move(point_behind_ctm, CTM_MOVE, 0, 0.5);
+			click_to_move(ppos + face, CTM_MOVE, 0, 0.5);
 		}
 	}
 
