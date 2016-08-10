@@ -474,6 +474,11 @@ local function lole_raid_arr()
 
 end
 
+local function lole_raid_aoe(on_off_str)
+    script_text = "RunMacroText(\"/lole set aoemode " .. on_off_str .. "\")";
+    SendAddonMessage("lole_runscript", script_text, "RAID");
+end
+
 
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
@@ -502,6 +507,7 @@ lole_subcommands = {
 	sendscript = lole_sendscript;
 	durability = lole_durability;
 	raid_arr = lole_raid_arr;
+    raid_aoe = lole_raid_aoe;
 
 	dump = lole_debug_dump_wowobjects;
 	loot = lole_debug_loot_all;
