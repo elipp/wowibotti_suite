@@ -60,7 +60,7 @@ local available_configs = {
 	class_config_create("warlock_sb", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_sb, {}, ROLES.caster),
 
 	warrior_fury =
-	class_config_create("warrior_fury", {}, {"Battle Shout"}, get_class_color("warrior"), combat_warrior_fury, {"Recklessness"}, ROLES.melee)
+	class_config_create("warrior_fury", {}, {"Battle Shout"}, get_class_color("warrior"), combat_warrior_fury, {"Recklessness"}, ROLES.melee),
 
 	warrior_arms =
 	class_config_create("warrior_arms", {}, {"Battle Shout"}, get_class_color("warrior"), combat_warrior_arms, {"Death Wish"}, ROLES.melee),
