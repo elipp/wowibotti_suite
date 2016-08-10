@@ -62,6 +62,8 @@ combat_warlock_affli = function()
 
 	caster_range_check(30);
 
+	if tap_if_need_to() then return true; end
+
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end
 	if GetSpellCooldown("Corruption") > 0 then return; end -- check gcd. this could add unnecessary latency to spam though
@@ -84,7 +86,7 @@ combat_warlock_affli = function()
 		end
 	end
 
-	if tap_if_need_to() then return true; end
+
 
 	if not has_debuff("target", "Curse of the Elements") then
 		CastSpellByName("Curse of the Elements");

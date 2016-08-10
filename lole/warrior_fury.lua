@@ -40,7 +40,7 @@ local function terestian()
 	return false;
 end
 
-combat_warrior_arms = function()
+combat_warrior_fury = function()
 
 	--if terestian() then return end
 
@@ -72,12 +72,17 @@ combat_warrior_arms = function()
 		cast_if_nocd("Pummel");
 	end
 
-	if not has_debuff("target", "Blood Frenzy") then
-		RunMacroText("/cast [nostance:1] Battle Stance");
-		RunMacroText("/cast Rend");
-	end
+  if not has_buff("player", "Rampage") then
+    CastSpellByName("Rampage")
+    return
+  end
 
-	if cast_if_nocd("Mortal Strike") then return; end
+  if (UnitHealth("target")/UnitHealthMax("target") < 0.20) then
+    CastSpellByName("Execute")
+    return
+  end
+
+	if cast_if_nocd("Bloodthirst") then return; end
 
 	if lole_subcommands.get("aoemode") == 1 then
 		if cast_if_nocd("Whirlwind") then return; end
@@ -87,13 +92,10 @@ combat_warrior_arms = function()
 	else
 		if UnitMana("player") > 65 then
 		--if GetTime() - swing_starttime < 1.5 then
-			if cast_if_nocd("Whirlwind") then return; end
-			if cast_if_nocd("Slam") then return end;
+	     CastSpellByName("Heroic Strike")
 		--end
 		end
 	end
-
-
 
 	if not has_debuff("target", "Thunder Clap") then
 		if cast_if_nocd("Thunder Clap") then return; end
