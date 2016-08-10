@@ -19,7 +19,14 @@ combat_warrior_prot = function()
 
 	if cast_if_nocd("Shield Block") then return; end
 
-	CastSpellByName("Heroic Strike");
+	if (lole_subcommands.get("aoemode") == 1) then
+		CastSpellByName("Cleave")
+		if cast_if_nocd("Thunder Clap") then
+			return
+		end
+	else
+		CastSpellByName("Heroic Strike");
+	end
 
 	if UnitCastingInfo("target") then
 		if not cast_if_nocd("Spell Reflect") then
