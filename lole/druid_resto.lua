@@ -8,8 +8,10 @@ local function on_spell_sent_event(self, event, caster, spell, rank, target)
 end
 
 local spell_sent_frame = CreateFrame("Frame");
-spell_sent_frame:RegisterEvent("UNIT_SPELLCAST_SENT");
-spell_sent_frame:SetScript("OnEvent", on_spell_sent_event);
+if UnitName("player") == "Kusip" then
+    spell_sent_frame:RegisterEvent("UNIT_SPELLCAST_SENT");
+    spell_sent_frame:SetScript("OnEvent", on_spell_sent_event);
+end
 
 combat_druid_resto = function()
    
