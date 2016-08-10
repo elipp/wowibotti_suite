@@ -11,17 +11,17 @@ static void ctm_increment_posthook_framecount() {
 }
 
 static int ctm_get_posthook_framecount() {
-	const CTM_t &c = ctm_get_current_action();
-	return c.posthook->frame_counter;
+	const CTM_t *c = ctm_get_current_action();
+	return c->posthook->frame_counter;
 }
 
 static int ctm_posthook_delay_active() {
 	if (ctm_queue.size() < 1) { return 0; }
 
-	const CTM_t &c = ctm_get_current_action();
-	if (!c.posthook) return 0;
+	const CTM_t *c = ctm_get_current_action();
+	if (!c->posthook) return 0;
 
-	if (c.posthook->active) return 1;
+	if (c->posthook->active) return 1;
 
 	return 0;
 }
@@ -69,7 +69,7 @@ void ctm_next() {
 	ctm_unlock();
 	ctm_pop();
 
-	PRINT("called ctm_next()\n");
+	PRINT("called ctm_next(), ctm_queue.size() = %u\n", ctm_queue.size());
 
 }
 
@@ -80,8 +80,9 @@ CTM_t ctm_pop() {
 }
 
 
-const CTM_t &ctm_get_current_action() {
-	return ctm_queue.front();
+const CTM_t *ctm_get_current_action() {
+	if (ctm_queue.size() < 1) { return NULL;  }
+	return &ctm_queue.front();
 }
 
 
@@ -96,6 +97,7 @@ int ctm_handle_delayed_posthook() {
 		else {
 			c.posthook->active = 0;
 			c.posthook->callback();
+			PRINT("called posthook callback after %d frames!\n", c.posthook->delay_frames);
 			ctm_next();
 			return 1;
 		}

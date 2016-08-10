@@ -35,8 +35,8 @@ local available_configs = {
 	priest_holy =
 	class_config_create("priest_holy", {"Power Word: Fortitude", "Shadow Protection"}, {"Inner Fire"}, get_class_color("priest"), combat_priest_holy, {"Inner Focus"}, ROLES.healer),
 
-    priest_holy_ds =
-    class_config_create("priest_holy_ds", {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection"}, {"Inner Fire"}, get_class_color("priest"), combat_priest_holy, {"Inner Focus"}, ROLES.healer),
+  priest_holy_ds =
+  class_config_create("priest_holy_ds", {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection"}, {"Inner Fire"}, get_class_color("priest"), combat_priest_holy, {"Inner Focus"}, ROLES.healer),
 
 	priest_shadow =
 	class_config_create("priest_shadow", {"Power Word: Fortitude", "Shadow Protection"}, {"Shadowform", "Inner Fire"}, get_class_color("priest"), combat_priest_shadow, {"Inner Focus"}, ROLES.caster),
