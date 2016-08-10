@@ -57,7 +57,9 @@ combat_priest_holy = function()
 	local health_cur = UnitHealth("target");
 	local targeting_self = UnitName("target") == UnitName("player");
 
-	if (health_cur < health_max * 0.30) then
+    if UnitName("player") == "Kasio" and (health_max - health_cur) > 2000 then
+        cast_spell("Greater Heal");
+	elseif (health_cur < health_max * 0.30) then
 		cast_spell("Greater Heal");
 	elseif (should_cast_PoH()) then
 		cast_spell("Prayer of Healing");

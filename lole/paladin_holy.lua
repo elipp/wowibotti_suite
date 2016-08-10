@@ -24,6 +24,8 @@ combat_paladin_holy = function()
 		cast_spell("Cleanse");
 	end
 
+    caster_range_check(35);
+
 	if (health_cur < health_max * 0.30) then
 		CastSpellByName("Divine Favor");
 		CastSpellByName("Divine Illumination");

@@ -80,6 +80,7 @@ combat_shaman_resto = function()
         return;
     elseif (UnitHealthMax(OFF_TANK) - UnitHealth(OFF_TANK)) > 8000 then
         TargetUnit(OFF_TANK);
+        caster_range_check(35);
         cast_spell("Lesser Healing Wave")
         return;
 	end

@@ -25,6 +25,8 @@ combat_druid_resto = function()
 
 	local has, timeleft, stacks = has_buff("target", "Lifebloom")
 
+    caster_range_check(35);
+
 	if has then
 		if stacks < 3 then
 			CastSpellByName("Lifebloom")
