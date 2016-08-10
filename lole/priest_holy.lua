@@ -21,10 +21,11 @@ local function should_cast_PoH()
 end
 
 combat_priest_holy = function()
+    local mage_tank = "Dissona";
     if UnitName("player") == "Kasio" then
 		heal_target = OFF_TANK
     else
-		heal_target = MAIN_TANK
+		heal_target = mage_tank;
 	end
 
 	if casting_legit_heal() then return end
@@ -60,6 +61,9 @@ combat_priest_holy = function()
 		cast_spell("Greater Heal");
 	elseif (should_cast_PoH()) then
 		cast_spell("Prayer of Healing");
+    elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
+        TargetUnit("player"); 
+        cast_spell("Greater Heal");
 	elseif (health_cur < health_max * 0.60) then
 		if not targeting_self and (UnitHealth("player") < UnitHealthMax("player")*0.50) then
 			cast_spell("Binding Heal");
@@ -73,7 +77,9 @@ combat_priest_holy = function()
 			cast_spell("Greater Heal(Rank 1)");
 		end
 	elseif not has_buff("target", "Renew") then
-		CastSpellByName("Renew");
+		cast_spell("Renew");
+    elseif heal_target == mage_tank and not has_buff("target", "Power Word: Shield") then
+        cast_spell("Power Word: Shield");
 	end
 
 end

@@ -45,6 +45,7 @@ local function NS_heal_on_tank()
 end
 
 combat_shaman_resto = function()
+    local mage_tank = "Dissona";
 
 	if casting_legit_heal() then return end
 
@@ -60,16 +61,27 @@ combat_shaman_resto = function()
 		if refresh_ES(MAIN_TANK) then return end
 	end
 
-	if OFF_TANK then
-		if (UnitHealthMax(OFF_TANK) - UnitHealth(OFF_TANK)) > 2000 then
-			TargetUnit(OFF_TANK)
-			cast_spell("Healing Wave")
-		end
-	end
+    if UnitMana("player") < 5000 then
+        CastSpellByName("Mana Tide Totem")
+        return
+    end
 
-	if UnitMana("player") < 5000 then
-		CastSpellByName("Mana Tide Totem")
-		return
+	if UnitName("player") == "Pehmware" then
+        TargetUnit(mage_tank);
+        caster_range_check(35);
+        if (UnitHealthMax(mage_tank) - UnitHealth(mage_tank)) > 5000 then
+            cast_spell("Healing Wave")
+        elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
+            TargetUnit("player");
+            cast_spell("Healing Wave")
+		elseif (UnitHealthMax(mage_tank) - UnitHealth(mage_tank)) > 2000 then
+			cast_spell("Lesser Healing Wave")
+		end
+        return;
+    elseif (UnitHealthMax(OFF_TANK) - UnitHealth(OFF_TANK)) > 8000 then
+        TargetUnit(OFF_TANK);
+        cast_spell("Lesser Healing Wave")
+        return;
 	end
 
 	target_best_CH_target();

@@ -48,6 +48,22 @@ combat_druid_resto = function()
 		return
 	end
 
+    if UnitHealth("player") < UnitHealthMax("player")*0.50 then
+        TargetUnit("player");
+        if (not has_buff("target", "Rejuvenation")) then
+            cast_spell("Rejuvenation");
+            return;
+        end
+    end
+
+    if UnitHealth("player") < UnitHealthMax("player")*0.30 then
+        cast_spell("Barkskin");
+        TargetUnit("player");
+        cast_spell("Swiftmend")
+        cast_spell("Regrowth");
+        return;
+    end
+
 	if MAIN_TANK == "Gawk" then
     	MAIN_TANK = "Noctur"
     else
