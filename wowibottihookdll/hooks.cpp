@@ -58,17 +58,7 @@ static void __stdcall EndScene_hook() {
 	static timer_interval_t fifty_ms(50);
 	static timer_interval_t half_second(500);
 
-	static int prev_CTM_state = 0;
-	int current_CTM_state = get_wow_CTM_state();
-
-	if (!ctm_handle_delayed_posthook()) {
-		if (prev_CTM_state != CTM_DONE && current_CTM_state == CTM_DONE) {
-			PRINT("CTM action completed!\n");
-			ctm_next();
-		}
-	}
-
-	prev_CTM_state = current_CTM_state;
+	ctm_handle_delayed_posthook();
 
 	if (fifty_ms.passed()) {
 		refollow_if_needed();
@@ -172,8 +162,11 @@ static void __stdcall CTM_finished_hookfunc() {
 
 	// HOTPATCH :D:D:D
 
-//	const CTM_t &c = ctm_get_current_action();
-	//c.handle_posthook();
+	const CTM_t *c = ctm_get_current_action();
+
+	if (!c) { return; }
+	
+	c->handle_posthook();
 }
 
 
@@ -572,14 +565,14 @@ int prepare_patches_and_pipe_data() {
 	prepare_patch("LUA_prot", 0x0);
 	prepare_patch("DelIgnore", DelIgnore_hub);
 	prepare_patch("CTM_main", broadcast_CTM);
-	//prepare_patch("CTM_update", CTM_finished_hookfunc);
+	prepare_patch("CTM_update", CTM_finished_hookfunc);
 	prepare_patch("EndScene", EndScene_hook);
 
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("DelIgnore")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("LUA_prot")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_main")));
-	//PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));
 
 	return 1;
 }

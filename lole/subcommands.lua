@@ -435,35 +435,73 @@ local function lole_pull(arg)
 end
 
 local function lole_sendscript(to, ...)
-    local usage = "lole_sendscript: Usage: sendscript [RAID / WHISPER [t1,t2,...,tn]] scripttext";
+    local usage = "lole_sendscript: Usage: sendscript/ss [(RAID)/PARTY/GUILD]/[WHISPER/w [t1,t2,...,tn]] scripttext";
+    if to == nil then
+        echo(usage);
+        return false;
+    end
+
     local atab = {};
 	for i = 1, select('#', ...) do
         local arg = select(i, ...);
         table.insert(atab, arg);
 	end
 
-	local numargs = table.getn(atab);
-	if (numargs < 1) then
-		echo(usage);
-		return false;
-	end
-
 	local script_text = "";
-    if to == "RAID" then
-    	script_text = table.concat(atab, " ");
-    	SendAddonMessage("lole_runscript", script_text, to);
-    elseif to == "WHISPER" then
+
+    if to == "WHISPER" or to == "w" then
     	local recipients = {strsplit(",", atab[1])};
     	table.remove(atab, 1);
     	script_text = table.concat(atab, " ");
     	for _, recipient in pairs(recipients) do
-    		SendAddonMessage("lole_runscript", script_text, to, recipient);
+    		SendAddonMessage("lole_runscript", script_text, "WHISPER", recipient);
     	end
+    elseif to == "PARTY" or to == "GUILD" then
+        script_text = table.concat(atab, " ");
+        SendAddonMessage("lole_runscript", script_text, to);
     else
-    	echo(usage);
-    	return false
+        if to ~= "RAID" then
+            table.insert(atab, 1, to);
+        end
+        script_text = table.concat(atab, " ");
+        SendAddonMessage("lole_runscript", script_text, "RAID");
     end
 end
+
+local function lole_sendmacro(to, ...)
+    local usage = "lole_sendmacro: Usage: sendmacro/run [(RAID)/PARTY/GUILD]/[WHISPER/w [t1,t2,...,tn]] macrotext";
+    if to == nil then
+        echo(usage);
+        return false;
+    end
+
+    local atab = {};
+    for i = 1, select('#', ...) do
+        local arg = select(i, ...);
+        table.insert(atab, arg);
+    end
+
+    local script_text = "";
+
+    if to == "WHISPER" or to == "w" then
+        local recipients = {strsplit(",", atab[1])};
+        table.remove(atab, 1);
+        script_text = "RunMacroText(\"" .. table.concat(atab, " ") .. "\")";
+        for _, recipient in pairs(recipients) do
+            SendAddonMessage("lole_runscript", script_text, "WHISPER", recipient);
+        end
+    elseif to == "PARTY" or to == "GUILD" then
+        script_text = "RunMacroText(\"" .. table.concat(atab, " ") .. "\")";
+        SendAddonMessage("lole_runscript", script_text, to);
+    else
+        if to ~= "RAID" then
+            table.insert(atab, 1, to);
+        end
+        script_text = "RunMacroText(\"" .. table.concat(atab, " ") .. "\")";
+        SendAddonMessage("lole_runscript", script_text, "RAID");
+    end
+end
+
 
 local function lole_durability()
 	if get_durability_status() == false then
@@ -506,10 +544,14 @@ lole_subcommands = {
 	ot = lole_offtank;
 	clearcc = lole_clearcc;
 	pull = lole_pull;
-	sendscript = lole_sendscript;
 	durability = lole_durability;
 	raid_arr = lole_raid_arr;
     raid_aoe = lole_raid_aoe;
+
+	sendscript = lole_sendscript;
+	ss = lole_sendscript;
+	sendmacro = lole_sendmacro;
+	run = lole_sendmacro;
 
 	dump = lole_debug_dump_wowobjects;
 	loot = lole_debug_loot_all;

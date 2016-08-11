@@ -453,8 +453,6 @@ static void LOP_walk_to_pull(const std::string &arg) {
 		ctm_add(c);
 	}
 
-	ctm_act();
-
 }
 
 static const WO_cached *find_most_hurt_within_CH_bounce(const WO_cached *unit, const WO_cached *unit2, const std::vector<WO_cached> &candidates) {
