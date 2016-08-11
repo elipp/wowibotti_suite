@@ -22,7 +22,7 @@ local function delrissa()
 end
 
 local function MAULGAR_KROSH()
-	if not UnitName("player") == "Dissona" then
+	if UnitName("player") ~= "Dissona" then
 		return false
 	end
 
@@ -33,7 +33,6 @@ local function MAULGAR_KROSH()
 	if (has_buff("target", "Spell Shield")) then
 		SpellStopCasting()
 		CastSpellByName("Spellsteal")
-		return
 	end
 
 	CastSpellByName("Fireball")
@@ -45,7 +44,7 @@ end
 
 combat_mage_fire = function()
 
-	--if MAULGAR_KROSH() then return end
+	if MAULGAR_KROSH() then return end
 
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end -- mainly in reference to evocation

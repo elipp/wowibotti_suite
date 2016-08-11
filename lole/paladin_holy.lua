@@ -23,6 +23,8 @@ combat_paladin_holy = function()
 		cast_spell("Cleanse");
 	end
 
+    caster_range_check(35);
+
 	if (health_cur < health_max * 0.30) then
 		CastSpellByName("Divine Favor");
 		CastSpellByName("Divine Illumination");
@@ -30,12 +32,12 @@ combat_paladin_holy = function()
     elseif (UnitHealth("player") < UnitHealthMax("player")*0.30) then
         TargetUnit("player");
         cast_spell("Holy Light");
-	elseif (health_cur < health_max * 0.60) then
+	elseif (health_cur < health_max * 0.70) then
 		cast_spell("Holy Light");
 	elseif (UnitHealth("player") < UnitHealthMax("player")*0.50) then
 		TargetUnit("player");
 		cast_spell("Holy Light");
-	elseif (health_cur < health_max * 0.88) then
+	elseif (health_cur < health_max * 0.90) then
 		cast_spell("Flash of Light");
 	elseif (UnitHealth("player") < UnitHealthMax("player")*0.70) then
 		TargetUnit("player");

@@ -46,7 +46,7 @@ end
 
 combat_warlock_affli = function()
 
-	--MAULGAR()
+	MAULGAR()
 
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");

@@ -1,6 +1,5 @@
 local pom_time = 0;
 local mt_healer = true;
-local renew_time = 0;
 
 local function should_cast_PoH()
 	local r = false;
@@ -22,10 +21,11 @@ local function should_cast_PoH()
 end
 
 combat_priest_holy = function()
+    local mage_tank = "Dissona";
     if UnitName("player") == "Kasio" then
-		mt_healer = true;
+		heal_target = OFF_TANK
     else
-		mt_healer = false;
+		heal_target = mage_tank;
 	end
 
 	if casting_legit_heal() then return end
@@ -36,30 +36,6 @@ combat_priest_holy = function()
 		CastSpellByName("Shadowfiend");
 		return;
 	end
-
-    local heal_target = "";
-    if not mt_healer then
-        if time() - renew_time > 15 then
-            TargetUnit(MAIN_TANK);
-            if cast_if_nocd("Renew") then
-                renew_time = time();
-                return;
-            end
-        end
-
-        local HP_deficits = get_HP_deficits();
-        if next(HP_deficits) == nil then return; end
-
-        local lowest = get_lowest_hp(HP_deficits);
-        if not lowest then return; end
-
-        if (HP_deficits[lowest] < 1500) then
-            return;
-        end
-        heal_target = lowest;
-    else
-        heal_target = MAIN_TANK;
-    end
 
 	TargetUnit(heal_target);
 
@@ -75,16 +51,21 @@ combat_priest_holy = function()
 		return;
 	end
 
-	caster_range_check(30);
+	caster_range_check(35);
 
 	local health_max = UnitHealthMax("target");
 	local health_cur = UnitHealth("target");
 	local targeting_self = UnitName("target") == UnitName("player");
 
-	if (health_cur < health_max * 0.30) then
+    if UnitName("player") == "Kasio" and (health_max - health_cur) > 2000 then
+        cast_spell("Greater Heal");
+	elseif (health_cur < health_max * 0.30) then
 		cast_spell("Greater Heal");
 	elseif (should_cast_PoH()) then
 		cast_spell("Prayer of Healing");
+    elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
+        TargetUnit("player"); 
+        cast_spell("Greater Heal");
 	elseif (health_cur < health_max * 0.60) then
 		if not targeting_self and (UnitHealth("player") < UnitHealthMax("player")*0.50) then
 			cast_spell("Binding Heal");
@@ -98,7 +79,9 @@ combat_priest_holy = function()
 			cast_spell("Greater Heal(Rank 1)");
 		end
 	elseif not has_buff("target", "Renew") then
-		CastSpellByName("Renew");
+		cast_spell("Renew");
+    elseif heal_target == mage_tank and not has_buff("target", "Power Word: Shield") then
+        cast_spell("Power Word: Shield");
 	end
 
 end
