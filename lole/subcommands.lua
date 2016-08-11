@@ -71,12 +71,12 @@ local available_configs = {
 };
 
 local mode_attribs = {
+	blast = 0,
+	heal_blast = 0,
 	playermode = 0,
 	buffmode = 0,
 	combatbuffmode = 0,
 	aoemode = 0,
-	blast = 0,
-	heal_blast = 0,
 }
 
 function get_available_configs()
@@ -88,7 +88,7 @@ function get_current_config()
 end
 
 local function get_available_mode_attribs()
-	return table.concat(mode_attribs, ", ")
+	return "<NYI>"
 end
 
 local function lole_setconfig(arg, modes)
@@ -161,21 +161,21 @@ local function lole_set(attrib_name, on_off_str)
 		end
 
 		mode_attribs[attrib_name] = on_off_bool;
-    if attrib_name == "buffmode" then
-        BUFF_TABLE_READY = false;
-        if on_off_bool == 1 then
-            BUFF_TIME = GetTime();
-        end
-    else
-    LOLE_CLASS_CONFIG_ATTRIBS_SAVED[attrib_name] = on_off_bool;
-    end
+	    if attrib_name == "buffmode" then
+	        BUFF_TABLE_READY = false;
+	        if on_off_bool == 1 then
+	            BUFF_TIME = GetTime();
+	        end
+	    else
+	    	LOLE_CLASS_CONFIG_ATTRIBS_SAVED[attrib_name] = on_off_bool;
+	    end
 
 		echo("lole_set: attrib \"" .. attrib_name .. "\" set to " .. on_off_bool);
 		return true;
 
 	else
-		echo("lole_set: option \"" .. attrib_name .. "\" not available for config " .. get_current_config().name .. ".");
-		echo("Valid modes for config " .. get_current_config().name .. " are: |cFFFFFF00" .. get_available_mode_attribs());
+		echo("lole_set: attrib \"" .. attrib_name .. "\" not available!");
+		echo("Valid mode attribs are: |cFFFFFF00" .. get_available_mode_attribs());
 		return false;
 	end
 
@@ -500,13 +500,6 @@ local function lole_sendmacro(to, ...)
         script_text = "RunMacroText(\"" .. table.concat(atab, " ") .. "\")";
         SendAddonMessage("lole_runscript", script_text, "RAID");
     end
-end
-
-
-local function lole_durability()
-	if get_durability_status() == false then
-		SendChatMessage("VITTUJEE", "GUILD")
-	end
 end
 
 local function lole_raid_arr()
