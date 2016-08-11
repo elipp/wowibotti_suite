@@ -32,10 +32,14 @@ local function MAULGAR_KROSH()
 
 	caster_range_check(30);
 
-
 	if (has_buff("target", "Spell Shield")) then
-		SpellStopCasting()
-		CastSpellByName("Spellsteal")
+		local spell, rank, displayName, icon, startTime, endTime = UnitCastingInfo("target")
+		local timeleft = endTime - GetTime()
+		if timeleft < 400 then
+			SpellStopCasting()
+			CastSpellByName("Spellsteal")
+		end
+		return true;
 	end
 
 	CastSpellByName("Fireball")
