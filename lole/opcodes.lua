@@ -282,10 +282,10 @@ local function OCB_set_blast(mode)
  --  DelIgnore(LOLE_OPCODE_BLAST .. ":" .. mode);
 	if mode == 1 or mode == "1" then
 		lole_subcommands.set("blast", "1")
-		gui_enable_blast(true)
+		gui_set_blast(true)
 	else
 		lole_subcommands.set("blast", "0")
-		gui_enable_blast(false)
+		gui_set_blast(false)
 		clear_target();
 	end
 end

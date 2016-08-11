@@ -105,7 +105,7 @@ local function blast_check_settext(text)
 end
 
 function gui_set_blast(arg)
-	if arg == "1" then
+	if arg == true then
 		blast_checkbutton:SetChecked(true)
 		blast_check_settext(" BLAST ON!");
 	else
