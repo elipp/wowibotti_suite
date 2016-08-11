@@ -1,5 +1,5 @@
-function class_config_create(name, buffs, self_buffs, color, combatfunc, cooldown_spells, role)
-	
+function class_config_create(name, buffs, self_buffs, color, combatfunc, cooldown_spells, role, general_role)
+
 	local config = {}
 	config.name = name;
 	config.buffs = buffs;
@@ -8,6 +8,7 @@ function class_config_create(name, buffs, self_buffs, color, combatfunc, cooldow
 	config.combat = combatfunc;
 	config.cooldowns = cooldown_spells;
 	config.role = role;
-	
-	return config;	
+	config.general_role = general_role;
+
+	return config;
 end

@@ -13,8 +13,8 @@ lole_frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 lole_frame:RegisterEvent("PLAYER_LOGOUT")
 lole_frame:RegisterEvent("TRADE_SHOW")
 
-local every_nth_frame = 4
-local frame_modulo = 0
+local every_4th_frame = 0
+local every_30th_frame = 0
 
 local time_since_dcheck = 0
 
@@ -40,169 +40,12 @@ local function set_button_states()
 		if lbuffcheck_button:IsEnabled() == 0 then lbuffcheck_button:Enable() end
 		if add_cc_button:IsEnabled() == 0 then add_cc_button:Enable() end
 	end
-end
-
-local mtwarn_given = false
-
-lole_frame:SetScript("OnUpdate", function()
-	set_button_states()
-	check_durability()
-
-	if get_blast_state() and frame_modulo == 0 then
-
-		if not MAIN_TANK or not OFF_TANK and mtwarn_given == false then
-			SendChatMessage("warning! MAIN_TANK or OFF_TANK not set!", "GUILD")
-			mtwarn_given = true
-		end
-
-		do_CC_jobs();
-		lole_main();
-		avoid_spell_with_spellID(36240, 8); -- Cave In :)
-
-	end
-
-
-	frame_modulo = frame_modulo >= every_nth_frame and 0 or (frame_modulo + 1)
-
-end);
-
-
-local function LOLE_EventHandler(self, event, prefix, message, channel, sender)
-	--DEFAULT_CHAT_FRAME:AddMessage("LOLE_EventHandler: event:" .. event)
-
-	if event == "ADDON_LOADED" then
-		if prefix ~= "lole" then return end
-
-		if LOLE_CLASS_CONFIG_NAME_SAVED ~= nil then
-			lole_subcommands.setconfig(LOLE_CLASS_CONFIG_NAME_SAVED, LOLE_CLASS_CONFIG_ATTRIBS_SAVED);
-		else
-			lole_subcommands.setconfig("default");
-		end
-
-	--	clear_target()
-
-		update_mode_attrib_checkbox_states()
-		blast_check_settext(false)
-
-		update_injected_status(false) -- default
-
-		lole_debug_query_injected(); -- this will fire a CVAR_UPDATE if we're injected
-
-		lole_frame:UnregisterEvent("ADDON_LOADED");
-
-
-	elseif event == "PLAYER_DEAD" then
-		--clear_target();
-
-	elseif event == "PLAYER_REGEN_DISABLED" then
-		if IsRaidLeader() then
-		--	broadcast_follow_target(NOTARGET); -- REMEMBER TO REMOVE THIS!!
-		end
-	elseif event == "PLAYER_REGEN_ENABLED" then
-		-- if IsRaidLeader() then
-		-- 	broadcast_blast_state(0);
-		-- end
-
-	elseif event == "UPDATE_BATTLEFIELD_STATUS" then
-		-- lol
-
-	elseif event == "PARTY_INVITE_REQUEST" then
-	--	if GetNumRaidMembers() > 0 then return end
-
-		local guildies = get_guild_members()
-
-		if guildies[prefix] then
-			self:RegisterEvent("PARTY_MEMBERS_CHANGED");
-			AcceptGroup()
-			StaticPopup_Hide("PARTY_INVITE")
-		else
-			SendChatMessage("PARTY_INVITE_REQUEST: " .. prefix .. " doesn't appear to be a member of Uuslapio, not auto-accepting!", "GUILD")
-		--	DeclineGroup()
-		end
-
-
-	elseif event == "PARTY_MEMBERS_CHANGED" then
-		StaticPopup_Hide("PARTY_INVITE")
-		self:UnregisterEvent("PARTY_MEMBERS_CHANGED")
-
-		if IsRaidLeader() then
-			lole_subcommands.raid()
-		end
-	elseif event == "RESURRECT_REQUEST" then
-		if not UnitAffectingCombat(prefix) then
-			lole_frame:RegisterEvent('PLAYER_ALIVE')
-			lole_frame:RegisterEvent('PLAYER_UNGHOST', 'PLAYER_ALIVE')
-			AcceptResurrect()
-		else
-			SendChatMessage(prefix .. " resurrected my ass but appears to be in combat. Not auto-accepting.", "GUILD")
-		end
-	elseif event == "PLAYER_ALIVE" then
-		lole_frame:UnregisterEvent('PLAYER_ALIVE')
-		lole_frame:UnregisterEvent('PLAYER_UNGHOST', 'PLAYER_ALIVE')
-
-		StaticPopup_Hide("RESURRECT")
-		StaticPopup_Hide("RESURRECT_NO_SICKNESS")
-		StaticPopup_Hide("RESURRECT_NO_TIMER")
-
-		lole_subcommands.drink()
-
-	elseif event == "CONFIRM_SUMMON" then
-		local summoner = GetSummonConfirmSummoner() -- weird ass API..
-		local guildies = get_guild_members()
-
-		if guildies[summoner] then
-			ConfirmSummon()
-		else
-			SendChatMessage(summoner .. " attempted to summon my ass to " .. GetSummonConfirmAreaName() .. " but doesn't appear to be a member of Uuslapio, not auto-accepting!", "GUILD")
-		end
-
-	-- elseif event == "LOOT_OPENED" then
-	-- 	local num_items = GetNumLootItems()
-	-- 	for i = 1, num_items do
-	-- 		lootIcon, lootName, lootQuantity, rarity = GetLootSlotInfo(i);
-	-- 		echo(tostring(lootName) .. ", " .. tostring(lootQuantity) .. ", " .. tostring(rarity))
-	-- 	end
-
-	elseif event == "CVAR_UPDATE" then
-		if prefix == "inject" and message == "1" then
-			update_injected_status(true)
-		elseif prefix == "player_pos" then
-			update_player_pos_text("|cFFFFD100Player pos: |r" .. message)
-		elseif prefix == "target_pos" then
-			update_target_pos_text("|cFFFFD100Target pos: |r" .. message)
-		end
-
-
-	elseif event == "TRADE_SHOW" then
-		local guildies = get_guild_members();
-		if guildies[UnitName("npc")] then -- this is weird as fuck.. but the unit "npc" apparently represents the char that's trading with us
-			self:RegisterEvent("TRADE_ACCEPT_UPDATE")
-		end
-
-	elseif event == "TRADE_ACCEPT_UPDATE" then
-		if message == 1 then
-			-- prefix -> our answer, message -> theirs (accept:1, decline:0).
-			-- so this is that the trade partner has accepted, and we concur with AcceptTrade()
-			AcceptTrade()
-			self:UnregisterEvent("TRADE_ACCEPT_UPDATE")
-		end
-
-	elseif event == "PLAYER_ENTERING_WORLD" then
-		report_login(true);
-
-	elseif event == "PLAYER_LOGOUT" then
-		-- report_login(false) -- disable this
-	end
-
 
 end
-
-lole_frame:SetScript("OnEvent", LOLE_EventHandler);
 
 lole_frame:SetHeight(380)
 lole_frame:SetWidth(250)
 lole_frame:SetPoint("RIGHT", -25, 0)
-
 
 local backdrop = {
 	bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -246,28 +89,58 @@ local header_text = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal"
 header_text:SetPoint("TOP", header_texture, "TOP", 0, -14)
 header_text:SetText("LOLEXD")
 
-blast_checkbutton = CreateFrame("CheckButton", "blast_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
+local blast_checkbutton = CreateFrame("CheckButton", "blast_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
 blast_checkbutton:SetPoint("TOPLEFT", 15, -30);
-
-local blast_disabled_string = " BLAST disabled"
-local blast_enabled_string = " BLAST enabled!"
-
-blast_checkbutton.tooltip = "Whether BLAST is on or off.";
+blast_checkbutton:SetHitRectInsets(0, -80, 0, 0)
 
 blast_checkbutton:SetScript("OnClick",
   function()
 	local arg = blast_checkbutton:GetChecked() and "1" or "0"; -- this is equivalent to C's ternary operator ('?')
-	lole_subcommands.blast(arg)
+	gui_set_blast(arg)
+	lole_subcommands.set("blast", arg)
   end
 );
 
-function blast_check_settext(flag)
-	if (flag == true) then
-		getglobal(blast_checkbutton:GetName() .. "Text"):SetText(blast_enabled_string)
-	elseif (flag == false) then
-		getglobal(blast_checkbutton:GetName() .. "Text"):SetText(blast_disabled_string)
+local function blast_check_settext(text)
+	getglobal(blast_checkbutton:GetName() .. "Text"):SetText(text)
+end
+
+function gui_set_blast(arg)
+	if arg == "1" then
+		blast_checkbutton:SetChecked(true)
+		blast_check_settext(" BLAST ON!");
+	else
+		blast_checkbutton:SetChecked(false)
+		blast_check_settext(" BLAST off!");
 	end
 end
+
+local heal_blast_checkbutton = CreateFrame("CheckButton", "heal_blast_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
+heal_blast_checkbutton:SetPoint("TOPLEFT", 120, -30);
+heal_blast_checkbutton:SetHitRectInsets(0, -80, 0, 0)
+
+heal_blast_checkbutton:SetScript("OnClick",
+  function()
+	local arg = heal_blast_checkbutton:GetChecked() and "1" or "0";
+	gui_set_heal_blast(arg)
+	lole_subcommands.set("heal_blast", arg)
+  end
+);
+
+local function heal_blast_check_settext(text)
+	getglobal(heal_blast_checkbutton:GetName() .. "Text"):SetText(text)
+end
+
+function gui_set_heal_blast(arg)
+	if arg == "1" then
+		heal_blast_checkbutton:SetChecked(true)
+		heal_blast_check_settext(" HEALING ON!");
+	else
+		heal_blast_checkbutton:SetChecked(false)
+		heal_blast_check_settext(" HEALING off!");
+	end
+end
+
 
 local static_target_text = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 static_target_text:SetPoint("TOPLEFT", 18, -55);
@@ -538,17 +411,20 @@ aoemode_checkbutton:SetScript("OnClick",
   end
 );
 
-function update_mode_attrib_checkbox_states()
-	if lole_subcommands.get("playermode") == 1 then
-		playermode_checkbutton:SetChecked(true);
-	else
-		playermode_checkbutton:SetChecked(false);
-	end
+local mode_attrib_checkboxes = {
+	["playermode"] = playermode_checkbutton,
+	["aoemode"] = aoemode_checkbutton,
+	["blast"] = blast_checkbutton,
+	["heal_blast"] = heal_blast_checkbutton
+}
 
-	if lole_subcommands.get("aoemode") == 1 then
-		aoemode_checkbutton:SetChecked(true);
-	else
-		aoemode_checkbutton:SetChecked(false);
+function update_mode_attrib_checkbox_states()
+	for attrib, checkbutton in pairs(mode_attrib_checkboxes) do
+		if lole_subcommands.get(attrib) == 1 then
+			checkbutton:SetChecked(true)
+		else
+			checkbutton:SetChecked(false)
+		end
 	end
 end
 
@@ -812,3 +688,174 @@ target_pos_text:SetText("")
 function update_target_pos_text(arg)
 	target_pos_text:SetText("|cFFFFD100" .. arg)
 end
+
+
+local function do_combat_stuff()
+	do_CC_jobs();
+	lole_main();
+	avoid_spell_with_spellID(36240, 8); -- Cave In :)
+end
+
+local mtwarn_given = nil
+lole_frame:SetScript("OnUpdate", function()
+
+	if every_4th_frame == 0 then
+
+		if not MAIN_TANK or not OFF_TANK then
+			if not mtwarn_given then
+				SendChatMessage("warning! MAIN_TANK or OFF_TANK not set!", "GUILD")
+				mtwarn_given = 1
+			end
+		end
+
+		local r = get_current_config().general_role;
+		if r == "MELEE" or r == "RANGED" or r == "TANK" then
+			if lole_subcommands.get("blast") == 1 then
+				do_combat_stuff()
+			end
+
+		else -- "HEALER"
+			if lole_subcommands.get("heal_blast") == 1 then
+				do_combat_stuff()
+			end
+		end
+
+		update_mode_attrib_checkbox_states()
+
+	end
+
+	if every_30th_frame == 0 then
+		set_button_states()
+		check_durability()
+	end
+
+	every_4th_frame = every_4th_frame >= 4 and 0 or (every_4th_frame + 1)
+	every_30th_frame = every_30th_frame >= 30 and 0 or (every_30th_frame + 1)
+
+end);
+
+
+lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
+	--DEFAULT_CHAT_FRAME:AddMessage("LOLE_EventHandler: event:" .. event)
+
+	if event == "ADDON_LOADED" then
+		if prefix ~= "lole" then return end
+
+		if LOLE_CLASS_CONFIG_NAME_SAVED ~= nil then
+			lole_subcommands.setconfig(LOLE_CLASS_CONFIG_NAME_SAVED, LOLE_CLASS_CONFIG_ATTRIBS_SAVED);
+		else
+			lole_subcommands.setconfig("default");
+		end
+
+		update_injected_status(false) -- default
+		lole_debug_query_injected(); -- this will fire a CVAR_UPDATE if we're injected
+		blast_check_settext(" BLAST off!")
+		heal_blast_check_settext( "HEALING off!")
+
+		lole_frame:UnregisterEvent("ADDON_LOADED");
+
+
+	elseif event == "PLAYER_DEAD" then
+		--clear_target();
+
+	elseif event == "PLAYER_REGEN_DISABLED" then
+		if IsRaidLeader() then
+		--	broadcast_follow_target(NOTARGET); -- REMEMBER TO REMOVE THIS!!
+		end
+	elseif event == "PLAYER_REGEN_ENABLED" then
+		-- if IsRaidLeader() then
+		-- 	broadcast_blast_state(0);
+		-- end
+
+	elseif event == "UPDATE_BATTLEFIELD_STATUS" then
+		-- lol
+
+	elseif event == "PARTY_INVITE_REQUEST" then
+	--	if GetNumRaidMembers() > 0 then return end
+
+		local guildies = get_guild_members()
+
+		if guildies[prefix] then
+			self:RegisterEvent("PARTY_MEMBERS_CHANGED");
+			AcceptGroup()
+			StaticPopup_Hide("PARTY_INVITE")
+		else
+			SendChatMessage("PARTY_INVITE_REQUEST: " .. prefix .. " doesn't appear to be a member of Uuslapio, not auto-accepting!", "GUILD")
+		--	DeclineGroup()
+		end
+
+
+	elseif event == "PARTY_MEMBERS_CHANGED" then
+		StaticPopup_Hide("PARTY_INVITE")
+		self:UnregisterEvent("PARTY_MEMBERS_CHANGED")
+
+		if IsRaidLeader() then
+			lole_subcommands.raid()
+		end
+	elseif event == "RESURRECT_REQUEST" then
+		if not UnitAffectingCombat(prefix) then
+			lole_frame:RegisterEvent('PLAYER_ALIVE')
+			lole_frame:RegisterEvent('PLAYER_UNGHOST', 'PLAYER_ALIVE')
+			AcceptResurrect()
+		else
+			SendChatMessage(prefix .. " resurrected my ass but appears to be in combat. Not auto-accepting.", "GUILD")
+		end
+	elseif event == "PLAYER_ALIVE" then
+		lole_frame:UnregisterEvent('PLAYER_ALIVE')
+		lole_frame:UnregisterEvent('PLAYER_UNGHOST', 'PLAYER_ALIVE')
+
+		StaticPopup_Hide("RESURRECT")
+		StaticPopup_Hide("RESURRECT_NO_SICKNESS")
+		StaticPopup_Hide("RESURRECT_NO_TIMER")
+
+		lole_subcommands.drink()
+
+	elseif event == "CONFIRM_SUMMON" then
+		local summoner = GetSummonConfirmSummoner() -- weird ass API..
+		local guildies = get_guild_members()
+
+		if guildies[summoner] then
+			ConfirmSummon()
+		else
+			SendChatMessage(summoner .. " attempted to summon my ass to " .. GetSummonConfirmAreaName() .. " but doesn't appear to be a member of Uuslapio, not auto-accepting!", "GUILD")
+		end
+
+	-- elseif event == "LOOT_OPENED" then
+	-- 	local num_items = GetNumLootItems()
+	-- 	for i = 1, num_items do
+	-- 		lootIcon, lootName, lootQuantity, rarity = GetLootSlotInfo(i);
+	-- 		echo(tostring(lootName) .. ", " .. tostring(lootQuantity) .. ", " .. tostring(rarity))
+	-- 	end
+
+	elseif event == "CVAR_UPDATE" then
+		if prefix == "inject" and message == "1" then
+			update_injected_status(true)
+		elseif prefix == "player_pos" then
+			update_player_pos_text("|cFFFFD100Player pos: |r" .. message)
+		elseif prefix == "target_pos" then
+			update_target_pos_text("|cFFFFD100Target pos: |r" .. message)
+		end
+
+
+	elseif event == "TRADE_SHOW" then
+		local guildies = get_guild_members();
+		if guildies[UnitName("npc")] then -- this is weird as fuck.. but the unit "npc" apparently represents the char that's trading with us
+			self:RegisterEvent("TRADE_ACCEPT_UPDATE")
+		end
+
+	elseif event == "TRADE_ACCEPT_UPDATE" then
+		if message == 1 then
+			-- prefix -> our answer, message -> theirs (accept:1, decline:0).
+			-- so this is that the trade partner has accepted, and we concur with AcceptTrade()
+			AcceptTrade()
+			self:UnregisterEvent("TRADE_ACCEPT_UPDATE")
+		end
+
+	elseif event == "PLAYER_ENTERING_WORLD" then
+		report_login(true);
+
+	elseif event == "PLAYER_LOGOUT" then
+		-- report_login(false) -- disable this
+	end
+end
+)

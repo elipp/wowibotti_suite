@@ -1,82 +1,82 @@
 local LOLE_CLASS_CONFIG = "default";
-local LOLE_BLAST_STATE = nil;
 
 local available_configs = {
 	default =
-	class_config_create("default", {}, {}, "FFFFFF", function() end, {}, 0),
+	class_config_create("default", {}, {}, "FFFFFF", function() end, {}, 0, "NONE"),
 
 	druid_feral =
-	class_config_create("druid_feral", {"Mark of the Wild", "Thorns"}, {"Omen of Clarity", "Cat Form"}, get_class_color("druid"), combat_druid_feral, {}, ROLES.mana_melee),
+	class_config_create("druid_feral", {"Mark of the Wild", "Thorns"}, {"Omen of Clarity", "Cat Form"}, get_class_color("druid"), combat_druid_feral, {}, ROLES.mana_melee, "MELEE"),
 
 	druid_resto =
-	class_config_create("druid_resto", {"Mark of the Wild", "Thorns"}, {"Tree of Life"}, get_class_color("druid"), combat_druid_resto, {"Barkskin"}, ROLES.healer),
+	class_config_create("druid_resto", {"Mark of the Wild", "Thorns"}, {"Tree of Life"}, get_class_color("druid"), combat_druid_resto, {"Barkskin"}, ROLES.healer, "HEALER"),
 
 	druid_balance =
-	class_config_create("druid_balance", {"Mark of the Wild", "Thorns"}, {"Moonkin Form"}, get_class_color("druid"), combat_druid_balance, {"Barkskin"}, ROLES.caster),
+	class_config_create("druid_balance", {"Mark of the Wild", "Thorns"}, {"Moonkin Form"}, get_class_color("druid"), combat_druid_balance, {"Barkskin"}, ROLES.caster, "RANGED"),
 
 	hunter =
-	class_config_create("hunter", {}, {}, get_class_color("hunter"), combat_hunter, {"Bestial Wrath", "Rapid Fire"}, ROLES.mana_melee),
+	class_config_create("hunter", {}, {}, get_class_color("hunter"), combat_hunter, {"Bestial Wrath", "Rapid Fire"}, ROLES.mana_melee, "RANGED"),
 
 	mage_fire =
-	class_config_create("mage_fire", {"Arcane Intellect", "Amplify Magic"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_fire, {"Icy Veins", "Combustion"}, ROLES.caster),
+	class_config_create("mage_fire", {"Arcane Intellect", "Amplify Magic"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_fire, {"Icy Veins", "Combustion"}, ROLES.caster, "RANGED"),
 
 	mage_frost =
-	class_config_create("mage_frost", {"Arcane Intellect", "Amplify Magic"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_frost, {"Icy Veins"}, ROLES.caster),
+	class_config_create("mage_frost", {"Arcane Intellect", "Amplify Magic"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_frost, {"Icy Veins"}, ROLES.caster, "RANGED"),
 
 	paladin_prot =
-	class_config_create("paladin_prot", {}, {"Devotion Aura", "Righteous Fury"}, get_class_color("paladin"), combat_paladin_prot, {}, ROLES.paladin_tank),
+	class_config_create("paladin_prot", {}, {"Devotion Aura", "Righteous Fury"}, get_class_color("paladin"), combat_paladin_prot, {}, ROLES.paladin_tank, "TANK"),
 
 	paladin_holy =
-	class_config_create("paladin_holy", {}, {"Concentration Aura"}, get_class_color("paladin"), combat_paladin_holy, {"Divine Favor", "Divine Illumination"}, ROLES.healer),
+	class_config_create("paladin_holy", {}, {"Concentration Aura"}, get_class_color("paladin"), combat_paladin_holy, {"Divine Favor", "Divine Illumination"}, ROLES.healer, "HEALER"),
 
 	paladin_retri =
-	class_config_create("paladin_retri", {}, {"Sanctity Aura"}, get_class_color("paladin"), combat_paladin_retri, {"Avenging Wrath"}, ROLES.mana_melee),
+	class_config_create("paladin_retri", {}, {"Sanctity Aura"}, get_class_color("paladin"), combat_paladin_retri, {"Avenging Wrath"}, ROLES.mana_melee, "MELEE"),
 
 	priest_holy =
-	class_config_create("priest_holy", {"Power Word: Fortitude", "Shadow Protection"}, {"Inner Fire"}, get_class_color("priest"), combat_priest_holy, {"Inner Focus"}, ROLES.healer),
+	class_config_create("priest_holy", {"Power Word: Fortitude", "Shadow Protection"}, {"Inner Fire"}, get_class_color("priest"), combat_priest_holy, {"Inner Focus"}, ROLES.healer, "HEALER"),
 
-  priest_holy_ds =
-  class_config_create("priest_holy_ds", {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection"}, {"Inner Fire"}, get_class_color("priest"), combat_priest_holy, {"Inner Focus"}, ROLES.healer),
+	priest_holy_ds =
+	class_config_create("priest_holy_ds", {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection"}, {"Inner Fire"}, get_class_color("priest"), combat_priest_holy, {"Inner Focus"}, ROLES.healer, "HEALER"),
 
 	priest_shadow =
-	class_config_create("priest_shadow", {"Power Word: Fortitude", "Shadow Protection"}, {"Shadowform", "Inner Fire"}, get_class_color("priest"), combat_priest_shadow, {"Inner Focus"}, ROLES.caster),
+	class_config_create("priest_shadow", {"Power Word: Fortitude", "Shadow Protection"}, {"Shadowform", "Inner Fire"}, get_class_color("priest"), combat_priest_shadow, {"Inner Focus"}, ROLES.caster, "RANGED"),
 
 	rogue_combat =
-	class_config_create("rogue_combat", {}, {}, get_class_color("rogue"), combat_rogue_combat, {"Adrenaline Rush", "Blade Flurry"}, ROLES.melee),
+	class_config_create("rogue_combat", {}, {}, get_class_color("rogue"), combat_rogue_combat, {"Adrenaline Rush", "Blade Flurry"}, ROLES.melee, "MELEE"),
 
 	shaman_enh =
-	class_config_create("shaman_enh", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_enh, {"Bloodlust", "Shamanistic Rage"}, ROLES.mana_melee),
+	class_config_create("shaman_enh", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_enh, {"Bloodlust", "Shamanistic Rage"}, ROLES.mana_melee, "MELEE"),
 
 	shaman_elem =
-	class_config_create("shaman_elem", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_elem, {"Bloodlust", "Elemental Mastery"}, ROLES.caster),
+	class_config_create("shaman_elem", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_elem, {"Bloodlust", "Elemental Mastery"}, ROLES.caster, "RANGED"),
 
 	shaman_resto =
-	class_config_create("shaman_resto", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_resto, {"Bloodlust"}, ROLES.healer),
+	class_config_create("shaman_resto", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_resto, {"Bloodlust"}, ROLES.healer, "HEALER"),
 
 	warlock_affli =
-	class_config_create("warlock_affli", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_affli, {}, ROLES.caster),
+	class_config_create("warlock_affli", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_affli, {}, ROLES.caster, "RANGED"),
 
 	warlock_sb =
-	class_config_create("warlock_sb", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_sb, {}, ROLES.caster),
+	class_config_create("warlock_sb", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_sb, {}, ROLES.caster, "RANGED"),
 
 	warrior_fury =
-	class_config_create("warrior_fury", {}, {"Battle Shout"}, get_class_color("warrior"), combat_warrior_fury, {"Recklessness"}, ROLES.melee),
+	class_config_create("warrior_fury", {}, {"Battle Shout"}, get_class_color("warrior"), combat_warrior_fury, {"Recklessness"}, ROLES.melee, "MELEE"),
 
 	warrior_arms =
-	class_config_create("warrior_arms", {}, {"Battle Shout"}, get_class_color("warrior"), combat_warrior_arms, {"Death Wish"}, ROLES.melee),
+	class_config_create("warrior_arms", {}, {"Battle Shout"}, get_class_color("warrior"), combat_warrior_arms, {"Death Wish"}, ROLES.melee, "MELEE"),
 
 	warrior_prot =
-	class_config_create("warrior_prot", {}, {"Commanding Shout"}, get_class_color("warrior"), combat_warrior_prot, {}, ROLES.warrior_tank),
+	class_config_create("warrior_prot", {}, {"Commanding Shout"}, get_class_color("warrior"), combat_warrior_prot, {}, ROLES.warrior_tank, "TANK"),
 	--mage_aespam =
 	--class_config_create("mage_aespam", {}, {}, get_class_color("mage"), function() CastSpellByName("Arcane Explosion") end, {}, ROLES.caster),
 };
-
 
 local mode_attribs = {
 	playermode = 0,
 	buffmode = 0,
 	combatbuffmode = 0,
-	aoemode = 0
+	aoemode = 0,
+	blast = 0,
+	heal_blast = 0,
 }
 
 function get_available_configs()
@@ -87,12 +87,8 @@ function get_current_config()
 	return available_configs[LOLE_CLASS_CONFIG]
 end
 
-function get_blast_state()
-	return LOLE_BLAST_STATE
-end
-
-function set_blast_state(state)
-	LOLE_BLAST_STATE = state
+local function get_available_mode_attribs()
+	return table.concat(mode_attribs, ", ")
 end
 
 local function lole_setconfig(arg, modes)
@@ -130,9 +126,9 @@ end
 
 local function lole_getconfig(arg)
 	local str = "nil";
-	if (LOLE_CLASS_CONFIG.name ~= nil) then str = LOLE_CLASS_CONFIG.name; end
+	if (get_current_config().name ~= nil) then str = get_current_config().name; end
 
-	echo("lole: current config: |cFFFFFF00" .. str);
+	echo("current config: |cFFFFFF00" .. str);
 	echo("mode attribs:");
 	for k,v in pairs(mode_attribs) do echo("|cFFFFFF00" .. k .. ": " .. v); end
 
@@ -152,7 +148,7 @@ end
 local function lole_set(attrib_name, on_off_str)
 
 	if (attrib_name == nil or attrib_name == "") then
-		echo("lole_set: no argument! valid modes for config " .. LOLE_CLASS_CONFIG.name .. " are: |cFFFFFF00" .. get_config_mode_attribs(LOLE_CLASS_CONFIG));
+		echo("lole_set: no argument! valid modes for config " .. get_current_config().name .. " are: |cFFFFFF00" .. get_available_mode_attribs());
 		return false;
 	end
 
@@ -165,26 +161,29 @@ local function lole_set(attrib_name, on_off_str)
 		end
 
 		mode_attribs[attrib_name] = on_off_bool;
-        if attrib_name == "buffmode" then
-            BUFF_TABLE_READY = false;
-            if on_off_bool == 1 then
-                BUFF_TIME = GetTime();
-            end
-        else
-		    LOLE_CLASS_CONFIG_ATTRIBS_SAVED[attrib_name] = on_off_bool;
+    if attrib_name == "buffmode" then
+        BUFF_TABLE_READY = false;
+        if on_off_bool == 1 then
+            BUFF_TIME = GetTime();
         end
+    else
+    LOLE_CLASS_CONFIG_ATTRIBS_SAVED[attrib_name] = on_off_bool;
+    end
 
 		echo("lole_set: attrib \"" .. attrib_name .. "\" set to " .. on_off_bool);
-
 		return true;
 
 	else
-		echo("lole_set: option \"" .. attrib_name .. "\" not available for config " .. LOLE_CLASS_CONFIG.name .. ".");
-		echo("Valid modes for config " .. LOLE_CLASS_CONFIG.name .. " are: |cFFFFFF00" .. get_config_mode_attribs(LOLE_CLASS_CONFIG));
+		echo("lole_set: option \"" .. attrib_name .. "\" not available for config " .. get_current_config().name .. ".");
+		echo("Valid modes for config " .. get_current_config().name .. " are: |cFFFFFF00" .. get_available_mode_attribs());
 		return false;
 	end
 
 	return true;
+end
+
+local function lole_setall(attrib_name, on_off_str)
+	broadcast_modeattrib_setall(attrib_name, on_off_str)
 end
 
 local function lole_get(attrib_name)
@@ -491,8 +490,9 @@ lole_subcommands = {
 	followme = lole_followme;
 	stopfollow = lole_stopfollow;
 	set = lole_set;
+	setall = lole_setall;
 	get = lole_get;
-	blast = lole_blast;
+	--blast = lole_blast;
 	ctm = lole_ctm;
 	cooldowns = lole_cooldowns;
 	buffs = do_buffs;

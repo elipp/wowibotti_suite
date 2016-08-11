@@ -25,7 +25,8 @@ LOLE_OPCODE_REPORT_LOGIN,
 LOLE_OPCODE_WALK_TO_PULLING_RANGE,
 LOLE_OPCODE_GET_BEST_CHAINHEAL_TARGET,
 LOLE_OPCODE_MAULGAR_GET_UNBANISHED_FELHOUND,
-LOLE_OPCODE_OFF_TANK
+LOLE_OPCODE_OFF_TANK,
+LOLE_OPCODE_SET_ALL
 
 = "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04",
 "LOP_05", "LOP_06", "LOP_07", "LOP_08",
@@ -33,7 +34,7 @@ LOLE_OPCODE_OFF_TANK
 "LOP_0D", "LOP_0E", "LOP_0F", "LOP_10",
 "LOP_11", "LOP_12", "LOP_13", "LOP_14",
 "LOP_15", "LOP_16", "LOP_17", "LOP_18",
-"LOP_19"
+"LOP_19", "LOP_1A"
 
 local
 LOLE_DEBUG_OPCODE_NOP,
@@ -53,6 +54,10 @@ function send_opcode_addonmsg(opcode, message)
 	SendAddonMessage("lole_opcode", opcode .. ":" .. message, "RAID");
 end
 
+function send_opcode_addonmsg_guild(opcode, message)
+	SendAddonMessage("lole_opcode", opcode .. ":" .. message, "GUILD");
+end
+
 function send_opcode_addonmsg_to(opcode, message, to)
 	SendAddonMessage("lole_opcode", opcode .. ":" .. message, "WHISPER", to)
 end
@@ -65,8 +70,8 @@ function broadcast_follow_target(target_GUID)
 	send_opcode_addonmsg(LOLE_OPCODE_FOLLOW, cipher_GUID(target_GUID))
 end
 
-function broadcast_blast_state(state)
-	send_opcode_addonmsg(LOLE_OPCODE_BLAST, tostring(state));
+function broadcast_modeattrib_setall(attrib, state)
+	send_opcode_addonmsg(LOLE_OPCODE_SET_ALL, attrib .. "," .. tostring(state));
 end
 
 function broadcast_cooldowns()
@@ -168,7 +173,7 @@ function melee_attack_behind()
 end
 
 function leave_party_all()
-	send_opcode_addonmsg(LOLE_OPCODE_LEAVE_PARTY, "")
+	send_opcode_addonmsg_guild(LOLE_OPCODE_LEAVE_PARTY, "")
 end
 
 function release_spirit_all()
@@ -276,13 +281,11 @@ end
 local function OCB_set_blast(mode)
  --  DelIgnore(LOLE_OPCODE_BLAST .. ":" .. mode);
 	if mode == 1 or mode == "1" then
-		set_blast_state(true)
-		blast_checkbutton:SetChecked(true)
-		blast_check_settext(true);
+		lole_subcommands.set("blast", "1")
+		gui_enable_blast(true)
 	else
-		set_blast_state(nil)
-		blast_checkbutton:SetChecked(false)
-		blast_check_settext(false);
+		lole_subcommands.set("blast", "0")
+		gui_enable_blast(false)
 		clear_target();
 	end
 end
@@ -373,6 +376,17 @@ local function OCB_set_cc_target(arg)
 	return false;
 end
 
+local function OCB_set_all(arg)
+	local attrib, state = strsplit(",", arg)
+
+	if attrib == "blast" then
+		gui_set_blast(arg)
+	elseif attrib == "heal_blast" then
+		gui_set_heal_blast(arg)
+	end
+	lole_subcommands.set(attrib, state)
+end
+
 local function OCB_drink()
 	lole_subcommands.drink()
 end
@@ -427,5 +441,6 @@ lole_opcode_funcs = {
 	[LOLE_OPCODE_RELEASE_SPIRIT] =		OCB_release_spirit,
 	[LOLE_OPCODE_MAIN_TANK] =			OCB_main_tank,
 	[LOLE_OPCODE_PULL_MOB] = 			OCB_pull_mob,
-	[LOLE_OPCODE_OFF_TANK] =			OCB_off_tank
+	[LOLE_OPCODE_OFF_TANK] =			OCB_off_tank,
+	[LOLE_OPCODE_SET_ALL] =				OCB_set_all,
 }

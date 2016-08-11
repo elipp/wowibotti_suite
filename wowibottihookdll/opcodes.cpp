@@ -465,7 +465,7 @@ static const WO_cached *find_most_hurt_within_CH_bounce(const WO_cached *unit, c
 
 //	PRINT("calling CHbounce with unit %s, unit2 %s\n", unit->name.c_str(), unit2 ? unit2->name.c_str() : "NULL");
 
-	for (int i = 0; i < candidates.size(); ++i) {
+	for (unsigned i = 0; i < candidates.size(); ++i) {
 		const WO_cached *c = &candidates[i];
 		if (c->GUID == unit->GUID) { continue; }
 		if (unit2 && c->GUID == unit2->GUID) { continue; }
@@ -528,7 +528,7 @@ static void LOP_get_best_CH(const std::string &arg) {
 
 	memset(&o, 0, sizeof(o));
 	
-	for (int i = 0; i < deficit_candidates.size(); ++i) {
+	for (unsigned i = 0; i < deficit_candidates.size(); ++i) {
 		// scan vicinity for hurt chars within 12.5 yards
 
 		const WO_cached *c = &deficit_candidates[i];
@@ -761,7 +761,8 @@ static int dump_wowobjects_to_log() {
 	}
 
 	static const std::string log_path = std::string(desktop_path) + "\\wodump.log";
-	FILE *fp = fopen(log_path.c_str(), "w");
+	FILE *fp;
+	errno_t err = fopen_s(&fp, log_path.c_str(), "w");
 
 	if (!fp) {
 		PRINT("Opening file \"%s\" failed!\n", log_path.c_str());

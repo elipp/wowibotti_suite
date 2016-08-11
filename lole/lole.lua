@@ -54,10 +54,12 @@ function lole_main(args)
             BUFFS_CHECKED = false;
 			return;
         end
-        if lole_subcommands.get("playermode") ~= 1 then
+
+		if lole_subcommands.get("playermode") ~= 1 then
             if UnitExists("focus") and UnitIsDead("focus") then
 				ClearFocus()
 			end
+
 			get_current_config().combat();
 
         end

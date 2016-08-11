@@ -22,7 +22,7 @@ local function delrissa()
 end
 
 local function MAULGAR_KROSH()
-	if not UnitName("player") == "Dissona" then
+	if UnitName("player") ~= "Dissona" then
 		return false
 	end
 
