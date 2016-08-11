@@ -97,7 +97,7 @@ blast_checkbutton:SetScript("OnClick",
   function()
 	local arg = blast_checkbutton:GetChecked() and "1" or "0"; -- this is equivalent to C's ternary operator ('?')
 	gui_set_blast(arg)
-	lole_subcommands.set("blast", arg)
+	lole_subcommands.setall("blast", arg)
   end
 );
 
@@ -123,7 +123,7 @@ heal_blast_checkbutton:SetScript("OnClick",
   function()
 	local arg = heal_blast_checkbutton:GetChecked() and "1" or "0";
 	gui_set_heal_blast(arg)
-	lole_subcommands.set("heal_blast", arg)
+	lole_subcommands.setall("heal_blast", arg)
   end
 );
 
