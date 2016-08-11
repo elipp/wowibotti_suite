@@ -51,7 +51,7 @@ combat_priest_holy = function()
 		return;
 	end
 
-	caster_range_check(30);
+	caster_range_check(35);
 
 	local health_max = UnitHealthMax("target");
 	local health_cur = UnitHealth("target");

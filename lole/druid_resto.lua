@@ -1,5 +1,5 @@
 MAIN_TANK = "Gawk";
-local reverse_target = {Noctur="Gawk", Gawk="Noctur"};
+local reverse_target = {Adieux="Gawk", Gawk="Adieux"};
 
 local function on_spell_sent_event(self, event, caster, spell, rank, target)
 	if reverse_target[target] then
@@ -67,7 +67,7 @@ combat_druid_resto = function()
     end
 
 	if MAIN_TANK == "Gawk" then
-    	MAIN_TANK = "Noctur"
+    	MAIN_TANK = "Adieux"
     else
     	MAIN_TANK = "Gawk"
     end
