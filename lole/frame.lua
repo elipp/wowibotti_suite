@@ -694,15 +694,15 @@ local function do_combat_stuff()
 	avoid_spell_with_spellID(36240, 8); -- Cave In :)
 end
 
-local mtwarn_given = nil
+local mtwarn_given = GetTime()
 lole_frame:SetScript("OnUpdate", function()
 
 	if every_4th_frame == 0 then
 
 		if not MAIN_TANK or not OFF_TANK then
-			if not mtwarn_given then
+			if (GetTime() - mtwarn_given) > 15 then
 				SendChatMessage("warning! MAIN_TANK or OFF_TANK not set!", "GUILD")
-				mtwarn_given = 1
+				mtwarn_given = GetTime()
 			end
 		end
 
