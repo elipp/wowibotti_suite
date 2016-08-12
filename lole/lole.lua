@@ -67,7 +67,8 @@ function lole_main(args)
 
 
 	if (IsRaidLeader()) then
-		if UnitExists("focus") and UnitIsDead("focus") then
+		if (BLAST_TARGET_GUID ~= NOTARGET or (not UnitExists("focus")))
+		or (UnitExists("focus") and UnitIsDead("focus")) then
 			clear_target()
 			broadcast_target_GUID(NOTARGET)
 		end

@@ -22,7 +22,7 @@ local function delrissa()
 end
 
 local function MAULGAR_KROSH()
-	if UnitName("player") ~= "Dissona" then
+	if UnitName("player") ~= "Stigu" then
 		return false
 	end
 
@@ -33,12 +33,8 @@ local function MAULGAR_KROSH()
 	caster_range_check(30);
 
 	if (has_buff("target", "Spell Shield")) then
-		local spell, rank, displayName, icon, startTime, endTime = UnitCastingInfo("target")
-		local timeleft = endTime - GetTime()
-		if timeleft < 400 then
-			SpellStopCasting()
-			CastSpellByName("Spellsteal")
-		end
+		SpellStopCasting()
+		CastSpellByName("Spellsteal")
 		return true;
 	end
 
