@@ -520,6 +520,7 @@ local function lole_inv_ordered()
 		if not UnitInRaid(name) then
 			InviteUnit(name)
 			ConvertToRaid()
+			return
 		end
 	end
 end
