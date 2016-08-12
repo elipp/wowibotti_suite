@@ -522,7 +522,7 @@ function validate_target()
 
 	if BLAST_TARGET_GUID ~= NOTARGET and UnitExists("focus") and BLAST_TARGET_GUID == UnitGUID("focus") then
 		if not UnitIsDead("focus") then
-			if get_current_config().general_role ~= "RANGED" then
+			if get_current_config().general_role == "MELEE" then
 				if UnitName("focus") == "Krosh Firehand" then
 					AssistUnit("Gawk")
 					return true;
