@@ -9,12 +9,14 @@ combat_druid_balance = function()
 
 	caster_range_check(30)
 
-	if not has_debuff("target", "Insect Swarm") then
-		CastSpellByName("Insect Swarm");
-	-- elseif not target_has_debuff("target", "Moonfire") then CastSpellByName("Moonfire");
-	else
-		CastSpellByName("Starfire");
-	--	CastSpellByName("Wrath")
-	end
+	-- if not has_debuff("target", "Insect Swarm") then
+	--    CastSpellByName("Insect Swarm");
+	-- -- elseif not target_has_debuff("target", "Moonfire") then CastSpellByName("Moonfire");
+	-- else
+	-- 	CastSpellByName("Starfire");
+	-- --	CastSpellByName("Wrath")
+	-- end
+    
+    CastSpellByName("Starfire");
 
 end
