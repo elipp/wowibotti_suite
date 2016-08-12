@@ -502,8 +502,26 @@ local function lole_sendmacro(to, ...)
     end
 end
 
-local function lole_raid_arr()
+local invite_order = {
+	"Adieux", "Igop", "Kusip", "Gyorgy",
+	"Ribb", "Meisseln", "Crq", "Josp", "Teline",
+	"Jobim", "Nilck", "Mulck", "Pogi", "Gawk",
+	"Consona", "Dissona", "Kasio", "Bogomips", "Puhveln",
+	"Viginti", "Ceucho", "Mam", "Pussu", "Pehmware"
+}
 
+local function lole_inv_ordered()
+	if UnitName("player") ~= "Noctur" then
+		echo("Please run this function as Noctur.")
+		return
+	end
+
+	for i, name in ipairs(invite_order) do
+		if not UnitInRaid(name) then
+			InviteUnit(name)
+			ConvertToRaid()
+		end
+	end
 end
 
 local function lole_raid_aoe(on_off_str)
@@ -538,7 +556,7 @@ lole_subcommands = {
 	clearcc = lole_clearcc;
 	pull = lole_pull;
 	durability = lole_durability;
-	raid_arr = lole_raid_arr;
+	inv_ordered = lole_inv_ordered;
     raid_aoe = lole_raid_aoe;
 
 	sendscript = lole_sendscript;
