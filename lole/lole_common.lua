@@ -522,7 +522,7 @@ function validate_target()
 
 	if BLAST_TARGET_GUID ~= NOTARGET and UnitExists("focus") and BLAST_TARGET_GUID == UnitGUID("focus") then
 		if not UnitIsDead("focus") then
-			if get_current_config().general_role == "RANGED" then
+			if get_current_config().general_role ~= "RANGED" then
 				if UnitName("focus") == "Krosh Firehand" then
 					AssistUnit("Gawk")
 					return true;
@@ -532,7 +532,7 @@ function validate_target()
 			if has_debuff("focus", "Polymorph") or has_debuff("focus", "Shackle") then
 			 	return false;
 			end
-			
+
 			TargetUnit("focus");
 			return true;
 		else
