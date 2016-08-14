@@ -687,7 +687,6 @@ function update_target_pos_text(arg)
 	target_pos_text:SetText("|cFFFFD100" .. arg)
 end
 
-
 local function do_combat_stuff()
 	do_CC_jobs();
 	lole_main();
@@ -828,6 +827,7 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 	elseif event == "CVAR_UPDATE" then
 		if prefix == "inject" and message == "1" then
 			update_injected_status(true)
+			echo("Late injection ok!")
 		elseif prefix == "player_pos" then
 			update_player_pos_text("|cFFFFD100Player pos: |r" .. message)
 		elseif prefix == "target_pos" then

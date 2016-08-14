@@ -303,6 +303,9 @@ uint WowObject::NPC_get_debuff(int index) const {
 }
 
 uint WowObject::NPC_get_buff_duration(int index, uint spellID) const {
+	
+	// if the mob has debuffs from another player, this segfaults
+	
 	uint EDX1;
 	readAddr(base + 0x116C, &EDX1, sizeof(EDX1));
 
@@ -329,6 +332,12 @@ uint WowObject::NPC_get_buff_duration(int index, uint spellID) const {
 				break;
 			}
 		}
+
+		if (EDX1 == 0) {
+			printf("EDX1 reached 0, returning 0 for duration!\n");
+			return 0;
+		}
+
 	}
 
 	EDX1 = EDX1 << 0x4;

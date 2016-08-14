@@ -45,7 +45,8 @@ local function NS_heal_on_tank()
 end
 
 combat_shaman_resto = function()
-    local mage_tank = "Dissona";
+    --local mage_tank = "Dissona";
+	local mage_tank = MAIN_TANK
 
 	if casting_legit_heal() then return end
 
