@@ -37,6 +37,7 @@ typedef void(*hubfunc_t)(const std::string &);
 #define LOLE_OPCODE_MAULGAR_GET_UNBANISHED_FELHOUND 0x18
 #define LOLE_OPCODE_OFF_TANK						0x19
 #define LOLE_OPCODE_SET_ALL							0x1A
+#define LOLE_OPCODE_MELEE_AVOID_AOE_BUFF			0x1B
 
 #define LOLE_DEBUG_OPCODE_NOP						0x80
 #define LOLE_DEBUG_OPCODE_DUMP						0x81

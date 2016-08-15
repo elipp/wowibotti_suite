@@ -1,19 +1,50 @@
 local scorpid_time = 0
 
+local pet_warning_given = nil
+local function feed_pet_if_need_to()
+
+    if has_buff("pet", "Feed Pet Effect") then return false end
+    local happiness = GetPetHappiness()
+
+    if happiness ~= nil and happiness < 3 then
+        local _, link = GetItemInfo(29451) -- Clefthoof Ribs
+        local bag, slot = get_item_bag_position(link)
+
+        if not bag then
+            if not pet_warning_given then
+                SendChatMessage("Pet is unhappy, and I don't's gots no [ribs] for him!", "GUILD")
+                pet_warning_given = true
+            end
+            return false
+        end
+
+        PickupContainerItem(bag, slot)
+
+        DropItemOnUnit("pet")
+
+        return true
+    end
+
+    return false
+
+end
+
 combat_hunter = function()
     PetPassiveMode() -- just do this no matter what :D
+    TargetUnit("pet")
+
+    if not UnitExists("target") or UnitIsDead("pet") then
+        CastSpellByName("Call Pet");
+        CastSpellByName("Revive Pet");
+    end
+
+    if not UnitAffectingCombat("player") then if feed_pet_if_need_to() then return end end
 
     if not validate_target() then
-        PetPassiveMode()
         PetStopAttack()
         PetWait()
         PetFollow()
         return;
-    end
-
-    if not PetHasActionBar() then
-        CastSpellByName("Call Pet");
-        CastSpellByName("Revive Pet");
     end
 
     if UnitMana("player") < 800 then
@@ -24,22 +55,32 @@ combat_hunter = function()
     elseif UnitMana("player") > 2500 then
         if not has_buff("player", "Aspect of the Hawk") then
             CastSpellByName("Aspect of the Hawk")
+            return
         end
     end
 
-    if not has_buff("pet", "Mend Pet") and UnitHealthMax("pet") - UnitHealth("pet") > 2000 then
+    if not has_buff("pet", "Mend Pet")
+    and (UnitHealthMax("pet") - UnitHealth("pet")) > 1000 then
         CastSpellByName("Mend Pet");
         return;
     end
 
-    if not validate_target() then return end
-
     PetAttack()
     caster_range_check(35)
 
-    if GetSpellCooldown("Claw") == 0 then
-        CastSpellByName("Scorpid Poison")
-        CastSpellByName("Claw")
+    -- if GetSpellCooldown("Claw") == 0 then
+    --     CastSpellByName("Scorpid Poison")
+    --     CastSpellByName("Claw")
+    -- end
+
+    if IsUsableSpell("Kill Command") then
+        cast_if_nocd("Kill Command")
+    end
+
+    if GetSpellCooldown("Bite") == 0 then
+        CastSpellByName("Bite")
+    else
+        CastSpellByName("Gore")
     end
 
     if not has_debuff("target", "Hunter's Mark") then
@@ -52,13 +93,8 @@ combat_hunter = function()
         return
     end
 
-
     if lole_subcommands.get("aoemode") then
         if cast_if_nocd("Multi Shot") then return end
-    end
-
-    if IsUsableSpell("Kill Command") then
-        if cast_if_nocd("Kill Command") then return; end
     end
 
     CastSpellByName("Steady Shot");

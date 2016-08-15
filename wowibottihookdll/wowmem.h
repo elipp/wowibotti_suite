@@ -104,6 +104,9 @@ public:
 	uint NPC_get_buff_duration(int index, uint spellID) const;
 	uint NPC_get_debuff_duration(int index, uint spellID) const;
 
+	int NPC_has_buff(uint spellID) const;
+	int NPC_has_debuff(uint spellID) const;
+
 	std::string unit_get_name() const;
 	GUID_t unit_get_target_GUID() const;
 

@@ -72,7 +72,8 @@ combat_warrior_fury = function()
 		cast_if_nocd("Pummel");
 	end
 
-  if not has_buff("player", "Rampage") then
+	local has, timeleft, stacks = has_buff("player", "Rampage")
+  if not has_buff("player", "Rampage") or timeleft < 3 then
     CastSpellByName("Rampage")
     return
   end

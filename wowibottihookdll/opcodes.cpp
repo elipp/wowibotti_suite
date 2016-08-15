@@ -152,6 +152,26 @@ static void LOP_melee_behind(const std::string &arg) {
 
 }
 
+static void LOP_melee_avoid_aoe_buff(const std::string &arg) {
+	
+	ObjectManager OM;
+
+	char *endptr;
+	uint arg_spellID = strtoul(arg.c_str(), &endptr, 10);
+
+	WowObject o = OM.get_first_object();
+
+	while (o.valid()) {
+
+		if (o.NPC_has_buff(arg_spellID)) {
+			// ctm_add() / click_to_move()
+		}
+
+		o = o.getNextObject();
+	}
+
+}
+
 static void LOP_target_GUID(const std::string &arg) {
 
 	std::vector<std::string> tokens;
@@ -503,7 +523,10 @@ static void LOP_get_best_CH(const std::string &arg) {
 	std::vector <WO_cached> units;
 	while (next.valid()) {
 		if (next.get_type() == OBJECT_TYPE_UNIT) {
-			units.push_back(WO_cached(next.get_GUID(), next.get_pos(), next.unit_get_health(), next.unit_get_health_max(), next.unit_get_name()));
+			uint hp = next.unit_get_health();
+			if (hp > 0) {
+				units.push_back(WO_cached(next.get_GUID(), next.get_pos(), hp, next.unit_get_health_max(), next.unit_get_name()));
+			}
 		}
 		next = next.getNextObject();
 	}
@@ -667,6 +690,7 @@ static const struct {
 	{ "LOLE_GET_BEST_CHAINHEAL_TARGET", LOP_get_best_CH, 0},
 	{ "LOLE_MAULGAR_GET_UNBANISHED_FELHOUND", LOP_maulgar_get_felhound, 0 },
 	{ "LOLE_OFF_TANK", LOP_nop, 0},
+	{ "LOLE_MELEE_AVOID_AOE_BUFF", LOP_melee_avoid_aoe_buff, 1},
 };
 
 static const struct {
@@ -787,9 +811,10 @@ static int dump_wowobjects_to_log() {
 			if (type == OBJECT_TYPE_NPC) {
 				fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", next.NPC_get_name().c_str(), next.NPC_get_health(), next.NPC_get_health_max(), next.NPC_get_target_GUID(), next.in_combat());
 				fprintf(fp, "buffs (by spellID):\n");
-				for (int n = 1; n <= 16; ++n) {
+				for (int n = 1; n <= 16; ++n) { // the maximum is actually 40, but..
 					uint spellID = next.NPC_get_buff(n);
 					if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
+					else break;
 				}
 
 				fprintf(fp, "\ndebuffs (by spellID):\n");
@@ -800,6 +825,7 @@ static int dump_wowobjects_to_log() {
 						uint duration = next.NPC_get_debuff_duration(n, spellID);
 						fprintf(fp, "%d: %u, duration = %u\n", n, spellID, duration);
 					}
+					else break;
 				}
 
 				fprintf(fp, "\n");

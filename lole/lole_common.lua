@@ -678,6 +678,20 @@ function get_durability_status()
 	return true
 end
 
+function get_item_bag_position(itemLink)
+
+    for bag = 0, NUM_BAG_SLOTS do
+        for slot = 1, GetContainerNumSlots(bag) do
+            if(GetContainerItemLink(bag, slot) == itemLink) then
+                return bag, slot
+            end
+        end
+    end
+
+	return nil,nil
+
+end
+
 function in_raid_group()
 	if GetNumPartyMembers() > 0 then
 		if GetNumRaidMembers() > 0 then

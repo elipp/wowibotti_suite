@@ -21,7 +21,9 @@ local function should_cast_PoH()
 end
 
 combat_priest_holy = function()
-    local mage_tank = "Dissona";
+--    local mage_tank = "Dissona";
+	local mage_tank = MAIN_TANK
+
     if UnitName("player") == "Kasio" then
 		heal_target = OFF_TANK
     else
@@ -64,7 +66,7 @@ combat_priest_holy = function()
 	elseif (should_cast_PoH()) then
 		cast_spell("Prayer of Healing");
     elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
-        TargetUnit("player"); 
+        TargetUnit("player");
         cast_spell("Greater Heal");
 	elseif (health_cur < health_max * 0.60) then
 		if not targeting_self and (UnitHealth("player") < UnitHealthMax("player")*0.50) then

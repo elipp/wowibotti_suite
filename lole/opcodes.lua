@@ -26,7 +26,8 @@ LOLE_OPCODE_WALK_TO_PULLING_RANGE,
 LOLE_OPCODE_GET_BEST_CHAINHEAL_TARGET,
 LOLE_OPCODE_MAULGAR_GET_UNBANISHED_FELHOUND,
 LOLE_OPCODE_OFF_TANK,
-LOLE_OPCODE_SET_ALL
+LOLE_OPCODE_SET_ALL,
+LOLE_OPCODE_MELEE_AVOID_AOE_BUFF
 
 = "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04",
 "LOP_05", "LOP_06", "LOP_07", "LOP_08",
@@ -34,7 +35,7 @@ LOLE_OPCODE_SET_ALL
 "LOP_0D", "LOP_0E", "LOP_0F", "LOP_10",
 "LOP_11", "LOP_12", "LOP_13", "LOP_14",
 "LOP_15", "LOP_16", "LOP_17", "LOP_18",
-"LOP_19", "LOP_1A"
+"LOP_19", "LOP_1A", "LOP_1B"
 
 local
 LOLE_DEBUG_OPCODE_NOP,
@@ -170,6 +171,13 @@ function melee_attack_behind()
 	if lole_subcommands.get("playermode") == 0 then
 		DelIgnore(LOLE_OPCODE_MELEE_BEHIND)
 	end
+end
+
+function melee_avoid_aoe_buff(buff_spellID)
+	if lole_subcommands.get("playermode") == 0 then
+		DelIgnore(LOLE_OPCODE_MELEE_AVOID_AOE_BUFF .. ":" .. tostring(buff_spellID))
+	end
+
 end
 
 function leave_party_all()

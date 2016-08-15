@@ -67,24 +67,24 @@ combat_shaman_resto = function()
         return
     end
 
-	if UnitName("player") == "Pehmware" then
-        TargetUnit(mage_tank);
-        caster_range_check(35);
-        if (UnitHealthMax(mage_tank) - UnitHealth(mage_tank)) > 5000 then
-            cast_spell("Healing Wave")
-        elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
-            TargetUnit("player");
-            cast_spell("Healing Wave")
-		elseif (UnitHealthMax(mage_tank) - UnitHealth(mage_tank)) > 2000 then
-			cast_spell("Lesser Healing Wave")
-		end
-        return;
-    elseif (UnitHealthMax(OFF_TANK) - UnitHealth(OFF_TANK)) > 8000 then
-        TargetUnit(OFF_TANK);
-        caster_range_check(35);
-        cast_spell("Lesser Healing Wave")
-        return;
-	end
+	-- if UnitName("player") == "Pehmware" then
+    --     TargetUnit(mage_tank);
+    --     caster_range_check(35);
+    --     if (UnitHealthMax(mage_tank) - UnitHealth(mage_tank)) > 5000 then
+    --         cast_spell("Healing Wave")
+    --     elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
+    --         TargetUnit("player");
+    --         cast_spell("Healing Wave")
+	-- 	elseif (UnitHealthMax(mage_tank) - UnitHealth(mage_tank)) > 2000 then
+	-- 		cast_spell("Lesser Healing Wave")
+	-- 	end
+    --     return;
+    -- elseif (UnitHealthMax(OFF_TANK) - UnitHealth(OFF_TANK)) > 8000 then
+    --     TargetUnit(OFF_TANK);
+    --     caster_range_check(35);
+    --     cast_spell("Lesser Healing Wave")
+    --     return;
+	-- end
 
 	target_best_CH_target();
 	if not UnitExists("target") then return end

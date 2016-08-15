@@ -360,6 +360,31 @@ uint WowObject::NPC_get_debuff_duration(int index, uint spellID) const {
 }
 
 
+int WowObject::NPC_has_buff(uint spellID) const {
+
+	for (int i = 1; i < 40; ++i) {
+		uint s = NPC_get_buff(i);
+		if (s == spellID) {
+			return 1;
+		}
+	}
+
+	return 0;
+
+}
+
+int WowObject::NPC_has_debuff(uint spellID) const {
+
+	for (int i = 1; i < 40; ++i) {
+		uint s = NPC_get_debuff(i);
+		if (s == spellID) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 GUID_t WowObject::unit_get_target_GUID() const {
 	GUID_t target_GUID;
 	readAddr(base + UnitTargetGUID, &target_GUID, sizeof(target_GUID));
