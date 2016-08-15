@@ -41,7 +41,11 @@ combat_shaman_enh = function()
         if cast_if_nocd("Shamanistic Rage") then return end
     end
 
-    if cast_if_nocd("Earth Shock") then return end;
+    if not has_debuff("target", "Flame Shock") then
+        if cast_if_nocd("Flame Shock") then return end
+    else
+        if cast_if_nocd("Earth Shock") then return end;
+    end
 
     CastSpellByName("Purge")
 

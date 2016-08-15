@@ -694,27 +694,38 @@ local function do_combat_stuff()
 end
 
 local mtwarn_given = GetTime()
+
+local raid_zones = {
+	["Gruul's Lair"] = 1,
+	["Black Temple"] = 2,
+	["Karazhan"] = 3
+}
+
+local function MT_OT_warning()
+
+	if (GetTime() - mtwarn_given) < 15 then return end
+
+	local zone = GetZoneText()
+	if not raid_zones[zone] then return end
+
+	if not MAIN_TANK or not OFF_TANK then
+		SendChatMessage("warning! MAIN_TANK or OFF_TANK not set!", "GUILD")
+		mtwarn_given = GetTime()
+	end
+end
+
 lole_frame:SetScript("OnUpdate", function()
 
 	if every_4th_frame == 0 then
 
-		if not MAIN_TANK or not OFF_TANK then
-			if (GetTime() - mtwarn_given) > 15 then
-				SendChatMessage("warning! MAIN_TANK or OFF_TANK not set!", "GUILD")
-				mtwarn_given = GetTime()
-			end
-		end
+		MT_OT_warning()
 
 		local r = get_current_config().general_role;
-		if r == "MELEE" or r == "RANGED" or r == "TANK" then
-			if lole_subcommands.get("blast") == 1 then
-				do_combat_stuff()
-			end
 
-		else -- "HEALER"
-			if lole_subcommands.get("heal_blast") == 1 then
-				do_combat_stuff()
-			end
+		if r == "HEALER" then
+			if lole_subcommands.get("heal_blast") == 1 then do_combat_stuff() end
+		else
+			if lole_subcommands.get("blast") == 1 then do_combat_stuff() end
 		end
 
 		update_mode_attrib_checkbox_states()

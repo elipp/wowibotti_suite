@@ -53,7 +53,7 @@ local CLASS_COLORS = {
 function get_class_color(class)
 	local r = CLASS_COLORS[class]
 	if not r then
-		return "(erroneous class code)"
+		return "(ERR)"
 	else
 		return r
 	end
