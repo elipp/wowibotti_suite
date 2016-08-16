@@ -863,8 +863,15 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 	elseif event == "PLAYER_ENTERING_WORLD" then
 		report_login(true);
 
-	elseif event == "PLAYER_LOGOUT" then
+	--elseif event == "PLAYER_LOGOUT" then
 		-- report_login(false) -- disable this
+	elseif event == "LOOT_OPENED" then
+		-- the only code that can register this event is the
+		-- de_greeniez subcommand, so we can be fairly sure auto-looting will be ok
+		local num_items = GetNumLootItems()
+		for i = 1, num_items do LootSlot(i) end
+		lole_frame:UnregisterEvent("LOOT_OPENED")
+
 	end
 end
 )

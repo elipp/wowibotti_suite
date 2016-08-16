@@ -86,6 +86,7 @@ combat_warrior_fury = function()
 	if cast_if_nocd("Bloodthirst") then return; end
 
 	if lole_subcommands.get("aoemode") == 1 then
+		cast_if_nocd("Sweeping Strikes");
 		if cast_if_nocd("Whirlwind") then return; end
 		if UnitMana("player") > 65 then
 			CastSpellByName("Cleave")

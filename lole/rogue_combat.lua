@@ -29,7 +29,11 @@ combat_rogue_combat = function()
 	    CastSpellByName("Stealth")
 		return;
 	end
-    
+
+    if lole_subcommands.get("aoemode") == 1 then
+        if cast_if_nocd("Blade Flurry") then return end
+    end
+
     if (GetComboPoints("player", "target") < 5) then
         CastSpellByName("Sinister Strike")
         return

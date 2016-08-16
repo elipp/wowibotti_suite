@@ -63,8 +63,7 @@ combat_shaman_resto = function()
 	end
 
     if UnitMana("player") < 5000 then
-        CastSpellByName("Mana Tide Totem")
-        return
+        if cast_if_nocd("Mana Tide Totem") then return end
     end
 
 	-- if UnitName("player") == "Pehmware" then

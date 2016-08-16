@@ -396,6 +396,34 @@ local function lole_leaveparty()
 	leave_party_all()
 end
 
+local function lole_disenchant_greeniez()
+
+	if UnitCastingInfo("player") ~= nil then return end
+
+	for b = 0, NUM_BAG_SLOTS do
+        for s = 1,GetContainerNumSlots(b) do
+            local n = GetContainerItemLink(b,s)
+            if n and strfind(n,"ff1eff00") then
+        		itemName, itemLink, itemRarity, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount,
+                itemEquipLoc, itemTexture = GetItemInfo(n)
+
+                if itemEquipLoc ~= "" then
+					lole_frame:RegisterEvent("LOOT_OPENED")
+					SpellStopCasting()
+					CastSpellByName("Disenchant")
+                    echo("disenchanting " .. n)
+					UseContainerItem(b,s)
+                    return
+                end
+        	end
+    	end
+    end
+
+	echo("de_greeniez: no (more) equippable greeniez found!")
+
+end
+
+
 local function lole_maintank(arg)
 	if not arg then
 		echo("lole_maintank: no argument supplied!")
@@ -559,6 +587,8 @@ lole_subcommands = {
 	durability = lole_durability;
 	inv_ordered = lole_inv_ordered;
     raid_aoe = lole_raid_aoe;
+
+	de_greeniez = lole_disenchant_greeniez;
 
 	sendscript = lole_sendscript;
 	ss = lole_sendscript;

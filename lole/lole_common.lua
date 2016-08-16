@@ -682,7 +682,7 @@ function get_item_bag_position(itemLink)
 
     for bag = 0, NUM_BAG_SLOTS do
         for slot = 1, GetContainerNumSlots(bag) do
-            if(GetContainerItemLink(bag, slot) == itemLink) then
+            if (GetContainerItemLink(bag, slot) == itemLink) then
                 return bag, slot
             end
         end
