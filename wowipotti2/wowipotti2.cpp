@@ -672,8 +672,38 @@ HWND create_button(const std::string &text, int pos_x, int pos_y, int width, int
 	return btn_hWnd;
 }
 
-HWND create_checkbox(const std::string &text, int pos_x, int pos_y, HWND parent_hWnd) {
-	HWND hWnd = CreateWindow("BUTTON", text.c_str(), WS_VISIBLE | WS_CHILD |  BS_CHECKBOX, 
+static HWND create_checkbox_tooltip(HWND hwndParent, const std::string &text) {
+	// Create a tooltip.
+	HWND hwndTT = CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, NULL,
+		WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,
+		CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+		hwndParent, NULL, hInst, NULL);
+
+	SetWindowPos(hwndTT, HWND_TOPMOST, 0, 0, 0, 0,
+		SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+
+	// Set up "tool" information. In this case, the "tool" is the entire parent window.
+
+	TOOLINFO ti = { 0 };
+	ti.cbSize = sizeof(TOOLINFO);
+	ti.uFlags = TTF_SUBCLASS;
+	ti.hwnd = hwndParent;
+	ti.hinst = hInst;
+
+	char *textcpy = strdup(text.c_str());
+	ti.lpszText = textcpy;
+
+	GetClientRect(hwndParent, &ti.rect);
+
+	// Associate the tooltip with the "tool" window.
+	SendMessage(hwndTT, TTM_ADDTOOL, 0, (LPARAM)(LPTOOLINFO)&ti);
+
+	return hwndTT;
+}
+
+
+static HWND create_checkbox(const std::string &char_name, const std::string &acc_name, int pos_x, int pos_y, HWND parent_hWnd) {
+	HWND hWnd = CreateWindow("BUTTON", char_name.c_str(), WS_VISIBLE | WS_CHILD |  BS_CHECKBOX, 
 		pos_x, pos_y, CHAR_POS_DX-8, 20, parent_hWnd, NULL, (HINSTANCE)GetWindowLongPtr(main_window_hWnd, GWLP_HINSTANCE), NULL);
 	if (!hWnd) {
 		error_box("Rekt. create_checkbox() whaled: " + std::to_string(GetLastError()));
@@ -684,6 +714,8 @@ HWND create_checkbox(const std::string &text, int pos_x, int pos_y, HWND parent_
 		WM_SETFONT,
 		(WPARAM)GetStockObject(DEFAULT_GUI_FONT),
 		MAKELPARAM(FALSE, 0));
+
+	HWND tt = create_checkbox_tooltip(hWnd, acc_name);
 
 	return hWnd;
 }
@@ -885,6 +917,8 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 	return FALSE;
 }
 
+
+
 static int setup_char_checkboxes(const potti_config &c) {
 	int char_posx_offset = 25;
 	int char_posy_offset = 225;
@@ -922,7 +956,7 @@ static int setup_char_checkboxes(const potti_config &c) {
 		int pos_x = char_posx_offset + class_indices[k.class_name] * dx;
 		int pos_y = char_posy_offset + (*num) * dy;
 		
-		char_select_checkboxes[k.char_name] = create_checkbox(k.char_name, pos_x, pos_y, main_window_hWnd);
+		char_select_checkboxes[k.char_name] = create_checkbox(k.char_name, k.login_name, pos_x, pos_y, main_window_hWnd);
 		
 		++(*num);
 		//printf("added %s:%s (num = %d, pos_x = %d, pos_y = %d)\n", k.char_name.c_str(), k.class_name.c_str(), *num, pos_x, pos_y);
@@ -1034,6 +1068,7 @@ int APIENTRY WinMain(_In_ HINSTANCE hInstance,
 	freopen("CONOUT$", "wb", stdout);
 #endif
 
+	hInst = hInstance;
 
 	char DirPath[MAX_PATH];
 	char FullPath[MAX_PATH];
