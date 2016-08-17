@@ -542,7 +542,9 @@ static void LOP_get_best_CH(const std::string &arg) {
 	while (next.valid()) {
 		if (next.get_type() == OBJECT_TYPE_UNIT) {
 			uint hp = next.unit_get_health();
-			if (hp > 0) {
+			uint hp_max = next.unit_get_health_max();
+			int deficit = hp_max - hp;
+			if (hp > 0 && deficit > 1000) {
 				units.push_back(WO_cached(next.get_GUID(), next.get_pos(), hp, next.unit_get_health_max(), next.unit_get_name()));
 			}
 		}
@@ -561,13 +563,12 @@ static void LOP_get_best_CH(const std::string &arg) {
 	struct chain_heal_trio_t {
 		const WO_cached *trio[3];
 		int total_deficit;
-		int overhealing_estimate;
+		int total_healing;
 	};
 
 	chain_heal_trio_t o;
 
 	memset(&o, 0, sizeof(o));
-	o.overhealing_estimate = 9999999; // :D
 	
 	for (unsigned i = 0; i < deficit_candidates.size(); ++i) {
 		// scan vicinity for hurt chars within 12.5 yards
@@ -585,20 +586,20 @@ static void LOP_get_best_CH(const std::string &arg) {
 		int d2 = (most_hurt[0] ? most_hurt[0]->deficit : 0);
 		int d3 = (most_hurt[1] ? most_hurt[1]->deficit : 0);
 
-		int total_deficit = c->deficit + d2 + d3;
+		static const int CH_BOUNCE_1 = 3500, CH_BOUNCE2 = 2400, CH_BOUNCE3 = 2100;
 
-		int OH1 = (3000 - c->deficit);
-		int OH2 = (2400 - d2);
-		int OH3 = (2100 - d3);
+		int eh1 = (c->deficit > CH_BOUNCE_1) ? CH_BOUNCE_1 : (CH_BOUNCE_1 - c->deficit);
+		int eh2 = (d2 > 0) ? ((d2 > CH_BOUNCE2) ? CH_BOUNCE2 : (CH_BOUNCE2 - d2)) : 0;
+		int eh3 = (d3 > 0) ? ((d3 > CH_BOUNCE3) ? CH_BOUNCE3 : (CH_BOUNCE3 - d3)) : 0;
 
-		int overhealing = (OH1 > 0 ? OH1 : 0) + (OH2 > 0 ? OH2 : 0) + (OH3 > 0 ? OH3 : 0);
+		int total_healing = eh1 + eh2 + eh3;
 
-		if (total_deficit > o.total_deficit && overhealing < o.overhealing_estimate) {
-		//	PRINT("found better one with deficit %d\n", total_deficit);
+		if (total_healing > o.total_healing) {
 			o.trio[0] = c;
 			o.trio[1] = most_hurt[0];
 			o.trio[2] = most_hurt[1];
-			o.total_deficit = total_deficit;
+			//o.total_deficit = total_deficit;
+			o.total_healing = total_healing;
 		}
 		
 	}

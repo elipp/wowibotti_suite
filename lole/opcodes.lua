@@ -397,7 +397,7 @@ local function OCB_set_all(arg)
 	elseif attrib == "heal_blast" then
 		gui_set_heal_blast(gui_arg)
 	end
-	
+
 	lole_subcommands.set(attrib, state)
 end
 
