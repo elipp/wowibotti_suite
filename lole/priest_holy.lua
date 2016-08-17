@@ -27,7 +27,12 @@ combat_priest_holy = function()
     if UnitName("player") == "Kasio" then
 		heal_target = OFF_TANK
     else
-		heal_target = mage_tank;
+        TargetUnit("Krosh Firehand")
+        if UnitExists("target") and not UnitIsDead("target") then
+            heal_target = mage_tank;
+        else
+            heal_target = OFF_TANK;
+        end
 	end
 
 	if casting_legit_heal() then return end
