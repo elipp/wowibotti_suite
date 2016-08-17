@@ -1,6 +1,7 @@
 combat_paladin_holy = function()
+    local kiggler_tank = "Gawk";
 
-	TargetUnit(MAIN_TANK);
+	TargetUnit(kiggler_tank);
 	local mana_left = UnitMana("player");
 
 	if mana_left < 4000 then
