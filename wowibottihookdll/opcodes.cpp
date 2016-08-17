@@ -582,10 +582,14 @@ static void LOP_get_best_CH(const std::string &arg) {
 		most_hurt[0] = find_most_hurt_within_CH_bounce(c, NULL, deficit_candidates);
 		most_hurt[1] = find_most_hurt_within_CH_bounce(most_hurt[0], c, deficit_candidates);
 
-		int total_deficit = c->deficit + (most_hurt[0] ? most_hurt[0]->deficit : 0) + (most_hurt[1] ? most_hurt[1]->deficit : 0);
+		int d2 = (most_hurt[0] ? most_hurt[0]->deficit : 0);
+		int d3 = (most_hurt[1] ? most_hurt[1]->deficit : 0);
+
+		int total_deficit = c->deficit + d2 + d3;
+
 		int OH1 = (3000 - c->deficit);
-		int OH2 = (2400 - most_hurt[0]->deficit);
-		int OH3 = (2100 - most_hurt[1]->deficit);
+		int OH2 = (2400 - d2);
+		int OH3 = (2100 - d3);
 
 		int overhealing = (OH1 > 0 ? OH1 : 0) + (OH2 > 0 ? OH2 : 0) + (OH3 > 0 ? OH3 : 0);
 
