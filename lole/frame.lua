@@ -250,10 +250,10 @@ create_simple_button("stopfollow_button", lole_frame, 22, -130, "Stopfollow", 85
 
 local function update_target_onclick()
 
-	if not IsRaidLeader() then
-		lole_error("Couldn't update BLAST target (you are not the raid leader!)");
-		return;
-	end
+	-- if not IsRaidLeader() then
+	-- 	lole_error("Couldn't update BLAST target (you are not the raid leader!)");
+	-- 	return;
+	-- end
 
 	if not UnitExists("target") then
 		lole_error("Couldn't update BLAST target (no valid mob selected!)");

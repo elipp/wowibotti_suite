@@ -77,7 +77,7 @@ combat_hunter = function()
         cast_if_nocd("Kill Command")
     end
 
-    if GetSpellCooldown("Bite") == 0 then
+    if not GetSpellCooldown("Bite") then
         CastSpellByName("Bite")
     else
         CastSpellByName("Gore")
