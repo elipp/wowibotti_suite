@@ -28,7 +28,9 @@ combat_shaman_enh = function()
     if refresh_totems(TOTEMS) then return; end
 
     if not validate_target() then return end
-	melee_attack_behind()
+
+    melee_avoid_aoe_buff(33238)
+	--melee_attack_behind()
 
     if not has_buff("player", "Water Shield") then
         CastSpellByName("Water Shield")

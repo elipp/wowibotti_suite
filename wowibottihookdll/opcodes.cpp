@@ -163,12 +163,30 @@ static void LOP_melee_avoid_aoe_buff(const std::string &arg) {
 
 	while (o.valid()) {
 
-		if (o.NPC_has_buff(arg_spellID)) {
-			// ctm_add() / click_to_move()
-		}
+		if (o.get_type() == OBJECT_TYPE_NPC) {
 
+			if (o.NPC_has_buff(arg_spellID) || o.NPC_has_debuff(arg_spellID)) {
+
+				WowObject p = OM.get_local_object();
+
+				float dist = (o.get_pos() - p.get_pos()).length();
+
+				if (dist > 15) {
+					break; // this should go to melee_behind
+				}
+
+				WowObject Ceucho = OM.get_unit_by_name("Ceucho");
+				if (!Ceucho.valid()) return;
+				vec3 diff_unit = (Ceucho.get_pos() - o.get_pos()).unit();
+				click_to_move(CTM_t(o.get_pos() + 15 * diff_unit, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 0.5));
+				return;
+			}
+		}
 		o = o.getNextObject();
 	}
+
+	// else :)
+	LOP_melee_behind("");
 
 }
 
@@ -636,7 +654,7 @@ static void LOPDBG_loot(const std::string &arg) {
 }
 
 static void LOPDBG_query_injected(const std::string &arg) {
-	DoString("SetCVar(\"screenshotQuality\", \"1\", \"inject\")"); // this is used to signal the addon that we're injected :D
+	DoString("SetCVar(\"screenshotQuality\", \"LOLE\", \"inject\")"); // this is used to signal the addon that we're injected :D
 }
 
 static void LOPDBG_pull_test(const std::string &arg) {
@@ -697,6 +715,7 @@ static const struct {
 	{ "LOLE_GET_BEST_CHAINHEAL_TARGET", LOP_get_best_CH, 0},
 	{ "LOLE_MAULGAR_GET_UNBANISHED_FELHOUND", LOP_maulgar_get_felhound, 0 },
 	{ "LOLE_OFF_TANK", LOP_nop, 0},
+	{ "LOLE_SET_ALL", LOP_nop, 0 },
 	{ "LOLE_MELEE_AVOID_AOE_BUFF", LOP_melee_avoid_aoe_buff, 1},
 };
 
@@ -721,8 +740,8 @@ static const size_t num_debug_opcode_funcs = sizeof(debug_opcode_funcs) / sizeof
 
 int opcode_call(int opcode, const std::string &arg) {
 	
-	if (opcode > num_opcode_funcs-1) {
-		PRINT("opcode_call: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs);
+	if (opcode >= num_opcode_funcs) {
+		PRINT("opcode_call: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs - 1);
 		return 0;
 	}
 	opcode_funcs[opcode].func(arg);
@@ -731,12 +750,15 @@ int opcode_call(int opcode, const std::string &arg) {
 }
 
 int opcode_debug_call(int debug_opcode, const std::string &arg) {
-	if (debug_opcode > num_debug_opcode_funcs - 1) {
-		PRINT("opcode_debug_call: error: unknown opcode %lu. (valid range: 0 - %lu)\n", debug_opcode, num_debug_opcode_funcs);
+
+	int opc = debug_opcode & 0x7F;
+
+	if (opc >= num_debug_opcode_funcs) {
+		PRINT("opcode_debug_call: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opc, num_debug_opcode_funcs - 1);
 		return 0;
 	}
 
-	debug_opcode_funcs[debug_opcode].func(arg);
+	debug_opcode_funcs[opc].func(arg);
 
 	return 1;
 }

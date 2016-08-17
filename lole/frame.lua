@@ -7,7 +7,7 @@ lole_frame:RegisterEvent("PLAYER_DEAD")
 lole_frame:RegisterEvent("PARTY_INVITE_REQUEST")
 lole_frame:RegisterEvent("RESURRECT_REQUEST")
 lole_frame:RegisterEvent("CONFIRM_SUMMON")
-lole_frame:RegisterEvent("LOOT_OPENED")
+--lole_frame:RegisterEvent("LOOT_OPENED")
 lole_frame:RegisterEvent("CVAR_UPDATE")
 lole_frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 lole_frame:RegisterEvent("PLAYER_LOGOUT")
@@ -130,7 +130,7 @@ local function heal_blast_check_settext(text)
 end
 
 function gui_set_heal_blast(arg)
-	if arg == "1" then
+	if arg == true then
 		heal_blast_checkbutton:SetChecked(true)
 		heal_blast_check_settext(" HEALING ON!");
 	else
@@ -690,7 +690,7 @@ end
 local function do_combat_stuff()
 	do_CC_jobs();
 	lole_main();
-	avoid_spell_with_spellID(36240, 8); -- Cave In :)
+--	avoid_spell_with_spellID(36240, 8); -- Cave In :)
 end
 
 local mtwarn_given = GetTime()
@@ -742,6 +742,7 @@ lole_frame:SetScript("OnUpdate", function()
 
 end);
 
+local INJECT_STATUS = nil
 
 lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
 	--DEFAULT_CHAT_FRAME:AddMessage("LOLE_EventHandler: event:" .. event)
@@ -755,8 +756,14 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 			lole_subcommands.setconfig("default");
 		end
 
+		local inj = GetCVar("screenshotQuality")
+		if inj == "LOLE" then
+			INJECT_STATUS = true
+		end
+
 		update_injected_status(false) -- default
 		lole_debug_query_injected(); -- this will fire a CVAR_UPDATE if we're injected
+
 		blast_check_settext(" BLAST off!")
 		heal_blast_check_settext( "HEALING off!")
 
@@ -836,9 +843,12 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 	-- 	end
 
 	elseif event == "CVAR_UPDATE" then
-		if prefix == "inject" and message == "1" then
+		if prefix == "inject" and message == "LOLE" then
+			if not INJECT_STATUS then
+				echo("Late injection ok!")
+				INJECT_STATUS = true;
+			end
 			update_injected_status(true)
-			echo("Late injection ok!")
 		elseif prefix == "player_pos" then
 			update_player_pos_text("|cFFFFD100Player pos: |r" .. message)
 		elseif prefix == "target_pos" then

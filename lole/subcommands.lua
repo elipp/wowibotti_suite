@@ -554,7 +554,7 @@ local function lole_inv_ordered()
 end
 
 local function lole_raid_aoe(on_off_str)
-    script_text = "RunMacroText(\"/lole set aoemode " .. on_off_str .. "\")";
+    local script_text = "RunMacroText(\"/lole set aoemode " .. on_off_str .. "\")";
     SendAddonMessage("lole_runscript", script_text, "RAID");
 end
 

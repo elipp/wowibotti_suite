@@ -490,6 +490,27 @@ WowObject ObjectManager::get_object_by_GUID(GUID_t GUID) const {
 	return next;
 }
 
+WowObject ObjectManager::get_unit_by_name(const std::string &name) const {
+	WowObject next = get_first_object();
+
+	while (next.valid()) {
+		if (next.get_type() == OBJECT_TYPE_UNIT) {
+			if (next.unit_get_name() == name) {
+				PRINT("Found %s!\n", next.unit_get_name().c_str());
+				return next;
+			}
+		}
+
+		next = next.getNextObject();
+	}
+
+	PRINT("get_unit_by_name: couldn't find unit with name %s\n", name.c_str());
+
+	return next;
+
+}
+
+
 GUID_t ObjectManager::get_local_GUID() const { return localGUID; }
 
 int ObjectManager::valid() const {

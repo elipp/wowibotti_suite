@@ -23,7 +23,8 @@ combat_rogue_combat = function()
 
     if not validate_target() then return end
 
-	melee_attack_behind()
+    melee_avoid_aoe_buff(33238)
+	--melee_attack_behind()
 
 	if (not UnitAffectingCombat("player")) then
 	    CastSpellByName("Stealth")

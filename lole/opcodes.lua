@@ -386,12 +386,18 @@ end
 
 local function OCB_set_all(arg)
 	local attrib, state = strsplit(",", arg)
+	local gui_arg = nil
+
+	if state == "1" then
+		gui_arg = true
+	else gui_arg = false end
 
 	if attrib == "blast" then
-		gui_set_blast(arg)
+		gui_set_blast(gui_arg)
 	elseif attrib == "heal_blast" then
-		gui_set_heal_blast(arg)
+		gui_set_heal_blast(gui_arg)
 	end
+	
 	lole_subcommands.set(attrib, state)
 end
 

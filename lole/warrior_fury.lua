@@ -42,13 +42,10 @@ end
 
 combat_warrior_fury = function()
 
-	--if terestian() then return end
-
-	--if curator() then return end
-
 	if not validate_target() then return end
 
-	melee_attack_behind()
+	melee_avoid_aoe_buff(33238)
+	--melee_attack_behind()
 
 	if (not UnitAffectingCombat("player")) then
 		RunMacroText("/cast [nostance:1] Battle Stance"); -- charge doesnt work

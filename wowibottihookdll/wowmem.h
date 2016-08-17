@@ -159,6 +159,7 @@ public:
 	ObjectManager();
 
 	WowObject get_object_by_GUID(GUID_t GUID) const;
+	WowObject get_unit_by_name(const std::string &name) const;
 	GUID_t get_local_GUID() const;
 	WowObject get_local_object() const;
 	uint get_base_address() const { return base_addr; }
