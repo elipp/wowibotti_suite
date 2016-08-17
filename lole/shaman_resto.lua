@@ -3,10 +3,11 @@ local function refresh_ES(targetname)
 
 	if not targetname then return false; end
 
-	if not UnitExists(targetname) then return false end
+	if not UnitExists(targetname) or UnitIsDead(targetname) then return false end
 
 	if not has_buff(targetname, "Earth Shield") then
 		TargetUnit(targetname)
+		caster_range_check(35)
 		CastSpellByName("Earth Shield");
 		return true;
 	end
