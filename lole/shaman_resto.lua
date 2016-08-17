@@ -45,8 +45,8 @@ local function NS_heal_on_tank()
 end
 
 combat_shaman_resto = function()
-    --local mage_tank = "Dissona";
-	local mage_tank = MAIN_TANK
+    local mage_tank = "Dissona";
+	--local mage_tank = MAIN_TANK
 
 	if casting_legit_heal() then return end
 
@@ -66,24 +66,27 @@ combat_shaman_resto = function()
         if cast_if_nocd("Mana Tide Totem") then return end
     end
 
-	-- if UnitName("player") == "Pehmware" then
-    --     TargetUnit(mage_tank);
-    --     caster_range_check(35);
-    --     if (UnitHealthMax(mage_tank) - UnitHealth(mage_tank)) > 5000 then
-    --         cast_spell("Healing Wave")
-    --     elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
-    --         TargetUnit("player");
-    --         cast_spell("Healing Wave")
-	-- 	elseif (UnitHealthMax(mage_tank) - UnitHealth(mage_tank)) > 2000 then
-	-- 		cast_spell("Lesser Healing Wave")
-	-- 	end
-    --     return;
-    -- elseif (UnitHealthMax(OFF_TANK) - UnitHealth(OFF_TANK)) > 8000 then
-    --     TargetUnit(OFF_TANK);
-    --     caster_range_check(35);
-    --     cast_spell("Lesser Healing Wave")
-    --     return;
-	-- end
+	if UnitName("player") == "Pehmware" then
+		TargetUnit("Krosh Firehand")
+		if UnitExists("target") and not UnitIsDead("target") then
+			TargetUnit(mage_tank);
+	        caster_range_check(35);
+	        if (UnitHealthMax(mage_tank) - UnitHealth(mage_tank)) > 5000 then
+	            cast_spell("Healing Wave")
+	        elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
+	            TargetUnit("player");
+	            cast_spell("Healing Wave")
+			elseif (UnitHealthMax(mage_tank) - UnitHealth(mage_tank)) > 2000 then
+				cast_spell("Lesser Healing Wave")
+			end
+	        return;
+		end
+    elseif (UnitHealthMax(OFF_TANK) - UnitHealth(OFF_TANK)) > 8000 then
+        TargetUnit(OFF_TANK);
+        caster_range_check(35);
+        cast_spell("Lesser Healing Wave")
+        return;
+	end
 
 	target_best_CH_target();
 	if not UnitExists("target") then return end
@@ -92,23 +95,6 @@ combat_shaman_resto = function()
 	cast_spell("Chain Heal")
 
 	return;
-
---	local total_deficit = get_total_deficit(HP_deficits)
-	--
-	-- if (HP_deficits[lowest] > 7000) then
-	-- 	if cast_if_nocd("Nature's Swiftness") then
-	-- 		UseInventoryItem(13);
-	-- 		UseInventoryItem(14);
-	-- 		cast_spell("Healing Wave");
-	-- 	end
-	-- 	return;
-	-- end
-
-	-- if HP_deficits[lowest] > 3000 then -- this was actually really good for vexallus :O
-	-- 	cast_spell("Lesser Healing Wave")
-	-- 	return;
-	-- end
-
 
 
 

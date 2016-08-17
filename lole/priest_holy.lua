@@ -21,8 +21,8 @@ local function should_cast_PoH()
 end
 
 combat_priest_holy = function()
---    local mage_tank = "Dissona";
-	local mage_tank = MAIN_TANK
+    local mage_tank = "Dissona";
+	--local mage_tank = MAIN_TANK
 
     if UnitName("player") == "Kasio" then
 		heal_target = OFF_TANK
