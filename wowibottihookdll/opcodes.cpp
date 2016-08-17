@@ -540,14 +540,16 @@ static void LOP_get_best_CH(const std::string &arg) {
 		}
 	}
 
-	struct chain_heal_trio {
+	struct chain_heal_trio_t {
 		const WO_cached *trio[3];
 		int total_deficit;
+		int overhealing_estimate;
 	};
 
-	chain_heal_trio o;
+	chain_heal_trio_t o;
 
 	memset(&o, 0, sizeof(o));
+	o.overhealing_estimate = 9999999; // :D
 	
 	for (unsigned i = 0; i < deficit_candidates.size(); ++i) {
 		// scan vicinity for hurt chars within 12.5 yards
@@ -563,8 +565,13 @@ static void LOP_get_best_CH(const std::string &arg) {
 		most_hurt[1] = find_most_hurt_within_CH_bounce(most_hurt[0], c, deficit_candidates);
 
 		int total_deficit = c->deficit + (most_hurt[0] ? most_hurt[0]->deficit : 0) + (most_hurt[1] ? most_hurt[1]->deficit : 0);
-	
-		if (total_deficit > o.total_deficit) {
+		int OH1 = (3000 - c->deficit);
+		int OH2 = (2400 - most_hurt[0]->deficit);
+		int OH3 = (2100 - most_hurt[1]->deficit);
+
+		int overhealing = (OH1 > 0 ? OH1 : 0) + (OH2 > 0 ? OH2 : 0) + (OH3 > 0 ? OH3 : 0);
+
+		if (total_deficit > o.total_deficit && overhealing < o.overhealing_estimate) {
 		//	PRINT("found better one with deficit %d\n", total_deficit);
 			o.trio[0] = c;
 			o.trio[1] = most_hurt[0];
