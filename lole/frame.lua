@@ -286,10 +286,10 @@ create_simple_button("update_target_button", lole_frame, 120, -100, "Update targ
 
 local function clear_target_onclick()
 
-	if not IsRaidLeader() then
-		lole_error("Couldn't clear BLAST target (you are not the raid leader!)");
-		return;
-	end
+	-- if not IsRaidLeader() then
+	-- 	lole_error("Couldn't clear BLAST target (you are not the raid leader!)");
+	-- 	return;
+	-- end
 
 	clear_target();
 	broadcast_target_GUID(NOTARGET);
@@ -690,7 +690,7 @@ end
 local function do_combat_stuff()
 	do_CC_jobs();
 	lole_main();
---	avoid_spell_with_spellID(36240, 8); -- Cave In :)
+	avoid_spell_with_spellID(36240, 10); -- Cave In :)
 end
 
 local mtwarn_given = GetTime()
