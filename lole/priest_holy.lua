@@ -24,16 +24,17 @@ combat_priest_holy = function()
     local mage_tank = "Dissona";
 	--local mage_tank = MAIN_TANK
 
-    if UnitName("player") == "Kasio" then
-		heal_target = OFF_TANK
-    else
-        TargetUnit("Krosh Firehand")
-        if UnitExists("target") and not UnitIsDead("target") then
-            heal_target = mage_tank;
-        else
-            heal_target = OFF_TANK;
-        end
-	end
+ --    if UnitName("player") == "Kasio" then
+	-- 	heal_target = OFF_TANK
+ --    else
+ --        TargetUnit("Krosh Firehand")
+ --        if UnitExists("target") and not UnitIsDead("target") then
+ --            heal_target = mage_tank;
+ --        else
+ --            heal_target = OFF_TANK;
+ --        end
+	-- end
+    heal_target = MAIN_TANK;
 
 	if casting_legit_heal() then return end
 
