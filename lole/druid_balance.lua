@@ -4,16 +4,18 @@ combat_druid_balance = function()
 
 	--if decurse_party("Curse of the Shattered Hand") then return; end
 
-	if not validate_target() then return end
     TargetUnit("Kiggler the Crazed");
+    if UnitExists("target") and not UnitIsDead("target") then
+    else
+        if not validate_target() then return end
+        caster_range_check(30)
+        if not has_debuff("target", "Insect Swarm") then
+            CastSpellByName("Insect Swarm");
+            return;
+        end
+    end
 
 	caster_range_check(30)
-
-	if not has_debuff("target", "Insect Swarm") then
-	--   CastSpellByName("Insect Swarm");
-	-- elseif not target_has_debuff("target", "Moonfire") then CastSpellByName("Moonfire");
-	-- return
-	end
 
     CastSpellByName("Starfire");
 
