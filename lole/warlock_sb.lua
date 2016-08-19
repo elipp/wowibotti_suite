@@ -44,7 +44,7 @@ end
 local curse_assignments = {
 	["Nilck"] = "Curse of Weakness",
 	["Mulck"] = "Curse of Doom",
-	["Jobim"] = "Curse of Doom",
+	["Jobim"] = "Curse of the Elements",
 }
 
 local function enough_shards()

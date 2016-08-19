@@ -49,6 +49,6 @@ combat_shaman_enh = function()
         if cast_if_nocd("Earth Shock") then return end;
     end
 
-    --CastSpellByName("Purge")
+    CastSpellByName("Purge")
 
 end

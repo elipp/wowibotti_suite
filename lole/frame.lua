@@ -458,6 +458,10 @@ local CC_base_y = -140
 function delete_CC_entry(CC_marker)
 
 	local CC_host = CC_state[CC_marker];
+	if not CC_host then
+		echo("(warning: attempt to delete CC entry for " .. CC_marker .. ", which doesn't exist. Maybe double-posted AddonMessage?)")
+		return
+	end
 
 	if CC_host.ID > num_CC_targets then
 		lole_error("attempting to delete CC entry " .. CC_host.ID  .. " (index too damn high!)")
