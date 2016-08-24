@@ -14,7 +14,7 @@ end
 
 combat_druid_resto = function()
 
-	TargetUnit(MAIN_TANK);
+	TargetUnit(OFF_TANK);
 	local mana_left = UnitMana("player");
 
 	if mana_left < 3000 and GetSpellCooldown("Innervate") == 0 then

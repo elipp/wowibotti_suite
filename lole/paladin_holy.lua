@@ -3,15 +3,14 @@ local kiggler_tank = "Gawk";
 
 combat_paladin_holy = function()
     
- --    TargetUnit("Kiggler the Crazed");
- --    if UnitExists("target") and not UnitIsDead("target") then
- --        heal_target = kiggler_tank;
- --    else
- --        heal_target = OFF_TANK;
- --    end
+    TargetUnit("Kiggler the Crazed");
+    if UnitExists("target") and not UnitIsDead("target") then
+        heal_target = kiggler_tank;
+    else
+        heal_target = OFF_TANK;
+    end
 
-	-- TargetUnit(heal_target);
-    TargetUnit(MAIN_TANK);
+	TargetUnit(heal_target);
 	local mana_left = UnitMana("player");
 
 	if mana_left < 4000 then
