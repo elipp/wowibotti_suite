@@ -348,6 +348,8 @@ local function lole_drink()
 
 			elseif GetItemCount(32453) > 0 then
 				UseItemByName("Star's Tears");
+			elseif GetItemCount(22018) > 0 then
+				UseItemByName("Conjured Glacier Water");
 			else
 				SendChatMessage("I'm out of mana drinks! Giev plx.", "GUILD")
 			end

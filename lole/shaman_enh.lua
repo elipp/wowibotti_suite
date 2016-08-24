@@ -8,7 +8,7 @@ local TOTEMS = {
 ["earth"] = "Strength of Earth Totem",
 --["earth"] = "Stoneskin Totem",
 
-["water"] = "Mana Spring Totem",
+--["water"] = "Mana Spring Totem",
 }
 
 function check_WF()
@@ -36,6 +36,8 @@ combat_shaman_enh = function()
         CastSpellByName("Water Shield")
         return
     end
+
+    CastSpellByName("Purge")
 
     if cast_if_nocd("Stormstrike") then return end
 
