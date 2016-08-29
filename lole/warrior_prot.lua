@@ -40,9 +40,7 @@ combat_warrior_prot = function()
 
 	if cast_if_nocd("Shield Slam") then return; end
 
-	if IsUsableSpell("Revenge") then
-		if cast_if_nocd("Revenge") then return end
-	end
+	if cast_if_nocd("Revenge") then return end
 
 	if not has_debuff("target", "Demoralizing Shout") then
 		CastSpellByName("Demoralizing Shout");

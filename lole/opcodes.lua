@@ -205,7 +205,9 @@ function hug_spell_with_spellID(spellID)
 end
 
 function avoid_spell_with_spellID(spellID, radius)
-	DelIgnore(LOLE_OPCODE_AVOID_SPELL_OBJECT .. ":" .. tostring(spellID) .. "," .. tostring(radius))
+	if (lole_subcommands.get("playermode") == 0) then
+		DelIgnore(LOLE_OPCODE_AVOID_SPELL_OBJECT .. ":" .. tostring(spellID) .. "," .. tostring(radius))
+	end
 end
 
 function pull_target()

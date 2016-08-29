@@ -31,12 +31,12 @@ end
 
 combat_hunter = function()
     PetPassiveMode() -- just do this no matter what :D
-    TargetUnit("pet")
+    --TargetUnit("pet")
 
-    if not UnitExists("target") or UnitIsDead("pet") then
-        CastSpellByName("Call Pet");
-        CastSpellByName("Revive Pet");
-    end
+    -- if not UnitExists("target") or UnitIsDead("pet") then
+    --     CastSpellByName("Call Pet");
+    --     CastSpellByName("Revive Pet");
+    -- end
 
     if not UnitAffectingCombat("player") then if feed_pet_if_need_to() then return end end
 
@@ -77,10 +77,12 @@ combat_hunter = function()
         cast_if_nocd("Kill Command")
     end
 
-    if not GetSpellCooldown("Bite") then
-        CastSpellByName("Bite")
-    else
-        CastSpellByName("Gore")
+    if not GetSpellCooldown("Gore") then
+        if not GetSpellCooldown("Bite") then
+            CastSpellByName("Bite")
+        else
+            CastSpellByName("Gore")
+        end
     end
 
     if not has_debuff("target", "Hunter's Mark") then
