@@ -1,0 +1,6 @@
+To-do list:
+
+Dynamic healer assignments
+Single target & raid heal mode for healers
+Automatic use of threat reducing / player wipe preventing mechanisms on pull aggro (e.g. Soul Shatter / Ice Block)
+Temporary overriding of bot rotation with a specific command (e.g. Cleanse)
