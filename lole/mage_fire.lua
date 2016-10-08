@@ -47,7 +47,7 @@ end
 
 combat_mage_fire = function()
 
-	if MAULGAR_KROSH() then return end
+	--if MAULGAR_KROSH() then return end
 
 	if UnitCastingInfo("player") then return; end
 	if UnitChannelInfo("player") then return; end -- mainly in reference to evocation

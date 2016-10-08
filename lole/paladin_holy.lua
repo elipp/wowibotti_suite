@@ -1,15 +1,16 @@
-local heal_target = "";
+local heal_target = MAIN_TANK;
 local kiggler_tank = "Gawk";
 
 combat_paladin_holy = function()
     
-    TargetUnit("Kiggler the Crazed");
-    if UnitExists("target") and not UnitIsDead("target") then
-        heal_target = kiggler_tank;
-    else
-        heal_target = OFF_TANK;
-    end
+    -- TargetUnit("Kiggler the Crazed");
+    -- if UnitExists("target") and not UnitIsDead("target") then
+    --     heal_target = kiggler_tank;
+    -- else
+    --     heal_target = OFF_TANK;
+    -- end
 
+    heal_target = MAIN_TANK;
 	TargetUnit(heal_target);
 	local mana_left = UnitMana("player");
 
