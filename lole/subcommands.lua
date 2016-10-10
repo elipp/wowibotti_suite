@@ -591,6 +591,25 @@ local function lole_add_healer_targets(healer, targets)
     SendAddonMessage("lole_healers", message, "RAID");
 end
 
+local function lole_echo_healer_targets()
+
+    healer_targets_copy = shallowcopy(HEALER_TARGETS); 
+    local msg = "lole: Requested healer target information:";
+    for healer, targets in pairs(healer_targets_copy) do
+        msg = msg .. "\n" .. healer .. ": "
+        for i, target in pairs(targets) do
+            msg = msg .. target
+            if i ~= #targets then
+                msg = msg .. ", "
+            end
+        end
+    end
+
+    script_text = "DEFAULT_CHAT_FRAME:AddMessage(\"" .. msg .. "\")";
+    SendAddonMessage("lole_runscript", script_text, "RAID");
+
+end
+
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
 	buffcheck = lole_buffcheck;
@@ -621,6 +640,7 @@ lole_subcommands = {
     raid_aoe = lole_raid_aoe;
     heal = lole_set_healer_targets;
     heal_add = lole_add_healer_targets;
+    healers = lole_echo_healer_targets;
 
 	de_greeniez = lole_disenchant_greeniez;
 

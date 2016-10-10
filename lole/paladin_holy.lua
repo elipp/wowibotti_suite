@@ -30,21 +30,20 @@ local function raid_heal()
 end
 
 combat_paladin_holy = function()
+
+    if UnitHealth("player") < 2000 then
+        if (GetSpellCooldown("Divine Shield") == 0) then
+            SpellStopCasting();
+            CastSpellByName("Divine Shield");
+        end
+    end
+
+    if casting_legit_heal() then return end
     
 	local mana_left = UnitMana("player");
-
 	if mana_left < 4000 then
 		CastSpellByName("Divine Illumination");
 	end
-
-	if UnitHealth("player") < 2000 then
-		if (GetSpellCooldown("Divine Shield") == 0) then
-			SpellStopCasting();
-			CastSpellByName("Divine Shield");
-		end
-	end
-
-	if casting_legit_heal() then return end
 
     local heal_targets = get_heal_targets();
     if heal_targets[1] == "raid" then

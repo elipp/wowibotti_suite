@@ -8,6 +8,23 @@ MISSING_BUFFS = {};
 MAIN_TANK = nil
 OFF_TANK = nil
 HEALER_TARGETS = {}
+HEALS_IN_PROGRESS = {};
+
+HEAL_ESTIMATES = {
+    ["Flash of Light(Rank 7)"] = 1400,
+    ["Holy Light(Rank 11)"] = 4300,
+    ["Holy Light(Rank 5)"] = 1300,
+    ["Lesser Healing Wave(Rank 7)"] = 2200,
+    ["Healing Wave(Rank 12)"] = 4700,
+    ["Chain Heal(Rank 5)"] = 3200,
+    ["Regrowth(Rank 10)"] = 3200, -- a few ticks included
+    ["Healing Touch(Rank 13)"] = 5300,
+    ["Flash Heal(Rank 9)"] = 2300,
+    ["Greater Heal(Rank 7)"] = 5000,
+    ["Greater Heal(Rank 1)"] = 3000,
+    ["Prayer of Healing(Rank 6)"] = 2300,
+    ["Binding Heal(Rank 1)"] = 2000,
+}
 
 ROLES = { healer = 1, caster = 2, warrior_tank = 3, paladin_tank = 4, melee = 5, mana_melee = 6 }
 
@@ -307,6 +324,59 @@ function get_HP_deficits(party_only)
 
 end
 
+function get_lowest_hp(hp_deficits)
+
+	local lowest = nil;
+	local lowest_deficit = 0;
+
+	for name,hp_deficit in pairs(hp_deficits) do
+
+		if not lowest then
+			lowest = name
+			lowest_deficit = hp_deficit
+		else
+			if hp_deficit > hp_deficits[lowest] then
+				lowest = name
+				lowest_deficit = hp_deficit
+			end
+		end
+	end
+
+	return lowest, lowest_deficit;
+
+end
+
+function get_HPs(party_only)
+    local HPs = {};
+    local num_raid_members = 0;
+
+    if party_only then
+        num_raid_members = 0;
+    else
+        num_raid_members = GetNumRaidMembers();
+    end
+
+    if num_raid_members == 0 then
+        HPs["player"] = UnitHealth("player");
+        for i=1,4,1 do local exists = GetPartyMember(i)
+            local name = "party" .. i;
+            if exists and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
+                HPs[name] = UnitHealth(name);
+            end
+        end
+    else
+        for i=1,num_raid_members,1 do
+            local name = "raid" .. tonumber(i);
+            if UnitExists(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
+                HPs[name] = UnitHealth(name);
+            end
+        end
+    end
+
+    return HPs;
+
+end
+
 function get_lowest_hp_char(chars)
 
     local lowest = nil;
@@ -327,28 +397,6 @@ function get_lowest_hp_char(chars)
     end
 
     return lowest;
-
-end
-
-function get_lowest_hp(hp_deficits)
-
-	local lowest = nil;
-	local lowest_deficit = 0;
-
-	for name,hp_deficit in pairs(hp_deficits) do
-
-		if not lowest then
-			lowest = name
-			lowest_deficit = hp_deficit
-		else
-			if hp_deficit > hp_deficits[lowest] then
-				lowest = name
-				lowest_deficit = hp_deficit
-			end
-		end
-	end
-
-	return lowest, lowest_deficit;
 
 end
 
@@ -674,6 +722,10 @@ local guild_members = {
 	["Viginti"] = 25,
 }
 
+for name, num in pairs(guild_members) do
+    HEALS_IN_PROGRESS[name] = {};
+end
+
 function get_guild_members()
 	return guild_members
 end
@@ -805,10 +857,37 @@ function get_CoH_eligible_groups(groups, min_deficit, max_inelibigle_chars)
 
 end
 
-
 function get_heal_targets()
     return HEALER_TARGETS[UnitName("player")];
 end
 
 function get_raid_heal_target()
+
+    local health_points = get_HPs();
+    local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);
+    local lowest = nil;
+    local lowest_hp = 0;
+    for target, hp in pairs(health_points) do
+        if not lowest then
+            lowest = target;
+            lowest_hp = hp;
+        end
+        local tmp_hp = hp;
+        for healer, info in pairs(heals_in_progress[target]) do
+            if healer ~= UnitName("player") and info[3] > GetTime()*1000 then
+                tmp_hp = tmp_hp + info[1];
+            end
+        end
+        if tmp_hp < lowest_hp then
+            lowest_hp = tmp_hp;
+            lowest = target;
+        end
+    end
+
+    if lowest then
+        return lowest;
+    else
+        return "player";
+    end
+
 end

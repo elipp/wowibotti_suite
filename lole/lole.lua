@@ -115,6 +115,17 @@ local function handle_opcode(arg)
 
 end
 
+local function on_spell_sent_event(self, event, caster, spell, rank, target)
+    -- TODO: multi-target heals
+    local heal_estimate = HEAL_ESTIMATES[spell.."("..rank..")"];
+    local _, _, _, _, _, _, cast_time = GetSpellInfo(spell);
+    local finish_time = tostring(GetTime()*1000 + cast_time);
+    if heal_estimate ~= nil then
+        msg = target .. "," .. UnitName(caster) .. "," .. heal_estimate .. "," .. finish_time;
+        SendAddonMessage("lole_current_heals", msg, "RAID");
+    end
+end
+
 local function OnMsgEvent(self, event, prefix, message, channel, sender)
 
 	if (prefix == "lole_opcode") then
@@ -174,6 +185,10 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
             echo(healer .. ": " .. ht[2]);
         end
 
+    elseif (prefix == "lole_current_heals") then
+        local msg = {strsplit(",", message)};
+        HEALS_IN_PROGRESS[msg[1]][msg[2]] = {msg[3],msg[4]};
+
     elseif (prefix == "lole_mount") then
         RunMacro("mount");
 
@@ -188,6 +203,14 @@ buff_check_frame:SetScript("OnEvent", on_buff_check_event);
 local msg_frame = CreateFrame("Frame");
 msg_frame:RegisterEvent("CHAT_MSG_ADDON");
 msg_frame:SetScript("OnEvent", OnMsgEvent);
+
+local spell_sent_frame = nil;
+local healers = {"Kasio", "Mam", "Igop", "Pehmware", "Kusip", "Ceucho"};
+if table.contains(healers, UnitName("player")) then
+    spell_sent_frame = CreateFrame("Frame");
+    spell_sent_frame:RegisterEvent("UNIT_SPELLCAST_SENT");
+    spell_sent_frame:SetScript("OnEvent", on_spell_sent_event);
+end
 
 
 function lole_OnLoad()
