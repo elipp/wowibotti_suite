@@ -560,6 +560,36 @@ local function lole_raid_aoe(on_off_str)
     SendAddonMessage("lole_runscript", script_text, "RAID");
 end
 
+local function lole_set_healer_targets(healer, targets)
+    -- targets: target1,target2,...,targetN where target = unit name or "raid"
+    local usage = "lole_set_healer_targets: Usage: heal healer_name target1,target2,...,targetN where target = unit name or 'raid'";
+    if healer == nil or healer == "help" then
+        echo(usage);
+        return false;
+    end
+    if targets == nil then
+        targets = "";
+    end
+    local message = healer .. ":" .. targets;
+    SendAddonMessage("lole_healers", message, "RAID");
+end
+
+local function lole_add_healer_targets(healer, targets)
+    -- targets: target1,target2,...,targetN where target = unit name or "raid"
+    local usage = "lole_add_healer_targets: Usage: heal_add healer_name target1,target2,...,targetN where target = unit name or 'raid'";
+    if healer == nil or healer == "help" or targets == nil then
+        echo(usage);
+        return false;
+    end
+    local new_targets = "";
+    local existing = get_heal_targets();
+    for i, char in ipairs(existing) do
+        new_targets = new_targets .. char .. ",";
+    end
+    new_targets = new_targets .. targets;
+    local message = healer .. ":" .. new_targets;
+    SendAddonMessage("lole_healers", message, "RAID");
+end
 
 lole_subcommands = {
     lbuffcheck = lole_leaderbuffcheck;
@@ -589,6 +619,8 @@ lole_subcommands = {
 	durability = lole_durability;
 	inv_ordered = lole_inv_ordered;
     raid_aoe = lole_raid_aoe;
+    heal = lole_set_healer_targets;
+    heal_add = lole_add_healer_targets;
 
 	de_greeniez = lole_disenchant_greeniez;
 

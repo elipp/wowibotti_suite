@@ -7,6 +7,7 @@ MISSING_BUFFS = {};
 
 MAIN_TANK = nil
 OFF_TANK = nil
+HEALER_TARGETS = {}
 
 ROLES = { healer = 1, caster = 2, warrior_tank = 3, paladin_tank = 4, melee = 5, mana_melee = 6 }
 
@@ -303,6 +304,29 @@ function get_HP_deficits(party_only)
 	end
 
 	return HP_deficits;
+
+end
+
+function get_lowest_hp_char(chars)
+
+    local lowest = nil;
+    local lowest_hp = 0;
+
+    for i, name in pairs(chars) do
+        if name == "raid" or not UnitExists(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") then
+        elseif not lowest then
+            lowest_hp = UnitHealth(name);
+            lowest = name;
+        else
+            local tmp_hp = UnitHealth(name);
+            if tmp_hp < lowest_hp then
+                lowest_hp = tmp_hp;
+                lowest = name;
+            end
+        end
+    end
+
+    return lowest;
 
 end
 
@@ -699,4 +723,92 @@ function in_raid_group()
 		end
 	end
 	return false;
+end
+
+
+function get_raid_groups()
+
+    local groups = {[1] = {}};
+
+    if GetNumRaidMembers() == 0 then
+        local name = UnitName("player");
+        table.insert(groups[1], name);
+        local num_party_members = GetNumPartyMembers();
+        for i = 1, num_party_members do
+            local name = UnitName("party" .. i);
+            table.insert(groups[1], name);
+        end
+    else
+        local i = 1;
+        while GetRaidRosterInfo(i) do
+            local raid_info = {GetRaidRosterInfo(i)};
+            if not groups[raid_info[3]] then
+                groups[raid_info[3]] = {};
+            end
+            table.insert(groups[raid_info[3]], raid_info[1]);
+            i = i + 1;
+        end
+    end
+
+    return groups;
+
+end
+
+function get_raid_HP_deficits_grouped(groups)
+
+    local grouped_deficits = {}
+
+    for grp, tbl in pairs(groups) do
+        grouped_deficits[grp] = {};
+        for i, name in pairs(tbl) do
+            if UnitExists(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
+                local deficit = UnitHealthMax(name) - UnitHealth(name);
+                table.insert(grouped_deficits[grp], name, deficit)
+            end
+        end
+    end
+
+    return grouped_deficits;
+
+end
+
+function get_CoH_eligible_groups(groups, min_deficit, max_inelibigle_chars)
+
+    if min_deficit == nil then min_deficit = 2000; end
+    if max_inelibigle_chars == nil then max_inelibigle_chars = 1; end
+
+    local grouped_deficits = {}
+
+    for grp, tbl in pairs(groups) do
+        local group = {};
+        local group_eligible = false;
+        for i, name in pairs(tbl) do
+            group_eligible = true;
+            local num_inelibigle_chars = 0;
+            if (not UnitExists(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") or UnitHealthMax(name) - UnitHealth(name) < min_deficit) then
+                num_inelibigle_chars = num_inelibigle_chars + 1;
+                if num_inelibigle_chars > max_inelibigle_chars then
+                    group_eligible = false;
+                    break;
+                end
+            else
+                local deficit = UnitHealthMax(name) - UnitHealth(name);
+                table.insert(group, name, deficit);
+            end
+        end
+        if group_eligible then
+            table.insert(grouped_deficits, grp, group);
+        end
+    end
+
+    return grouped_deficits;
+
+end
+
+
+function get_heal_targets()
+    return HEALER_TARGETS[UnitName("player")];
+end
+
+function get_raid_heal_target()
 end

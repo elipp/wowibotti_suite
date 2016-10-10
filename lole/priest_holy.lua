@@ -20,20 +20,84 @@ local function should_cast_PoH()
 	return r;
 end
 
-combat_priest_holy = function()
-    local mage_tank = "Dissona";
-	--local mage_tank = MAIN_TANK
+local function get_CoH_target()
+    if get_current_config().name == "priest_holy_ds" then
+        return nil;
+    end
 
-    if UnitName("player") == "Kasio" then
-		heal_target = OFF_TANK
-    else
-        TargetUnit("Krosh Firehand")
-        if UnitExists("target") and not UnitIsDead("target") then
-            heal_target = mage_tank;
-        else
-            heal_target = OFF_TANK;
+    local eligible_groups = get_CoH_eligible_groups(get_raid_groups(), 2000, 1);
+    local coh_target = nil;
+    local highest_total_deficit = 0;
+    for grp, tbl in pairs(eligible_groups) do
+        local total_deficit = 0;
+        local highest_deficit = 0;
+        local char_with_highest_def = "";
+        for name, deficit in pairs(tbl) do
+            total_deficit = total_deficit + deficit;
+            if deficit > highest_deficit then
+                highest_deficit = deficit;
+                char_with_highest_def = name;
+            end
         end
-	end
+        if total_deficit > highest_total_deficit then
+            highest_total_deficit = total_deficit;
+            coh_target = char_with_highest_def;
+        end
+    end
+
+    return coh_target;
+    
+end
+
+
+local function raid_heal()
+    local target = get_raid_heal_target();
+    TargetUnit(target);
+    local health_max = UnitHealthMax("target");
+    local health_cur = UnitHealth("target");
+    local targeting_self = UnitName("target") == UnitName("player");
+
+    caster_range_check(35);
+
+    if should_cast_PoH() then
+        cast_spell("Prayer of Healing");
+        return true
+    end
+
+    if UnitHealth("player") < UnitHealthMax("player")*0.30 then
+        TargetUnit("player");
+        cast_spell("Power Word: Shield");
+        cast_spell("Flash Heal");
+        return true
+    end
+
+    local coh_target = get_CoH_target();
+    if coh_target then
+        TargetUnit(coh_target);
+        cast_spell("Circle of Healing");
+    elseif (health_cur < health_max * 0.50) then
+        cast_spell("Greater Heal");
+    elseif (health_cur < health_max * 0.75) then
+        if not targeting_self and (UnitHealth("player") < UnitHealthMax("player")*0.75) then
+            cast_spell("Binding Heal");
+        else
+            cast_spell("Greater Heal(Rank 1)");
+        end
+    elseif time() - pom_time > 10 then
+        if cast_if_nocd("Prayer of Mending") then
+            pom_time = time();
+            return;
+        end
+    elseif not has_buff("target", "Renew") then
+        cast_spell("Renew");
+    else
+        return false;
+    end
+
+    return true;
+end
+
+combat_priest_holy = function()
 
 	if casting_legit_heal() then return end
 
@@ -44,35 +108,40 @@ combat_priest_holy = function()
 		return;
 	end
 
-	TargetUnit(heal_target);
+    local heal_targets = get_heal_targets();
+    if heal_targets[1] == "raid" then
+        raid_heal();
+        return;
+    end
 
-	if time() - pom_time > 10 then
-		if cast_if_nocd("Prayer of Mending") then
-			pom_time = time();
-			return;
-		end
-	end
+    local heal_target = get_lowest_hp_char(heal_targets);
+    if not heal_target then
+        raid_heal();
+        return;
+    end
 
-	if not has_buff("target", "Renew") then
-		CastSpellByName("Renew");
-		return;
-	end
-
-	caster_range_check(35);
+    TargetUnit(heal_target);
+    caster_range_check(35);
 
 	local health_max = UnitHealthMax("target");
 	local health_cur = UnitHealth("target");
 	local targeting_self = UnitName("target") == UnitName("player");
 
-    if UnitName("player") == "Kasio" and (health_max - health_cur) > 2000 then
-        cast_spell("Greater Heal");
+    if (health_cur < health_max * 0.15) then
+        cast_spell("Power Word: Shield");
+        cast_spell("Flash Heal");
 	elseif (health_cur < health_max * 0.30) then
 		cast_spell("Greater Heal");
-	elseif (should_cast_PoH()) then
-		cast_spell("Prayer of Healing");
     elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
         TargetUnit("player");
-        cast_spell("Greater Heal");
+        cast_spell("Power Word: Shield");
+        cast_spell("Flash Heal");
+    elseif (should_cast_PoH()) then
+        cast_spell("Prayer of Healing");
+    elseif time() - pom_time > 10 then
+        if cast_if_nocd("Prayer of Mending") then
+            pom_time = time();
+        end
 	elseif (health_cur < health_max * 0.60) then
 		if not targeting_self and (UnitHealth("player") < UnitHealthMax("player")*0.50) then
 			cast_spell("Binding Heal");
@@ -87,8 +156,8 @@ combat_priest_holy = function()
 		end
 	elseif not has_buff("target", "Renew") then
 		cast_spell("Renew");
-    elseif heal_target == mage_tank and not has_buff("target", "Power Word: Shield") then
-        cast_spell("Power Word: Shield");
-	end
+    elseif table.contains(heal_targets, "raid") then
+        raid_heal();
+    end
 
 end

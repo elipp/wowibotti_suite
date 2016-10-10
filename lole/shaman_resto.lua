@@ -45,9 +45,25 @@ local function NS_heal_on_tank()
 
 end
 
+local function raid_heal()
+
+    if (UnitHealth("player") < UnitHealthMax("player")*0.30) then
+        TargetUnit("player");
+        cast_spell("Lesser Healing Wave");
+    else
+        target_best_CH_target();
+        if not UnitExists("target") or UnitIsDead("target") or has_buff("target", "Spirit of Redemption") then
+            return false
+        end
+        caster_range_check(35);
+        cast_spell("Chain Heal")
+    end
+
+    return true;
+
+end
+
 combat_shaman_resto = function()
-    --local mage_tank = "Dissona";
-	local mage_tank = MAIN_TANK
 
 	if casting_legit_heal() then return end
 
@@ -67,36 +83,36 @@ combat_shaman_resto = function()
         if cast_if_nocd("Mana Tide Totem") then return end
     end
 
-	-- if UnitName("player") == "Pehmware" then
-	-- 	TargetUnit("Krosh Firehand")
-	-- 	if UnitExists("target") and not UnitIsDead("target") then
-	-- 		TargetUnit(mage_tank);
-	--         caster_range_check(35);
-	--         if (UnitHealthMax(mage_tank) - UnitHealth(mage_tank)) > 5000 then
-	--             cast_spell("Healing Wave")
-	--         elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
-	--             TargetUnit("player");
-	--             cast_spell("Healing Wave")
-	-- 		elseif (UnitHealthMax(mage_tank) - UnitHealth(mage_tank)) > 2000 then
-	-- 			cast_spell("Lesser Healing Wave")
-	-- 		end
-	--         return;
-	-- 	end
-    -- elseif (UnitHealthMax(OFF_TANK) - UnitHealth(OFF_TANK)) > 8000 then
-    --     TargetUnit(OFF_TANK);
-    --     caster_range_check(35);
-    --     cast_spell("Lesser Healing Wave")
-    --     return;
-	-- end
+    local heal_targets = get_heal_targets();
+    if heal_targets[1] == "raid" then
+        raid_heal();
+        return;
+    end
 
-	target_best_CH_target();
-	if not UnitExists("target") then return end
+    local heal_target = get_lowest_hp_char(heal_targets);
+    if not heal_target then
+        raid_heal();
+        return;
+    end
 
-	caster_range_check(35);
-	cast_spell("Chain Heal")
+    TargetUnit(heal_target);
+    caster_range_check(35);
 
-	return;
+    local health_max = UnitHealthMax("target");
+    local health_cur = UnitHealth("target");
 
-
+    if (health_cur < health_max * 0.30) then
+        cast_spell("Lesser Healing Wave");
+    elseif (UnitHealth("player") < UnitHealthMax("player")*0.30) then
+        TargetUnit("player");
+        cast_spell("Lesser Healing Wave");
+    elseif (health_cur < health_max * 0.70) then
+        cast_spell("Healing Wave");
+    elseif (UnitHealth("player") < UnitHealthMax("player")*0.50) then
+        TargetUnit("player");
+        cast_spell("Healing Wave");
+    elseif table.contains(heal_targets, "raid") then
+        raid_heal();
+    end
 
 end

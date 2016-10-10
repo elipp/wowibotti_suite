@@ -151,6 +151,29 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 			SendChatMessage("lole_runscript: " .. sender .. " doesn't appear to be a member of Uuslapio, not running script!", "GUILD");
 		end
 
+    elseif (prefix == "lole_healers") then
+        -- message: healer1:target1,target2,...,targetN.healerN:target1,...
+        echo(message);
+        if message == nil or message == "" then
+            HEALER_TARGETS = {}
+            echo("lole_healers: Wiped out healer assignments.");
+            return
+        end
+        local per_healer = {strsplit(".", message)};
+        echo("lole_healers: Healer assignments change:")
+        for key, healer_targets in pairs(per_healer) do
+            local ht = {strsplit(":", healer_targets)};
+            local healer = ht[1];
+            local targets = {};
+            if ht[2] == nil then
+                ht[2] = "";
+            else
+                targets = {strsplit(",", ht[2])};
+            end
+            HEALER_TARGETS[healer] = targets;
+            echo(healer .. ": " .. ht[2]);
+        end
+
     elseif (prefix == "lole_mount") then
         RunMacro("mount");
 
