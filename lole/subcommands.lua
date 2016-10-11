@@ -562,7 +562,7 @@ end
 
 local function lole_set_healer_targets(healer, targets)
     -- targets: target1,target2,...,targetN where target = unit name or "raid"
-    local usage = "lole_set_healer_targets: Usage: heal healer_name target1,target2,...,targetN where target = unit name or 'raid'";
+    local usage = "lole_set_healer_targets: Usage: heal healername target1,target2,...,targetN where target = unitname or 'raid'";
     if healer == nil or healer == "help" then
         echo(usage);
         return false;
@@ -576,13 +576,13 @@ end
 
 local function lole_add_healer_targets(healer, targets)
     -- targets: target1,target2,...,targetN where target = unit name or "raid"
-    local usage = "lole_add_healer_targets: Usage: heal_add healer_name target1,target2,...,targetN where target = unit name or 'raid'";
+    local usage = "lole_add_healer_targets: Usage: heal_add healername target1,target2,...,targetN where target = unitname or 'raid'";
     if healer == nil or healer == "help" or targets == nil then
         echo(usage);
         return false;
     end
     local new_targets = "";
-    local existing = get_heal_targets();
+    local existing = get_heal_targets(healer);
     for i, char in ipairs(existing) do
         new_targets = new_targets .. char .. ",";
     end
@@ -591,22 +591,26 @@ local function lole_add_healer_targets(healer, targets)
     SendAddonMessage("lole_healers", message, "RAID");
 end
 
+local function lole_reset_healer_targets()
+    SendAddonMessage("lole_healers", "reset", "RAID"); 
+end
+
 local function lole_echo_healer_targets()
 
-    healer_targets_copy = shallowcopy(HEALER_TARGETS); 
-    local msg = "lole: Requested healer target information:";
-    for healer, targets in pairs(healer_targets_copy) do
-        msg = msg .. "\n" .. healer .. ": "
-        for i, target in pairs(targets) do
+    local healer_targets_copy = shallowcopy(HEALER_TARGETS); 
+    local msg = "Requested healer target information:";
+    for i, healer in ipairs(HEALERS) do
+        local targets = healer_targets_copy[healer];
+        msg = msg .. "§" .. healer .. ": " -- "§" = "\n" because Feenix
+        for j, target in ipairs(targets) do
             msg = msg .. target
-            if i ~= #targets then
+            if j ~= #targets then
                 msg = msg .. ", "
             end
         end
     end
 
-    script_text = "DEFAULT_CHAT_FRAME:AddMessage(\"" .. msg .. "\")";
-    SendAddonMessage("lole_runscript", script_text, "RAID");
+    SendAddonMessage("lole_echo", msg, "RAID");
 
 end
 
@@ -640,6 +644,7 @@ lole_subcommands = {
     raid_aoe = lole_raid_aoe;
     heal = lole_set_healer_targets;
     heal_add = lole_add_healer_targets;
+    heal_reset = lole_reset_healer_targets;
     healers = lole_echo_healer_targets;
 
 	de_greeniez = lole_disenchant_greeniez;

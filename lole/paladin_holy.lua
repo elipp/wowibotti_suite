@@ -45,7 +45,7 @@ combat_paladin_holy = function()
 		CastSpellByName("Divine Illumination");
 	end
 
-    local heal_targets = get_heal_targets();
+    local heal_targets = get_heal_targets(UnitName("player"));
     if heal_targets[1] == "raid" then
         raid_heal();
         return;

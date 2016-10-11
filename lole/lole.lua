@@ -126,6 +126,17 @@ local function on_spell_sent_event(self, event, caster, spell, rank, target)
     end
 end
 
+PREFIX_LOCKS = {
+    lole_runscript = false,
+    lole_healers = false,
+    lole_echo = false,
+}
+local function prevent_double_call(prefix)
+    local r = PREFIX_LOCKS[prefix];
+    PREFIX_LOCKS[prefix] = not PREFIX_LOCKS[prefix];
+    return r;
+end
+
 local function OnMsgEvent(self, event, prefix, message, channel, sender)
 
 	if (prefix == "lole_opcode") then
@@ -155,6 +166,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 		end
 
 	elseif (prefix == "lole_runscript") then
+        if prevent_double_call(prefix) then return end
 		local guildies = get_guild_members()
 		if guildies[sender] then
 			RunScript(message);
@@ -163,31 +175,19 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 		end
 
     elseif (prefix == "lole_healers") then
-        -- message: healer1:target1,target2,...,targetN.healerN:target1,...
-        echo(message);
-        if message == nil or message == "" then
-            HEALER_TARGETS = {}
-            echo("lole_healers: Wiped out healer assignments.");
-            return
-        end
-        local per_healer = {strsplit(".", message)};
-        echo("lole_healers: Healer assignments change:")
-        for key, healer_targets in pairs(per_healer) do
-            local ht = {strsplit(":", healer_targets)};
-            local healer = ht[1];
-            local targets = {};
-            if ht[2] == nil then
-                ht[2] = "";
-            else
-                targets = {strsplit(",", ht[2])};
-            end
-            HEALER_TARGETS[healer] = targets;
-            echo(healer .. ": " .. ht[2]);
-        end
+        if prevent_double_call(prefix) then return end
+        handle_healer_assignment(message);
 
     elseif (prefix == "lole_current_heals") then
         local msg = {strsplit(",", message)};
         HEALS_IN_PROGRESS[msg[1]][msg[2]] = {msg[3],msg[4]};
+
+    elseif (prefix == "lole_echo") then 
+        -- Feenix addon messaging cannot handle "\n", so we use "§" instead
+        -- and substitute "§" symbols with "\n" here.
+        if prevent_double_call(prefix) then return end
+        message = string.gsub(message, "§", "\n");
+        echo(message);
 
     elseif (prefix == "lole_mount") then
         RunMacro("mount");
@@ -205,8 +205,7 @@ msg_frame:RegisterEvent("CHAT_MSG_ADDON");
 msg_frame:SetScript("OnEvent", OnMsgEvent);
 
 local spell_sent_frame = nil;
-local healers = {"Kasio", "Mam", "Igop", "Pehmware", "Kusip", "Ceucho"};
-if table.contains(healers, UnitName("player")) then
+if table.contains(HEALERS, UnitName("player")) then
     spell_sent_frame = CreateFrame("Frame");
     spell_sent_frame:RegisterEvent("UNIT_SPELLCAST_SENT");
     spell_sent_frame:SetScript("OnEvent", on_spell_sent_event);

@@ -83,7 +83,7 @@ combat_shaman_resto = function()
         if cast_if_nocd("Mana Tide Totem") then return end
     end
 
-    local heal_targets = get_heal_targets();
+    local heal_targets = get_heal_targets(UnitName("player"));
     if heal_targets[1] == "raid" then
         raid_heal();
         return;

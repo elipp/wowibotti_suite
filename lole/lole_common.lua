@@ -7,7 +7,15 @@ MISSING_BUFFS = {};
 
 MAIN_TANK = nil
 OFF_TANK = nil
-HEALER_TARGETS = {}
+HEALERS = {"Ceucho", "Kusip", "Kasio", "Mam", "Igop", "Puhveln"};
+HEALER_TARGETS = { -- defaults
+    Ceucho = {"Adieux", "Noctur", "raid"};
+    Kusip = {"Adieux", "Noctur", "raid"};
+    Kasio = {"raid"};
+    Mam = {"raid"};
+    Igop = {"raid"};
+    Puhveln = {"raid"};
+}
 HEALS_IN_PROGRESS = {};
 
 HEAL_ESTIMATES = {
@@ -857,8 +865,8 @@ function get_CoH_eligible_groups(groups, min_deficit, max_inelibigle_chars)
 
 end
 
-function get_heal_targets()
-    return HEALER_TARGETS[UnitName("player")];
+function get_heal_targets(healer)
+    return HEALER_TARGETS[healer];
 end
 
 function get_raid_heal_target()
@@ -888,6 +896,42 @@ function get_raid_heal_target()
         return lowest;
     else
         return "player";
+    end
+
+end
+
+function handle_healer_assignment(message)
+    -- message: healer1:target1,target2,...,targetN.healerN:target1,...
+
+    if message == "reset" then
+        HEALER_TARGETS = {}
+        echo("Wiped out healer assignments.");
+        return
+    end
+    local per_healer = {strsplit(".", message)};
+    echo("Healer assignments change:")
+    for key, healer_targets in pairs(per_healer) do
+        local ht = {strsplit(":", healer_targets)};
+        local healer = ht[1];
+        if not table.contains(HEALERS, healer) then
+            echo("No such healer: " .. "'" .. healer .. "'");
+            return;
+        end
+        local targets = {};
+        if ht[2] == nil or ht[2] == "" then
+            ht[2] = "(none)";
+        else
+            targets = {strsplit(",", ht[2])};
+            local guildies = get_guild_members();
+            for i, target in pairs(targets) do
+                if not guildies[target] and target ~= "raid" then
+                    echo("Not a valid target: " .. "'" .. target .. "'");
+                    return;
+                end
+            end
+        end
+        HEALER_TARGETS[healer] = targets;
+        echo(healer .. ": " .. ht[2]);
     end
 
 end
