@@ -205,7 +205,7 @@ msg_frame:RegisterEvent("CHAT_MSG_ADDON");
 msg_frame:SetScript("OnEvent", OnMsgEvent);
 
 local spell_sent_frame = nil;
-if table.contains(HEALERS, UnitName("player")) then
+if HEALER_TARGETS[UnitName("player")] then
     spell_sent_frame = CreateFrame("Frame");
     spell_sent_frame:RegisterEvent("UNIT_SPELLCAST_SENT");
     spell_sent_frame:SetScript("OnEvent", on_spell_sent_event);

@@ -7,8 +7,8 @@ MISSING_BUFFS = {};
 
 MAIN_TANK = nil
 OFF_TANK = nil
-HEALERS = {"Ceucho", "Kusip", "Kasio", "Mam", "Igop", "Puhveln"};
-HEALER_TARGETS = { -- defaults
+HEALERS = {"Ceucho", "Kusip", "Kasio", "Mam", "Igop", "Puhveln"}; -- for keeping order mostly
+DEFAULT_HEALER_TARGETS = {
     Ceucho = {"Adieux", "Noctur", "raid"};
     Kusip = {"Adieux", "Noctur", "raid"};
     Kasio = {"raid"};
@@ -182,6 +182,10 @@ function echo(text)
     DEFAULT_CHAT_FRAME:AddMessage("lole: " .. tostring(text))
 end
 
+function echo_noprefix(text)
+    DEFAULT_CHAT_FRAME:AddMessage(tostring(text))
+end
+
 function lole_error(text)
 	DEFAULT_CHAT_FRAME:AddMessage("|cFFFF3300lole: error: " .. tostring(text))
 end
@@ -199,6 +203,8 @@ function shallowcopy(orig)
     end
     return copy
 end
+
+HEALER_TARGETS = shallowcopy(DEFAULT_HEALER_TARGETS);
 
 function first_to_upper(str)
     return (str:gsub("^%l", string.upper))
@@ -247,6 +253,18 @@ function table.contains(table, element)
     end
   end
   return false
+end
+
+function table.remove_duplicates(table)
+    local hash = {}
+    local set = {}
+    for _,v in ipairs(table) do
+       if (not hash[v]) then
+           set[#set+1] = v
+           hash[v] = true
+       end
+    end
+    return set;
 end
 
 function get_available_class_configs()
@@ -385,7 +403,8 @@ function get_HPs(party_only)
 
 end
 
-function get_lowest_hp_char(chars)
+function get_lowest_hp_charCHANGETHIS(chars)
+    --10k beats 11k/20k
 
     local lowest = nil;
     local lowest_hp = 0;
@@ -869,7 +888,8 @@ function get_heal_targets(healer)
     return HEALER_TARGETS[healer];
 end
 
-function get_raid_heal_target()
+function get_raid_heal_targetCHANGETHIS()
+    --10k beats 11k/20k
 
     local health_points = get_HPs();
     local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);
@@ -900,15 +920,112 @@ function get_raid_heal_target()
 
 end
 
+function sync_healer_targets_with_mine()
+
+    local healer_targets_copy = shallowcopy(HEALER_TARGETS); 
+    local msg = "set;";
+    for i, healer in ipairs(HEALERS) do
+        local targets = healer_targets_copy[healer];
+        msg = msg .. healer .. ":"
+        for j, target in ipairs(targets) do
+            msg = msg .. target
+            if j ~= #targets then
+                msg = msg .. ","
+            end
+        end
+        if i ~= #HEALERS then
+            msg = msg .. "."
+        end
+    end
+
+    SendAddonMessage("lole_healers", msg, "RAID");
+
+end
+
+function get_new_healer_targets(op, healer, new_targets)
+
+    local targets = {};
+    local old_targets = shallowcopy(get_heal_targets(healer));
+    if op == "set" then
+        targets = new_targets;
+    elseif op == "add" then
+        targets = old_targets;
+        for i, target in ipairs(new_targets) do
+            table.insert(targets, target);
+        end
+    elseif op == "remove" then
+        for i, target in ipairs(old_targets) do
+            if not table.contains(new_targets, target) then
+                table.insert(targets, target);
+            end
+        end
+    end
+
+    targets = table.remove_duplicates(targets);
+
+    local raid_i = nil;
+    for i, target in ipairs(targets) do
+        if target == "raid" then
+            raid_i = i;
+            break
+        end
+    end
+    if raid_i then
+        table.remove(targets, raid_i);
+        table.insert(targets, "raid") -- "raid" must be last
+    end
+
+    return targets;
+
+end
+
+function get_healer_target_info()
+
+    local healer_targets_copy = shallowcopy(HEALER_TARGETS); 
+    local info = "";
+    for i, healer in ipairs(HEALERS) do
+        local targets = healer_targets_copy[healer];
+        if i ~= 1 then
+            info = info .. "\n";
+        end
+        info = info .. healer .. ": "
+        if next(targets) == nil then
+            info = info .. "(none)";
+        else
+            for j, target in ipairs(targets) do
+                info = info .. target
+                if j ~= #targets then
+                    info = info .. ", "
+                end
+            end
+        end
+    end
+
+    return info;
+
+end
+
 function handle_healer_assignment(message)
     -- message: healer1:target1,target2,...,targetN.healerN:target1,...
+    local msg_tbl = {strsplit(";", message)};
+    local op = msg_tbl[1];
+    msg = msg_tbl[2];
 
-    if message == "reset" then
-        HEALER_TARGETS = {}
-        echo("Wiped out healer assignments.");
-        return
+    if op == "reset" then
+        HEALER_TARGETS = shallowcopy(DEFAULT_HEALER_TARGETS);
+        echo("Healer assignments reset to default:\n" .. get_healer_target_info());
+        return;
+    elseif op == "sync" then
+        if msg then
+            if msg == UnitName("player") then
+                sync_healer_targets_with_mine();
+            end
+        elseif IsRaidLeader() then
+            sync_healer_targets_with_mine();
+        end
+        return;
     end
-    local per_healer = {strsplit(".", message)};
+    local per_healer = {strsplit(".", msg)};
     echo("Healer assignments change:")
     for key, healer_targets in pairs(per_healer) do
         local ht = {strsplit(":", healer_targets)};
@@ -917,21 +1034,25 @@ function handle_healer_assignment(message)
             echo("No such healer: " .. "'" .. healer .. "'");
             return;
         end
+        local targets_str = ht[2];
         local targets = {};
-        if ht[2] == nil or ht[2] == "" then
-            ht[2] = "(none)";
-        else
-            targets = {strsplit(",", ht[2])};
+        if targets_str ~= "" then
+            targets = {strsplit(",", targets_str)};
             local guildies = get_guild_members();
-            for i, target in pairs(targets) do
+            for i, target in ipairs(targets) do
                 if not guildies[target] and target ~= "raid" then
                     echo("Not a valid target: " .. "'" .. target .. "'");
                     return;
                 end
             end
+            targets = get_new_healer_targets(op, healer, targets);
+            targets_str = table.concat(targets, ",");
         end
         HEALER_TARGETS[healer] = targets;
-        echo(healer .. ": " .. ht[2]);
+        if targets_str == "" then
+            targets_str = "(none)";
+        end
+        echo_noprefix("   " .. healer .. ": " .. targets_str);
     end
 
 end
