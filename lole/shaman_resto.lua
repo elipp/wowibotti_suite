@@ -89,7 +89,7 @@ combat_shaman_resto = function()
         return;
     end
 
-    local heal_target = get_lowest_hp_char(heal_targets);
+    local heal_target = get_single_heal_target(heal_targets);
     if not heal_target then
         raid_heal();
         return;

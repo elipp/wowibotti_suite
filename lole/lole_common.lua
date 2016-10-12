@@ -17,6 +17,7 @@ DEFAULT_HEALER_TARGETS = {
     Puhveln = {"raid"};
 }
 HEALS_IN_PROGRESS = {};
+POINT_DEFICITS_EQUAL = 0.5;
 
 HEAL_ESTIMATES = {
     ["Flash of Light(Rank 7)"] = 1400,
@@ -372,8 +373,8 @@ function get_lowest_hp(hp_deficits)
 
 end
 
-function get_HPs(party_only)
-    local HPs = {};
+function get_HP_data_and_maxmaxHP(party_only)
+    local HP_table = {};
     local num_raid_members = 0;
 
     if party_only then
@@ -382,48 +383,31 @@ function get_HPs(party_only)
         num_raid_members = GetNumRaidMembers();
     end
 
+    local maxmaxHP = 0;
     if num_raid_members == 0 then
-        HPs["player"] = UnitHealth("player");
+        HP_table["player"] = {UnitHealth("player"), UnitHealthMax("player")};
         for i=1,4,1 do local exists = GetPartyMember(i)
             local name = "party" .. i;
             if exists and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
-                HPs[name] = UnitHealth(name);
+                HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
+                if HP_table[name][2] > maxmaxHP then
+                    maxmaxHP = HP_table[name][2];
+                end
             end
         end
     else
         for i=1,num_raid_members,1 do
             local name = "raid" .. tonumber(i);
             if UnitExists(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
-                HPs[name] = UnitHealth(name);
+                HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
+                if HP_table[name][2] > maxmaxHP then
+                    maxmaxHP = HP_table[name][2];
+                end
             end
         end
     end
 
-    return HPs;
-
-end
-
-function get_lowest_hp_charCHANGETHIS(chars)
-    --10k beats 11k/20k
-
-    local lowest = nil;
-    local lowest_hp = 0;
-
-    for i, name in pairs(chars) do
-        if name == "raid" or not UnitExists(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") then
-        elseif not lowest then
-            lowest_hp = UnitHealth(name);
-            lowest = name;
-        else
-            local tmp_hp = UnitHealth(name);
-            if tmp_hp < lowest_hp then
-                lowest_hp = tmp_hp;
-                lowest = name;
-            end
-        end
-    end
-
-    return lowest;
+    return HP_table, maxmaxHP;
 
 end
 
@@ -888,34 +872,59 @@ function get_heal_targets(healer)
     return HEALER_TARGETS[healer];
 end
 
-function get_raid_heal_targetCHANGETHIS()
-    --10k beats 11k/20k
+function get_heal_target(HP_data, maxmaxHP)
 
-    local health_points = get_HPs();
     local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);
-    local lowest = nil;
-    local lowest_hp = 0;
-    for target, hp in pairs(health_points) do
-        if not lowest then
-            lowest = target;
-            lowest_hp = hp;
-        end
-        local tmp_hp = hp;
+    local best_target = nil;
+    local highest_comparison_value = 0;
+    for target, hp_tbl in pairs(HP_data) do
+        local tar_hp = hp_tbl[1];
+        local tar_maxhp = hp_tbl[2];
         for healer, info in pairs(heals_in_progress[target]) do
             if healer ~= UnitName("player") and info[3] > GetTime()*1000 then
-                tmp_hp = tmp_hp + info[1];
+                tar_hp = tar_hp + info[1];
             end
         end
-        if tmp_hp < lowest_hp then
-            lowest_hp = tmp_hp;
-            lowest = target;
+        local comp_val = (((tar_maxhp - tar_hp) / tar_maxhp) / POINT_DEFICITS_EQUAL) ^ (maxmaxHP / tar_maxhp);
+        echo(comp_val);
+        if comp_val > highest_comparison_value then
+            highest_comparison_value = comp_val;
+            best_target = target;
         end
     end
 
-    if lowest then
-        return lowest;
+    return best_target;
+
+end
+
+function get_raid_heal_target()
+    local HP_data, maxmaxHP = get_HP_data_and_maxmaxHP();
+    return get_heal_target(HP_data, maxmaxHP);
+end
+
+function get_single_heal_target(chars)
+
+    local HP_table = {};
+    local maxmaxHP = 0;
+    local num_valid_chars = 0;
+    for i, name in pairs(chars) do
+        if name == "raid" or not UnitExists(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") then
+        else
+            HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
+            if HP_table[name][2] > maxmaxHP then
+                maxmaxHP = HP_table[name][2];
+            end
+            num_valid_chars = num_valid_chars + 1;
+        end
+    end
+
+    if num_valid_chars > 1 then
+        return get_heal_target(HP_data, maxmaxHP);
+    elseif num_valid_chars == 1 then
+        local name, tbl = next(HP_table);
+        return name;
     else
-        return "player";
+        return nil;
     end
 
 end

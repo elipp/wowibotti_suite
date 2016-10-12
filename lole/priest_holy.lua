@@ -52,7 +52,11 @@ end
 
 local function raid_heal()
     local target = get_raid_heal_target();
-    TargetUnit(target);
+    if target then
+        TargetUnit(target);
+    else
+        TargetUnit("player");
+    end
     local health_max = UnitHealthMax("target");
     local health_cur = UnitHealth("target");
     local targeting_self = UnitName("target") == UnitName("player");
@@ -114,7 +118,7 @@ combat_priest_holy = function()
         return;
     end
 
-    local heal_target = get_lowest_hp_char(heal_targets);
+    local heal_target = get_single_heal_target(heal_targets);
     if not heal_target then
         raid_heal();
         return;
