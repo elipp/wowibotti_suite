@@ -180,7 +180,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 
     elseif (prefix == "lole_current_heals") then
         local msg = {strsplit(",", message)};
-        HEALS_IN_PROGRESS[msg[1]][msg[2]] = {msg[3],msg[4]};
+        HEALS_IN_PROGRESS[msg[1]][msg[2]] = {tonumber(msg[3]), tonumber(msg[4])};
 
     elseif (prefix == "lole_echo") then 
         -- Feenix addon messaging cannot handle "\n", so we use "§" instead

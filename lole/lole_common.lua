@@ -17,6 +17,13 @@ DEFAULT_HEALER_TARGETS = {
     Puhveln = {"raid"};
 }
 HEALS_IN_PROGRESS = {};
+
+-- Healers select targets based on the function shown here:
+-- http://www.wolframalpha.com/input/?i=plot+of+y%3D(x%2F0.5)%5E(15000%2F10000)+and+y%3D(x%2F0.5)%5E(15000%2F12500)+and+y%3D(x%2F0.5)%5E(15000%2F15000)++for+x%3D0+to1+
+-- This value defines the point where HP deficit percentages are considered equal when healers compare targets.
+-- The idea is to favor targets with low max HP at deficit percentages higher than this point.
+-- At lower deficit percentages, targets with high max HP are favored.
+-- Adjust this value to shift healers' targeting priorities.
 POINT_DEFICITS_EQUAL = 0.5;
 
 HEAL_ESTIMATES = {
@@ -333,7 +340,7 @@ function get_HP_deficits(party_only)
 	    HP_deficits["player"] = UnitHealthMax("player") - UnitHealth("player");
 	    for i=1,4,1 do local exists = GetPartyMember(i)
             local name = "party" .. i;
-            if exists and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
+            if exists and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
             	HP_deficits[name] = UnitHealthMax(name) - UnitHealth(name);
             end
 	    end
@@ -341,7 +348,7 @@ function get_HP_deficits(party_only)
 		--HP_deficits["player"] = UnitHealthMax("player") - UnitHealth("player");
 		for i=1,num_raid_members,1 do
 			local name = "raid" .. tonumber(i);
-			if UnitExists(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
+			if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
 				HP_deficits[name] = UnitHealthMax(name) - UnitHealth(name);
 			end
 		end
@@ -385,10 +392,10 @@ function get_HP_data_and_maxmaxHP(party_only)
 
     local maxmaxHP = 0;
     if num_raid_members == 0 then
-        HP_table["player"] = {UnitHealth("player"), UnitHealthMax("player")};
+        HP_table[UnitName("player")] = {UnitHealth("player"), UnitHealthMax("player")};
         for i=1,4,1 do local exists = GetPartyMember(i)
-            local name = "party" .. i;
-            if exists and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
+            local name = UnitName("party" .. i);
+            if exists and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
                 HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
                 if HP_table[name][2] > maxmaxHP then
                     maxmaxHP = HP_table[name][2];
@@ -397,8 +404,8 @@ function get_HP_data_and_maxmaxHP(party_only)
         end
     else
         for i=1,num_raid_members,1 do
-            local name = "raid" .. tonumber(i);
-            if UnitExists(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
+            local name = UnitName("raid" .. tonumber(i));
+            if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
                 HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
                 if HP_table[name][2] > maxmaxHP then
                     maxmaxHP = HP_table[name][2];
@@ -824,7 +831,7 @@ function get_raid_HP_deficits_grouped(groups)
     for grp, tbl in pairs(groups) do
         grouped_deficits[grp] = {};
         for i, name in pairs(tbl) do
-            if UnitExists(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
+            if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
                 local deficit = UnitHealthMax(name) - UnitHealth(name);
                 table.insert(grouped_deficits[grp], name, deficit)
             end
@@ -848,7 +855,7 @@ function get_CoH_eligible_groups(groups, min_deficit, max_inelibigle_chars)
         for i, name in pairs(tbl) do
             group_eligible = true;
             local num_inelibigle_chars = 0;
-            if (not UnitExists(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") or UnitHealthMax(name) - UnitHealth(name) < min_deficit) then
+            if (not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") or UnitHealthMax(name) - UnitHealth(name) < min_deficit) then
                 num_inelibigle_chars = num_inelibigle_chars + 1;
                 if num_inelibigle_chars > max_inelibigle_chars then
                     group_eligible = false;
@@ -881,15 +888,17 @@ function get_heal_target(HP_data, maxmaxHP)
         local tar_hp = hp_tbl[1];
         local tar_maxhp = hp_tbl[2];
         for healer, info in pairs(heals_in_progress[target]) do
-            if healer ~= UnitName("player") and info[3] > GetTime()*1000 then
+            if healer ~= UnitName("player") and info[2] > GetTime()*1000 then
                 tar_hp = tar_hp + info[1];
             end
         end
-        local comp_val = (((tar_maxhp - tar_hp) / tar_maxhp) / POINT_DEFICITS_EQUAL) ^ (maxmaxHP / tar_maxhp);
-        echo(comp_val);
-        if comp_val > highest_comparison_value then
-            highest_comparison_value = comp_val;
-            best_target = target;
+        if tar_hp < tar_maxhp then
+            local comp_val = (((tar_maxhp - tar_hp) / tar_maxhp) / POINT_DEFICITS_EQUAL) ^ (maxmaxHP / tar_maxhp);
+            --echo(string.format("%f", comp_val));
+            if comp_val > highest_comparison_value then
+                highest_comparison_value = comp_val;
+                best_target = target;
+            end
         end
     end
 
@@ -908,7 +917,7 @@ function get_single_heal_target(chars)
     local maxmaxHP = 0;
     local num_valid_chars = 0;
     for i, name in pairs(chars) do
-        if name == "raid" or not UnitExists(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") then
+        if name == "raid" or not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") then
         else
             HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
             if HP_table[name][2] > maxmaxHP then

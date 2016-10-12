@@ -87,13 +87,14 @@ local function raid_heal()
         else
             cast_spell("Greater Heal(Rank 1)");
         end
-    elseif time() - pom_time > 10 then
-        if cast_if_nocd("Prayer of Mending") then
-            pom_time = time();
-            return;
+    elseif (health_cur < health_max * 0.85) then
+        if time() - pom_time > 10 then
+            if cast_if_nocd("Prayer of Mending") then
+                pom_time = time();
+            end
+        elseif not has_buff("target", "Renew") then
+            cast_spell("Renew");
         end
-    elseif not has_buff("target", "Renew") then
-        cast_spell("Renew");
     else
         return false;
     end

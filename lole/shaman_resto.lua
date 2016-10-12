@@ -52,7 +52,7 @@ local function raid_heal()
         cast_spell("Lesser Healing Wave");
     else
         target_best_CH_target();
-        if not UnitExists("target") or UnitIsDead("target") or has_buff("target", "Spirit of Redemption") then
+        if not UnitExists("target") or not UnitIsConnected(name) or UnitIsDead("target") or has_buff("target", "Spirit of Redemption") then
             return false
         end
         caster_range_check(35);
