@@ -50,9 +50,9 @@ local function raid_heal()
             cast_spell("Regrowth");
         end
     elseif (health_cur < health_max * 0.60) then
-        if not has_rj or timeleft_rj < 2 then
+        if not has_rj then
             CastSpellByName("Rejuvenation");
-        elseif stacks_lb < 3 then
+        elseif not has_lb or stacks_lb < 3 then
             CastSpellByName("Lifebloom");
         end
     elseif (health_cur < health_max * 0.80) then
@@ -97,6 +97,9 @@ combat_druid_resto = function()
 
     caster_range_check(35);
 
+    local health_max = UnitHealthMax("target");
+    local health_cur = UnitHealth("target");
+
     if (health_cur < health_max * 0.35) then
         CastSpellByName("Swiftmend");
         if not has_rg or timeleft_rg < 5 then
@@ -117,7 +120,7 @@ combat_druid_resto = function()
 		if stacks_lb < 3 then
 			CastSpellByName("Lifebloom")
 			return
-		elseif timeleft < 0.7 then
+		elseif timeleft_lb < 1.2 then
 			CastSpellByName("Lifebloom")
 			return
 		end

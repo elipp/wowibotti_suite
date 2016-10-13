@@ -833,7 +833,7 @@ function get_raid_HP_deficits_grouped(groups)
         for i, name in pairs(tbl) do
             if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
                 local deficit = UnitHealthMax(name) - UnitHealth(name);
-                table.insert(grouped_deficits[grp], name, deficit)
+                grouped_deficits[grp][name] = deficit;
             end
         end
     end
@@ -842,32 +842,33 @@ function get_raid_HP_deficits_grouped(groups)
 
 end
 
-function get_CoH_eligible_groups(groups, min_deficit, max_inelibigle_chars)
+function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars)
 
     if min_deficit == nil then min_deficit = 2000; end
-    if max_inelibigle_chars == nil then max_inelibigle_chars = 1; end
+    if max_ineligible_chars == nil then max_ineligible_chars = 1; end
 
     local grouped_deficits = {}
 
     for grp, tbl in pairs(groups) do
-        local group = {};
-        local group_eligible = false;
-        for i, name in pairs(tbl) do
-            group_eligible = true;
-            local num_inelibigle_chars = 0;
-            if (not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") or UnitHealthMax(name) - UnitHealth(name) < min_deficit) then
-                num_inelibigle_chars = num_inelibigle_chars + 1;
-                if num_inelibigle_chars > max_inelibigle_chars then
-                    group_eligible = false;
-                    break;
+        if #tbl == 5 then
+            local group = {};
+            local group_eligible = true;
+            local num_ineligible_chars = 0;
+            for i, name in pairs(tbl) do
+                if (not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") or UnitHealthMax(name) - UnitHealth(name) < min_deficit) then
+                    num_ineligible_chars = num_ineligible_chars + 1;
+                    if num_ineligible_chars > max_ineligible_chars then
+                        group_eligible = false;
+                        break;
+                    end
+                else
+                    local deficit = UnitHealthMax(name) - UnitHealth(name);
+                    group[name] = deficit;
                 end
-            else
-                local deficit = UnitHealthMax(name) - UnitHealth(name);
-                table.insert(group, name, deficit);
             end
-        end
-        if group_eligible then
-            table.insert(grouped_deficits, grp, group);
+            if group_eligible then
+                grouped_deficits[grp] = group;
+            end
         end
     end
 
