@@ -87,10 +87,6 @@ function get_current_config()
 	return available_configs[LOLE_CLASS_CONFIG]
 end
 
-local function get_available_mode_attribs()
-	return "<NYI>"
-end
-
 local function lole_setconfig(arg, modes)
 	if (arg == nil or arg == "") then
 		echo("lole_setconfig: erroneous argument!");
@@ -464,6 +460,35 @@ local function lole_pull(arg)
 --	target_best_CH_target()
 end
 
+local function lole_dscript(args)
+		local atab = {strsplit(" ", args)};
+		local numargs = table.getn(atab);
+
+		if numargs < 1 then
+			lole_error("dscript: usage: /lole dscript {run SCRIPTNAME | stop}")
+			return false;
+		end
+
+		local command = atab[1];
+
+	  if command == "run" then
+			if numargs < 2 then
+				lole_error("dscript run: missing SCRIPTNAME argument!")
+				return false;
+			else
+				local scriptname = atab[2];
+				dscript(command .. "," .. scriptname)
+				return true;
+			end
+		elseif command == "stop" then
+				dscript(command)
+		else
+			lole_error("dscript: unknown COMMAND " .. command);
+			return false
+		end
+
+end
+
 local function lole_sendscript(to, ...)
     local usage = "lole_sendscript: Usage: sendscript/ss [(RAID)/PARTY/GUILD]/[WHISPER/w [t1,t2,...,tn]] scripttext";
     if to == nil then
@@ -560,9 +585,13 @@ local function lole_raid_aoe(on_off_str)
     SendAddonMessage("lole_runscript", script_text, "RAID");
 end
 
+local function lole_debug_test_blast_target()
+		lole_subcommands.setall("blast", 1);
+		update_target()
+end
 
 lole_subcommands = {
-    lbuffcheck = lole_leaderbuffcheck;
+  lbuffcheck = lole_leaderbuffcheck;
 	buffcheck = lole_buffcheck;
 	cooldowns = lole_cooldowns;
 	setconfig = lole_setconfig;
@@ -588,7 +617,7 @@ lole_subcommands = {
 	pull = lole_pull;
 	durability = lole_durability;
 	inv_ordered = lole_inv_ordered;
-    raid_aoe = lole_raid_aoe;
+  raid_aoe = lole_raid_aoe;
 
 	de_greeniez = lole_disenchant_greeniez;
 
@@ -599,4 +628,8 @@ lole_subcommands = {
 
 	dump = lole_debug_dump_wowobjects;
 	loot = lole_debug_loot_all;
+
+	test_blast_target = lole_debug_test_blast_target;
+
+	dscript = lole_dscript;
 }

@@ -6,6 +6,7 @@
 #include "timer.h"
 #include "hooks.h"
 #include "creds.h"
+#include "dungeon_script.h"
 
 extern HWND wow_hWnd;
 extern int afkjump_keyup_queued;
@@ -240,6 +241,8 @@ static void LOP_range_check(const std::string& arg) {
 
 	if (!p.valid()) return;
 
+	if (t.get_GUID() == OM.get_local_GUID()) return;
+
 	vec3 ppos = p.get_pos();
 	vec3 tpos = t.get_pos();
 
@@ -364,7 +367,14 @@ static void LOP_nop(const std::string& arg) {
 }
 
 static void LOP_dungeon_script(const std::string &arg) {
-	// =)
+	std::vector<std::string> tokens;
+	tokenize_string(arg, ",", tokens);
+
+	if (tokens[0] == "run") {
+		std::string &scriptname = tokens[1];
+		dscript_load(scriptname);
+	}
+
 }
 
 static void LOP_target_marker(const std::string &arg) {
@@ -470,6 +480,10 @@ static void pull_mob() {
 	DoString("CastSpellByName(\"Avenger's Shield\")");
 }
 
+static void set_target_and_blast() {
+	DoString("RunMacroText(\"/lole test_blast_target\")");
+}
+
 static void LOP_walk_to_pull(const std::string &arg) {
 
 	ObjectManager OM;
@@ -482,12 +496,12 @@ static void LOP_walk_to_pull(const std::string &arg) {
 	if (d.length() > 30) {
 		vec3 newpos = tpos - 29 * dn;
 		CTM_t c(newpos, CTM_MOVE, 0, 0, 0.5);
-		c.set_posthook(CTM_posthook_t(pull_mob, 10));
+		c.add_posthook(CTM_posthook_t(pull_mob, 10));
 		ctm_add(c);
 	}
 	else {
 		CTM_t c(ppos + dn, CTM_MOVE, 0, 0, 0.5);
-		c.set_posthook(CTM_posthook_t(pull_mob, 10));
+		c.add_posthook(CTM_posthook_t(pull_mob, 10));
 		ctm_add(c);
 	}
 
@@ -647,6 +661,25 @@ static void LOP_maulgar_get_felhound(const std::string &arg) {
 	SelectUnit(0);
 }
 
+static void LOP_tank_face(const std::string &arg) {
+	ObjectManager OM;
+
+	WowObject t = OM.get_object_by_GUID(get_target_GUID());
+	if (!t.valid()) return;
+
+	if (t.get_GUID() == OM.get_local_GUID()) return;
+
+	WowObject p = OM.get_local_object();
+
+	vec3 ppos = p.get_pos();
+	vec3 tpos = t.get_pos();
+	vec3 diff = tpos - ppos;
+	vec3 dir = diff.unit();
+
+	CTM_t face(ppos + dir, CTM_MOVE, 0, 0, 1.5);
+	ctm_add(face);
+}
+
 static void LOPDBG_dump(const std::string &arg) {
 	dump_wowobjects_to_log();
 }
@@ -677,15 +710,16 @@ static void LOPDBG_pull_test(const std::string &arg) {
 
 	vec3 pull_pos = ppos;
 
-	if (diff.length() > 20) {
-		pull_pos = tpos - 18 * dir;
+	if (diff.length() > 25) {
+		pull_pos = tpos - 23 * dir;
 	}
 
 	ctm_add(CTM_t(pull_pos, CTM_MOVE, 0, 0, 0.5));
 
 	CTM_t pull(pull_pos + dir, CTM_MOVE, 0, 0, 0.5);
-	pull.set_posthook(CTM_posthook_t(pull_mob, 30));
-	
+	pull.add_posthook(CTM_posthook_t(pull_mob, 30));
+	pull.add_posthook(CTM_posthook_t(set_target_and_blast, 120));
+
 	ctm_add(pull);
 }
 
@@ -722,6 +756,7 @@ static const struct {
 	{ "LOLE_OFF_TANK", LOP_nop, 0},
 	{ "LOLE_SET_ALL", LOP_nop, 0 },
 	{ "LOLE_MELEE_AVOID_AOE_BUFF", LOP_melee_avoid_aoe_buff, 1},
+	{ "LOLE_TANK_FACE", LOP_tank_face, 0 }
 };
 
 static const struct {

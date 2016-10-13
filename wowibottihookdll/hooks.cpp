@@ -160,10 +160,7 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 
 static void __stdcall CTM_finished_hookfunc() {
 
-	// HOTPATCH :D:D:D
-
-	const CTM_t *c = ctm_get_current_action();
-
+	CTM_t *c = ctm_get_current_action();
 	if (!c) { return; }
 	
 	c->handle_posthook();

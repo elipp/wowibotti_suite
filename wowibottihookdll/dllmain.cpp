@@ -185,6 +185,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		handle_pipe_stuff();
 		opcode_debug_call(LOLE_DEBUG_OPCODE_QUERY_INJECTED, "");
 
+		dscript_read_all();
+
 		break;
 	}
 	case DLL_THREAD_ATTACH:

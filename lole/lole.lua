@@ -25,7 +25,7 @@ local function handle_subcommand(args)
 	table.remove(atab, 1);
 	local cmdfunc = lole_subcommands[a1];
 
-    if cmdfunc then
+  if cmdfunc then
 		cmdfunc(unpack(atab));
 		return true;
 	else

@@ -3,6 +3,8 @@ combat_paladin_prot = function()
 
     --if cleanse_party("Arcane Shock") then return; end
 
+    tank_face()
+
     if not has_buff("player", "Holy Shield") then
         if cast_if_nocd("Holy Shield") then return; end
     end

@@ -284,6 +284,10 @@ end
 local update_target_button =
 create_simple_button("update_target_button", lole_frame, 120, -100, "Update target", 115, 27, update_target_onclick);
 
+function update_target()
+	update_target_onclick()
+end
+
 local function clear_target_onclick()
 
 	-- if not IsRaidLeader() then

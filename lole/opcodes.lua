@@ -27,7 +27,8 @@ LOLE_OPCODE_GET_BEST_CHAINHEAL_TARGET,
 LOLE_OPCODE_MAULGAR_GET_UNBANISHED_FELHOUND,
 LOLE_OPCODE_OFF_TANK,
 LOLE_OPCODE_SET_ALL,
-LOLE_OPCODE_MELEE_AVOID_AOE_BUFF
+LOLE_OPCODE_MELEE_AVOID_AOE_BUFF,
+LOLE_OPCODE_TANK_FACE
 
 = "LOP_00", "LOP_01", "LOP_02", "LOP_03", "LOP_04",
 "LOP_05", "LOP_06", "LOP_07", "LOP_08",
@@ -35,7 +36,7 @@ LOLE_OPCODE_MELEE_AVOID_AOE_BUFF
 "LOP_0D", "LOP_0E", "LOP_0F", "LOP_10",
 "LOP_11", "LOP_12", "LOP_13", "LOP_14",
 "LOP_15", "LOP_16", "LOP_17", "LOP_18",
-"LOP_19", "LOP_1A", "LOP_1B"
+"LOP_19", "LOP_1A", "LOP_1B", "LOP_1C"
 
 local
 LOLE_DEBUG_OPCODE_NOP,
@@ -219,6 +220,10 @@ function walk_to_pulling_range()
 	DelIgnore(LOLE_OPCODE_WALK_TO_PULLING_RANGE)
 end
 
+function tank_face()
+	DelIgnore(LOLE_OPCODE_TANK_FACE)
+end
+
 function report_login(flag)
 	local str_arg = ""
 	if flag == true then
@@ -235,6 +240,10 @@ end
 
 function warlock_banish_felhound()
 	DelIgnore(LOLE_OPCODE_MAULGAR_GET_UNBANISHED_FELHOUND)
+end
+
+function dscript(args)
+	DelIgnore(LOLE_OPCODE_DUNGEON_SCRIPT .. ":" .. args);
 end
 
 function lole_debug_dump_wowobjects()
@@ -254,6 +263,7 @@ end
 function lole_debug_pull_test()
 	DelIgnore(LOLE_DEBUG_OPCODE_PULL_TEST)
 end
+
 
 ------------------------------------------------------------------------------
 ----- OPCODE callback (or "OCB") funcs. called in lole.lua:handle_opcode -----
