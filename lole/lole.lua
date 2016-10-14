@@ -115,26 +115,36 @@ local function handle_opcode(arg)
 
 end
 
-local function on_spell_sent_event(self, event, caster, spell, rank, target)
-    -- TODO: multi-target heals
-    local heal_estimate = HEAL_ESTIMATES[spell.."("..rank..")"];
-    local _, _, _, _, _, _, cast_time = GetSpellInfo(spell);
-    local finish_time = tostring(GetTime()*1000 + cast_time);
-    if heal_estimate ~= nil then
-        msg = target .. "," .. UnitName(caster) .. "," .. heal_estimate .. "," .. finish_time;
-        SendAddonMessage("lole_current_heals", msg, "RAID");
-    end
-end
-
 PREFIX_LOCKS = {
     lole_runscript = false,
     lole_healers = false,
     lole_echo = false,
+    UNIT_SPELLCAST_SENT = false,
+    UNIT_SPELLCAST_START = false,
 }
 local function prevent_double_call(prefix)
     local r = PREFIX_LOCKS[prefix];
     PREFIX_LOCKS[prefix] = not PREFIX_LOCKS[prefix];
     return r;
+end
+
+SPELL_TARGET = UnitName("player");
+local function on_spell_event(self, event, caster, spell, rank, target)
+    if prevent_double_call(event) then return end
+    if event == "UNIT_SPELLCAST_SENT" then
+        SPELL_TARGET = target;
+        return
+    end
+    -- TODO: multi-target heals
+    local heal_estimate = HEAL_ESTIMATES[spell.."("..rank..")"];
+    if heal_estimate then
+        if UnitName(caster) == UnitName("player") then
+            SendAddonMessage("lole_heal_target", SPELL_TARGET, "RAID");
+        else
+            local _, _, _, _, _, finish_time = UnitCastingInfo(caster);
+            HEAL_FINISH_INFO[UnitName(caster)] = {heal_estimate, finish_time};
+        end
+    end
 end
 
 local function OnMsgEvent(self, event, prefix, message, channel, sender)
@@ -178,9 +188,10 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
         if prevent_double_call(prefix) then return end
         handle_healer_assignment(message);
 
-    elseif (prefix == "lole_current_heals") then
-        local msg = {strsplit(",", message)};
-        HEALS_IN_PROGRESS[msg[1]][msg[2]] = {tonumber(msg[3]), tonumber(msg[4])};
+    elseif (prefix == "lole_heal_target") then
+        if HEAL_FINISH_INFO[sender] then
+            HEALS_IN_PROGRESS[message][sender] = HEAL_FINISH_INFO[sender];
+        end
 
     elseif (prefix == "lole_echo") then 
         -- Feenix addon messaging cannot handle "\n", so we use "§" instead
@@ -204,11 +215,12 @@ local msg_frame = CreateFrame("Frame");
 msg_frame:RegisterEvent("CHAT_MSG_ADDON");
 msg_frame:SetScript("OnEvent", OnMsgEvent);
 
-local spell_sent_frame = nil;
+local spell_event_frame = nil;
 if HEALER_TARGETS[UnitName("player")] then
-    spell_sent_frame = CreateFrame("Frame");
-    spell_sent_frame:RegisterEvent("UNIT_SPELLCAST_SENT");
-    spell_sent_frame:SetScript("OnEvent", on_spell_sent_event);
+    spell_event_frame = CreateFrame("Frame");
+    spell_event_frame:RegisterEvent("UNIT_SPELLCAST_SENT");
+    spell_event_frame:RegisterEvent("UNIT_SPELLCAST_START");
+    spell_event_frame:SetScript("OnEvent", on_spell_event);
 end
 
 

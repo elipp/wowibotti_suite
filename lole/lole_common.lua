@@ -17,6 +17,7 @@ DEFAULT_HEALER_TARGETS = {
     Puhveln = {"raid"};
 }
 HEALS_IN_PROGRESS = {};
+HEAL_FINISH_INFO = {};
 
 -- Healers select targets based on the function shown here:
 -- http://www.wolframalpha.com/input/?i=plot+of+y%3D(x%2F0.5)%5E(15000%2F10000)+and+y%3D(x%2F0.5)%5E(15000%2F12500)+and+y%3D(x%2F0.5)%5E(15000%2F15000)++for+x%3D0+to1+
@@ -889,7 +890,7 @@ function get_heal_target(HP_data, maxmaxHP)
         local tar_hp = hp_tbl[1];
         local tar_maxhp = hp_tbl[2];
         for healer, info in pairs(heals_in_progress[target]) do
-            if healer ~= UnitName("player") and info[2] > GetTime()*1000 then
+            if info[2] > GetTime()*1000 then
                 tar_hp = tar_hp + info[1];
             end
         end
