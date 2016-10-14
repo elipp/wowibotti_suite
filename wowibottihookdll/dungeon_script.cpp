@@ -1,5 +1,5 @@
+#include "stdafx.h"
 #include "dungeon_script.h"
-
 #include "defs.h"
 
 #include <fstream>
@@ -89,6 +89,8 @@ static int read_statements(const std::string &statement, dscript_objective_t &o)
 		PRINT("dscript-read_statements: error: unknown parameter \"%s\" with value \"%s\"\n", e[0].c_str(), e[1].c_str());
 		return 0;
 	}
+
+	return 1;
 }
 
 int dscript_t::read_from_file(const std::string &filename) {
@@ -178,12 +180,10 @@ int dscript_t::read_from_file(const std::string &filename) {
 
 
 int dscript_read_all() {
-	WIN32_FIND_DATA FindFileData;
+	
+	
+	dungeon_scripts = std::unordered_map<std::string, dscript_t>();
 
-	//char wdbuf[MAX_PATH];
-	//GetCurrentDirectory(MAX_PATH, wdbuf);
-
-	//std::string wd(wdbuf);
 	static const std::string wd = "C:\\Users\\Elias\\Documents\\Visual Studio 2015\\Projects\\wowibotti_suite\\dscript\\";
 	std::string search_path = wd + "*";
 
@@ -204,8 +204,8 @@ int dscript_read_all() {
 					}
 					else {
 						dungeon_scripts[newscript.script_name] = newscript;
-						PRINT("dscript_read_all: script \"%s\" (file %s): read OK.\n", newscript.script_name, filename.c_str());
-					}
+						PRINT("dscript_read_all: script \"%s\" (file %s): read OK.\n", newscript.script_name.c_str(), filename.c_str());
+						}
 				}
 				else {
 					PRINT("dscript_read_all: script \"%s\": read FAIL.\n", filename.c_str());
@@ -231,6 +231,8 @@ int dscript_run() {
 		return 0;
 	}
 
+	return 1;
+
 }
 
 int dscript_load(const std::string &scriptname) {
@@ -249,6 +251,10 @@ int dscript_load(const std::string &scriptname) {
 }
 
 int dscript_unload() {
+	if (current_script) {
+		PRINT("dscript_unload: unloading script %s\n", current_script->script_name.c_str());
+	}
+	
 	current_script = NULL;
 	return 1;
 }

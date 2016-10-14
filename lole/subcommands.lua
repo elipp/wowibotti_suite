@@ -460,14 +460,24 @@ local function lole_pull(arg)
 --	target_best_CH_target()
 end
 
-local function lole_dscript(args)
-		local atab = {strsplit(" ", args)};
+local function lole_dscript(...)
+
+		local usage = "dscript: usage: /lole dscript {run SCRIPTNAME | stop}";
+
+  	local atab = {};
+		for i = 1, select('#', ...) do
+        local arg = select(i, ...);
+        table.insert(atab, arg);
+  	end
+
 		local numargs = table.getn(atab);
 
 		if numargs < 1 then
 			lole_error("dscript: usage: /lole dscript {run SCRIPTNAME | stop}")
 			return false;
 		end
+
+		--echo("dscript: args: " .. args .. ", numargs = " .. tostring(numargs))
 
 		local command = atab[1];
 

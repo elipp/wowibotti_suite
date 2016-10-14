@@ -44,7 +44,7 @@ struct dscript_t {
 	int read_from_file(const std::string &filepath);
 
 	dscript_t() {
-		memset(this, 0x0, sizeof(*this));
+		script_state = 0;
 	}
 };
 
@@ -52,5 +52,3 @@ int dscript_read_all(); // read all from the dscript/ directory
 int dscript_run(); // run currently active script
 int dscript_load(const std::string &scriptname);
 int dscript_unload();
-
-extern std::unordered_map<std::string, dscript_t> dungeon_scripts;

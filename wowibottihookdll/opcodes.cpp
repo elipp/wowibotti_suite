@@ -374,6 +374,9 @@ static void LOP_dungeon_script(const std::string &arg) {
 		std::string &scriptname = tokens[1];
 		dscript_load(scriptname);
 	}
+	else if (tokens[0] == "stop") {
+		dscript_unload();
+	}
 
 }
 
