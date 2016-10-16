@@ -381,7 +381,7 @@ function get_lowest_hp(hp_deficits)
 
 end
 
-function get_HP_data_and_maxmaxHP(party_only)
+function get_HP_table_and_maxmaxHP(party_only)
     local HP_table = {};
     local num_raid_members = 0;
 
@@ -881,14 +881,14 @@ function get_heal_targets(healer)
     return HEALER_TARGETS[healer];
 end
 
-function get_heal_target(HP_data, maxmaxHP)
+function get_heal_target(HP_table, maxmaxHP)
 
     local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);
     local best_target = nil;
     local highest_comparison_value = 0;
-    for target, hp_tbl in pairs(HP_data) do
-        local tar_hp = hp_tbl[1];
-        local tar_maxhp = hp_tbl[2];
+    for target, hp_data in pairs(HP_table) do
+        local tar_hp = hp_data[1];
+        local tar_maxhp = hp_data[2];
         for healer, info in pairs(heals_in_progress[target]) do
             if info[2] > GetTime()*1000 then
                 tar_hp = tar_hp + info[1];
@@ -909,8 +909,8 @@ function get_heal_target(HP_data, maxmaxHP)
 end
 
 function get_raid_heal_target()
-    local HP_data, maxmaxHP = get_HP_data_and_maxmaxHP();
-    return get_heal_target(HP_data, maxmaxHP);
+    local HP_table, maxmaxHP = get_HP_table_and_maxmaxHP();
+    return get_heal_target(HP_table, maxmaxHP);
 end
 
 function get_single_heal_target(chars)
@@ -930,7 +930,7 @@ function get_single_heal_target(chars)
     end
 
     if num_valid_chars > 1 then
-        return get_heal_target(HP_data, maxmaxHP);
+        return get_heal_target(HP_table, maxmaxHP);
     elseif num_valid_chars == 1 then
         local name, tbl = next(HP_table);
         return name;
