@@ -642,4 +642,6 @@ lole_subcommands = {
 	test_blast_target = lole_debug_test_blast_target;
 
 	dscript = lole_dscript;
+
+	register = lole_debug_lua_register;
 }

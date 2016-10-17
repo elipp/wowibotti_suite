@@ -7,6 +7,7 @@
 #include "hooks.h"
 #include "creds.h"
 #include "dungeon_script.h"
+#include "lua.h"
 
 extern HWND wow_hWnd;
 extern int afkjump_keyup_queued;
@@ -726,10 +727,59 @@ static void LOPDBG_pull_test(const std::string &arg) {
 	ctm_add(pull);
 }
 
+
+int lopc_exec(lua_State *L) {
+
+	int nargs = lua_gettop(L);
+
+	if (nargs < 1) {
+		PRINT("lopc_exec: nargs < 1; doing nothing!\n");
+		return 0;
+	}
+	
+	for (int i = 0; i < nargs; ++i) {
+		size_t len;
+		const char* str = lua_tolstring(L, i, &len);
+
+		if (!str) {
+			PRINT("lua_tolstring for argument #%d failed (tables aren't allowed!\n");
+		}
+
+		PRINT("arg 1: %s\n", str);
+	}
+
+	int opcode = lua_tointeger(L, 1);
+
+	PRINT("opcode = %d\n", opcode);
+
+//	PUSHSTRING(L, "ga IHEEH");
+	//PUSHSTRING(L, "U AHUHU");
+	//PUSHSTRING(L, "KU NINIIN");
+
+	return 1;
+}
+
+static void LOPDBG_lua_register(const std::string &arg) {
+	
+	lua_State *state = (lua_State*)(*(uint **)0xE1DB84);
+
+	lua_register(state, "lopc_exec", lopc_exec);
+
+	uint *vfp_min = (uint*)0xE1F830;
+	uint *vfp_max = (uint*)0xE1F834;
+
+	// explanation: there's a check during lua_register that ensures the jump address lies within
+	// Wow.exe's .code section, so the upper limit needs to be adjusted =)
+	*vfp_max = 0xFFFFFFFF;
+
+	PRINT("lua_register: state = %p, registered func PERSSELN with lua_Test at address %p\n", state, &lopc_exec);
+}
+
 static const struct {
 	std::string name;
 	hubfunc_t func;
 	uint num_args;
+	uint num_rvals;
 } opcode_funcs[] = {
 	{ "LOLE_NOP", LOP_nop, 0 },
 	{ "LOLE_TARGET_GUID", LOP_target_GUID, 1 },
@@ -771,7 +821,8 @@ static const struct {
 	{ "LOLE_DEBUG_DUMP", LOPDBG_dump, 0 },
 	{ "LOLE_DEBUG_LOOT_ALL", LOPDBG_loot, 0},
 	{ "LOLE_DEBUG_QUERY_INJECTED", LOPDBG_query_injected, 0 },
-	{ "LOLE_DEBUG_PULL_TEST", LOPDBG_pull_test, 0 }
+	{ "LOLE_DEBUG_PULL_TEST", LOPDBG_pull_test, 0 },
+	{ "LOLE_DEBUG_LUA_REGISTER", LOPDBG_lua_register, 0}
 };
 
 static const size_t num_opcode_funcs = sizeof(opcode_funcs) / sizeof(opcode_funcs[0]);

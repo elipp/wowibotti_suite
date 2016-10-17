@@ -44,6 +44,8 @@ typedef void(*hubfunc_t)(const std::string &);
 #define LOLE_DEBUG_OPCODE_LOOT_ALL					0x82
 #define LOLE_DEBUG_OPCODE_QUERY_INJECTED			0x83
 #define LOLE_DEBUG_OPCODE_PULL_TEST					0x84
+#define LOLE_DEBUG_OPCODE_LUA_REGISTER				0x85
+
 
 int opcode_call(int opcode, const std::string &arg);
 int opcode_debug_call(int debug_opcode, const std::string &arg);
