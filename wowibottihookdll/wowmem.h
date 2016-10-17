@@ -174,10 +174,12 @@ struct WO_cached {
 	uint health;
 	uint health_max;
 	int deficit;
+	uint inc_heals;
+	float heal_urgency;
 	std::string name;
 
-	WO_cached(GUID_t guid, vec3 p, uint hp, uint hp_max, const std::string &n) 
-		: GUID(guid), pos(p), health(hp), health_max(hp_max), name(n) {
+	WO_cached(GUID_t guid, vec3 p, uint hp, uint hp_max, uint ih, float hu, const std::string &n) 
+		: GUID(guid), pos(p), health(hp), health_max(hp_max), inc_heals(ih), heal_urgency(hu), name(n) {
 		deficit = hp_max - hp;
 	}
 

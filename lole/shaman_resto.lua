@@ -51,12 +51,13 @@ local function raid_heal()
         TargetUnit("player");
         cast_spell("Lesser Healing Wave");
     else
-        target_best_CH_target();
-        if not UnitExists("target") or not UnitIsConnected(name) or UnitIsDead("target") or has_buff("target", "Spirit of Redemption") then
+        ClearTarget();
+        target_best_CH_target(get_serialized_heals());
+        if not UnitExists("target") or not UnitIsConnected("target") or UnitIsDead("target") or has_buff("target", "Spirit of Redemption") then
             return false
         end
         caster_range_check(35);
-        cast_spell("Chain Heal")
+        cast_spell("Chain Heal");
     end
 
     return true;

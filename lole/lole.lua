@@ -138,10 +138,11 @@ local function on_spell_event(self, event, caster, spell, rank, target)
     -- TODO: multi-target heals
     local heal_estimate = HEAL_ESTIMATES[spell.."("..rank..")"];
     if heal_estimate then
+        local _, _, _, _, _, finish_time = UnitCastingInfo(caster);
         if UnitName(caster) == UnitName("player") then
             SendAddonMessage("lole_heal_target", SPELL_TARGET, "RAID");
+            HEALS_IN_PROGRESS[SPELL_TARGET][UnitName("player")] = {heal_estimate, finish_time};
         else
-            local _, _, _, _, _, finish_time = UnitCastingInfo(caster);
             HEAL_FINISH_INFO[UnitName(caster)] = {heal_estimate, finish_time};
         end
     end

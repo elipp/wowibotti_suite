@@ -532,6 +532,19 @@ static const WO_cached *find_most_hurt_within_CH_bounce(const WO_cached *unit, c
 
 static void LOP_get_best_CH(const std::string &arg) {
 
+
+	std::vector<std::string> tokens;
+	tokenize_string(arg, ",", tokens);
+
+	std::unordered_map<std::string, uint> target_heals_map;
+	char *endptr;
+	for (auto &t : tokens) {
+		std::vector<std::string> target_heals;
+		tokenize_string(t, ":", target_heals);
+		uint inc_heals = strtoul(target_heals[1].c_str(), &endptr, 10);
+		target_heals_map.insert({target_heals[0], inc_heals});
+	}
+
 	ObjectManager OM;
 	
 	WowObject next = OM.get_first_object();
@@ -539,13 +552,20 @@ static void LOP_get_best_CH(const std::string &arg) {
 	// cache units for easier access
 
 	std::vector <WO_cached> units;
+	uint maxmaxHP = 0;
 	while (next.valid()) {
 		if (next.get_type() == OBJECT_TYPE_UNIT) {
 			uint hp = next.unit_get_health();
 			uint hp_max = next.unit_get_health_max();
+			if (hp_max > maxmaxHP) {
+				maxmaxHP = hp_max;
+			}
 			int deficit = hp_max - hp;
-			if (hp > 0 && deficit > 1000) {
-				units.push_back(WO_cached(next.get_GUID(), next.get_pos(), hp, next.unit_get_health_max(), next.unit_get_name()));
+			std::string name = next.unit_get_name();
+			uint inc_heals = (target_heals_map.count(name) > 0 ? target_heals_map[name] : 0);
+			PRINT("unit %s with %u/%u hp checked (deficit: %d, incoming heals: %u)\n", name.c_str(), hp, hp_max, deficit, inc_heals);
+			if (hp > 0 && deficit - int(inc_heals) > 1500) {
+				units.push_back(WO_cached(next.get_GUID(), next.get_pos(), hp, next.unit_get_health_max(), inc_heals, 0.0, name));
 			}
 		}
 		next = next.getNextObject();
@@ -554,16 +574,15 @@ static void LOP_get_best_CH(const std::string &arg) {
 	std::vector<WO_cached> deficit_candidates;
 
 	for (auto &u : units) {
-		if (u.deficit > 1500) {
-			deficit_candidates.push_back(u);
-			//PRINT("candidate %s with %u/%u hp added (deficit == %d > 1500)\n", u.name.c_str(), u.health, u.health_max, u.deficit);
-		}
+		u.heal_urgency = pow((((u.health_max - (u.health + u.inc_heals)) / float(u.health_max)) / 0.5), (maxmaxHP / float(u.health_max)));
+		deficit_candidates.push_back(u);
+		PRINT("candidate %s with %u/%u hp (heal urgency: %f) added\n", u.name.c_str(), u.health, u.health_max, u.heal_urgency, u.deficit);
 	}
 
 	struct chain_heal_trio_t {
 		const WO_cached *trio[3];
 		int total_deficit;
-		int total_healing;
+		float weighed_urgency;
 	};
 
 	chain_heal_trio_t o;
@@ -583,23 +602,24 @@ static void LOP_get_best_CH(const std::string &arg) {
 		most_hurt[0] = find_most_hurt_within_CH_bounce(c, NULL, deficit_candidates);
 		most_hurt[1] = find_most_hurt_within_CH_bounce(most_hurt[0], c, deficit_candidates);
 
-		int d2 = (most_hurt[0] ? most_hurt[0]->deficit : 0);
-		int d3 = (most_hurt[1] ? most_hurt[1]->deficit : 0);
+		float u2 = (most_hurt[0] ? most_hurt[0]->heal_urgency : 0.0);
+		float u3 = (most_hurt[1] ? most_hurt[1]->heal_urgency : 0.0);
 
-		static const int CH_BOUNCE_1 = 3500, CH_BOUNCE2 = 2400, CH_BOUNCE3 = 2100;
+		// static const int CH_BOUNCE_1 = 3500, CH_BOUNCE2 = 2400, CH_BOUNCE3 = 2100;
 
-		int eh1 = (c->deficit > CH_BOUNCE_1) ? CH_BOUNCE_1 : (CH_BOUNCE_1 - c->deficit);
+		/*int eh1 = (c->deficit > CH_BOUNCE_1) ? CH_BOUNCE_1 : (CH_BOUNCE_1 - c->deficit);
 		int eh2 = (d2 > 0) ? ((d2 > CH_BOUNCE2) ? CH_BOUNCE2 : (CH_BOUNCE2 - d2)) : 0;
-		int eh3 = (d3 > 0) ? ((d3 > CH_BOUNCE3) ? CH_BOUNCE3 : (CH_BOUNCE3 - d3)) : 0;
+		int eh3 = (d3 > 0) ? ((d3 > CH_BOUNCE3) ? CH_BOUNCE3 : (CH_BOUNCE3 - d3)) : 0;*/
 
-		int total_healing = eh1 + eh2 + eh3;
+		float weighed_urgency = c->heal_urgency + u2 * 0.5 + u3 * 0.25;
+		PRINT("weighed urgency of trio: %f with main target: %s\n", weighed_urgency, c->name.c_str());
 
-		if (total_healing > o.total_healing) {
+		if (weighed_urgency > o.weighed_urgency) {
 			o.trio[0] = c;
 			o.trio[1] = most_hurt[0];
 			o.trio[2] = most_hurt[1];
 			//o.total_deficit = total_deficit;
-			o.total_healing = total_healing;
+			o.weighed_urgency = weighed_urgency;
 		}
 		
 	}
@@ -610,7 +630,10 @@ static void LOP_get_best_CH(const std::string &arg) {
 		(o.trio[2] ? o.trio[2]->name.c_str() : "NULL"), (o.trio[2] ? o.trio[2]->health : 0), (o.trio[2] ? o.trio[2]->health_max : 0),
 		o.total_deficit);*/
 
-	if (o.trio[0]) DoString("TargetUnit(\"%s\")", o.trio[0]->name.c_str());
+	if (o.trio[0]) {
+		PRINT("Chosen target: %s, weighed urgency of trio: %f\n", o.trio[0]->name.c_str(), o.weighed_urgency);
+		DoString("TargetUnit(\"%s\")", o.trio[0]->name.c_str());
+	}
 
 }
 
@@ -717,7 +740,7 @@ static const struct {
 	{ "LOLE_PULL_MOB", LOP_nop, 0 },
 	{ "LOLE_REPORT_LOGIN", LOP_report_login, 1 },
 	{ "LOLE_WALK_TO_PULLING_RANGE", LOP_walk_to_pull, 0 },
-	{ "LOLE_GET_BEST_CHAINHEAL_TARGET", LOP_get_best_CH, 0},
+	{ "LOLE_GET_BEST_CHAINHEAL_TARGET", LOP_get_best_CH, 1},
 	{ "LOLE_MAULGAR_GET_UNBANISHED_FELHOUND", LOP_maulgar_get_felhound, 0 },
 	{ "LOLE_OFF_TANK", LOP_nop, 0},
 	{ "LOLE_SET_ALL", LOP_nop, 0 },

@@ -135,7 +135,7 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 		return;
 	}
 
-	PRINT("DelIgnore_hub: got opcode %lu -> %s\n", op, opcode_get_funcname(op).c_str());
+	//PRINT("DelIgnore_hub: got opcode %lu -> %s\n", op, opcode_get_funcname(op).c_str());
 
 	int num_args = opcode_get_num_args(op);
 
@@ -148,7 +148,7 @@ static void __stdcall DelIgnore_hub(const char* arg_) {
 			return;
 		}
 		std::string args = arg.substr(pos + 1);
-		PRINT("DelIgnore_hub: calling func %s with args \"%s\"\n", opcode_get_funcname(op).c_str(), args.c_str());
+		//PRINT("DelIgnore_hub: calling func %s with args \"%s\"\n", opcode_get_funcname(op).c_str(), args.c_str());
 
 		opcode_call(op, args); // call the func with args
 	}

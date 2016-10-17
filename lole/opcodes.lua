@@ -229,8 +229,8 @@ function report_login(flag)
 	DelIgnore(LOLE_OPCODE_REPORT_LOGIN .. ":" .. str_arg)
 end
 
-function target_best_CH_target()
-	DelIgnore(LOLE_OPCODE_GET_BEST_CHAINHEAL_TARGET)
+function target_best_CH_target(heals_in_progress)
+	DelIgnore(LOLE_OPCODE_GET_BEST_CHAINHEAL_TARGET .. ":" .. heals_in_progress)
 end
 
 function warlock_banish_felhound()

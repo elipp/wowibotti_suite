@@ -1,6 +1,8 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
+#include <math.h>
 #include "defs.h"
 #include "wowmem.h"
 #include "addrs.h"

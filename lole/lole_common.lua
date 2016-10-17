@@ -1076,3 +1076,27 @@ function handle_healer_assignment(message)
     end
 
 end
+
+function get_serialized_heals()
+
+    local serialized_heals = "";
+    local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);
+    for target, heals in pairs(heals_in_progress) do
+        local target_heals = 0;
+        for healer, info in pairs(heals) do
+            if info[2] > GetTime()*1000 then
+                target_heals = target_heals + info[1];
+            end
+        end
+        if target_heals > 0 then
+            if serialized_heals == "" then
+                serialized_heals = target .. ":" .. target_heals;
+            else
+                serialized_heals = serialized_heals .. "," .. target .. ":" .. target_heals;
+            end
+        end
+    end
+
+    return serialized_heals;
+
+end
