@@ -13,6 +13,41 @@ extern HWND wow_hWnd;
 
 static int dump_wowobjects_to_log();
 
+struct lop_func_t {
+	std::string opcode_name;
+	int num_arguments;
+	int arg_types; // 2-bit masks
+	int num_return_values;
+};
+
+#define LOPFUNC(OPCODE_ID, NUMARGS, ARG_TYPES, NUM_RETURN_VALUES) { #OPCODE_ID, NUMARGS, ARG_TYPES, NUM_RETURN_VALUES }
+
+enum {
+	ARG_TYPE_INT,
+	ARG_TYPE_NUMBER,
+	ARG_TYPE_STRING
+};
+
+static lop_func_t lop_funcs[] = {
+
+LOPFUNC(LOP_NOP, 0, 0, 0),
+ LOPFUNC(LOP_TARGET_GUID, 1, ARG_TYPE_STRING, 0),
+ LOPFUNC(LOP_CASTER_RANGE_CHECK, 1,ARG_TYPE_NUMBER, 0),
+ LOPFUNC(LOP_FOLLOW, 1, ARG_TYPE_STRING, 0),
+ LOPFUNC(LOP_CTM, 3, ARG_TYPE_NUMBER | ARG_TYPE_NUMBER << 2 | ARG_TYPE_NUMBER << 4, 0),
+ LOPFUNC(LOP_DUNGEON_SCRIPT, 2, ARG_TYPE_STRING | ARG_TYPE_STRING << 2, 0),
+ LOPFUNC(LOP_TARGET_MARKER, 1, ARG_TYPE_STRING, 0),
+ LOPFUNC(LOP_MELEE_BEHIND, 0, 0, 0),
+ LOPFUNC(LOP_AVOID_SPELL_OBJECT, 2, ARG_TYPE_INT | ARG_TYPE_NUMBER << 2, 0),
+ LOPFUNC(LOP_HUG_SPELL_OBJECT, 1, ARG_TYPE_INT, 0),
+ LOPFUNC(LOP_SPREAD, 0, 0, 0),
+ LOPFUNC(LOP_CHAIN_HEAL_TARGET, 0, 0, 1),
+ LOPFUNC(LOP_MELEE_AVOID_AOE_BUFF, 2, ARG_TYPE_INT | ARG_TYPE_NUMBER << 2, 0),
+ LOPFUNC(LOP_TANK_FACE, 0, 0, 0),
+ LOPFUNC(LOP_WALK_TO_PULLING_RANGE, 0, 0, 0)
+
+};
+
 static struct follow_state_t {
 	int close_enough = 1;
 	Timer timer;
@@ -464,6 +499,10 @@ static std::string LOP_get_best_CH() {
 		}
 	}
 
+	if (deficit_candidates.size() < 3) {
+		return "player";
+	}
+
 	struct chain_heal_trio_t {
 		const WO_cached *trio[3];
 		int total_deficit;
@@ -620,6 +659,19 @@ static int LOPDBG_pull_test() {
 	ctm_add(pull);
 }
 
+static int check_num_args(int opcode, int nargs) {
+
+	if (opcode > 0xE) return 0;
+
+	lop_func_t &f = lop_funcs[opcode];
+	if (nargs != f.num_arguments) {
+		PRINT("error: %s: expected %d argument(s) (got %d)\n", f.opcode_name.c_str(), f.num_arguments, nargs);
+		return 0;
+	}
+
+	return 1;
+}
+
 
 int lop_exec(lua_State *L) {
 
@@ -630,7 +682,7 @@ int lop_exec(lua_State *L) {
 		return 0;
 	}
 	
-	for (int i = 1; i < nargs; ++i) {
+	for (int i = 2; i <= nargs; ++i) {
 		size_t len;
 		const char* str = lua_tolstring(L, i, &len);
 
@@ -638,27 +690,25 @@ int lop_exec(lua_State *L) {
 			PRINT("lua_tolstring for argument #%d failed (tables aren't allowed!\n");
 		}
 
-		PRINT("arg %d: %s\n", i, str);
+		PRINT("arg %d: %s\n", i - 1, str);
 	}
 
 	int opcode = lua_tointeger(L, 1);
 	PRINT("lop_exec: opcode = %d\n", opcode);
 	size_t len;
+	
+	if (!check_num_args(opcode, nargs - 1)) { return 0; }
 
 	switch (opcode) {
 	case LOP_NOP:
 		return 0;
 	
 	case LOP_TARGET_GUID:
-		if (nargs != 2) {
-			PRINT("LOP_TARGET_GUID: expected 1 argument (got %d)\n", nargs - 1);
-			return 0;
-		}
 		LOP_target_GUID(lua_tolstring(L, 2, &len));
 		break;
 
 	case LOP_CASTER_RANGE_CHECK: {
-		double minrange = lua_tonumber(L, 1);
+		double minrange = lua_tonumber(L, 2);
 		LOP_range_check(minrange);
 		break;
 	}
@@ -669,9 +719,9 @@ int lop_exec(lua_State *L) {
 	
 	case LOP_CTM: {
 		double x, y, z;
-		x = lua_tonumber(L, 1);
-		y = lua_tonumber(L, 2);
-		z = lua_tonumber(L, 3);
+		x = lua_tonumber(L, 2);
+		y = lua_tonumber(L, 3);
+		z = lua_tonumber(L, 4);
 		LOP_CTM_act(x, y, z);
 		break;
 	}
@@ -692,14 +742,14 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LOP_AVOID_SPELL_OBJECT: {
-		long spellID = lua_tointeger(L, 1);
-		double radius = lua_tonumber(L, 2);
+		long spellID = lua_tointeger(L, 2);
+		double radius = lua_tonumber(L, 3);
 		LOP_avoid_spell_object(spellID, radius);
 		break;
 	}
 
 	case LOP_HUG_SPELL_OBJECT: {
-		long spellID = lua_tointeger(L, 1);
+		long spellID = lua_tointeger(L, 2);
 		LOP_hug_spell_object(spellID);
 		break;
 	}
@@ -713,7 +763,7 @@ int lop_exec(lua_State *L) {
 		return 1;
 	}
 	case LOP_MELEE_AVOID_AOE_BUFF: {
-		long spellID = lua_tointeger(L, 1);
+		long spellID = lua_tointeger(L, 2);
 		LOP_melee_avoid_aoe_buff(spellID);
 		break;
 	}
