@@ -5,8 +5,8 @@ NOTARGET = "0x0000000000000000";
 BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 
-MAIN_TANK = nil
-OFF_TANK = nil
+MAIN_TANK = nil;
+OFF_TANK = nil;
 HEALERS = {"Ceucho", "Kusip", "Kasio", "Mam", "Igop", "Puhveln"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
     Ceucho = {"Adieux", "Noctur", "raid"};
@@ -18,6 +18,8 @@ DEFAULT_HEALER_TARGETS = {
 }
 HEALS_IN_PROGRESS = {};
 HEAL_FINISH_INFO = {};
+CH_BOUNCE_1 = nil;
+CH_BOUNCE_2 = nil;
 
 -- Healers select targets based on the function shown here:
 -- http://www.wolframalpha.com/input/?i=plot+of+y%3D(x%2F0.5)%5E(15000%2F10000)+and+y%3D(x%2F0.5)%5E(15000%2F12500)+and+y%3D(x%2F0.5)%5E(15000%2F15000)++for+x%3D0+to1+
@@ -1124,5 +1126,17 @@ function get_group_number(name)
     end
 
     return nil;
+
+end
+
+function handle_CH_report(targets, healer)
+
+    table.remove(targets, 1);
+    local hfi = shallowcopy(HEAL_FINISH_INFO[healer]);
+    for i, target in ipairs(targets) do
+        local div = 2 ^ (i - 1);
+        local heal_estimate = hfi[1] / div;
+        HEALS_IN_PROGRESS[target][healer] = {heal_estimate, hfi[2]};
+    end
 
 end

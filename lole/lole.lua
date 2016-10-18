@@ -143,6 +143,8 @@ local function on_spell_event(self, event, caster, spell, rank, target)
                 targets = {SPELL_TARGET, UnitName("player")};
             elseif spell == "Prayer of Healing" then
                 targets = get_group_members(get_group_number(UnitName("player")));
+            elseif spell == "Chain Heal" then
+                targets = {"chain-heal-targets", SPELL_TARGET, CH_BOUNCE_1, CH_BOUNCE_2};
             end
             local targets_str = "";
             for i, name in ipairs(targets) do
@@ -204,9 +206,19 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
     elseif (prefix == "lole_heal_target") then
         if HEAL_FINISH_INFO[sender] then
             local targets = {strsplit(",", message)};
-            for i, target in pairs(targets) do
+            for i, target in ipairs(targets) do
+                if target == "chain-heal-targets" then
+                    handle_CH_report(targets, sender);
+                    break
+                end
                 HEALS_IN_PROGRESS[target][sender] = HEAL_FINISH_INFO[sender];
             end
+            -- for name, tbl in pairs(HEALS_IN_PROGRESS) do
+            --     if next(tbl) then
+            --         echo(name);
+            --         echo(table.tostring(tbl));
+            --     end
+            -- end
         end
 
     elseif (prefix == "lole_echo") then 

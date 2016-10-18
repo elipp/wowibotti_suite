@@ -53,6 +53,11 @@ local function raid_heal()
     else
         ClearTarget();
         target_best_CH_target(get_serialized_heals());
+        local bounce1 = GetCVar("PetMeleeDamage");
+        local bounce2 = GetCVar("PetSpellDamage");
+        local guildies = get_guild_members();
+        if guildies[bounce1] then CH_BOUNCE_1 = bounce1 else CH_BOUNCE_1 = nil end;
+        if guildies[bounce2] then CH_BOUNCE_2 = bounce2 else CH_BOUNCE_2 = nil end;
         if not UnitExists("target") or not UnitIsConnected("target") or UnitIsDead("target") or has_buff("target", "Spirit of Redemption") then
             return false
         end

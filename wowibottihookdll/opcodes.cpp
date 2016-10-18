@@ -635,6 +635,20 @@ static void LOP_get_best_CH(const std::string &arg) {
 		DoString("TargetUnit(\"%s\")", o.trio[0]->name.c_str());
 	}
 
+	if (o.trio[1]) {
+		DoString("SetCVar(\"PetMeleeDamage\", \"%s\")", o.trio[1]->name.c_str());
+	}
+	else {
+		DoString("SetCVar(\"PetMeleeDamage\", \"\")");
+	}
+
+	if (o.trio[2]) {
+		DoString("SetCVar(\"PetSpellDamage\", \"%s\")", o.trio[2]->name.c_str());
+	}
+	else {
+		DoString("SetCVar(\"PetSpellDamage\", \"\")");
+	}
+
 }
 
 static int mob_has_debuff(const WowObject &mob, uint debuff_spellID) {
