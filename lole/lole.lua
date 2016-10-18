@@ -104,12 +104,12 @@ local function handle_opcode(arg)
 
 	local opcode, message = strsplit(":", arg);
 
-	if not lole_opcode_funcs[opcode] then
+	if not LOPC_funcs[opcode] then
 		lole_error("unknown opcode " .. tostring(opcode))
 		return false;
 	end
 
-	lole_opcode_funcs[opcode](message);
+	LOPC_funcs[opcode](message);
 
 	return true;
 

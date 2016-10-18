@@ -151,7 +151,8 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 
 	ObjectManager OM;
 
-	auto p = OM.get_local_object();
+	WowObject p;
+	if (!OM.get_local_object(&p)) return;
 
 	vec3 diff = p.get_pos() - point; // this is kinda weird, since usually one would take dest - current_loc, but np
 	float directed_angle = atan2(diff.y, diff.x);

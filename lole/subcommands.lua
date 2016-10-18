@@ -132,8 +132,16 @@ local function lole_getconfig(arg)
 end
 
 local function lole_followme()
-	broadcast_follow_target(UnitGUID("player"))
+	lole_broadcasts.follow(UnitGUID("player"))
 	return true;
+end
+
+local function lole_follow(GUID)
+	lop_exec(LOP_FOLLOW, GUID)
+end
+
+local function lole_stopfollow()
+	lop_exec(LOP_FOLLOW, nil)
 end
 
 local function lole_stopfollow()
@@ -149,24 +157,27 @@ local function lole_set(attrib_name, on_off_str)
 	end
 
 	if mode_attribs[attrib_name] then
-
-		local on_off_bool = get_int_from_strbool(on_off_str);
-		if on_off_bool < 0 then
-			echo("lole_set: invalid argument \"" .. on_off_str .. "\" for attrib " .. attrib_name .. "! (use 1/on | 0/off)");
+		local state = get_int_from_strbool(on_off_str);
+		if state < 0 then
+			echo("lole_set: invalid argument \"" .. state .. "\" for attrib " .. attrib_name .. "! (use 1/on | 0/off)");
 			return false;
 		end
 
-		mode_attribs[attrib_name] = on_off_bool;
-	    if attrib_name == "buffmode" then
-	        BUFF_TABLE_READY = false;
-	        if on_off_bool == 1 then
-	            BUFF_TIME = GetTime();
-	        end
-	    else
-	    	LOLE_CLASS_CONFIG_ATTRIBS_SAVED[attrib_name] = on_off_bool;
-	    end
+		mode_attribs[attrib_name] = state;
+	if attrib_name == "buffmode" then
+	  BUFF_TABLE_READY = false;
+	  if state == 1 then
+	      BUFF_TIME = GetTime();
+	  end
+	elseif attrib_name == "blast" then
+		gui_set_blast(state)
+	elseif attrib_name == "heal_blast" then
+		gui_set_heal_blast(state)
+	else
+		LOLE_CLASS_CONFIG_ATTRIBS_SAVED[attrib_name] = state;
+	end
 
-		echo("lole_set: attrib \"" .. attrib_name .. "\" set to " .. on_off_bool);
+		echo("lole_set: attrib \"" .. attrib_name .. "\" set to " .. state);
 		return true;
 
 	else
@@ -176,10 +187,6 @@ local function lole_set(attrib_name, on_off_str)
 	end
 
 	return true;
-end
-
-local function lole_setall(attrib_name, on_off_str)
-	broadcast_modeattrib_setall(attrib_name, on_off_str)
 end
 
 local function lole_get(attrib_name)
@@ -209,12 +216,34 @@ local function lole_blast(arg)
 
 end
 
-local function lole_ctm(arg)
-	local mode = get_CTM_mode();
 
-	broadcast_CTM(mode, arg)
+local function lole_broadcast_ctm(x, y, z)
+
+	local mode = get_CTM_mode();
+	if mode == CTM_MODES.LOCAL then
+		lop_exec(LOP_CTM_BROADCAST, x, y, z);
+
+	elseif mode == CTM_MODES.TARGET then
+		local tname = UnitName("target")
+		if not tname then return end
+
+		echo("sending CTM to target " .. tname)
+		lole_subcommands.sendmacro_to(tname, "/lole ctm " .. tostring(x) .. "," .. tostring(y) .. "," .. tostring(z));
+
+		-- kinda redundant.
+	elseif mode == CTM_MODES.EVERYONE then
+		lole_subcommands.sendmacro("RAID", "/lole ctm " .. tostring(x) .. "," .. tostring(y) .. "," .. tostring(z));
+
+	else
+		lole_error("lole_ctm: invalid mode: " .. tostring(mode));
+		return false;
+	end
 
 	return true;
+end
+
+local function lole_ctm(x, y, z)
+	lop_exec(LOP_CTM, tonumber(x), tonumber(y), tonumber(z))
 end
 
 local function lole_gui()
@@ -335,7 +364,7 @@ local function lole_drink()
 
 	if UnitPowerType("player") == 0 then -- 0 for mana
 
-		if UnitMana("player")/UnitManaMax("player") < 0.90 then
+		if UnitMana("player")/UnitManaMax("player") < 0.90 or UnitHealth("player")/UnitHealthMax("player") < 0.75 then
 			if GetItemCount(34062) > 0 then
 				UseItemByName("Conjured Manna Biscuit");
 
@@ -356,7 +385,6 @@ end
 local raid_first_pass = true
 
 local function lole_raid()
-
 
 	if GetNumPartyMembers() == 0 then
 		raid_first_pass = true
@@ -386,12 +414,12 @@ local function lole_raid()
 end
 
 local function lole_release()
-	release_spirit_all()
+	RepopMe()
 end
 
 
-local function lole_leaveparty()
-	leave_party_all()
+local function lole_leavegroup()
+	LeaveParty();
 end
 
 local function lole_disenchant_greeniez()
@@ -421,33 +449,16 @@ local function lole_disenchant_greeniez()
 
 end
 
-
-local function lole_maintank(arg)
-	if not arg then
-		echo("lole_maintank: no argument supplied!")
-		return;
-	end
-
-	-- if first_to_upper(arg) == OFF_TANK then
-	-- 	echo("lole_maintank: can't set MT == OT.")
-	-- 	return;
-	-- end
-
-	broadcast_main_tank(first_to_upper(arg))
+local function lole_setmt(name)
+		MAIN_TANK = name
+		update_main_tank(MAIN_TANK)
+		echo("Main tank set to " .. MAIN_TANK .. ". (change with /lole mt <mtname>)")
 end
 
-local function lole_offtank(arg)
-	if not arg then
-		echo("lole_offtank: no argument supplied!")
-		return;
-	end
-	--
-	-- if first_to_upper(arg) == MAIN_TANK then
-	-- 	echo("lole_maintank: can't set OT == MT.")
-	-- 	return;
-	-- end
-
-	broadcast_off_tank(first_to_upper(arg))
+local function lole_setot(name)
+		OFF_TANK = name
+		update_off_tank(OFF_TANK)
+		echo("Off tank set to " .. OFF_TANK .. ". (change with /lole ot <mtname>)")
 end
 
 local function lole_clearcc()
@@ -455,9 +466,64 @@ local function lole_clearcc()
 end
 
 local function lole_pull(arg)
-	--send_opcode_addonmsg_to(LOLE_OPCODE_PULL_MOB, arg, MAIN_TANK);
+	--send_opcode_addonmsg_to(LOPC_PULL_MOB, arg, MAIN_TANK);
 	lole_debug_pull_test()
 --	target_best_CH_target()
+end
+
+function set_target(target_GUID)
+  BLAST_TARGET_GUID = target_GUID;
+	lop_exec(LOP_TARGET_GUID, target_GUID); -- this does a C TargetUnit call :P
+	FocusUnit("target")
+	update_target_text(UnitName("target"), UnitGUID("target"));
+end
+
+function clear_target()
+	--echo("calling clear_target!");
+	BLAST_TARGET_GUID = NOTARGET;
+	ClearFocus();
+	ClearTarget();
+	update_target_text("-none-", "");
+end
+
+
+local function lole_target_GUID(GUID)
+	if lole_subcommands.get("playermode") == 1 then return; end
+
+	--lop_exec(LOP_TARGET_GUID, GUID);
+
+	if GUID == NOTARGET then
+		clear_target()
+		return
+	end
+
+		if (BLAST_TARGET_GUID ~= GUID) then
+			set_target(GUID)
+		return
+		end
+
+end
+
+local function lole_cc(state, marker, spell)
+
+		echo("set_cc_target: got args: " .. enabled .. ", " .. marker .. ", " .. spell);
+
+		if (state == "enable") then
+			set_CC_job(spell, marker)
+			new_CC(UnitName("player"), get_CC_spellID(spell), marker);
+		elseif (state == "disable") then
+			unset_CC_job(marker)
+			delete_CC_entry(marker)
+		elseif (state == "clear") then
+			unset_all_CC_jobs()
+			delete_all_CC_entries()
+		else
+			lole_error("set_cc_target: invalid argument! (enabled must be 1, 0 or -1)");
+			return false
+		end
+
+		return false;
+
 end
 
 local function lole_dscript(...)
@@ -487,7 +553,7 @@ local function lole_dscript(...)
 				return false;
 			else
 				local scriptname = atab[2];
-				dscript(command .. "," .. scriptname)
+				dscript(command, scriptname)
 				return true;
 			end
 		elseif command == "stop" then
@@ -567,6 +633,10 @@ local function lole_sendmacro(to, ...)
     end
 end
 
+local function lole_sendmacro_to(to, ...)
+	lole_sendmacro("WHISPER " .. to, ...)
+end
+
 local invite_order = {
 	"Adieux", "Igop", "Kusip", "Gyorgy",
 	"Ribb", "Meisseln", "Crq", "Josp", "Teline",
@@ -600,6 +670,72 @@ local function lole_debug_test_blast_target()
 		update_target()
 end
 
+local function lole_broadcast(funcname, ...)
+	local usage = "lole_broadcast: usage: /lole broadcast funcname [args]";
+	if not funcname or funcname == "" then
+		echo(usage)
+		return 0
+	end
+
+	local func = lole_broadcasts[funcname];
+
+	if not f then
+		lole_error("lole_broadcast: unknown broadcast function \"" .. funcname .. "\"!")
+		return 0
+	end
+
+	-- call broadcast function =)
+
+	func(...);
+
+end
+
+
+----------------------------------------
+				----- BROADCASTS ------
+----------------------------------------
+
+
+local function lole_broadcast_target(GUID_str)
+	lole_subcommands.sendmacro("RAID", "/lole target " .. GUID_str);
+end
+
+local function lole_broadcast_follow(target_GUID)
+	lole_subcommands.sendmacro("RAID", "/lole follow " .. target_GUID);
+end
+
+local function lole_broadcast_set(attrib, state)
+	lole_subcommands.sendmacro("RAID", "/lole set " .. tostring(attrib) .. " " .. tostring(state));
+end
+
+local function lole_broadcast_cooldowns()
+	lole_subcommands.sendmacro("RAID", "/lole cooldowns");
+end
+
+local function lole_broadcast_drink()
+	lole_subcommands.sendmacro("RAID", "/lole drink")
+end
+
+local function lole_broadcast_mt(name)
+	lole_subcommands.sendmacro("RAID", "/lole setmt " .. name)
+end
+
+local function lole_broadcast_ot(arg)
+	lole_subcommands.sendmacro("RAID", "/lole setot " .. name)
+end
+
+local function lole_broadcast_drink()
+	lole_subcommands.sendmacro("RAID", "/lole drink")
+end
+
+local function lole_broadcast_release()
+	lole_subcommands.sendscript("GUILD", "/lole release")
+end
+
+local function lole_broadcast_leavegroup()
+	lole_subcommands.sendscript("GUILD", "/lole leavegroup")
+end
+
 lole_subcommands = {
   lbuffcheck = lole_leaderbuffcheck;
 	buffcheck = lole_buffcheck;
@@ -611,37 +747,55 @@ lole_subcommands = {
 	set = lole_set;
 	setall = lole_setall;
 	get = lole_get;
-	--blast = lole_blast;
+
+	broadcast = lole_broadcast;
 	ctm = lole_ctm;
+
 	cooldowns = lole_cooldowns;
 	buffs = do_buffs;
 	gui = lole_gui;
 	drink = lole_drink;
 	raid = lole_raid;
 	party = lole_party;
-	leaveparty = lole_leaveparty;
+	leavegroup = lole_leavegroup;
 	release = lole_release;
-	mt = lole_maintank;
-	ot = lole_offtank;
+
+	setmt = lole_setmt;
+	setot = lole_setot;
+
 	clearcc = lole_clearcc;
 	pull = lole_pull;
 	durability = lole_durability;
 	inv_ordered = lole_inv_ordered;
   raid_aoe = lole_raid_aoe;
-
-	de_greeniez = lole_disenchant_greeniez;
-
+	follow = lole_follow;
+	stopfollow = lole_stopfollow;
+	target = lole_target_guid;
 	sendscript = lole_sendscript;
 	ss = lole_sendscript;
 	sendmacro = lole_sendmacro;
 	run = lole_sendmacro;
 
+	cc = lole_cc;
+
 	dump = lole_debug_dump_wowobjects;
 	loot = lole_debug_loot_all;
-
+	de_greeniez = lole_disenchant_greeniez;
 	test_blast_target = lole_debug_test_blast_target;
-
 	dscript = lole_dscript;
 
 	register = lole_debug_lua_register;
+}
+
+lole_broadcasts = {
+	ctm = lole_broadcast_ctm;
+	drink = lole_broadcast_drink;
+	release = lole_broadcast_release;
+	mt = lole_broadcast_mt;
+	ot = lole_broadcast_ot;
+	cooldowns = lole_broadcast_cooldowns;
+	set = lole_broadcast_set;
+	follow = lole_broadcast_follow;
+	target = lole_broadcast_target;
+	leavegroup = lole_broadcast_leavegroup;
 }

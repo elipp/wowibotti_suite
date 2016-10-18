@@ -158,10 +158,10 @@ public:
 
 	ObjectManager();
 
-	WowObject get_object_by_GUID(GUID_t GUID) const;
-	WowObject get_unit_by_name(const std::string &name) const;
+	int get_object_by_GUID(GUID_t GUID, WowObject *o) const;
+	int get_unit_by_name(const std::string &name, WowObject *o) const;
 	GUID_t get_local_GUID() const;
-	WowObject get_local_object() const;
+	int get_local_object(WowObject *o) const;
 	uint get_base_address() const { return base_addr; }
 
 	std::vector<WowObject> get_spell_objects_with_spellID(long spellID);

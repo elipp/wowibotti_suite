@@ -1,10 +1,10 @@
 #pragma once
 
 #define LUA_GLOBALSINDEX	(-10002)
-#define lua_register(L,n,f) (lua_pushcfunction(L, (f)), lua_setglobal(L, (n)))
 #define lua_pushcfunction(L,f)	lua_pushcclosure(L, (f), 0)
 #define lua_setglobal(L,s)	lua_setfield(L, LUA_GLOBALSINDEX, (s))
 #define PUSHSTRING(L, S) lua_pushlstring(L, S, strlen(S))
+#define lua_register(L,n,f) (lua_pushcfunction(L, (f)), lua_setglobal(L, (n)))
 
 typedef struct lua_State lua_State;
 typedef int(*lua_CFunction) (lua_State *L);
@@ -28,6 +28,9 @@ extern p_lua_tolstring lua_tolstring;
 typedef void(*p_lua_pushlstring) (lua_State *L, const char* str, size_t len);
 extern p_lua_pushlstring lua_pushlstring;
 
+typedef void(*p_lua_pushinteger) (lua_State *L, int i);
+extern p_lua_pushinteger lua_pushinteger;
+
 typedef void(*p_lua_getfield) (lua_State *L, int idx, const char* key, size_t key_len);
 extern p_lua_getfield lua_getfield;
 
@@ -36,3 +39,6 @@ extern p_lua_tonumber lua_tonumber;
 
 typedef int (*p_lua_tointeger) (lua_State *L, int idx);
 extern p_lua_tointeger lua_tointeger;
+
+int register_lop_exec();
+extern int lua_registered;
