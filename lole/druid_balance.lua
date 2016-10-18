@@ -2,6 +2,11 @@ combat_druid_balance = function()
 
 	if UnitCastingInfo("player") then return; end
 
+    if (not has_buff("player", "Moonkin Form")) then
+        CastSpellByName("Moonkin Form")
+        return
+    end
+
 	--if decurse_party("Curse of the Shattered Hand") then return; end
 
     TargetUnit("Kiggler the Crazed");

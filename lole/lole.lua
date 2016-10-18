@@ -121,6 +121,7 @@ PREFIX_LOCKS = {
     lole_echo = false,
     UNIT_SPELLCAST_SENT = false,
     UNIT_SPELLCAST_START = false,
+    UNIT_SPELLCAST_SUCCEEDED = false,
 }
 local function prevent_double_call(prefix)
     local r = PREFIX_LOCKS[prefix];
@@ -135,9 +136,13 @@ local function on_spell_event(self, event, caster, spell, rank, target)
         SPELL_TARGET = target;
         return
     end
+    if event == "UNIT_SPELLCAST_SUCCEEDED" and INSTANT_HEALS[spell] then
+        HEAL_ATTEMPTS = 0;
+    end
     local heal_estimate = HEAL_ESTIMATES[spell.."("..rank..")"];
     if heal_estimate then
         if UnitName(caster) == UnitName("player") then
+            HEAL_ATTEMPTS = 0;
             local targets = {SPELL_TARGET};
             if spell == "Binding Heal" then
                 targets = {SPELL_TARGET, UnitName("player")};
@@ -248,6 +253,7 @@ if HEALER_TARGETS[UnitName("player")] then
     spell_event_frame = CreateFrame("Frame");
     spell_event_frame:RegisterEvent("UNIT_SPELLCAST_SENT");
     spell_event_frame:RegisterEvent("UNIT_SPELLCAST_START");
+    spell_event_frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED");
     spell_event_frame:SetScript("OnEvent", on_spell_event);
 end
 

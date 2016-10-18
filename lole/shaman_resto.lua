@@ -3,12 +3,12 @@ local function refresh_ES(targetname)
 
 	if not targetname then return false; end
 
-	if not UnitExists(targetname) or UnitIsDead(targetname) then return false end
+    if not UnitExists(targetname) or not UnitIsConnected(targetname) or UnitIsDead(targetname) or has_buff(targetname, "Spirit of Redemption") or UNREACHABLE_TARGETS[targetname] > GetTime() then return false end
 
 	if not has_buff(targetname, "Earth Shield") then
 		TargetUnit(targetname)
 		caster_range_check(35)
-		CastSpellByName("Earth Shield");
+		cast_if_nocd("Earth Shield");
 		return true;
 	end
 
@@ -58,9 +58,6 @@ local function raid_heal()
         local guildies = get_guild_members();
         if guildies[bounce1] then CH_BOUNCE_1 = bounce1 else CH_BOUNCE_1 = nil end;
         if guildies[bounce2] then CH_BOUNCE_2 = bounce2 else CH_BOUNCE_2 = nil end;
-        if not UnitExists("target") or not UnitIsConnected("target") or UnitIsDead("target") or has_buff("target", "Spirit of Redemption") then
-            return false
-        end
         caster_range_check(35);
         cast_spell("Chain Heal");
     end

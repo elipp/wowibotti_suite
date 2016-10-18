@@ -18,6 +18,9 @@ DEFAULT_HEALER_TARGETS = {
 }
 HEALS_IN_PROGRESS = {};
 HEAL_FINISH_INFO = {};
+HEAL_ATTEMPTS = 0;
+MAX_HEAL_ATTEMPTS = 20;
+UNREACHABLE_TARGETS = {};
 CH_BOUNCE_1 = nil;
 CH_BOUNCE_2 = nil;
 
@@ -33,6 +36,7 @@ HEAL_ESTIMATES = {
     ["Flash of Light(Rank 7)"] = 1400,
     ["Holy Light(Rank 11)"] = 4300,
     ["Holy Light(Rank 5)"] = 1300,
+    ["Holy Light(Rank 1)"] = 200,
     ["Lesser Healing Wave(Rank 7)"] = 2200,
     ["Healing Wave(Rank 12)"] = 4700,
     ["Chain Heal(Rank 5)"] = 3200,
@@ -43,6 +47,18 @@ HEAL_ESTIMATES = {
     ["Greater Heal(Rank 1)"] = 3000,
     ["Prayer of Healing(Rank 6)"] = 2300,
     ["Binding Heal(Rank 1)"] = 2000,
+}
+
+INSTANT_HEALS = {
+    ["Holy Shock"] = true,
+    ["Earth Shield"] = true,
+    ["Power Word: Shield"] = true,
+    ["Circle of Healing"] = true,
+    ["Renew"] = true,
+    ["Prayer of Mending"] = true,
+    ["Lifebloom"] = true,
+    ["Rejuvenation"] = true,
+    ["Swiftmend"] = true,
 }
 
 ROLES = { healer = 1, caster = 2, warrior_tank = 3, paladin_tank = 4, melee = 5, mana_melee = 6 }
@@ -314,9 +330,21 @@ function get_config_name_with_color(arg_config)
 
 end
 
-function cast_if_nocd(spellname)
+function track_heal_attempts(name)
+    HEAL_ATTEMPTS = HEAL_ATTEMPTS + 1;
+    if HEAL_ATTEMPTS == MAX_HEAL_ATTEMPTS or (UNREACHABLE_TARGETS[name] + 5 > GetTime() and HEAL_ATTEMPTS == 5) then
+        HEAL_ATTEMPTS = 0;
+        UNREACHABLE_TARGETS[name] = GetTime() + 5;
+        SendChatMessage(name .. " to the penalty box for 5 sec. (not healable)", "RAID");
+    end
+end
+
+function cast_if_nocd(spellname, rank)
 	if GetSpellCooldown(spellname) == 0 then
 		CastSpellByName(spellname);
+        if INSTANT_HEALS[spellname] or HEAL_ESTIMATES[spellname] or (rank and HEAL_ESTIMATES[spellname.."("..rank..")"]) then
+            track_heal_attempts(UnitName("target"));
+        end
 		return true;
 	end
 
@@ -326,7 +354,7 @@ end
 function cast_spell(spellname)
 	local name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(spellname);
 	cast_state = { true, GetTime(), castTime, UnitName("target") };
-	cast_if_nocd(spellname);
+	cast_if_nocd(spellname, rank);
 end
 
 function get_HP_deficits(party_only)
@@ -398,7 +426,7 @@ function get_HP_table_and_maxmaxHP(party_only)
         HP_table[UnitName("player")] = {UnitHealth("player"), UnitHealthMax("player")};
         for i=1,4,1 do local exists = GetPartyMember(i)
             local name = UnitName("party" .. i);
-            if exists and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
+            if exists and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and UNREACHABLE_TARGETS[name] < GetTime() then
                 HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
                 if HP_table[name][2] > maxmaxHP then
                     maxmaxHP = HP_table[name][2];
@@ -408,7 +436,7 @@ function get_HP_table_and_maxmaxHP(party_only)
     else
         for i=1,num_raid_members,1 do
             local name = UnitName("raid" .. tonumber(i));
-            if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
+            if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and UNREACHABLE_TARGETS[name] < GetTime() then
                 HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
                 if HP_table[name][2] > maxmaxHP then
                     maxmaxHP = HP_table[name][2];
@@ -745,6 +773,7 @@ local guild_members = {
 
 for name, num in pairs(guild_members) do
     HEALS_IN_PROGRESS[name] = {};
+    UNREACHABLE_TARGETS[name] = 0;
 end
 
 function get_guild_members()
@@ -847,6 +876,8 @@ end
 
 function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars)
 
+    -- TODO: range checks
+
     if min_deficit == nil then min_deficit = 2000; end
     if max_ineligible_chars == nil then max_ineligible_chars = 1; end
 
@@ -858,7 +889,7 @@ function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars)
             local group_eligible = true;
             local num_ineligible_chars = 0;
             for i, name in pairs(tbl) do
-                if (not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") or UnitHealthMax(name) - UnitHealth(name) < min_deficit) then
+                if (not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") or UnitHealthMax(name) - UnitHealth(name) < min_deficit) or UNREACHABLE_TARGETS[name] > GetTime() then
                     num_ineligible_chars = num_ineligible_chars + 1;
                     if num_ineligible_chars > max_ineligible_chars then
                         group_eligible = false;
@@ -921,7 +952,7 @@ function get_single_heal_target(chars)
     local maxmaxHP = 0;
     local num_valid_chars = 0;
     for i, name in pairs(chars) do
-        if name == "raid" or not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") then
+        if name == "raid" or not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") or UNREACHABLE_TARGETS[name] > GetTime() then
         else
             HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
             if HP_table[name][2] > maxmaxHP then
@@ -1083,11 +1114,17 @@ function get_serialized_heals()
 
     local serialized_heals = "";
     local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);
-    for target, heals in pairs(heals_in_progress) do
+    local raid_members = get_raid_members();
+    for i, target in ipairs(raid_members) do
         local target_heals = 0;
-        for healer, info in pairs(heals) do
-            if info[2] > GetTime()*1000 then
-                target_heals = target_heals + info[1];
+        if not UnitExists(target) or not UnitIsConnected(target) or UnitIsDead(target) or has_buff(target, "Spirit of Redemption") or UNREACHABLE_TARGETS[target] > GetTime() then
+            target_heals = 100000; -- Dirty hack to make DLL backend not consider this target for Chain Heal.
+        else
+            local heals = heals_in_progress[target];
+            for healer, info in pairs(heals) do
+                if info[2] > GetTime()*1000 then
+                    target_heals = target_heals + info[1];
+                end
             end
         end
         if target_heals > 0 then
@@ -1101,6 +1138,20 @@ function get_serialized_heals()
 
     return serialized_heals;
 
+end
+
+function get_raid_members()
+
+    local members = {};
+    local raid_groups = get_raid_groups();
+    for grp, tbl in ipairs(raid_groups) do
+        for i, member in ipairs(tbl) do
+            table.insert(members, member);
+        end
+    end
+
+    return members;
+    
 end
 
 function get_group_members(grp_num)

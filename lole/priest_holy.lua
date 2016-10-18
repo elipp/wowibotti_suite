@@ -8,6 +8,7 @@ local function should_cast_PoH()
 
 	local num_deficients = 0;
 	for unit, deficit in pairs(HP_deficits) do
+        -- TODO: range check
 		if deficit > 3000 then
 			num_deficients = num_deficients + 1;
 			if num_deficients > 2 then
@@ -70,13 +71,13 @@ local function raid_heal()
 
     if UnitHealth("player") < UnitHealthMax("player")*0.30 then
         TargetUnit("player");
-        CastSpellByName("Power Word: Shield");
+        cast_if_nocd("Power Word: Shield");
         cast_spell("Flash Heal");
         return true
     end
 
     if (health_cur < health_max * 0.20) then
-        CastSpellByName("Power Word: Shield");
+        cast_if_nocd("Power Word: Shield");
         cast_spell("Flash Heal");
         return true
     end
@@ -84,7 +85,7 @@ local function raid_heal()
     local coh_target = get_CoH_target(2000, 1);
     if coh_target then
         TargetUnit(coh_target);
-        CastSpellByName("Circle of Healing");
+        cast_if_nocd("Circle of Healing");
     elseif (health_cur < health_max * 0.50) then
         cast_spell("Greater Heal");
     elseif (health_cur < health_max * 0.75) then
@@ -99,7 +100,7 @@ local function raid_heal()
                 pom_time = time();
             end
         elseif not has_buff("target", "Renew") then
-            CastSpellByName("Renew");
+            cast_if_nocd("Renew");
         end
     else
         return false;
@@ -139,13 +140,13 @@ combat_priest_holy = function()
 	local targeting_self = UnitName("target") == UnitName("player");
 
     if (health_cur < health_max * 0.15) then
-        CastSpellByName("Power Word: Shield");
+        cast_if_nocd("Power Word: Shield");
         cast_spell("Flash Heal");
 	elseif (health_cur < health_max * 0.30) then
 		cast_spell("Greater Heal");
     elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
         TargetUnit("player");
-        CastSpellByName("Power Word: Shield");
+        cast_if_nocd("Power Word: Shield");
         cast_spell("Flash Heal");
     elseif (health_cur < health_max * 0.50) then
         cast_spell("Greater Heal");
@@ -168,7 +169,7 @@ combat_priest_holy = function()
 			cast_spell("Greater Heal(Rank 1)");
 		end
 	elseif not has_buff("target", "Renew") then
-		CastSpellByName("Renew");
+		cast_if_nocd("Renew");
     elseif table.contains(heal_targets, "raid") then
         raid_heal();
     end

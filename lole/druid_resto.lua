@@ -42,22 +42,22 @@ local function raid_heal()
     elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
         CastSpellByName("Barkskin");
         TargetUnit("player");
-        CastSpellByName("Swiftmend")
+        cast_if_nocd("Swiftmend")
         cast_spell("Regrowth");
     elseif (health_cur < health_max * 0.35) then
-        CastSpellByName("Swiftmend");
+        cast_if_nocd("Swiftmend");
         if not has_rg or timeleft_rg < 5 then
             cast_spell("Regrowth");
         end
     elseif (health_cur < health_max * 0.60) then
         if not has_rj then
-            CastSpellByName("Rejuvenation");
+            cast_if_nocd("Rejuvenation");
         elseif not has_lb or stacks_lb < 3 then
-            CastSpellByName("Lifebloom");
+            cast_if_nocd("Lifebloom");
         end
     elseif (health_cur < health_max * 0.80) then
         if not has_lb or stacks_lb < 3 then
-            CastSpellByName("Lifebloom");
+            cast_if_nocd("Lifebloom");
         end
     else
         return false;
@@ -71,6 +71,11 @@ combat_druid_resto = function()
 
     if casting_legit_heal() then return end
     if UnitChannelInfo("player") then return; end -- tranquility
+
+    if (not has_buff("player", "Tree of Life")) then
+        CastSpellByName("Tree of Life")
+        return
+    end
 
 	local mana_left = UnitMana("player");
 
@@ -102,7 +107,7 @@ combat_druid_resto = function()
     local health_cur = UnitHealth("target");
 
     if (health_cur < health_max * 0.35) then
-        CastSpellByName("Swiftmend");
+        cast_if_nocd("Swiftmend");
         if not has_rg or timeleft_rg < 5 then
             cast_spell("Regrowth");
         end
@@ -112,26 +117,26 @@ combat_druid_resto = function()
     if UnitHealth("player") < UnitHealthMax("player")*0.30 then
         CastSpellByName("Barkskin");
         TargetUnit("player");
-        CastSpellByName("Swiftmend")
+        cast_if_nocd("Swiftmend")
         cast_spell("Regrowth");
         return;
     end
 
 	if has_lb then
 		if stacks_lb < 3 then
-			CastSpellByName("Lifebloom")
+			cast_if_nocd("Lifebloom")
 			return
 		elseif timeleft_lb < 1.2 then
-			CastSpellByName("Lifebloom")
+			cast_if_nocd("Lifebloom")
 			return
 		end
 	else
-		CastSpellByName("Lifebloom")
+		cast_if_nocd("Lifebloom")
 		return
 	end
 
 	if not has_rj then
-		CastSpellByName("Rejuvenation")
+		cast_if_nocd("Rejuvenation")
 		return
 	end
 
@@ -144,7 +149,7 @@ combat_druid_resto = function()
     if UnitHealth("player") < UnitHealthMax("player")*0.50 then
         TargetUnit("player");
         if (not has_buff("target", "Rejuvenation")) then
-            CastSpellByName("Rejuvenation");
+            cast_if_nocd("Rejuvenation");
             return;
         end
     end
