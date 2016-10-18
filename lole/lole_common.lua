@@ -331,11 +331,14 @@ function get_config_name_with_color(arg_config)
 end
 
 function track_heal_attempts(name)
+    -- TODO: if walking -> return
     HEAL_ATTEMPTS = HEAL_ATTEMPTS + 1;
     if HEAL_ATTEMPTS == MAX_HEAL_ATTEMPTS or (UNREACHABLE_TARGETS[name] + 5 > GetTime() and HEAL_ATTEMPTS == 5) then
         HEAL_ATTEMPTS = 0;
+        if UNREACHABLE_TARGETS[name] + 5 < GetTime() then
+            SendChatMessage(name .. " to the penalty box for 5 sec. (not healable)", "GUILD");
+        end
         UNREACHABLE_TARGETS[name] = GetTime() + 5;
-        SendChatMessage(name .. " to the penalty box for 5 sec. (not healable)", "RAID");
     end
 end
 
