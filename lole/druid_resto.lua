@@ -70,6 +70,7 @@ end
 combat_druid_resto = function()
 
     if casting_legit_heal() then return end
+    if UnitChannelInfo("player") then return; end -- tranquility
 
 	local mana_left = UnitMana("player");
 

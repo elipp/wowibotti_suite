@@ -135,14 +135,26 @@ local function on_spell_event(self, event, caster, spell, rank, target)
         SPELL_TARGET = target;
         return
     end
-    -- TODO: multi-target heals
     local heal_estimate = HEAL_ESTIMATES[spell.."("..rank..")"];
     if heal_estimate then
-        local _, _, _, _, _, finish_time = UnitCastingInfo(caster);
         if UnitName(caster) == UnitName("player") then
-            SendAddonMessage("lole_heal_target", SPELL_TARGET, "RAID");
-            HEALS_IN_PROGRESS[SPELL_TARGET][UnitName("player")] = {heal_estimate, finish_time};
+            local targets = {SPELL_TARGET};
+            if spell == "Binding Heal" then
+                targets = {SPELL_TARGET, UnitName("player")};
+            elseif spell == "Prayer of Healing" then
+                targets = get_group_members(get_group_number(UnitName("player")));
+            end
+            local targets_str = "";
+            for i, name in ipairs(targets) do
+                if i == 1 then
+                    targets_str = targets_str .. name;
+                else
+                    targets_str = targets_str .. "," .. name;
+                end
+            end
+            SendAddonMessage("lole_heal_target", targets_str, "RAID");
         else
+            local _, _, _, _, _, finish_time = UnitCastingInfo(caster);
             HEAL_FINISH_INFO[UnitName(caster)] = {heal_estimate, finish_time};
         end
     end
@@ -191,7 +203,10 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 
     elseif (prefix == "lole_heal_target") then
         if HEAL_FINISH_INFO[sender] then
-            HEALS_IN_PROGRESS[message][sender] = HEAL_FINISH_INFO[sender];
+            local targets = {strsplit(",", message)};
+            for i, target in pairs(targets) do
+                HEALS_IN_PROGRESS[target][sender] = HEAL_FINISH_INFO[sender];
+            end
         end
 
     elseif (prefix == "lole_echo") then 

@@ -1100,3 +1100,29 @@ function get_serialized_heals()
     return serialized_heals;
 
 end
+
+function get_group_members(grp_num)
+
+    local raid_groups = get_raid_groups();
+    return raid_groups[grp_num];
+
+end
+
+function get_group_number(name)
+
+    if GetNumRaidMembers() == 0 then
+        return 1;
+    else
+        local i = 1;
+        while GetRaidRosterInfo(i) do
+            local raid_info = {GetRaidRosterInfo(i)};
+            if raid_info[1] == name then
+                return raid_info[3];
+            end
+            i = i + 1;
+        end
+    end
+
+    return nil;
+
+end
