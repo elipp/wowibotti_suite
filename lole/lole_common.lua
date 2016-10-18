@@ -332,6 +332,7 @@ end
 
 function track_heal_attempts(name)
     -- TODO: if walking -> return
+    if not name then return end
     HEAL_ATTEMPTS = HEAL_ATTEMPTS + 1;
     if HEAL_ATTEMPTS == MAX_HEAL_ATTEMPTS or (UNREACHABLE_TARGETS[name] + 5 > GetTime() and HEAL_ATTEMPTS == 5) then
         HEAL_ATTEMPTS = 0;

@@ -53,6 +53,9 @@ local function raid_heal()
     else
         ClearTarget();
         target_best_CH_target(get_serialized_heals());
+        if not UnitExists("target") then
+            return false;
+        end
         local bounce1 = GetCVar("PetMeleeDamage");
         local bounce2 = GetCVar("PetSpellDamage");
         local guildies = get_guild_members();
