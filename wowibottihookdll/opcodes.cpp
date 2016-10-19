@@ -517,10 +517,6 @@ static std::string LOP_get_best_CH(const std::string &arg) {
 		PRINT("candidate %s with %u/%u hp (heal urgency: %f) added\n", u.name.c_str(), u.health, u.health_max, u.heal_urgency, u.deficit);
 	}
 
-	if (deficit_candidates.size() < 3) {
-		return "player";
-	}
-
 	struct chain_heal_trio_t {
 		const WO_cached *trio[3];
 		int total_deficit;
