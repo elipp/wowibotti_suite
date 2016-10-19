@@ -35,7 +35,7 @@ LOPFUNC(LOP_NOP, 0, 0, 0),
  LOPFUNC(LOP_CASTER_RANGE_CHECK, 1,ARG_TYPE_NUMBER, 0),
  LOPFUNC(LOP_FOLLOW, 1, ARG_TYPE_STRING, 0),
  LOPFUNC(LOP_CTM, 3, ARG_TYPE_NUMBER | ARG_TYPE_NUMBER << 2 | ARG_TYPE_NUMBER << 4, 0),
- LOPFUNC(LOP_DUNGEON_SCRIPT, 2, ARG_TYPE_STRING | ARG_TYPE_STRING << 2, 0),
+ LOPFUNC(LOP_DUNGEON_SCRIPT, 1, ARG_TYPE_STRING | ARG_TYPE_STRING << 2, 0),
  LOPFUNC(LOP_TARGET_MARKER, 1, ARG_TYPE_STRING, 0),
  LOPFUNC(LOP_MELEE_BEHIND, 0, 0, 0),
  LOPFUNC(LOP_AVOID_SPELL_OBJECT, 2, ARG_TYPE_INT | ARG_TYPE_NUMBER << 2, 0),
@@ -44,7 +44,8 @@ LOPFUNC(LOP_NOP, 0, 0, 0),
  LOPFUNC(LOP_CHAIN_HEAL_TARGET, 0, 0, 1),
  LOPFUNC(LOP_MELEE_AVOID_AOE_BUFF, 2, ARG_TYPE_INT | ARG_TYPE_NUMBER << 2, 0),
  LOPFUNC(LOP_TANK_FACE, 0, 0, 0),
- LOPFUNC(LOP_WALK_TO_PULLING_RANGE, 0, 0, 0)
+ LOPFUNC(LOP_WALK_TO_PULLING_RANGE, 0, 0, 0),
+ LOPFUNC(LOP_GET_UNIT_POSITION, 1, ARG_TYPE_STRING, 3)
 
 };
 
@@ -659,13 +660,62 @@ static int LOPDBG_pull_test() {
 	ctm_add(pull);
 }
 
+static int LOP_get_unit_position(const std::string &name, double *out) {
+	ObjectManager OM;
+	
+	if (name == "player") {
+		WowObject p;
+		if (!OM.get_local_object(&p)) return 0;
+
+		vec3 ppos = p.get_pos();
+		out[0] = ppos.x;
+		out[1] = ppos.y;
+		out[2] = ppos.z;
+
+		return 1;
+	}
+	else if (name == "target") {
+		WowObject t;
+		GUID_t target_GUID = get_target_GUID();
+
+		if (!target_GUID) { return 0; }
+
+		if (!OM.get_object_by_GUID(target_GUID, &t)) {
+			return 0;
+		}
+		vec3 tpos = t.get_pos();
+
+		out[0] = tpos.x;
+		out[1] = tpos.y;
+		out[2] = tpos.z;
+
+		return 1;
+	}
+	else {
+		WowObject u;
+		if (!OM.get_unit_by_name(name, &u)) { return 0; }
+
+		vec3 upos = u.get_pos();
+
+		out[0] = upos.x;
+		out[1] = upos.y;
+		out[2] = upos.z;
+		
+		return 1;
+		
+	}
+
+	return 0;
+
+}
+
 static int check_num_args(int opcode, int nargs) {
 
-	if (opcode > 0xE) return 0;
+	if (opcode >= LOP_NUM_OPCODES) return 0;
 
 	lop_func_t &f = lop_funcs[opcode];
-	if (nargs != f.num_arguments) {
-		PRINT("error: %s: expected %d argument(s) (got %d)\n", f.opcode_name.c_str(), f.num_arguments, nargs);
+	if (nargs < f.num_arguments) {
+		PRINT("error: %s: expected (at least) %d argument(s), got %d\n", f.opcode_name.c_str(), f.num_arguments, nargs);
 		return 0;
 	}
 
@@ -694,7 +744,9 @@ int lop_exec(lua_State *L) {
 	}
 
 	int opcode = lua_tointeger(L, 1);
-	PRINT("lop_exec: opcode = %d\n", opcode);
+	if (opcode < LOP_NUM_OPCODES) {
+		PRINT("lop_exec: opcode = %d (%s)\n", opcode, lop_funcs[opcode].opcode_name.c_str());
+	}
 	size_t len;
 	
 	if (!check_num_args(opcode, nargs - 1)) { return 0; }
@@ -722,19 +774,25 @@ int lop_exec(lua_State *L) {
 		x = lua_tonumber(L, 2);
 		y = lua_tonumber(L, 3);
 		z = lua_tonumber(L, 4);
+		PRINT("LOP_CTM: %f, %f, %f\n", x, y, z);
+
 		LOP_CTM_act(x, y, z);
 		break;
 	}
 	
 	case LOP_DUNGEON_SCRIPT: {
-		const char* command = lua_tolstring(L, 1, &len);
-		const char* scriptname = lua_tolstring(L, 2, &len);
+		const char* command = lua_tolstring(L, 2, &len);
+		const char* scriptname = "";
+		if (nargs > 2) {
+			scriptname = lua_tolstring(L, 3, &len);
+		}
+		PRINT("LOP_DUNGEON_SCRIPT: command: %s, scriptname: %s\n", command, scriptname);
 		LOP_dungeon_script(command, scriptname);
 		break;
 	}
 	
 	case LOP_TARGET_MARKER:
-		LOP_target_marker(lua_tolstring(L, 1, &len));
+		LOP_target_marker(lua_tolstring(L, 2, &len));
 		break;
 
 	case LOP_MELEE_BEHIND:
@@ -774,6 +832,18 @@ int lop_exec(lua_State *L) {
 		LOP_walk_to_pull();
 		break;
 
+	case LOP_GET_UNIT_POSITION: {
+		double coords[3];
+		int r = LOP_get_unit_position(lua_tolstring(L, 2, &len), coords);
+		if (!r) { return 0; }
+		else {
+			lua_pushnumber(L, coords[0]);
+			lua_pushnumber(L, coords[1]);
+			lua_pushnumber(L, coords[2]);
+			return 3;
+		}
+		break;
+	}
 	case LDOP_LUA_REGISTERED:
 		lua_registered = 1;
 		break;

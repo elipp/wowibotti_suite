@@ -13,6 +13,7 @@ local LOP_CHAIN_HEAL_TARGET = 0xB
 local LOP_MELEE_AVOID_AOE_BUFF = 0xC
 local LOP_TANK_FACE = 0xD
 local LOP_WALK_TO_PULLING_RANGE = 0xE
+local LOP_GET_UNIT_POSITION = 0xF
 
 local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x70
 
@@ -104,6 +105,9 @@ function warlock_maulgar_get_felhound()
 end
 
 function dscript(command, scriptname)
+	if not scriptname then
+		scriptname = ""
+	end
 	lop_exec(LOP_DUNGEON_SCRIPT, command, scriptname);
 end
 

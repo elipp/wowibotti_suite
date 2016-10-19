@@ -669,7 +669,7 @@ inject_status_text:SetFont("Fonts\\FRIZQT__.TTF", 9);
 inject_status_text:SetPoint("BOTTOMRIGHT", -22, 15);
 inject_status_text:SetText("")
 
-local last_status = false
+local last_status = true -- hack to enable initial injected status display
 
 function update_injected_status(arg)
 	if arg == last_status then return end
