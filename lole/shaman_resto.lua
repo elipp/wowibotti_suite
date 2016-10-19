@@ -51,16 +51,14 @@ local function raid_heal()
         TargetUnit("player");
         cast_spell("Lesser Healing Wave");
     else
-        ClearTarget();
-        target_best_CH_target(get_serialized_heals());
-        if not UnitExists("target") then
+        local ch_trio_str = get_CH_target_trio(get_serialized_heals());
+        local target, bounce1, bounce2 = unpack({strsplit(",", ch_trio_str)});
+        if target == "" then
             return false;
         end
-        local bounce1 = GetCVar("PetMeleeDamage");
-        local bounce2 = GetCVar("PetSpellDamage");
-        local guildies = get_guild_members();
-        if guildies[bounce1] then CH_BOUNCE_1 = bounce1 else CH_BOUNCE_1 = nil end;
-        if guildies[bounce2] then CH_BOUNCE_2 = bounce2 else CH_BOUNCE_2 = nil end;
+        TargetUnit(target);
+        if bounce1 ~= "" then CH_BOUNCE_1 = bounce1 else CH_BOUNCE_1 = nil end;
+        if bounce2 ~= "" then CH_BOUNCE_2 = bounce2 else CH_BOUNCE_2 = nil end;
         caster_range_check(35);
         cast_spell("Chain Heal");
     end

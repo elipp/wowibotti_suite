@@ -1,0 +1,3 @@
+scriptname = "test1"
+
+{ coords = (-598, -4393, -44); mobpack = (-615, -4422, 44); num_mobs = 2; pack_type = static }

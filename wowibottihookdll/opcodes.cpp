@@ -6,61 +6,68 @@
 #include "timer.h"
 #include "hooks.h"
 #include "creds.h"
+#include "dungeon_script.h"
+#include "lua.h"
 
 extern HWND wow_hWnd;
-extern int afkjump_keyup_queued;
 
 static int dump_wowobjects_to_log();
+
+struct lop_func_t {
+	std::string opcode_name;
+	int num_arguments;
+	int arg_types; // 2-bit masks
+	int num_return_values;
+};
+
+#define LOPFUNC(OPCODE_ID, NUMARGS, ARG_TYPES, NUM_RETURN_VALUES) { #OPCODE_ID, NUMARGS, ARG_TYPES, NUM_RETURN_VALUES }
+
+enum {
+	ARG_TYPE_INT,
+	ARG_TYPE_NUMBER,
+	ARG_TYPE_STRING
+};
+
+static lop_func_t lop_funcs[] = {
+
+LOPFUNC(LOP_NOP, 0, 0, 0),
+ LOPFUNC(LOP_TARGET_GUID, 1, ARG_TYPE_STRING, 0),
+ LOPFUNC(LOP_CASTER_RANGE_CHECK, 1,ARG_TYPE_NUMBER, 0),
+ LOPFUNC(LOP_FOLLOW, 1, ARG_TYPE_STRING, 0),
+ LOPFUNC(LOP_CTM, 3, ARG_TYPE_NUMBER | ARG_TYPE_NUMBER << 2 | ARG_TYPE_NUMBER << 4, 0),
+ LOPFUNC(LOP_DUNGEON_SCRIPT, 2, ARG_TYPE_STRING | ARG_TYPE_STRING << 2, 0),
+ LOPFUNC(LOP_TARGET_MARKER, 1, ARG_TYPE_STRING, 0),
+ LOPFUNC(LOP_MELEE_BEHIND, 0, 0, 0),
+ LOPFUNC(LOP_AVOID_SPELL_OBJECT, 2, ARG_TYPE_INT | ARG_TYPE_NUMBER << 2, 0),
+ LOPFUNC(LOP_HUG_SPELL_OBJECT, 1, ARG_TYPE_INT, 0),
+ LOPFUNC(LOP_SPREAD, 0, 0, 0),
+ LOPFUNC(LOP_CHAIN_HEAL_TARGET, 1, ARG_TYPE_STRING, 1),
+ LOPFUNC(LOP_MELEE_AVOID_AOE_BUFF, 2, ARG_TYPE_INT | ARG_TYPE_NUMBER << 2, 0),
+ LOPFUNC(LOP_TANK_FACE, 0, 0, 0),
+ LOPFUNC(LOP_WALK_TO_PULLING_RANGE, 0, 0, 0)
+
+};
 
 static struct follow_state_t {
 	int close_enough = 1;
 	Timer timer;
-	std::string target_GUID;
+	std::string target_name;
 
-	void start(const std::string &GUID) {
+	void start(const std::string &name) {
 		close_enough = 0;
-		target_GUID = GUID;
+		target_name = name;
 		timer.start();
 	}
 
 	void clear() {
 		close_enough = 1;
-		target_GUID = "";
+		target_name = "";
 	}
 
 } follow_state;
 
 
-static void __stdcall walk_to_target() {
-
-	GUID_t target_GUID = get_target_GUID();
-	if (!target_GUID) return;
-
-	ObjectManager OM;
-	WowObject t = OM.get_object_by_GUID(target_GUID);
-
-	click_to_move(t.get_pos(), CTM_MOVE, 0);
-
-}
-
-static void LOP_face(const std::string &arg) {
-
-	GUID_t target_GUID = get_target_GUID();
-	if (!target_GUID) return;
-
-	ObjectManager OM;
-	WowObject t = OM.get_object_by_GUID(target_GUID);
-
-	if (!t.valid()) return;
-
-	WowObject p = OM.get_local_object();
-
-	if (!p.valid()) return;
-
-	vec3 diff = t.get_pos() - p.get_pos();
-
-
-
+	// COMMENTARY ON THE NOW REMOVED LOP_FACE
 	// less than 0.5 is good for just changing orientation (without walking). see click_to_move()
 
 	// The SetFacing function is effective on the local client level, 
@@ -80,22 +87,15 @@ static void LOP_face(const std::string &arg) {
 
 	//set_facing(directed_angle + M_PI);
 
-}
+static int LOP_melee_behind() {
+	
+	ObjectManager OM;
 
-static void LOP_melee_behind(const std::string &arg) {
-	GUID_t target_GUID = get_target_GUID();
-	if (!target_GUID) {
-		return;
+	WowObject p, t;
+	if (!OM.get_local_object(&p) || !OM.get_object_by_GUID(get_target_GUID(), &t)) {
+		return 0;
 	}
 
-	ObjectManager OM;
-	WowObject t = OM.get_object_by_GUID(target_GUID);
-
-	if (!t.valid()) return;
-
-	WowObject p = OM.get_local_object();
-
-	if (!p.valid()) return;
 
 	// basically rotating the vector (1, 0, 0) target_rot radians anti-clockwise
 	//vec3 rot_unit(1.0 * std::cos(target_rot) - 0.0 * std::sin(target_rot), 1.0 * std::sin(target_rot) + 0.0 * std::cos(target_rot), 0.0);
@@ -111,8 +111,9 @@ static void LOP_melee_behind(const std::string &arg) {
 	float target_rot;
 
 	if (tot_GUID) {
-		if (tot_GUID == OM.get_local_GUID()) return;
-		WowObject tot = OM.get_object_by_GUID(tot_GUID);
+		if (tot_GUID == OM.get_local_GUID()) return 0;
+		WowObject tot;
+		OM.get_object_by_GUID(tot_GUID, &tot);
 		vec3 trot_diff = tot.get_pos() - tpos;
 		target_rot = atan2(trot_diff.y, trot_diff.x);
 	}
@@ -132,8 +133,8 @@ static void LOP_melee_behind(const std::string &arg) {
 	vec3 diff = point_behind_ctm - ppos;
 	
 	if (diff.length() > 1.0) {
-		//ctm_add(CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_LOW, 0, 0.5));
-		click_to_move(point_behind_ctm, CTM_MOVE, 0, 0.5);
+		ctm_add(CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_LOW, 0, 0.5));
+		return 1;
 	}
 	else {
 		DoString("StartAttack()");
@@ -144,20 +145,16 @@ static void LOP_melee_behind(const std::string &arg) {
 			 // and for auto-attacking, the valid sector is actually rather small, unlike spells,
 			 // for which perfectly perpendicular is ok
 			vec3 face = (tpos - ppos).unit();
-		//	ctm_add(CTM_t(ppos + face, CTM_MOVE, CTM_PRIO_LOW, 0, 1.5));
-			click_to_move(ppos + face, CTM_MOVE, 0, 1.5);
+			ctm_add(CTM_t(ppos + face, CTM_MOVE, CTM_PRIO_LOW, 0, 1.5));
 		}
 	}
 
 
 }
 
-static void LOP_melee_avoid_aoe_buff(const std::string &arg) {
+static int LOP_melee_avoid_aoe_buff(long spellID) {
 	
 	ObjectManager OM;
-
-	char *endptr;
-	uint arg_spellID = strtoul(arg.c_str(), &endptr, 10);
 
 	WowObject o = OM.get_first_object();
 
@@ -165,9 +162,11 @@ static void LOP_melee_avoid_aoe_buff(const std::string &arg) {
 
 		if (o.get_type() == OBJECT_TYPE_NPC) {
 
-			if (o.NPC_has_buff(arg_spellID) || o.NPC_has_debuff(arg_spellID)) {
+			if (o.NPC_has_buff(spellID) || o.NPC_has_debuff(spellID)) {
 
-				WowObject p = OM.get_local_object();
+				WowObject p;
+				
+				if (!OM.get_local_object(&p)) return 0;
 
 				float dist = (o.get_pos() - p.get_pos()).length();
 
@@ -175,84 +174,60 @@ static void LOP_melee_avoid_aoe_buff(const std::string &arg) {
 					break; // this should go to melee_behind
 				}
 
-				WowObject Ceucho = OM.get_unit_by_name("Ceucho");
-				if (!Ceucho.valid()) return;
+				WowObject Ceucho;
+				if (!OM.get_unit_by_name("Ceucho", &Ceucho)) return 0;
+
 				vec3 diff_unit = (Ceucho.get_pos() - o.get_pos()).unit();
-				click_to_move(CTM_t(o.get_pos() + 15 * diff_unit, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 0.5));
-				return;
+				ctm_add(CTM_t(o.get_pos() + 15 * diff_unit, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 0.5));
+				return 1;
 			}
 		}
 		o = o.getNextObject();
 	}
 
-	// else :)
-	LOP_melee_behind("");
-
+	return 0;
 }
 
-static void LOP_target_GUID(const std::string &arg) {
-
-	std::vector<std::string> tokens;
-
-	tokenize_string(arg, ",", tokens);
-
-	if (tokens.size() > 1) {
-		PRINT("change_target (via DelIgnore_hub): expected 1 argument, got %ul! Ignoring rest.\n", tokens.size());
-	}
+static int LOP_target_GUID(const std::string &arg) {
 
 	std::string GUID_numstr(arg.substr(2, 16)); // better make a copy of it. the GUID_str still has the "0x" prefix in it 
 
 	char *end;
 	GUID_t GUID = strtoull(GUID_numstr.c_str(), &end, 16);
 
-	PRINT("got LOLE_OPCODE_TARGET_GUID: GUID = %llX\nGUID_str + prefix.length() + 2 = \"%s\"\n", GUID, GUID_numstr.c_str());
-
 	if (end != GUID_numstr.c_str() + GUID_numstr.length()) {
 		PRINT("[WARNING]: change_target: couldn't wholly convert GUID string argument (strtoull(\"%s\", &end, 16) failed, bailing out\n", GUID_numstr.c_str());
-		return;
+		return 0;
 	}
+	
+	PRINT("got LOLE_OPCODE_TARGET_GUID: GUID = %llX\nGUID_str + prefix.length() + 2 = \"%s\"\n", GUID, GUID_numstr.c_str());
 
 	SelectUnit(GUID);
+
+	return 1;
 }
 
-static void LOP_blast(const std::string &arg) {
-	if (arg == "1") {
-		PRINT("got BLAST_ON AddonMessage, enabling blast.\n");
-	}
-	else if (arg == "0") {
-		PRINT("got BLAST_OFF AddonMessage, disabling blast.\n");
-	}
-	else {
-		PRINT("blast (from DelIgnore_hub): warning: unknown argument \"%s\"\n", arg.c_str());
-	}
-}
-
-static void LOP_range_check(const std::string& arg) {
+static int LOP_range_check(double minrange) {
 	GUID_t target_GUID = get_target_GUID();
-	if (!target_GUID) return;
+	if (!target_GUID) return 0;
 
 	ObjectManager OM;
-	WowObject t = OM.get_object_by_GUID(target_GUID);
 
-	if (!t.valid()) return;
-
-	WowObject p = OM.get_local_object();
-
-	if (!p.valid()) return;
+	WowObject p, t;
+	if (!OM.get_local_object(&p) || !OM.get_object_by_GUID(get_target_GUID(), &t)) {
+		return 0;
+	}
 
 	vec3 ppos = p.get_pos();
 	vec3 tpos = t.get_pos();
 
 	vec3 diff = tpos - ppos;
 
-	char *endptr;
-	float minrange = strtof(arg.c_str(), &endptr);
-
 	if (diff.length() > minrange - 1) {
 		// move in a straight line to a distance of minrange-1 yd from the target. Kinda bug-prone though..
 		vec3 new_point = tpos - (minrange - 1) * diff.unit();
-		click_to_move(new_point, CTM_MOVE, 0x0);
-		return;
+		ctm_add(CTM_t(new_point, CTM_MOVE, CTM_PRIO_LOW, 0, 1.5));
+		return 1;
 
 	}
 	else {
@@ -266,60 +241,52 @@ static void LOP_range_check(const std::string& arg) {
 	//	PRINT("dot product: %f\n", d);
 
 		if (d < 0) {
-			click_to_move(ppos + diff.unit(), CTM_MOVE, 0, 1.5); // this seems quite stable for just changing orientation.
+			ctm_add(CTM_t(ppos + diff.unit(), CTM_MOVE, CTM_PRIO_LOW, 0, 1.5)); // this seems quite stable for just changing orientation.
 		}
 	}
 
+	return 1;
+
 }
 
-static void LOP_follow_GUID(const std::string& arg) {
-	// the arg should contain host character GUID
+static int LOP_follow_unit(const std::string& targetname) {
+
 	// CONSIDER: change this to straight up player name and implement a get WowObject by name func?
 	ObjectManager OM;
 
-	char *endptr;
-	GUID_t GUID = strtoull(arg.c_str(), &endptr, 16);
-
-	WowObject p = OM.get_local_object();
-
-	if (!p.valid()) {
-		PRINT("follow_unit_with_GUID: LOLE_OPCODE_FOLLOW: getting local object failed? WTF? XD\n");
-		return;
+	WowObject p, t;
+	if (!OM.get_local_object(&p) 
+		|| !OM.get_unit_by_name(targetname, &t)) {
+		return 0;
 	}
 
-	if (GUID == 0) {
+	if (p.get_GUID() == t.get_GUID()) {
+		return 1;
+	}
+
+	GUID_t tGUID = t.get_GUID();
+
+	if (tGUID == 0) {
+		// stopfollow
 		float prot = p.get_rot();
 		vec3 rot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
 		click_to_move(p.get_pos() + 0.51*rot_unit, CTM_MOVE, 0);
 		follow_state.clear();
-		return;
+		return 0;
 	}
 
-	WowObject o = OM.get_object_by_GUID(GUID);
 
-	if (!o.valid()) {
-		PRINT("follow_unit_with_GUID: LOLE_OPCODE_FOLLOW: couldn't find unit with GUID 0x%016llX (doesn't exist?)\n", GUID);
-		// not reset
-		follow_state.clear();
+	click_to_move(t.get_pos(), CTM_MOVE, 0);
 
-		return;
-	}
-
-	if (p.get_GUID() == o.get_GUID()) {
-		return;
-	}
-
-	click_to_move(o.get_pos(), CTM_MOVE, 0);
-
-	if ((o.get_pos() - p.get_pos()).length() < 10) {
+	if ((t.get_pos() - p.get_pos()).length() < 10) {
 		PRINT("follow difference < 10! calling WOWAPI FollowUnit()\n");
-		DoString("FollowUnit(\"%s\")", o.unit_get_name().c_str());
+		DoString("FollowUnit(\"%s\")", t.unit_get_name().c_str());
 		follow_state.clear();
 	}
 	else {
 		// close_enough == 1 means the follow attempt either hasn't been started yet or that the char has actually reached its target
 		if (follow_state.close_enough) {
-			follow_state.start(arg);
+			follow_state.start(targetname);
 		}
 	}
 
@@ -328,66 +295,45 @@ static void LOP_follow_GUID(const std::string& arg) {
 		follow_state.clear();
 	}
 
-	return;
+	return 1;
 
 }
 
-static void LOP_caster_face(const std::string &arg) {
-	//face_queued = 1;
-}
-
-static void LOP_CTM_act(const std::string &arg) {
-	// arg should contain 3 args, <x,y,z>
-
-	std::vector<std::string> tokens;
-	tokenize_string(arg, ",", tokens);
-
-	if (tokens.size() != 3) {
-		PRINT("act_on_CTM_broadcast: error: expected exactly 3 arguments (x,y,z), got %lu!\n", tokens.size());
-		return;
-	}
-
-	char *endptr;
-
-	float x, y, z;
-
-	x = strtof(tokens[0].c_str(), &endptr);
-	y = strtof(tokens[1].c_str(), &endptr);
-	z = strtof(tokens[2].c_str(), &endptr);
-
+static void LOP_CTM_act(double x, double y, double z) {
 	click_to_move(vec3(x, y, z), CTM_MOVE, 0);
-
 }
 
 static void LOP_nop(const std::string& arg) {
 	return;
 }
 
-static void LOP_dungeon_script(const std::string &arg) {
-	// =)
+static void LOP_dungeon_script(const std::string &command, const std::string &scriptname) {
+
+	if (command == "run") {
+		dscript_load(scriptname);
+	}
+	else if (command == "stop") {
+		dscript_unload();
+	}
+
 }
 
-static void LOP_target_marker(const std::string &arg) {
+static int LOP_target_marker(const std::string &arg) {
 	// arg = marker name
 	GUID_t GUID = get_raid_target_GUID(arg);
 
 	if (GUID == 0) {
 		DoString("ClearTarget()");
+		return 0;
 	}
 
 	else {
 		SelectUnit(GUID);
+		return 1;
 	}
 }
 
-static void LOP_afk_clear(const std::string &arg) {
-	PostMessage(wow_hWnd, WM_KEYDOWN, VK_LEFT, get_KEYDOWN_LPARAM(VK_LEFT));
-	afkjump_keyup_queued = 2;
-}
-
-static void LOP_hug_spell_object(const std::string &arg) {
-	char *endptr;
-	long spellID = strtoul(arg.c_str(), &endptr, 10);
+static int LOP_hug_spell_object(long spellID) {
 
 	ObjectManager OM;
 
@@ -396,85 +342,75 @@ static void LOP_hug_spell_object(const std::string &arg) {
 	if (objs.empty()) {
 		PRINT("No objects with spellid %ld\n", spellID);
 		ctm_unlock();
-		return;
+		return 0;
 	}
 	else {
 		PRINT("Hugging spellobject with spellID %ld!\n", spellID);
-		//
+		return 1;
 	}
 
 }
 
-static void LOP_avoid_spell_object(const std::string &arg) {
-	
-	char *endptr;
-
-	std::vector<std::string> tokens;
-	tokenize_string(arg, ",", tokens);
-
-	if (tokens.size() != 2) {
-		PRINT("avoid_spell_object: error: expected exactly 2 arguments (spellID, radius), got %lu!\n", tokens.size());
-		return;
-	}
-
-	long spellID = strtoul(tokens[0].c_str(), &endptr, 10);
-	float radius = strtof(tokens[1].c_str(), &endptr);
-	
+static int LOP_avoid_spell_object(long spellID, float radius) {
+		
 	ObjectManager OM;
 
 	auto objs = OM.get_spell_objects_with_spellID(spellID);
 
+	if (objs.empty()) {
+		return 0;
+	}
+
 	vec3 escape_pos;
 	int need_to_escape = 0;
 
-	if (objs.empty()) {
-		//PRINT("No objects with spellid %ld\n", spellID);
-		return;
-	}
-	else {
-		vec3 ppos = OM.get_local_object().get_pos();
+	WowObject p;
+	if (!OM.get_local_object(&p)) return 0;
+	
+	vec3 ppos = p.get_pos();
 
-		for (auto &s : objs) {
-			vec3 spos = s.DO_get_pos();
-			if ((ppos - spos).length() < radius) {
-				// then we need to run away from it :D
-				escape_pos = spos + (radius+1.5)*(ppos - spos).unit();
-				need_to_escape = 1;
-			}
+	for (auto &s : objs) {
+		vec3 spos = s.DO_get_pos();
+		if ((ppos - spos).length() < radius) {
+			// then we need to run away from it :D
+			escape_pos = spos + (radius+1.5)*(ppos - spos).unit();
+			need_to_escape = 1;
 		}
 	}
+	
 
 	if (!need_to_escape) {
-		return;
+		return 0;
 	}
 
 	ctm_add(CTM_t(escape_pos, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 0.5));
 
-}
-
-static void LOP_spread(const std::string &arg) {
+	return 1;
 
 }
 
-
-static void LOP_report_login(const std::string &arg) {
-	if (arg == "1") {
-		credentials.logged_in = 1;
-	}
-	else {
-		credentials.logged_in = 0;
-	}
+static int LOP_spread() {
+	return 1;
 }
+
 
 static void pull_mob() {
 	DoString("CastSpellByName(\"Avenger's Shield\")");
 }
 
-static void LOP_walk_to_pull(const std::string &arg) {
+static void set_target_and_blast() {
+	DoString("RunMacroText(\"/lole test_blast_target\")");
+}
+
+static int LOP_walk_to_pull() {
 
 	ObjectManager OM;
-	WowObject p = OM.get_local_object();
-	WowObject t = OM.get_object_by_GUID(get_target_GUID());
+	WowObject p, t;
+
+	if (!OM.get_local_object(&p) 
+		|| !OM.get_object_by_GUID(get_target_GUID(), &t)) {
+		return 0;
+	}
 
 	vec3 ppos = p.get_pos(), tpos = t.get_pos();
 	vec3 d = tpos - ppos, dn = d.unit();
@@ -482,14 +418,16 @@ static void LOP_walk_to_pull(const std::string &arg) {
 	if (d.length() > 30) {
 		vec3 newpos = tpos - 29 * dn;
 		CTM_t c(newpos, CTM_MOVE, 0, 0, 0.5);
-		c.set_posthook(CTM_posthook_t(pull_mob, 10));
+		c.add_posthook(CTM_posthook_t(pull_mob, 10));
 		ctm_add(c);
 	}
 	else {
 		CTM_t c(ppos + dn, CTM_MOVE, 0, 0, 0.5);
-		c.set_posthook(CTM_posthook_t(pull_mob, 10));
+		c.add_posthook(CTM_posthook_t(pull_mob, 10));
 		ctm_add(c);
 	}
+
+	return 1;
 
 }
 
@@ -519,19 +457,19 @@ static const WO_cached *find_most_hurt_within_CH_bounce(const WO_cached *unit, c
 		}
 	}
 	
-	if (most_hurt) {
-		//PRINT("best next CH target for %s is %s with %u/%u HP\n\n", unit->name.c_str(), most_hurt->name.c_str(), most_hurt->health, most_hurt->health_max);
+	/*if (most_hurt) {
+		PRINT("best next CH target for %s is %s with %u/%u HP\n\n", unit->name.c_str(), most_hurt->name.c_str(), most_hurt->health, most_hurt->health_max);
 	}
 	else {
-		//PRINT("couldn't find a suitable CH target for %s\n\n", unit->name.c_str());
-	}
+		PRINT("couldn't find a suitable CH target for %s\n\n", unit->name.c_str());
+	}*/
 
 	return most_hurt;
 
 }
 
-static void LOP_get_best_CH(const std::string &arg) {
 
+static std::string LOP_get_best_CH(const std::string &arg) {
 
 	std::vector<std::string> tokens;
 	tokenize_string(arg, ",", tokens);
@@ -631,23 +569,15 @@ static void LOP_get_best_CH(const std::string &arg) {
 		o.total_deficit);*/
 
 	if (o.trio[0]) {
+		//DoString("TargetUnit(\"%s\")", o.trio[0]->name.c_str());
 		PRINT("Chosen target: %s, weighed urgency of trio: %f\n", o.trio[0]->name.c_str(), o.weighed_urgency);
-		DoString("TargetUnit(\"%s\")", o.trio[0]->name.c_str());
 	}
+	
+	std::string ch1 = (o.trio[0] ? o.trio[0]->name : "");
+	std::string ch2 = (o.trio[1] ? o.trio[1]->name : "");
+	std::string ch3 = (o.trio[2] ? o.trio[2]->name : "");
 
-	if (o.trio[1]) {
-		DoString("SetCVar(\"PetMeleeDamage\", \"%s\")", o.trio[1]->name.c_str());
-	}
-	else {
-		DoString("SetCVar(\"PetMeleeDamage\", \"\")");
-	}
-
-	if (o.trio[2]) {
-		DoString("SetCVar(\"PetSpellDamage\", \"%s\")", o.trio[2]->name.c_str());
-	}
-	else {
-		DoString("SetCVar(\"PetSpellDamage\", \"\")");
-	}
+	return ch1 + "," + ch2 + "," + ch3;
 
 }
 
@@ -661,7 +591,9 @@ static int mob_has_debuff(const WowObject &mob, uint debuff_spellID) {
 	return 0;
 }
 
-static void LOP_maulgar_get_felhound(const std::string &arg) {
+static int LOP_maulgar_get_felhound() {
+
+	// TODO: ONLY RETURN TARGET GUID, DON'T CAST BANISH HERE ETC
 	ObjectManager OM;
 
 	WowObject next = OM.get_first_object();
@@ -673,7 +605,7 @@ static void LOP_maulgar_get_felhound(const std::string &arg) {
 				if (!mob_has_debuff(next, 18647)) { // this is Banish (Rank 2)
 					SelectUnit(next.get_GUID());
 					DoString("CastSpellByName(\"Banish\")");
-					return;
+					return 1;
 				}
 			}
 		}
@@ -682,30 +614,54 @@ static void LOP_maulgar_get_felhound(const std::string &arg) {
 	}
 
 	SelectUnit(0);
+
+	return 0;
+}
+
+static int LOP_tank_face() {
+	ObjectManager OM;
+
+	WowObject p, t;
+	if (!OM.get_local_object(&p) || !OM.get_object_by_GUID(get_target_GUID(), &t)) {
+		return 0;
+	}
+
+	if (t.get_GUID() == OM.get_local_GUID()) return 1;
+
+	vec3 ppos = p.get_pos();
+	vec3 tpos = t.get_pos();
+	vec3 diff = tpos - ppos;
+	vec3 dir = diff.unit();
+
+	CTM_t face(ppos + dir, CTM_MOVE, 0, 0, 1.5);
+	ctm_add(face);
 }
 
 static void LOPDBG_dump(const std::string &arg) {
 	dump_wowobjects_to_log();
 }
 
-static void LOPDBG_loot(const std::string &arg) {
+static int LOPDBG_loot(const std::string &arg) {
 	ObjectManager OM;
-	WowObject corpse = OM.get_object_by_GUID(get_target_GUID());
+	WowObject corpse;
+	if (!OM.get_object_by_GUID(get_target_GUID(), &corpse)) return 0;
 	
-	click_to_move(corpse.get_pos(), CTM_LOOT, corpse.get_GUID());
+	ctm_add(CTM_t(corpse.get_pos(), CTM_LOOT, CTM_PRIO_EXCLUSIVE, corpse.get_GUID(), 0.5));
+	return 1;
 }
 
 static void LOPDBG_query_injected(const std::string &arg) {
 	DoString("SetCVar(\"screenshotQuality\", \"LOLE\", \"inject\")"); // this is used to signal the addon that we're injected :D
 }
 
-static void LOPDBG_pull_test(const std::string &arg) {
+static int LOPDBG_pull_test() {
 
 	ObjectManager OM;	
-	WowObject t = OM.get_object_by_GUID(get_target_GUID());
-	if (!t.valid()) return;
-
-	WowObject p = OM.get_local_object();
+	
+	WowObject p, t;
+	if (!OM.get_local_object(&p) || !OM.get_object_by_GUID(get_target_GUID(), &t)) {
+		return 0;
+	}
 
 	vec3 ppos = p.get_pos();
 	vec3 tpos = t.get_pos();
@@ -714,134 +670,154 @@ static void LOPDBG_pull_test(const std::string &arg) {
 
 	vec3 pull_pos = ppos;
 
-	if (diff.length() > 20) {
-		pull_pos = tpos - 18 * dir;
+	if (diff.length() > 25) {
+		pull_pos = tpos - 23 * dir;
 	}
 
 	ctm_add(CTM_t(pull_pos, CTM_MOVE, 0, 0, 0.5));
 
 	CTM_t pull(pull_pos + dir, CTM_MOVE, 0, 0, 0.5);
-	pull.set_posthook(CTM_posthook_t(pull_mob, 30));
-	
+	pull.add_posthook(CTM_posthook_t(pull_mob, 30));
+	pull.add_posthook(CTM_posthook_t(set_target_and_blast, 120));
+
 	ctm_add(pull);
 }
 
-static const struct {
-	std::string name;
-	hubfunc_t func;
-	uint num_args;
-} opcode_funcs[] = {
-	{ "LOLE_NOP", LOP_nop, 0 },
-	{ "LOLE_TARGET_GUID", LOP_target_GUID, 1 },
-	{ "LOLE_BLAST", LOP_blast, 1 },
-	{ "LOLE_CASTER_RANGE_CHECK", LOP_range_check, 1 },
-	{ "LOLE_FOLLOW", LOP_follow_GUID, 1 },
-	{ "LOLE_CASTER_FACE", LOP_caster_face, 0 },
-	{ "LOLE_CTM_BROADCAST", LOP_CTM_act, 3 },
-	{ "LOLE_COOLDOWNS", LOP_nop, 0 }, // this is actually done in LUA, but just to keep the protocol congruent
-	{ "LOLE_CC", LOP_nop, 0 },		   // this also is done in LUA
-	{ "LOLE_DUNGEON_SCRIPT", LOP_dungeon_script, 1 },
-	{ "LOLE_TARGET_MARKER", LOP_target_marker, 1 },
-	{ "LOLE_DRINK", LOP_nop, 0},
-	{ "LOLE_MELEE_BEHIND", LOP_melee_behind, 0},
-	{ "LOLE_LEAVE_PARTY", LOP_nop, 0},
-	{ "LOLE_AFK_CLEAR", LOP_afk_clear, 0},
-	{ "LOLE_RELEASE_SPIRIT", LOP_nop, 0},
-	{ "LOLE_MAIN_TANK", LOP_nop, 0},
-	{ "LOLE_AVOID_SPELL_OBJECT", LOP_avoid_spell_object, 1 },
-	{ "LOLE_HUG_SPELL_OBJECT", LOP_hug_spell_object, 1 },
-	{ "LOLE_SPREAD", LOP_spread, 0 },
-	{ "LOLE_PULL_MOB", LOP_nop, 0 },
-	{ "LOLE_REPORT_LOGIN", LOP_report_login, 1 },
-	{ "LOLE_WALK_TO_PULLING_RANGE", LOP_walk_to_pull, 0 },
-	{ "LOLE_GET_BEST_CHAINHEAL_TARGET", LOP_get_best_CH, 1},
-	{ "LOLE_MAULGAR_GET_UNBANISHED_FELHOUND", LOP_maulgar_get_felhound, 0 },
-	{ "LOLE_OFF_TANK", LOP_nop, 0},
-	{ "LOLE_SET_ALL", LOP_nop, 0 },
-	{ "LOLE_MELEE_AVOID_AOE_BUFF", LOP_melee_avoid_aoe_buff, 1},
-};
 
-static const struct {
-	std::string name;
-	hubfunc_t func;
-	uint num_args;
-} debug_opcode_funcs[] = {
-	{ "LOLE_DEBUG_NOP", LOP_nop, 0 },
-	{ "LOLE_DEBUG_DUMP", LOPDBG_dump, 0 },
-	{ "LOLE_DEBUG_LOOT_ALL", LOPDBG_loot, 0},
-	{ "LOLE_DEBUG_QUERY_INJECTED", LOPDBG_query_injected, 0 },
-	{ "LOLE_DEBUG_PULL_TEST", LOPDBG_pull_test, 0 }
-};
+static int check_num_args(int opcode, int nargs) {
 
-static const size_t num_opcode_funcs = sizeof(opcode_funcs) / sizeof(opcode_funcs[0]);
-static const size_t num_debug_opcode_funcs = sizeof(debug_opcode_funcs) / sizeof(debug_opcode_funcs[0]);
+	if (opcode > 0xE) return 0;
 
-// ----------------------
-//	  public interface
-// -----------------------
-
-int opcode_call(int opcode, const std::string &arg) {
-	
-	if (opcode >= num_opcode_funcs) {
-		PRINT("opcode_call: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs - 1);
+	lop_func_t &f = lop_funcs[opcode];
+	if (nargs != f.num_arguments) {
+		PRINT("error: %s: expected %d argument(s) (got %d)\n", f.opcode_name.c_str(), f.num_arguments, nargs);
 		return 0;
 	}
-	opcode_funcs[opcode].func(arg);
-
-	return 1;
-}
-
-int opcode_debug_call(int debug_opcode, const std::string &arg) {
-
-	int opc = debug_opcode & 0x7F;
-
-	if (opc >= num_debug_opcode_funcs) {
-		PRINT("opcode_debug_call: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opc, num_debug_opcode_funcs - 1);
-		return 0;
-	}
-
-	debug_opcode_funcs[opc].func(arg);
 
 	return 1;
 }
 
 
-int opcode_get_num_args(int opcode) {
-	if (opcode > num_opcode_funcs - 1) {
-		PRINT("opcode_get_num_args: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs);
-		return -1;
+int lop_exec(lua_State *L) {
+
+	int nargs = lua_gettop(L);
+
+	if (nargs < 1) {
+		PRINT("lopc_exec: nargs < 1; doing nothing!\n");
+		return 0;
 	}
-
-	return opcode_funcs[opcode].num_args;
-}
-
-const std::string &opcode_get_funcname(int opcode) {
 	
-	static std::string err = "ERROR";
+	for (int i = 2; i <= nargs; ++i) {
+		size_t len;
+		const char* str = lua_tolstring(L, i, &len);
 
-	if (opcode > num_opcode_funcs - 1) {
-		PRINT("opcode_get_funcname: error: unknown opcode %lu. (valid range: 0 - %lu)\n", opcode, num_opcode_funcs);
-		return err;
+		if (!str) {
+			PRINT("lua_tolstring for argument #%d failed (tables aren't allowed!\n");
+		}
+
+		PRINT("arg %d: %s\n", i - 1, str);
 	}
 
-	return opcode_funcs[opcode].name;
-}
+	int opcode = lua_tointeger(L, 1);
+	PRINT("lop_exec: opcode = %d\n", opcode);
+	size_t len;
+	
+	if (!check_num_args(opcode, nargs - 1)) { return 0; }
 
-const std::string &debug_opcode_get_funcname(int opcode_unmasked) {
-	static std::string err = "ERROR";
+	switch (opcode) {
+	case LOP_NOP:
+		return 0;
+	
+	case LOP_TARGET_GUID:
+		LOP_target_GUID(lua_tolstring(L, 2, &len));
+		break;
 
-	if (opcode_unmasked > num_debug_opcode_funcs - 1) {
-		PRINT("opcode_get_funcname: error: unknown DEBUG opcode %lu. (valid range: 0 - %lu)\n", opcode_unmasked, num_debug_opcode_funcs);
-		return err;
+	case LOP_CASTER_RANGE_CHECK: {
+		double minrange = lua_tonumber(L, 2);
+		LOP_range_check(minrange);
+		break;
 	}
 
-	return debug_opcode_funcs[opcode_unmasked].name;
+	case LOP_FOLLOW:
+		LOP_follow_unit(lua_tolstring(L, 2, &len));
+		break;
+	
+	case LOP_CTM: {
+		double x, y, z;
+		x = lua_tonumber(L, 2);
+		y = lua_tonumber(L, 3);
+		z = lua_tonumber(L, 4);
+		LOP_CTM_act(x, y, z);
+		break;
+	}
+	
+	case LOP_DUNGEON_SCRIPT: {
+		const char* command = lua_tolstring(L, 1, &len);
+		const char* scriptname = lua_tolstring(L, 2, &len);
+		LOP_dungeon_script(command, scriptname);
+		break;
+	}
+	
+	case LOP_TARGET_MARKER:
+		LOP_target_marker(lua_tolstring(L, 1, &len));
+		break;
+
+	case LOP_MELEE_BEHIND:
+		LOP_melee_behind();
+		break;
+
+	case LOP_AVOID_SPELL_OBJECT: {
+		long spellID = lua_tointeger(L, 2);
+		double radius = lua_tonumber(L, 3);
+		LOP_avoid_spell_object(spellID, radius);
+		break;
+	}
+
+	case LOP_HUG_SPELL_OBJECT: {
+		long spellID = lua_tointeger(L, 2);
+		LOP_hug_spell_object(spellID);
+		break;
+	}
+	case LOP_SPREAD:
+		LOP_spread();
+		break;
+
+	case LOP_CHAIN_HEAL_TARGET: {
+		const char* current_heals = lua_tolstring(L, 2, &len);
+		std::string bestname = LOP_get_best_CH(current_heals);
+		PUSHSTRING(L, bestname.c_str());
+		return 1;
+	}
+	case LOP_MELEE_AVOID_AOE_BUFF: {
+		long spellID = lua_tointeger(L, 2);
+		LOP_melee_avoid_aoe_buff(spellID);
+		break;
+	}
+	case LOP_TANK_FACE:
+		LOP_tank_face();
+		break;
+	case LOP_WALK_TO_PULLING_RANGE:
+		LOP_walk_to_pull();
+		break;
+
+	case LDOP_LUA_REGISTERED:
+		lua_registered = 1;
+		break;
+
+	default:
+		PRINT("lop_exec: unknown opcode %d!\n", opcode);
+		break;
+
+	}
+		 
+	return 0;
 }
+
 
 // follow stuff
 
 void refollow_if_needed() {
-	if (!follow_state.close_enough) LOP_follow_GUID(follow_state.target_GUID);
+	if (!follow_state.close_enough) LOP_follow_unit(follow_state.target_name);
 }
 
 static int dump_wowobjects_to_log() {

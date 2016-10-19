@@ -5,23 +5,16 @@
 static std::queue<CTM_t> ctm_queue;
 static int ctm_locked = 0;
 
-static void ctm_increment_posthook_framecount() {
-	CTM_t &c = ctm_queue.front();
-	++c.posthook->frame_counter;
-}
-
-static int ctm_get_posthook_framecount() {
-	const CTM_t *c = ctm_get_current_action();
-	return c->posthook->frame_counter;
-}
-
 static int ctm_posthook_delay_active() {
 	if (ctm_queue.size() < 1) { return 0; }
 
-	const CTM_t *c = ctm_get_current_action();
-	if (!c->posthook) return 0;
+	CTM_t *c = ctm_get_current_action();
+	if (!c) return 0;
+	if (!c->get_current_posthook()) return 0;
 
-	if (c->posthook->active) return 1;
+	PRINT("posthook->active: %d\n", c->get_current_posthook()->active);
+
+	if (c->get_current_posthook()->active) return 1;
 
 	return 0;
 }
@@ -42,7 +35,7 @@ void ctm_add(const CTM_t &ctm) {
 			if (c.priority == CTM_PRIO_EXCLUSIVE) return;
 		}
 		
-		PRINT("called ctm_ADD with %.3f, %.3f, %.3f, prio %d, action 0x%X\n", ctm.destination.x, ctm.destination.y, ctm.destination.z, ctm.priority, ctm.action);
+		PRINT("called ctm_ADD with %.3f, %.3f, %.3f, ID=%ld, prio %d, action 0x%X\n", ctm.destination.x, ctm.destination.y, ctm.destination.z, ctm.ID, ctm.priority, ctm.action);
 		ctm_queue.push(ctm);
 	}
 }
@@ -55,7 +48,7 @@ void ctm_act() {
 
 	auto &ctm = ctm_queue.front();
 
-	PRINT("called ctm_act with %.3f, %.3f, %.3f, prio %d, action 0x%X\n", ctm.destination.x, ctm.destination.y, ctm.destination.z, ctm.priority, ctm.action);
+	PRINT("called ctm_act with %.3f, %.3f, %.3f, ID=%ld prio %d, action 0x%X\n", ctm.destination.x, ctm.destination.y, ctm.destination.z, ctm.ID, ctm.priority, ctm.action);
 
 	click_to_move(ctm);
 
@@ -80,7 +73,7 @@ CTM_t ctm_pop() {
 }
 
 
-const CTM_t *ctm_get_current_action() {
+CTM_t *ctm_get_current_action() {
 	if (ctm_queue.size() < 1) { return NULL;  }
 	return &ctm_queue.front();
 }
@@ -88,17 +81,26 @@ const CTM_t *ctm_get_current_action() {
 
 int ctm_handle_delayed_posthook() {
 	if (ctm_posthook_delay_active()) {
-		CTM_t &c = ctm_queue.front();
+		PRINT("at ctm_handle_delayed_posthook()\n");
 
-		if (c.posthook->frame_counter < c.posthook->delay_frames) {
-			++c.posthook->frame_counter;
+		CTM_t &c = ctm_queue.front();
+		CTM_posthook_t *h = c.get_current_posthook();
+
+		PRINT("CTM id: %ld\n", c.ID);
+
+		if (h->frame_counter < h->delay_frames) {
+			++h->frame_counter;
 			return 1;
 		}
 		else {
-			c.posthook->active = 0;
-			c.posthook->callback();
-			PRINT("called posthook callback after %d frames!\n", c.posthook->delay_frames);
-			ctm_next();
+			h->active = 0;
+			h->callback();
+			PRINT("called posthook callback after %d frames!\n", h->delay_frames);
+			
+			if (!c.hook_next()) { // this also increments the iterator (crap?)
+				ctm_next();
+			}
+			
 			return 1;
 		}
 	}
@@ -149,7 +151,8 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 
 	ObjectManager OM;
 
-	auto p = OM.get_local_object();
+	WowObject p;
+	if (!OM.get_local_object(&p)) return;
 
 	vec3 diff = p.get_pos() - point; // this is kinda weird, since usually one would take dest - current_loc, but np
 	float directed_angle = atan2(diff.y, diff.x);

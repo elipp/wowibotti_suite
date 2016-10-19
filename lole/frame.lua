@@ -95,8 +95,8 @@ blast_checkbutton:SetHitRectInsets(0, -80, 0, 0)
 
 blast_checkbutton:SetScript("OnClick",
   function()
-	local arg = blast_checkbutton:GetChecked() and "1" or "0"; -- this is equivalent to C's ternary operator ('?')
-	lole_subcommands.setall("blast", arg)
+		local arg = blast_checkbutton:GetChecked() and 1 or 0; -- this is equivalent to C's ternary operator ('?')
+		lole_broadcasts.set("blast", arg)
   end
 );
 
@@ -105,7 +105,7 @@ local function blast_check_settext(text)
 end
 
 function gui_set_blast(arg)
-	if arg == true then
+	if arg == 1 then
 		blast_checkbutton:SetChecked(true)
 		blast_check_settext(" BLAST ON!");
 	else
@@ -120,8 +120,8 @@ heal_blast_checkbutton:SetHitRectInsets(0, -80, 0, 0)
 
 heal_blast_checkbutton:SetScript("OnClick",
   function()
-	local arg = heal_blast_checkbutton:GetChecked() and "1" or "0";
-	lole_subcommands.setall("heal_blast", arg)
+		local arg = heal_blast_checkbutton:GetChecked() and 1 or 0;
+		lole_broadcasts.set("heal_blast", arg)
   end
 );
 
@@ -130,7 +130,7 @@ local function heal_blast_check_settext(text)
 end
 
 function gui_set_heal_blast(arg)
-	if arg == true then
+	if arg == 1 then
 		heal_blast_checkbutton:SetChecked(true)
 		heal_blast_check_settext(" HEALING ON!");
 	else
@@ -284,25 +284,29 @@ end
 local update_target_button =
 create_simple_button("update_target_button", lole_frame, 120, -100, "Update target", 115, 27, update_target_onclick);
 
+function update_target()
+	update_target_onclick()
+end
+
 local function clear_target_onclick()
-
-	-- if not IsRaidLeader() then
-	-- 	lole_error("Couldn't clear BLAST target (you are not the raid leader!)");
-	-- 	return;
-	-- end
-
 	clear_target();
-	broadcast_target_GUID(NOTARGET);
+	lole_broadcasts.target(NOTARGET);
 end
 
 local clear_target_button =
 create_simple_button("clear_target_button", lole_frame, 250, -100, "Clear", 62, 27, clear_target_onclick);
 
 local cooldowns_button =
-create_simple_button("cooldowns_button", lole_frame, 120, -130, "Cooldowns", 115, 27, function() broadcast_cooldowns() end);
+create_simple_button("cooldowns_button", lole_frame, 120, -130, "Cooldowns", 115, 27,
+function()
+	lole_broadcasts.cooldowns()
+end);
 
 local drink_button =
-create_simple_button("drink_button", lole_frame, 250, -130, "Drink", 62, 27, function() broadcast_drink() end);
+create_simple_button("drink_button", lole_frame, 250, -130, "Drink", 62, 27,
+function()
+	lole_broadcasts.drink()
+end);
 
 local lbuffcheck_clean_button =
 create_simple_button("lbuffcheck_clean_button", lole_frame, 120, -160, "Buff (clean)", 115, 27, function() lole_subcommands.lbuffcheck("clean") end);
@@ -665,12 +669,18 @@ inject_status_text:SetFont("Fonts\\FRIZQT__.TTF", 9);
 inject_status_text:SetPoint("BOTTOMRIGHT", -22, 15);
 inject_status_text:SetText("")
 
+local last_status = false
+
 function update_injected_status(arg)
+	if arg == last_status then return end
+
 	if arg == true then
 		inject_status_text:SetText("|cFF228B22(Injected)")
 	else
 		inject_status_text:SetText("|cFF800000(Not injected!)")
 	end
+
+	last_status = arg
 end
 
 local player_pos_text = lole_frame:CreateFontString(nil, "OVERLAY");
@@ -718,6 +728,18 @@ local function MT_OT_warning()
 	end
 end
 
+local function gui_set_injected_status()
+		local inj = query_injected()
+
+		if (inj == 1) then
+			update_injected_status(true) -- default
+		else
+			update_injected_status(false)
+		end
+
+end
+
+
 lole_frame:SetScript("OnUpdate", function()
 
 	if every_4th_frame == 0 then
@@ -739,14 +761,13 @@ lole_frame:SetScript("OnUpdate", function()
 	if every_30th_frame == 0 then
 		set_button_states()
 		check_durability()
+		gui_set_injected_status()
 	end
 
 	every_4th_frame = every_4th_frame >= 4 and 0 or (every_4th_frame + 1)
 	every_30th_frame = every_30th_frame >= 30 and 0 or (every_30th_frame + 1)
 
 end);
-
-local INJECT_STATUS = nil
 
 lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
 	--DEFAULT_CHAT_FRAME:AddMessage("LOLE_EventHandler: event:" .. event)
@@ -760,13 +781,7 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 			lole_subcommands.setconfig("default");
 		end
 
-		local inj = GetCVar("screenshotQuality")
-		if inj == "LOLE" then
-			INJECT_STATUS = true
-		end
-
-		update_injected_status(false) -- default
-		lole_debug_query_injected(); -- this will fire a CVAR_UPDATE if we're injected
+		update_injected_status(false)
 
 		blast_check_settext(" BLAST off!")
 		heal_blast_check_settext( "HEALING off!")
@@ -875,10 +890,7 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 		end
 
 	elseif event == "PLAYER_ENTERING_WORLD" then
-		report_login(true);
 
-	--elseif event == "PLAYER_LOGOUT" then
-		-- report_login(false) -- disable this
 	elseif event == "LOOT_OPENED" then
 		-- the only code that can register this event is the
 		-- de_greeniez subcommand, so we can be fairly sure auto-looting will be ok

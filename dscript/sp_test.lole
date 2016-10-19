@@ -1,0 +1,4 @@
+scriptname = "Slave Pens"
+
+{ coords = (130, -113, -2); mobpack = (96, -101, -2); num_mobs = 3; pack_type = patrol }
+{ coords = (45, -89, -3); mobpack = (14, -69, -2); num_mobs = 3; pack_type = patrol }

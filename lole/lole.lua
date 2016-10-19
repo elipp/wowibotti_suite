@@ -25,7 +25,7 @@ local function handle_subcommand(args)
 	table.remove(atab, 1);
 	local cmdfunc = lole_subcommands[a1];
 
-    if cmdfunc then
+  if cmdfunc then
 		cmdfunc(unpack(atab));
 		return true;
 	else
@@ -104,12 +104,12 @@ local function handle_opcode(arg)
 
 	local opcode, message = strsplit(":", arg);
 
-	if not lole_opcode_funcs[opcode] then
+	if not LOPC_funcs[opcode] then
 		lole_error("unknown opcode " .. tostring(opcode))
 		return false;
 	end
 
-	lole_opcode_funcs[opcode](message);
+	LOPC_funcs[opcode](message);
 
 	return true;
 

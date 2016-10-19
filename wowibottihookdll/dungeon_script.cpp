@@ -1,10 +1,14 @@
+#include "stdafx.h"
 #include "dungeon_script.h"
-
 #include "defs.h"
 
 #include <fstream>
 
 static int num_default_script = 1;
+
+std::unordered_map<std::string, dscript_t> dungeon_scripts;
+
+static dscript_t *current_script = NULL;
 
 static int parse_coords(const std::string &coords, vec3 &out) {
 	std::string cvalues;
@@ -85,6 +89,8 @@ static int read_statements(const std::string &statement, dscript_objective_t &o)
 		PRINT("dscript-read_statements: error: unknown parameter \"%s\" with value \"%s\"\n", e[0].c_str(), e[1].c_str());
 		return 0;
 	}
+
+	return 1;
 }
 
 int dscript_t::read_from_file(const std::string &filename) {
@@ -170,4 +176,85 @@ int dscript_t::read_from_file(const std::string &filename) {
 
 	return 1;
 
+}
+
+
+int dscript_read_all() {
+	
+	
+	dungeon_scripts = std::unordered_map<std::string, dscript_t>();
+
+	static const std::string wd = "C:\\Users\\Elias\\Documents\\Visual Studio 2015\\Projects\\wowibotti_suite\\dscript\\";
+	std::string search_path = wd + "*";
+
+	PRINT("search_path: %s\n", search_path.c_str());
+
+	WIN32_FIND_DATA fd;
+	HANDLE hFind = ::FindFirstFile(search_path.c_str(), &fd);
+	if (hFind != INVALID_HANDLE_VALUE) {
+		do {
+			// read all (real) files in current folder
+			// , delete '!' read other 2 default folder . and ..
+			if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+				dscript_t newscript;
+				std::string filename = wd + fd.cFileName;
+				if (newscript.read_from_file(filename)) {
+					if (dungeon_scripts.find(newscript.script_name) != dungeon_scripts.end()) {
+						PRINT("dscript_read_all: script with scriptname \"%s\" already loaded, ignoring %s\n", newscript.script_name.c_str(), fd.cFileName);
+					}
+					else {
+						dungeon_scripts[newscript.script_name] = newscript;
+						PRINT("dscript_read_all: script \"%s\" (file %s): read OK.\n", newscript.script_name.c_str(), filename.c_str());
+						}
+				}
+				else {
+					PRINT("dscript_read_all: script \"%s\": read FAIL.\n", filename.c_str());
+				}
+			}
+		} while (::FindNextFile(hFind, &fd));
+		::FindClose(hFind);
+	}
+	else {
+		PRINT("dscript_read_all: FindFirstFile() failed: %d\n", GetLastError());
+		return 0;
+	}
+
+	PRINT("dscript_read_all: read %lu scripts\n", dungeon_scripts.size());
+
+	return 1;
+}
+
+
+int dscript_run() {
+	
+	if (!current_script) {
+		return 0;
+	}
+
+	return 1;
+
+}
+
+int dscript_load(const std::string &scriptname) {
+	auto s = dungeon_scripts.find(scriptname);
+
+	if (s == dungeon_scripts.end()) {
+		PRINT("dscript_load: couldn't find a dscript with name \"%s\"!\n", scriptname.c_str());
+		return 0;
+	}
+
+	current_script = &(s->second);
+	PRINT("dscript_load: loaded script %s!\n", current_script->script_name.c_str());
+
+	return 1;
+
+}
+
+int dscript_unload() {
+	if (current_script) {
+		PRINT("dscript_unload: unloading script %s\n", current_script->script_name.c_str());
+	}
+	
+	current_script = NULL;
+	return 1;
 }

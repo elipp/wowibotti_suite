@@ -5,11 +5,18 @@
 #include "ctm.h"
 #include "creds.h"
 #include "timer.h"
+#include "lua.h"
 
 static HRESULT(*EndScene)(void);
 pipe_data PIPEDATA;
 
 const UINT32 PIPE_PROTOCOL_MAGIC = 0xAB30DD13;
+
+static void register_luafunc_if_not_registered() {
+	if (!lua_registered) {
+		register_lop_exec();
+	}
+}
 
 static void update_hwevent_tick() {
 	typedef int tick_count_t(void);
@@ -23,16 +30,12 @@ static void update_debug_positions() {
 
 	ObjectManager OM;
 
-	if (!OM.valid()) {
-		PRINT("ObjectManager not ready.\n");
-		return;
-	}
-
-	auto p = OM.get_local_object();
-	if (!p.valid()) { 
+	WowObject p;
+	if (!OM.get_local_object(&p)) { 
 		PRINT("local GUID = %llX, but get_local_object returned an invalid object!\n", OM.get_local_GUID());
 		return; 
 	}
+
 	vec3 ppos = p.get_pos();
 	char buf[128];
 
@@ -41,7 +44,8 @@ static void update_debug_positions() {
 	DoString("SetCVar(\"movieSubtitle\", \"%s\", \"player_pos\")", buf);
 
 	if (get_target_GUID() != (GUID_t)0) {
-		auto t = OM.get_object_by_GUID(get_target_GUID());
+		WowObject t;
+		if (!OM.get_object_by_GUID(get_target_GUID(), &t)) return;
 		vec3 tpos = t.get_pos();
 		sprintf_s(buf, "(%.1f, %.1f, %.1f)", tpos.x, tpos.y, tpos.z);
 
@@ -59,6 +63,8 @@ static void __stdcall EndScene_hook() {
 	static timer_interval_t half_second(500);
 
 	ctm_handle_delayed_posthook();
+
+	register_luafunc_if_not_registered();
 
 	if (fifty_ms.passed()) {
 		refollow_if_needed();
@@ -95,75 +101,17 @@ static void __stdcall broadcast_CTM(float *coords, int action) {
 
 	char sprintf_buf[128];
 
-	sprintf_s(sprintf_buf, "%.1f,%.1f,%.1f", x, y, z);
+	sprintf_s(sprintf_buf, "%.1f %.1f %.1f", x, y, z);
 
 	// the CTM mode is determined in the LUA logic, in the subcommand handler.
 
-	DoString("RunMacroText(\"/lole ctm %s\")", sprintf_buf);
+	DoString("RunMacroText(\"/lole broadcast_ctm %s\")", sprintf_buf);
 }
 
-
-static void __stdcall DelIgnore_hub(const char* arg_) {
-	// the opcodes sent by the addon all begin with the sequence "LOP_"
-
-	if (!arg_) {
-		PRINT("DelIgnore_hub: warning: NULL argument!\n");
-		return;
-	}
-	static const std::string opcode_prefix("LOP_");
-
-	const std::string arg(arg_);
-
-	if (strncmp(arg.c_str(), opcode_prefix.c_str(), opcode_prefix.length()) != 0) {
-		PRINT("DelIgnore_hub: invalid opcode \"%s\": DelIgnore_hub opcodes must begin with the sequence \"%s\"\n", arg_, opcode_prefix.c_str());
-		return;
-	}
-
-	if (arg.length() < 6) {
-		PRINT("DelIgnore_hub: invalid opcode \"%s\"\n", arg.c_str());
-		return;
-	}
-
-	std::string opstr = arg.substr(4, 2);
-	char *endptr;
-	unsigned long op = strtoul(opstr.c_str(), &endptr, 16);
-
-	if (op & 0x80) {
-		int debug_op = op & 0x7F;
-		opcode_debug_call(debug_op, arg);
-		PRINT("DelIgnore_hub: got DEBUG opcode %lu -> %s\n", op, debug_opcode_get_funcname(debug_op).c_str());
-		return;
-	}
-
-	//PRINT("DelIgnore_hub: got opcode %lu -> %s\n", op, opcode_get_funcname(op).c_str());
-
-	int num_args = opcode_get_num_args(op);
-
-	if (num_args > 0) {
-		// then we expect to find a ':' and arguments separated by ',':s
-		size_t pos;
-		if ((pos = arg.find(':', 5)) == std::string::npos) {
-			PRINT("DelIgnore_hub: error: opcode %lu (%s) expects %d arguments, none found! (did you forget ':'?)\n",
-				op, opcode_get_funcname(op).c_str(), num_args);
-			return;
-		}
-		std::string args = arg.substr(pos + 1);
-		//PRINT("DelIgnore_hub: calling func %s with args \"%s\"\n", opcode_get_funcname(op).c_str(), args.c_str());
-
-		opcode_call(op, args); // call the func with args
-	}
-	else {
-		opcode_call(op, "");
-	}
-
-}
 
 static void __stdcall CTM_finished_hookfunc() {
 
-	// HOTPATCH :D:D:D
-
-	const CTM_t *c = ctm_get_current_action();
-
+	CTM_t *c = ctm_get_current_action();
 	if (!c) { return; }
 	
 	c->handle_posthook();
@@ -563,13 +511,11 @@ static int prepare_patch(const std::string &funcname, LPVOID hook_func_addr) {
 int prepare_patches_and_pipe_data() {
 
 	prepare_patch("LUA_prot", 0x0);
-	prepare_patch("DelIgnore", DelIgnore_hub);
 	prepare_patch("CTM_main", broadcast_CTM);
 	prepare_patch("CTM_update", CTM_finished_hookfunc);
 	prepare_patch("EndScene", EndScene_hook);
 
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
-	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("DelIgnore")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("LUA_prot")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_main")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));

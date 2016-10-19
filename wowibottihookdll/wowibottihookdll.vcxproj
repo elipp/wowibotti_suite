@@ -150,6 +150,7 @@
     <ClInclude Include="defs.h" />
     <ClInclude Include="dungeon_script.h" />
     <ClInclude Include="hooks.h" />
+    <ClInclude Include="lua.h" />
     <ClInclude Include="wowmem.h" />
     <ClInclude Include="opcodes.h" />
     <ClInclude Include="stdafx.h" />
@@ -162,6 +163,7 @@
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="dungeon_script.cpp" />
     <ClCompile Include="hooks.cpp" />
+    <ClCompile Include="lua.cpp" />
     <ClCompile Include="wowmem.cpp" />
     <ClCompile Include="opcodes.cpp" />
     <ClCompile Include="timer.cpp" />

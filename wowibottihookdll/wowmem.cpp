@@ -478,26 +478,28 @@ ObjectManager::ObjectManager() {
 	LoadAddresses();
 }
 
-WowObject ObjectManager::get_object_by_GUID(GUID_t GUID) const {
+int ObjectManager::get_object_by_GUID(GUID_t GUID, WowObject *o) const {
 	WowObject next = get_first_object();
 
 	while (next.valid()) {
 		if (next.get_GUID() == GUID) {
-			return next;
+			*o = next;
+			return 1;
 		}
 		next = next.getNextObject();
 	}
-	return next;
+	return 0;
 }
 
-WowObject ObjectManager::get_unit_by_name(const std::string &name) const {
+int ObjectManager::get_unit_by_name(const std::string &name, WowObject *o) const {
 	WowObject next = get_first_object();
 
 	while (next.valid()) {
 		if (next.get_type() == OBJECT_TYPE_UNIT) {
 			if (next.unit_get_name() == name) {
 				PRINT("Found %s!\n", next.unit_get_name().c_str());
-				return next;
+				*o = next;
+				return 1;
 			}
 		}
 
@@ -506,7 +508,7 @@ WowObject ObjectManager::get_unit_by_name(const std::string &name) const {
 
 	PRINT("get_unit_by_name: couldn't find unit with name %s\n", name.c_str());
 
-	return next;
+	return 0;
 
 }
 
@@ -517,8 +519,8 @@ int ObjectManager::valid() const {
 	return !base_addr || !invalid;
 }
 
-WowObject ObjectManager::get_local_object() const {
-	return get_object_by_GUID(get_local_GUID()); // almost guaranteed to work :P
+int ObjectManager::get_local_object(WowObject *o) const {
+	return get_object_by_GUID(get_local_GUID(), o); // almost guaranteed to work :P
 }
 
 std::vector<WowObject> ObjectManager::get_spell_objects_with_spellID(long spellID) {
