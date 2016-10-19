@@ -790,7 +790,7 @@ local function lole_broadcast_leavegroup()
 end
 
 lole_subcommands = {
-    lbuffcheck = lole_leaderbuffcheck;
+  lbuffcheck = lole_leaderbuffcheck;
 	buffcheck = lole_buffcheck;
 	cooldowns = lole_cooldowns;
 	setconfig = lole_setconfig;
