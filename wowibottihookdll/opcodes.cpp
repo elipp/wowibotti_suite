@@ -734,7 +734,7 @@ static int LOP_get_unit_position(const std::string &name, double *out) {
 
 static int check_num_args(int opcode, int nargs) {
 
-	if (opcode >= LOP_NUM_OPCODES) return 0;
+	if (opcode >= LOP_NUM_OPCODES) return 1;
 
 	lop_func_t &f = lop_funcs[opcode];
 	if (nargs < f.min_arguments || nargs > f.max_arguments) {
@@ -900,7 +900,10 @@ int lop_exec(lua_State *L) {
 	case LDOP_DUMP:
 		dump_wowobjects_to_log();
 		break;
+	case LDOP_LOS_TEST: {
 
+	}
+		break;
 	default:
 		PRINT("lop_exec: unknown opcode %d!\n", opcode);
 		break;

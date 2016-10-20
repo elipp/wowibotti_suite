@@ -24,6 +24,8 @@ local LDOP_DUMP = 0xE1
 local LDOP_LOOT_ALL = 0xE2
 local LDOP_PULL_TEST = 0xE3
 local LDOP_LUA_REGISTERED = 0xE4
+local LDOP_LOS_TEST = 0xE5
+
 
 ----------------------------
 ---- public functions ------
