@@ -35,7 +35,7 @@ static lop_func_t lop_funcs[] = {
  LOPFUNC(LOP_NOP, 0, 0, 0),
  LOPFUNC(LOP_TARGET_GUID, 1, 1, 0),
  LOPFUNC(LOP_CASTER_RANGE_CHECK, 1, 1, 0),
- LOPFUNC(LOP_FOLLOW, 1, ARG_TYPE_STRING, 0),
+ LOPFUNC(LOP_FOLLOW, 1, 1, 0),
  LOPFUNC(LOP_CTM, 3, 3, 0),
  LOPFUNC(LOP_DUNGEON_SCRIPT, 1, 2, 0),
  LOPFUNC(LOP_TARGET_MARKER, 1, 1, 0),
@@ -50,7 +50,9 @@ static lop_func_t lop_funcs[] = {
  LOPFUNC(LOP_GET_UNIT_POSITION, 1, 1, 3),
  LOPFUNC(LOP_GET_WALKING_STATE, 0, 0, 1),
  LOPFUNC(LOP_GET_CTM_STATE, 0, 0, 1),
- LOPFUNC(LOP_gET_PREVIOUS_CAST_MSG, 0, 0, 1)
+ LOPFUNC(LOP_GET_PREVIOUS_CAST_MSG, 0, 0, 1),
+ LOPFUNC(LOP_STOPFOLLOW, 0, 0, 0),
+
 
 };
 
@@ -271,17 +273,7 @@ static int LOP_follow_unit(const std::string& targetname) {
 	}
 
 	GUID_t tGUID = t.get_GUID();
-
-	if (tGUID == 0) {
-		// stopfollow
-		float prot = p.get_rot();
-		vec3 rot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
-		click_to_move(p.get_pos() + 0.51*rot_unit, CTM_MOVE, 0);
-		follow_state.clear();
-		return 0;
-	}
-
-
+	
 	click_to_move(t.get_pos(), CTM_MOVE, 0);
 
 	if ((t.get_pos() - p.get_pos()).length() < 10) {
@@ -300,6 +292,22 @@ static int LOP_follow_unit(const std::string& targetname) {
 	if (follow_state.timer.get_s() > 10) {
 		follow_state.clear();
 	}
+
+	return 1;
+
+}
+
+static int LOP_stopfollow() {
+
+	ObjectManager OM;
+
+	WowObject p;
+	OM.get_local_object(&p);
+
+	float prot = p.get_rot();
+	vec3 rot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
+	click_to_move(p.get_pos() + 0.51*rot_unit, CTM_MOVE, 0);
+	follow_state.clear();
 
 	return 1;
 
@@ -766,16 +774,16 @@ int lop_exec(lua_State *L) {
 		PRINT("lop_exec: opcode = %d (%s)\n", opcode, lop_funcs[opcode].opcode_name.c_str());
 	}
 	
-	for (int i = 2; i <= nargs; ++i) {
-		size_t len;
-		const char* str = lua_tolstring(L, i, &len);
+	//for (int i = 2; i <= nargs; ++i) {
+	//	size_t len;
+	//	const char* str = lua_tolstring(L, i, &len);
 
-		if (!str) {
-			PRINT("lua_tolstring for argument #%d failed (tables aren't allowed!\n");
-		}
+	//	if (!str) {
+	//		PRINT("lua_tolstring for argument #%d failed (tables aren't allowed!\n");
+	//	}
 
-		PRINT("arg %d: \"%s\"\n", i - 1, str);
-	}
+	//	PRINT("arg %d: \"%s\"\n", i - 1, str);
+	//}
 
 
 	if (!check_num_args(opcode, nargs - 1)) { return 0; }
@@ -905,6 +913,10 @@ int lop_exec(lua_State *L) {
 		lua_pushinteger(L, previous_cast_msg.msg);
 		lua_pushnumber(L, (double)(previous_cast_msg.timestamp)/1000.0);
 		return 2;
+		break;
+
+	case LOP_STOPFOLLOW:
+		LOP_stopfollow();
 		break;
 
 	case LDOP_LUA_REGISTERED:

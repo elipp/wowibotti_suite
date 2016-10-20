@@ -17,6 +17,7 @@ local LOP_GET_UNIT_POSITION = 0xF
 local LOP_GET_WALKING_STATE = 0x10
 local LOP_GET_CTM_STATE = 0x11
 local LOP_GET_PREVIOUS_CAST_MSG = 0x12
+local LOP_STOPFOLLOW = 0x13
 
 local LOP_EXT_NOP = 0x70
 local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x71
@@ -57,6 +58,10 @@ function caster_range_check(minrange)
 			return false
 		end
 	end
+end
+
+function target_unit_with_GUID(GUID)
+	lop_exec(LOP_TARGET_GUID)
 end
 
 function melee_attack_behind()
@@ -127,6 +132,14 @@ end
 
 function walk_to(x, y, z)
 	lop_exec(LOP_CTM, x, y, z)
+end
+
+function follow_unit(name)
+	lop_exec(LOP_FOLLOW, name)
+end
+
+function stopfollow()
+	lop_exec(LOP_STOPFOLLOW)
 end
 
 local INJECTED_STATUS = 0

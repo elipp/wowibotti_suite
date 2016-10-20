@@ -7,7 +7,6 @@
 #include "timer.h"
 #include "lua.h"
 
-
 static HRESULT(*EndScene)(void);
 pipe_data PIPEDATA;
 
@@ -89,6 +88,9 @@ static void __stdcall EndScene_hook() {
 
 }
 
+static void __stdcall ClosePetStables_hook() {
+	lua_registered = 0;
+}
 
 static void __stdcall broadcast_CTM(float *coords, int action) {
 
@@ -560,12 +562,14 @@ int prepare_patches_and_pipe_data() {
 	prepare_patch("CTM_update", CTM_finished_hookfunc);
 	prepare_patch("EndScene", EndScene_hook);
 	prepare_patch("SpellErrMsg", SpellErrMsg_hook);
+	prepare_patch("ClosePetStables", ClosePetStables_hook);
 
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("LUA_prot")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_main")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("SpellErrMsg")));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("ClosePetStables")));
 
 	return 1;
 }

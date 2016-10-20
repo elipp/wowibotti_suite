@@ -96,7 +96,7 @@ blast_checkbutton:SetHitRectInsets(0, -80, 0, 0)
 blast_checkbutton:SetScript("OnClick",
   function()
 		local arg = blast_checkbutton:GetChecked() and 1 or 0; -- this is equivalent to C's ternary operator ('?')
-		lole_broadcast.set("blast", arg)
+		lole_subcommands.broadcast("set", "blast", arg)
   end
 );
 
@@ -121,7 +121,7 @@ heal_blast_checkbutton:SetHitRectInsets(0, -80, 0, 0)
 heal_blast_checkbutton:SetScript("OnClick",
   function()
 		local arg = heal_blast_checkbutton:GetChecked() and 1 or 0;
-		lole_broadcast.set("heal_blast", arg)
+		lole_subcommands.broadcast("set", "heal_blast", arg)
   end
 );
 
@@ -246,7 +246,8 @@ local follow_button =
 create_simple_button("follow_button", lole_frame, 22, -100, "Follow me!", 85, 27, function() lole_subcommands.followme() end);
 
 local stopfollow_button =
-create_simple_button("stopfollow_button", lole_frame, 22, -130, "Stopfollow", 85, 27, function() lole_subcommands.stopfollow() end);
+create_simple_button("stopfollow_button", lole_frame, 22, -130, "Stopfollow", 85, 27,
+function() lole_subcommands.broadcast("stopfollow") end);
 
 local function update_target_onclick()
 
@@ -272,7 +273,7 @@ local function update_target_onclick()
 		-- mob GUIDs always start with 0xF130
 		if string.sub(target_GUID, 1, 6) == "0xF130" and (not UnitIsDead("target")) and UnitReaction("target", "player") < 5 then
 			set_target(UnitGUID("target"))
-			broadcast_target_GUID(UnitGUID("target"));
+			lole_subcommands.broadcast("target", UnitGUID("target"));
 			return;
 		else
 			lole_error("Invalid target! Select an attackable NPC mob.")
@@ -290,7 +291,7 @@ end
 
 local function clear_target_onclick()
 	clear_target();
-	lole_broadcast.target(NOTARGET);
+	lole_subcommands.broadcast("target", NOTARGET);
 end
 
 local clear_target_button =
@@ -299,13 +300,13 @@ create_simple_button("clear_target_button", lole_frame, 250, -100, "Clear", 62, 
 local cooldowns_button =
 create_simple_button("cooldowns_button", lole_frame, 120, -130, "Cooldowns", 115, 27,
 function()
-	lole_broadcast.cooldowns()
+	lole_subcommands.broadcast("cooldowns");
 end);
 
 local drink_button =
 create_simple_button("drink_button", lole_frame, 250, -130, "Drink", 62, 27,
 function()
-	lole_broadcast.drink()
+	lole_subcommands.broadcast("drink")
 end);
 
 local lbuffcheck_clean_button =
@@ -798,6 +799,9 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 
 		blast_check_settext(" BLAST off!")
 		heal_blast_check_settext( "HEALING off!")
+
+		ClosePetStables()
+		-- ^ this one's hooked too; sets lua_registered = 0 in the DLL, to re-register on reloadui
 
 		lole_frame:UnregisterEvent("ADDON_LOADED");
 

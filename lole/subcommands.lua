@@ -132,21 +132,16 @@ local function lole_getconfig(arg)
 end
 
 local function lole_followme()
-	lole_broadcast.follow(UnitGUID("player"))
+	lole_subcommands.broadcast("follow", UnitName("player"))
 	return true;
 end
 
-local function lole_follow(GUID)
-	lop_exec(LOP_FOLLOW, GUID)
+local function lole_follow(name)
+	follow_unit(name)
 end
 
 local function lole_stopfollow()
-	lop_exec(LOP_FOLLOW, nil)
-end
-
-local function lole_stopfollow()
-	broadcast_follow_target(NOTARGET) -- still needs the cipher.. :D
-	return true;
+	stopfollow()
 end
 
 local function lole_set(attrib_name, on_off_str)
@@ -473,7 +468,7 @@ end
 
 function set_target(target_GUID)
   BLAST_TARGET_GUID = target_GUID;
-	lop_exec(LOP_TARGET_GUID, target_GUID); -- this does a C TargetUnit call :P
+	target_unit_with_GUID(target_GUID); -- this does a C TargetUnit call :P
 	FocusUnit("target")
 	update_target_text(UnitName("target"), UnitGUID("target"));
 end
@@ -491,6 +486,7 @@ local function lole_target_GUID(GUID)
 	if lole_subcommands.get("playermode") == 1 then return; end
 
 	--lop_exec(LOP_TARGET_GUID, GUID);
+	echo(GUID)
 
 	if GUID == NOTARGET then
 		clear_target()
@@ -499,7 +495,7 @@ local function lole_target_GUID(GUID)
 
 		if (BLAST_TARGET_GUID ~= GUID) then
 			set_target(GUID)
-		return
+			return
 		end
 
 end
@@ -723,26 +719,6 @@ local function lole_debug_test_blast_target()
 		update_target()
 end
 
-local function lole_broadcast(funcname, ...)
-	local usage = "lole_broadcast: usage: /lole broadcast funcname [args]";
-	if not funcname or funcname == "" then
-		echo(usage)
-		return 0
-	end
-
-	local func = lole_broadcast[funcname];
-
-	if not func then
-		lole_error("lole_broadcast: unknown broadcast function \"" .. funcname .. "\"!")
-		return 0
-	end
-
-	-- call broadcast function =)
-
-	func(...);
-
-end
-
 
 ----------------------------------------
 				----- BROADCASTS ------
@@ -755,6 +731,10 @@ end
 
 local function lole_broadcast_follow(target_GUID)
 	lole_subcommands.sendmacro("RAID", "/lole follow " .. target_GUID);
+end
+
+local function lole_broadcast_stopfollow()
+	lole_subcommands.sendmacro("RAID", "/lole stopfollow");
 end
 
 local function lole_broadcast_set(attrib, state)
@@ -789,67 +769,8 @@ local function lole_broadcast_leavegroup()
 	lole_subcommands.sendscript("GUILD", "/lole leavegroup")
 end
 
-lole_subcommands = {
-  lbuffcheck = lole_leaderbuffcheck;
-	buffcheck = lole_buffcheck;
-	cooldowns = lole_cooldowns;
-	setconfig = lole_setconfig;
-	getconfig = lole_getconfig;
-	followme = lole_followme;
-	stopfollow = lole_stopfollow;
-	set = lole_set;
-	setall = lole_setall;
-	get = lole_get;
 
-	broadcast = lole_broadcast;
-	ctm = lole_ctm;
-
-	cooldowns = lole_cooldowns;
-	buffs = do_buffs;
-	gui = lole_gui;
-	drink = lole_drink;
-	raid = lole_raid;
-	party = lole_party;
-	leavegroup = lole_leavegroup;
-	release = lole_release;
-
-	setmt = lole_setmt;
-	setot = lole_setot;
-
-	clearcc = lole_clearcc;
-	pull = lole_pull;
-	durability = lole_durability;
-	inv_ordered = lole_inv_ordered;
-    raid_aoe = lole_raid_aoe;
-    heal_set = lole_set_healer_targets;
-    heal_add = lole_add_healer_targets;
-    heal_del = lole_remove_healer_targets;
-    heal_reset = lole_reset_healer_targets;
-    heal_sync = lole_sync_healer_targets;
-    heal_info = lole_echo_healer_target_info;
-
-	de_greeniez = lole_disenchant_greeniez;
-
-	follow = lole_follow;
-	stopfollow = lole_stopfollow;
-	target = lole_target_guid;
-	sendscript = lole_sendscript;
-	ss = lole_sendscript;
-	sendmacro = lole_sendmacro;
-	run = lole_sendmacro;
-
-	cc = lole_cc;
-
-	dump = lole_debug_dump_wowobjects;
-	loot = lole_debug_loot_all;
-	de_greeniez = lole_disenchant_greeniez;
-	test_blast_target = lole_debug_test_blast_target;
-	dscript = lole_dscript;
-
-	register = lole_debug_lua_register;
-}
-
-lole_broadcast = {
+local lole_broadcast_commands = {
 	ctm = lole_broadcast_ctm;
 	drink = lole_broadcast_drink;
 	release = lole_broadcast_release;
@@ -858,6 +779,89 @@ lole_broadcast = {
 	cooldowns = lole_broadcast_cooldowns;
 	set = lole_broadcast_set;
 	follow = lole_broadcast_follow;
+	stopfollow = lole_broadcast_stopfollow;
 	target = lole_broadcast_target;
 	leavegroup = lole_broadcast_leavegroup;
+}
+
+local function lole_broadcast(funcname, ...)
+	local usage = "lole_broadcast: usage: /lole broadcast funcname [args]";
+	if not funcname or funcname == "" then
+		echo(usage)
+		return 0
+	end
+
+	local func = lole_broadcast_commands[funcname];
+
+	if not func then
+		lole_error("lole_broadcast: unknown broadcast function \"" .. funcname .. "\"!")
+		return 0
+	end
+
+	-- call broadcast function =)
+
+	echo("calling broadcast func " .. funcname)
+
+	func(...);
+
+end
+
+lole_subcommands = {
+  lbuffcheck = lole_leaderbuffcheck,
+	buffcheck = lole_buffcheck,
+	cooldowns = lole_cooldowns,
+	setconfig = lole_setconfig,
+	getconfig = lole_getconfig,
+	followme = lole_followme,
+	stopfollow = lole_stopfollow,
+	set = lole_set,
+	setall = lole_setall,
+	get = lole_get,
+
+	broadcast = lole_broadcast,
+	ctm = lole_ctm,
+
+	cooldowns = lole_cooldowns,
+	buffs = do_buffs,
+	gui = lole_gui,
+	drink = lole_drink,
+	raid = lole_raid,
+	party = lole_party,
+	leavegroup = lole_leavegroup,
+	release = lole_release,
+
+	setmt = lole_setmt,
+	setot = lole_setot,
+
+	clearcc = lole_clearcc,
+	pull = lole_pull,
+	durability = lole_durability,
+	inv_ordered = lole_inv_ordered,
+  raid_aoe = lole_raid_aoe,
+  heal_set = lole_set_healer_targets,
+  heal_add = lole_add_healer_targets,
+  heal_del = lole_remove_healer_targets,
+  heal_reset = lole_reset_healer_targets,
+  heal_sync = lole_sync_healer_targets,
+  heal_info = lole_echo_healer_target_info,
+
+	de_greeniez = lole_disenchant_greeniez,
+
+	follow = lole_follow,
+	stopfollow = lole_stopfollow,
+	target = lole_target_GUID,
+	sendscript = lole_sendscript,
+	ss = lole_sendscript,
+	sendmacro = lole_sendmacro,
+	run = lole_sendmacro,
+
+	cc = lole_cc,
+
+	dump = lole_debug_dump_wowobjects,
+	loot = lole_debug_loot_all,
+	de_greeniez = lole_disenchant_greeniez,
+	test_blast_target = lole_debug_test_blast_target,
+	dscript = lole_dscript,
+
+	register = lole_debug_lua_register,
 }
