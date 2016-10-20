@@ -13,6 +13,8 @@ extern HWND wow_hWnd;
 
 static int dump_wowobjects_to_log();
 
+int previous_cast_msg = 0;
+
 struct lop_func_t {
 	std::string opcode_name;
 	int min_arguments;
@@ -46,7 +48,9 @@ static lop_func_t lop_funcs[] = {
  LOPFUNC(LOP_TANK_FACE, 0, 0, 0),
  LOPFUNC(LOP_WALK_TO_PULLING_RANGE, 0, 0, 0),
  LOPFUNC(LOP_GET_UNIT_POSITION, 1, 1, 3),
- LOPFUNC(LOP_GET_WALKING_STATE, 0, 0, 1)
+ LOPFUNC(LOP_GET_WALKING_STATE, 0, 0, 1),
+ LOPFUNC(LOP_GET_CTM_STATE, 0, 0, 1),
+ LOPFUNC(LOP_gET_PREVIOUS_CAST_MSG, 0, 0, 1)
 
 };
 
@@ -891,6 +895,15 @@ int lop_exec(lua_State *L) {
 		else {
 			return 0;
 		}
+		break;
+
+	case LOP_GET_CTM_STATE:
+
+		break;
+
+	case LOP_GET_PREVIOUS_CAST_MSG:
+		lua_pushinteger(L, previous_cast_msg);
+		return 1;
 		break;
 
 	case LDOP_LUA_REGISTERED:

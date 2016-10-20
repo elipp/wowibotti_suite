@@ -7,6 +7,7 @@
 #include "timer.h"
 #include "lua.h"
 
+
 static HRESULT(*EndScene)(void);
 pipe_data PIPEDATA;
 
@@ -117,6 +118,9 @@ static void __stdcall CTM_finished_hookfunc() {
 	c->handle_posthook();
 }
 
+static void __stdcall SpellErrMsg_hook(int msg) {
+	previous_cast_msg = msg;
+}
 
 struct hookable {
 	std::string funcname;
@@ -193,6 +197,14 @@ static const BYTE CTM_finished_original[] = {
 
 static BYTE CTM_finished_patch[] = {
 	0xE9, 0x00, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90, 0x90
+};
+
+static const BYTE spell_errmsg_original[] = {
+	0x0F, 0xB6, 0xC0, 0x3D, 0xA8, 0x00, 0x00, 0x00
+};
+
+static BYTE spell_errmsg_patch[] = {
+	0xE9, 0x00, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90
 };
 
 static int prepare_LUA_prot_patch(LPVOID hook_func_addr, hookable &h) {
@@ -460,7 +472,6 @@ static int prepare_CTM_finished_patch(LPVOID hook_func_addr, hookable &h) {
 	DWORD ret_addr = 0x612A7B;
 	memcpy(CTM_finished_trampoline + 11, &ret_addr, sizeof(ret_addr));
 
-
 	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)CTM_finished_trampoline - 21;
 	memcpy(CTM_finished_trampoline + 17, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
 
@@ -473,6 +484,35 @@ static int prepare_CTM_finished_patch(LPVOID hook_func_addr, hookable &h) {
 
 }
 
+static int prepare_spell_errmsg_patch(LPVOID hook_func_addr, hookable &h) {
+	static BYTE spell_errmsg_trampoline[] = {
+		0x0F, 0xB6, 0xC0, // MOVZX, EAX, AL
+		0x3D, 0xA8, 0x00, 0x00, 0x00, // CMP EAX, 0A8
+		0x68, 0x00, 0x00, 0x00 ,0x00, // push return address
+		0x60, // pushad
+		0x50, // push eax (contains err msg)
+		0xE8, 0x00, 0x00, 0x00, 0x00, // call hookfunc
+		0x61, // popad
+		0xC3 // ret
+	};
+
+	DWORD tr_offset = (DWORD)spell_errmsg_trampoline - SpellErrMsg - 5;
+	memcpy(spell_errmsg_patch + 1, &tr_offset, sizeof(tr_offset));
+
+	DWORD ret_addr = 0x6F0B78;
+	memcpy(spell_errmsg_trampoline + 9, &ret_addr, sizeof(ret_addr));
+
+	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)spell_errmsg_trampoline - 20;
+	memcpy(spell_errmsg_trampoline + 16, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
+
+	DWORD oldprotect;
+	VirtualProtect((LPVOID)spell_errmsg_trampoline, sizeof(spell_errmsg_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
+
+	PRINT("OK.\nCTM_finished trampoline: %p, hook_func_addr: %p\n", &spell_errmsg_trampoline, hook_func_addr);
+
+	return 1;
+}
+
 static hookable hookable_functions[] = {
 	{ "LUA_prot", (LPVOID)LUA_prot, LUA_prot_original, LUA_prot_patch, sizeof(LUA_prot_original), prepare_LUA_prot_patch},
 	{ "EndScene", 0x0, EndScene_original, EndScene_patch, sizeof(EndScene_original), prepare_EndScene_patch},
@@ -480,7 +520,8 @@ static hookable hookable_functions[] = {
 	{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, sizeof(ClosePetStables_original), prepare_ClosePetStables_patch },
 	{ "CTM_aux", (LPVOID)CTM_aux, CTM_aux_original, CTM_aux_patch, sizeof(CTM_aux_original), prepare_CTM_aux_patch},
 	{ "CTM_main", (LPVOID)CTM_main, CTM_main_original, CTM_main_patch, sizeof(CTM_main_original), prepare_CTM_main_patch},
-	{ "CTM_update", (LPVOID)CTM_update_hookaddr, CTM_finished_original, CTM_finished_patch, sizeof(CTM_finished_original), prepare_CTM_finished_patch}
+	{ "CTM_update", (LPVOID)CTM_update_hookaddr, CTM_finished_original, CTM_finished_patch, sizeof(CTM_finished_original), prepare_CTM_finished_patch},
+	{ "SpellErrMsg", (LPVOID)SpellErrMsg, spell_errmsg_original, spell_errmsg_patch, sizeof(spell_errmsg_original), prepare_spell_errmsg_patch}
 };
 
 static hookable *find_hookable(const std::string &funcname) {
@@ -514,11 +555,13 @@ int prepare_patches_and_pipe_data() {
 	prepare_patch("CTM_main", broadcast_CTM);
 	prepare_patch("CTM_update", CTM_finished_hookfunc);
 	prepare_patch("EndScene", EndScene_hook);
+	prepare_patch("SpellErrMsg", SpellErrMsg_hook);
 
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("LUA_prot")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_main")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("SpellErrMsg")));
 
 	return 1;
 }

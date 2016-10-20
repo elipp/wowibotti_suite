@@ -28,6 +28,8 @@ enum LOP_OPCODES {
 	LOP_WALK_TO_PULLING_RANGE,
 	LOP_GET_UNIT_POSITION,
 	LOP_GET_WALKING_STATE,
+	LOP_GET_CTM_STATE,
+	LOP_GET_PREVIOUS_CAST_MSG,
 	
 	LOP_DUMMY_LAST,
 	LOP_NUM_OPCODES = (LOP_DUMMY_LAST - LOP_NOP)
@@ -56,3 +58,5 @@ enum LDOP_OPCODES {
 void refollow_if_needed();
 
 int lop_exec(lua_State *s);
+
+extern int previous_cast_msg;
