@@ -105,7 +105,7 @@ static void __stdcall broadcast_CTM(float *coords, int action) {
 
 	// the CTM mode is determined in the LUA logic, in the subcommand handler.
 
-	DoString("RunMacroText(\"/lole broadcast_ctm %s\")", sprintf_buf);
+	DoString("RunMacroText(\"/lole broadcast ctm %s\")", sprintf_buf);
 }
 
 

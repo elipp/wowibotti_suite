@@ -692,6 +692,22 @@ function decipher_GUID(ciphered)
 	return cipher_GUID(ciphered);
 end
 
+function get_distance_between(c1, c2)
+  local x1,y1,z1 = get_unit_position(c1)
+  if not x1 then return nil end
+
+  local x2,y2,z2 = get_unit_position(c2)
+  if not x2 then return nil end
+
+  local x = x2-x1
+  local y = y2-y1
+  local z = z2-z1
+
+  local length = math.sqrt(x*x + y*y + z*z)
+
+  return length;
+
+end
 
 function get_int_from_strbool(strbool)
 	local rval = -1;
@@ -979,7 +995,7 @@ end
 
 function sync_healer_targets_with_mine()
 
-    local healer_targets_copy = shallowcopy(HEALER_TARGETS); 
+    local healer_targets_copy = shallowcopy(HEALER_TARGETS);
     local msg = "set;";
     for i, healer in ipairs(HEALERS) do
         local targets = healer_targets_copy[healer];
@@ -1038,7 +1054,7 @@ end
 
 function get_healer_target_info()
 
-    local healer_targets_copy = shallowcopy(HEALER_TARGETS); 
+    local healer_targets_copy = shallowcopy(HEALER_TARGETS);
     local info = "";
     for i, healer in ipairs(HEALERS) do
         local targets = healer_targets_copy[healer];
@@ -1155,7 +1171,7 @@ function get_raid_members()
     end
 
     return members;
-    
+
 end
 
 function get_group_members(grp_num)

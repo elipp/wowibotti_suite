@@ -15,12 +15,12 @@ static int dump_wowobjects_to_log();
 
 struct lop_func_t {
 	std::string opcode_name;
-	int num_arguments;
-	int arg_types; // 2-bit masks
+	int min_arguments;
+	int max_arguments;
 	int num_return_values;
 };
 
-#define LOPFUNC(OPCODE_ID, NUMARGS, ARG_TYPES, NUM_RETURN_VALUES) { #OPCODE_ID, NUMARGS, ARG_TYPES, NUM_RETURN_VALUES }
+#define LOPFUNC(OPCODE_ID, MINARGS, MAXARGS, NUM_RETURN_VALUES) { #OPCODE_ID, MINARGS, MAXARGS, NUM_RETURN_VALUES }
 
 enum {
 	ARG_TYPE_INT,
@@ -30,22 +30,23 @@ enum {
 
 static lop_func_t lop_funcs[] = {
 
-LOPFUNC(LOP_NOP, 0, 0, 0),
- LOPFUNC(LOP_TARGET_GUID, 1, ARG_TYPE_STRING, 0),
- LOPFUNC(LOP_CASTER_RANGE_CHECK, 1,ARG_TYPE_NUMBER, 0),
+ LOPFUNC(LOP_NOP, 0, 0, 0),
+ LOPFUNC(LOP_TARGET_GUID, 1, 1, 0),
+ LOPFUNC(LOP_CASTER_RANGE_CHECK, 1, 1, 0),
  LOPFUNC(LOP_FOLLOW, 1, ARG_TYPE_STRING, 0),
- LOPFUNC(LOP_CTM, 3, ARG_TYPE_NUMBER | ARG_TYPE_NUMBER << 2 | ARG_TYPE_NUMBER << 4, 0),
- LOPFUNC(LOP_DUNGEON_SCRIPT, 1, ARG_TYPE_STRING | ARG_TYPE_STRING << 2, 0),
- LOPFUNC(LOP_TARGET_MARKER, 1, ARG_TYPE_STRING, 0),
+ LOPFUNC(LOP_CTM, 3, 3, 0),
+ LOPFUNC(LOP_DUNGEON_SCRIPT, 1, 2, 0),
+ LOPFUNC(LOP_TARGET_MARKER, 1, 1, 0),
  LOPFUNC(LOP_MELEE_BEHIND, 0, 0, 0),
- LOPFUNC(LOP_AVOID_SPELL_OBJECT, 2, ARG_TYPE_INT | ARG_TYPE_NUMBER << 2, 0),
- LOPFUNC(LOP_HUG_SPELL_OBJECT, 1, ARG_TYPE_INT, 0),
+ LOPFUNC(LOP_AVOID_SPELL_OBJECT, 1, 2, 0),
+ LOPFUNC(LOP_HUG_SPELL_OBJECT, 1, 1, 0),
  LOPFUNC(LOP_SPREAD, 0, 0, 0),
- LOPFUNC(LOP_CHAIN_HEAL_TARGET, 1, ARG_TYPE_STRING, 1),
- LOPFUNC(LOP_MELEE_AVOID_AOE_BUFF, 2, ARG_TYPE_INT | ARG_TYPE_NUMBER << 2, 0),
+ LOPFUNC(LOP_CHAIN_HEAL_TARGET, 1, 1, 1),
+ LOPFUNC(LOP_MELEE_AVOID_AOE_BUFF, 2, 2, 0),
  LOPFUNC(LOP_TANK_FACE, 0, 0, 0),
  LOPFUNC(LOP_WALK_TO_PULLING_RANGE, 0, 0, 0),
- LOPFUNC(LOP_GET_UNIT_POSITION, 1, ARG_TYPE_STRING, 3)
+ LOPFUNC(LOP_GET_UNIT_POSITION, 1, 1, 3),
+ LOPFUNC(LOP_GET_WALKING_STATE, 0, 0, 1)
 
 };
 
@@ -469,8 +470,14 @@ static const WO_cached *find_most_hurt_within_CH_bounce(const WO_cached *unit, c
 
 }
 
+struct chain_heal_trio_t {
+	const WO_cached *trio[3];
+	int total_deficit;
+	float weighed_urgency;
+};
 
-static std::string LOP_get_best_CH(const std::string &arg) {
+
+static std::vector<std::string> LOP_chain_heal_target(const std::string &arg) {
 
 	std::vector<std::string> tokens;
 	tokenize_string(arg, ",", tokens);
@@ -518,11 +525,6 @@ static std::string LOP_get_best_CH(const std::string &arg) {
 		PRINT("candidate %s with %u/%u hp (heal urgency: %f) added\n", u.name.c_str(), u.health, u.health_max, u.heal_urgency, u.deficit);
 	}
 
-	struct chain_heal_trio_t {
-		const WO_cached *trio[3];
-		int total_deficit;
-		float weighed_urgency;
-	};
 
 	chain_heal_trio_t o;
 
@@ -563,23 +565,20 @@ static std::string LOP_get_best_CH(const std::string &arg) {
 		
 	}
 
-	/*PRINT("Found optimal CH targets: %s (%u/%u), %s (%u/%u), %s (%u/%u); total deficit = %d\n",
-		(o.trio[0] ? o.trio[0]->name.c_str() : "NULL"), (o.trio[0] ? o.trio[0]->health : 0), (o.trio[0] ? o.trio[0]->health_max : 0),
-		(o.trio[1] ? o.trio[1]->name.c_str() : "NULL"), (o.trio[1] ? o.trio[1]->health : 0), (o.trio[1] ? o.trio[1]->health_max : 0),
-		(o.trio[2] ? o.trio[2]->name.c_str() : "NULL"), (o.trio[2] ? o.trio[2]->health : 0), (o.trio[2] ? o.trio[2]->health_max : 0),
-		o.total_deficit);*/
-
 	if (o.trio[0]) {
 		//DoString("TargetUnit(\"%s\")", o.trio[0]->name.c_str());
 		PRINT("Chosen target: %s, weighed urgency of trio: %f\n", o.trio[0]->name.c_str(), o.weighed_urgency);
 	}
 	
-	std::string ch1 = (o.trio[0] ? o.trio[0]->name : "");
-	std::string ch2 = (o.trio[1] ? o.trio[1]->name : "");
-	std::string ch3 = (o.trio[2] ? o.trio[2]->name : "");
+	std::vector<std::string> r;
 
-	return ch1 + "," + ch2 + "," + ch3;
-
+	for (auto &tar : o.trio) {
+		if (tar) {
+			r.push_back(tar->name);
+		}
+	}
+	
+	return r;
 }
 
 static int mob_has_debuff(const WowObject &mob, uint debuff_spellID) {
@@ -738,8 +737,8 @@ static int check_num_args(int opcode, int nargs) {
 	if (opcode >= LOP_NUM_OPCODES) return 0;
 
 	lop_func_t &f = lop_funcs[opcode];
-	if (nargs < f.num_arguments) {
-		PRINT("error: %s: expected (at least) %d argument(s), got %d\n", f.opcode_name.c_str(), f.num_arguments, nargs);
+	if (nargs < f.min_arguments || nargs > f.max_arguments) {
+		PRINT("error: %s: expected %d to %d argument(s), got %d\n", f.opcode_name.c_str(), f.min_arguments, f.max_arguments, nargs);
 		return 0;
 	}
 
@@ -749,11 +748,18 @@ static int check_num_args(int opcode, int nargs) {
 
 int lop_exec(lua_State *L) {
 
+	// NOTE: the return value of this function --> number of values returned to caller in LUA
+
 	int nargs = lua_gettop(L);
 
 	if (nargs < 1) {
-		PRINT("lopc_exec: nargs < 1; doing nothing!\n");
+		PRINT("lop_exec: no arguments; doing nothing!\n");
 		return 0;
+	}
+
+	int opcode = lua_tointeger(L, 1);
+	if (opcode < LOP_NUM_OPCODES) {
+		PRINT("lop_exec: opcode = %d (%s)\n", opcode, lop_funcs[opcode].opcode_name.c_str());
 	}
 	
 	for (int i = 2; i <= nargs; ++i) {
@@ -764,20 +770,17 @@ int lop_exec(lua_State *L) {
 			PRINT("lua_tolstring for argument #%d failed (tables aren't allowed!\n");
 		}
 
-		PRINT("arg %d: %s\n", i - 1, str);
+		PRINT("arg %d: \"%s\"\n", i - 1, str);
 	}
 
-	int opcode = lua_tointeger(L, 1);
-	if (opcode < LOP_NUM_OPCODES) {
-		PRINT("lop_exec: opcode = %d (%s)\n", opcode, lop_funcs[opcode].opcode_name.c_str());
-	}
-	size_t len;
-	
+
 	if (!check_num_args(opcode, nargs - 1)) { return 0; }
+
+	size_t len;
 
 	switch (opcode) {
 	case LOP_NOP:
-		return 0;
+		break;
 	
 	case LOP_TARGET_GUID:
 		LOP_target_GUID(lua_tolstring(L, 2, &len));
@@ -806,13 +809,15 @@ int lop_exec(lua_State *L) {
 	
 	case LOP_DUNGEON_SCRIPT: {
 		const char* command = lua_tolstring(L, 2, &len);
+	
 		const char* scriptname = "";
 		if (nargs > 2) {
 			scriptname = lua_tolstring(L, 3, &len);
 		}
+		
 		PRINT("LOP_DUNGEON_SCRIPT: command: %s, scriptname: %s\n", command, scriptname);
 		LOP_dungeon_script(command, scriptname);
-		break;
+		break;	
 	}
 	
 	case LOP_TARGET_MARKER:
@@ -841,18 +846,25 @@ int lop_exec(lua_State *L) {
 
 	case LOP_CHAIN_HEAL_TARGET: {
 		const char* current_heals = lua_tolstring(L, 2, &len);
-		std::string bestname = LOP_get_best_CH(current_heals);
-		PUSHSTRING(L, bestname.c_str());
-		return 1;
+		std::vector<std::string> names = LOP_chain_heal_target(current_heals);
+		int n_rvals = 0;
+		for (auto &n : names) {
+			PUSHSTRING(L, n.c_str());
+			++n_rvals;
+		}
+		return n_rvals;
 	}
+
 	case LOP_MELEE_AVOID_AOE_BUFF: {
 		long spellID = lua_tointeger(L, 2);
 		LOP_melee_avoid_aoe_buff(spellID);
 		break;
 	}
+
 	case LOP_TANK_FACE:
 		LOP_tank_face();
 		break;
+
 	case LOP_WALK_TO_PULLING_RANGE:
 		LOP_walk_to_pull();
 		break;
@@ -860,6 +872,7 @@ int lop_exec(lua_State *L) {
 	case LOP_GET_UNIT_POSITION: {
 		double coords[3];
 		int r = LOP_get_unit_position(lua_tolstring(L, 2, &len), coords);
+		
 		if (!r) { return 0; }
 		else {
 			lua_pushnumber(L, coords[0]);
@@ -869,8 +882,23 @@ int lop_exec(lua_State *L) {
 		}
 		break;
 	}
+
+	case LOP_GET_WALKING_STATE: 
+		if (get_wow_CTM_state() != CTM_DONE) {
+			lua_pushboolean(L, 1);
+			return 1;
+		}
+		else {
+			return 0;
+		}
+		break;
+
 	case LDOP_LUA_REGISTERED:
 		lua_registered = 1;
+		break;
+
+	case LDOP_DUMP:
+		dump_wowobjects_to_log();
 		break;
 
 	default:
@@ -878,7 +906,7 @@ int lop_exec(lua_State *L) {
 		break;
 
 	}
-		 
+			 
 	return 0;
 }
 

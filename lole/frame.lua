@@ -96,7 +96,7 @@ blast_checkbutton:SetHitRectInsets(0, -80, 0, 0)
 blast_checkbutton:SetScript("OnClick",
   function()
 		local arg = blast_checkbutton:GetChecked() and 1 or 0; -- this is equivalent to C's ternary operator ('?')
-		lole_broadcasts.set("blast", arg)
+		lole_broadcast.set("blast", arg)
   end
 );
 
@@ -121,7 +121,7 @@ heal_blast_checkbutton:SetHitRectInsets(0, -80, 0, 0)
 heal_blast_checkbutton:SetScript("OnClick",
   function()
 		local arg = heal_blast_checkbutton:GetChecked() and 1 or 0;
-		lole_broadcasts.set("heal_blast", arg)
+		lole_broadcast.set("heal_blast", arg)
   end
 );
 
@@ -290,7 +290,7 @@ end
 
 local function clear_target_onclick()
 	clear_target();
-	lole_broadcasts.target(NOTARGET);
+	lole_broadcast.target(NOTARGET);
 end
 
 local clear_target_button =
@@ -299,13 +299,13 @@ create_simple_button("clear_target_button", lole_frame, 250, -100, "Clear", 62, 
 local cooldowns_button =
 create_simple_button("cooldowns_button", lole_frame, 120, -130, "Cooldowns", 115, 27,
 function()
-	lole_broadcasts.cooldowns()
+	lole_broadcast.cooldowns()
 end);
 
 local drink_button =
 create_simple_button("drink_button", lole_frame, 250, -130, "Drink", 62, 27,
 function()
-	lole_broadcasts.drink()
+	lole_broadcast.drink()
 end);
 
 local lbuffcheck_clean_button =
@@ -688,8 +688,10 @@ player_pos_text:SetFont("Fonts\\FRIZQT__.TTF", 8);
 player_pos_text:SetPoint("BOTTOMLEFT", 12, 80);
 player_pos_text:SetText("")
 
-function update_player_pos_text(arg)
-	player_pos_text:SetText("|cFFFFD100" .. arg)
+function update_player_pos_text(x, y, z)
+	if not x then return end
+	local pos = string.format("%.1f, %.1f, %.1f", x, y, z)
+	player_pos_text:SetText("|cFFFFD100Player pos: |cFFFFFFFF" .. pos)
 end
 
 local target_pos_text = lole_frame:CreateFontString(nil, "OVERLAY");
@@ -697,8 +699,12 @@ target_pos_text:SetFont("Fonts\\FRIZQT__.TTF", 8);
 target_pos_text:SetPoint("BOTTOMLEFT", 12, 66);
 target_pos_text:SetText("")
 
-function update_target_pos_text(arg)
-	target_pos_text:SetText("|cFFFFD100" .. arg)
+function update_target_pos_text(x, y, z)
+	local pos;
+	if x then	pos = string.format("%.1f, %.1f, %.1f", x, y, z)
+	else pos = "(no target)" end
+
+	target_pos_text:SetText("|cFFFFD100Target pos: |cFFFFFFFF" .. pos)
 end
 
 local function do_combat_stuff()
@@ -742,6 +748,8 @@ end
 
 lole_frame:SetScript("OnUpdate", function()
 
+	if query_injected() == 0 then return end
+
 	if every_4th_frame == 0 then
 
 		MT_OT_warning()
@@ -761,7 +769,12 @@ lole_frame:SetScript("OnUpdate", function()
 	if every_30th_frame == 0 then
 		set_button_states()
 		check_durability()
+
 		gui_set_injected_status()
+
+		update_player_pos_text(get_unit_position("player"))
+		update_target_pos_text(get_unit_position("target"))
+
 	end
 
 	every_4th_frame = every_4th_frame >= 4 and 0 or (every_4th_frame + 1)
@@ -860,20 +873,6 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 	-- 		lootIcon, lootName, lootQuantity, rarity = GetLootSlotInfo(i);
 	-- 		echo(tostring(lootName) .. ", " .. tostring(lootQuantity) .. ", " .. tostring(rarity))
 	-- 	end
-
-	elseif event == "CVAR_UPDATE" then
-		if prefix == "inject" and message == "LOLE" then
-			if not INJECT_STATUS then
-				echo("Late injection ok!")
-				INJECT_STATUS = true;
-			end
-			update_injected_status(true)
-		elseif prefix == "player_pos" then
-			update_player_pos_text("|cFFFFD100Player pos: |r" .. message)
-		elseif prefix == "target_pos" then
-			update_target_pos_text("|cFFFFD100Target pos: |r" .. message)
-		end
-
 
 	elseif event == "TRADE_SHOW" then
 		local guildies = get_guild_members();

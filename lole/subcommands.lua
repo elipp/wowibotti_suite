@@ -132,7 +132,7 @@ local function lole_getconfig(arg)
 end
 
 local function lole_followme()
-	lole_broadcasts.follow(UnitGUID("player"))
+	lole_broadcast.follow(UnitGUID("player"))
 	return true;
 end
 
@@ -221,7 +221,7 @@ local function lole_broadcast_ctm(x, y, z)
 
 	local mode = get_CTM_mode();
 	if mode == CTM_MODES.LOCAL then
-		lop_exec(LOP_CTM_BROADCAST, x, y, z);
+		lole_subcommands.ctm(x, y, z);
 
 	elseif mode == CTM_MODES.TARGET then
 		local tname = UnitName("target")
@@ -243,7 +243,7 @@ local function lole_broadcast_ctm(x, y, z)
 end
 
 local function lole_ctm(x, y, z)
-	lop_exec(LOP_CTM, tonumber(x), tonumber(y), tonumber(z))
+	walk_to(tonumber(x), tonumber(y), tonumber(z))
 end
 
 local function lole_gui()
@@ -706,11 +706,11 @@ local function lole_sync_healer_targets(with)
     if with then
         arg_str = arg_str .. ";" .. with;
     end
-    SendAddonMessage("lole_healers", arg_str, "RAID"); 
+    SendAddonMessage("lole_healers", arg_str, "RAID");
 end
 
 local function lole_reset_healer_targets()
-    SendAddonMessage("lole_healers", "reset", "RAID"); 
+    SendAddonMessage("lole_healers", "reset", "RAID");
 end
 
 local function lole_echo_healer_target_info()
@@ -730,7 +730,7 @@ local function lole_broadcast(funcname, ...)
 		return 0
 	end
 
-	local func = lole_broadcasts[funcname];
+	local func = lole_broadcast[funcname];
 
 	if not func then
 		lole_error("lole_broadcast: unknown broadcast function \"" .. funcname .. "\"!")
@@ -849,7 +849,7 @@ lole_subcommands = {
 	register = lole_debug_lua_register;
 }
 
-lole_broadcasts = {
+lole_broadcast = {
 	ctm = lole_broadcast_ctm;
 	drink = lole_broadcast_drink;
 	release = lole_broadcast_release;

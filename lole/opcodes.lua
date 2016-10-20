@@ -14,21 +14,20 @@ local LOP_MELEE_AVOID_AOE_BUFF = 0xC
 local LOP_TANK_FACE = 0xD
 local LOP_WALK_TO_PULLING_RANGE = 0xE
 local LOP_GET_UNIT_POSITION = 0xF
+local LOP_GET_WALKING_STATE = 0x10
 
-local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x70
+local LOP_EXT_NOP = 0x70
+local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x71
 
 local LDOP_NOP = 0xE0
 local LDOP_DUMP = 0xE1
 local LDOP_LOOT_ALL = 0xE2
-local LDOP_QUERY_INJECTED = 0xE3
-local LDOP_PULL_TEST = 0xE4
-local LDOP_LUA_REGISTERED = 0xE5
-
+local LDOP_PULL_TEST = 0xE3
+local LDOP_LUA_REGISTERED = 0xE4
 
 ----------------------------
 ---- public functions ------
 ----------------------------
-
 
 function enable_cc_target(name, marker, spell)
 	lole_subcommands.sendmacro_to(name, "/lole cc enable " .. marker .. " " .. spell)
@@ -105,10 +104,11 @@ function warlock_maulgar_get_felhound()
 end
 
 function dscript(command, scriptname)
-	if not scriptname then
-		scriptname = ""
-	end
 	lop_exec(LOP_DUNGEON_SCRIPT, command, scriptname);
+end
+
+function get_unit_position(unitname)
+	return lop_exec(LOP_GET_UNIT_POSITION, unitname)
 end
 
 function lole_debug_dump_wowobjects()
@@ -119,6 +119,10 @@ end
 
 function lole_debug_loot_all()
 	lop_exec(LDOP_LOOT_ALL);
+end
+
+function walk_to(x, y, z)
+	lop_exec(LOP_CTM, x, y, z)
 end
 
 local INJECTED_STATUS = 0

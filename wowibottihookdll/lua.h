@@ -22,14 +22,20 @@ extern p_lua_gettop lua_gettop;
 typedef void(*p_lua_pushnumber) (lua_State *L, lua_Number n);
 extern p_lua_pushnumber lua_pushnumber;
 
-typedef const char*(*p_lua_tolstring)(lua_State *L, int idx, size_t *len);
-extern p_lua_tolstring lua_tolstring;
+typedef void(*p_lua_pushnil)(lua_State *L);
+extern p_lua_pushnil lua_pushnil;
 
 typedef void(*p_lua_pushlstring) (lua_State *L, const char* str, size_t len);
 extern p_lua_pushlstring lua_pushlstring;
 
 typedef void(*p_lua_pushinteger) (lua_State *L, int i);
 extern p_lua_pushinteger lua_pushinteger;
+
+typedef void(*p_lua_pushboolean) (lua_State *L, int b);
+extern p_lua_pushboolean lua_pushboolean;
+
+typedef const char*(*p_lua_tolstring)(lua_State *L, int idx, size_t *len);
+extern p_lua_tolstring lua_tolstring;
 
 typedef void(*p_lua_getfield) (lua_State *L, int idx, const char* key, size_t key_len);
 extern p_lua_getfield lua_getfield;
