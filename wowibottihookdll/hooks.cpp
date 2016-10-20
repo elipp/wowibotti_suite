@@ -119,7 +119,11 @@ static void __stdcall CTM_finished_hookfunc() {
 }
 
 static void __stdcall SpellErrMsg_hook(int msg) {
-	previous_cast_msg = msg;
+	typedef int tick_count_t(void);
+	int ticks = ((tick_count_t*)GetOSTickCount)();
+
+	previous_cast_msg.msg = msg;
+	previous_cast_msg.timestamp = ticks;
 }
 
 struct hookable {

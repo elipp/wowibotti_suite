@@ -59,4 +59,8 @@ void refollow_if_needed();
 
 int lop_exec(lua_State *s);
 
-extern int previous_cast_msg;
+extern struct cast_msg_t {
+	int msg;
+	LONG timestamp;
+} previous_cast_msg;
+

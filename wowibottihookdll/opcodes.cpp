@@ -13,7 +13,7 @@ extern HWND wow_hWnd;
 
 static int dump_wowobjects_to_log();
 
-int previous_cast_msg = 0;
+struct cast_msg_t previous_cast_msg;
 
 struct lop_func_t {
 	std::string opcode_name;
@@ -898,12 +898,13 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LOP_GET_CTM_STATE:
-
+		// get the CTM state of the lole DLL
 		break;
 
 	case LOP_GET_PREVIOUS_CAST_MSG:
-		lua_pushinteger(L, previous_cast_msg);
-		return 1;
+		lua_pushinteger(L, previous_cast_msg.msg);
+		lua_pushnumber(L, (double)(previous_cast_msg.timestamp)/1000.0);
+		return 2;
 		break;
 
 	case LDOP_LUA_REGISTERED:
