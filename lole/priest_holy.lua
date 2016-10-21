@@ -8,8 +8,8 @@ local function should_cast_PoH()
 
 	local num_deficients = 0;
 	for unit, deficit in pairs(HP_deficits) do
-        -- TODO: range check
-		if deficit > 3000 then
+        local distance_to_unit = get_distance_between("player", UnitName(unit));
+        if distance_to_unit and distance_to_unit <= 36 and deficit > 3000 then
 			num_deficients = num_deficients + 1;
 			if num_deficients > 2 then
 				r = true;
@@ -21,28 +21,29 @@ local function should_cast_PoH()
 	return r;
 end
 
-local function get_CoH_target(min_deficit, max_ineligible_chars)
+local function get_CoH_target(min_deficit, max_ineligible_chars, urgencies)
     if get_current_config().name == "priest_holy_ds" then
         return nil;
     end
 
+    local highest_total_urgency = 0;
+    local coh_target;
+
     local eligible_groups = get_CoH_eligible_groups(get_raid_groups(), min_deficit, max_ineligible_chars);
-    local coh_target = nil;
-    local highest_total_deficit = 0;
-    for grp, tbl in pairs(eligible_groups) do
-        local total_deficit = 0;
-        local highest_deficit = 0;
-        local char_with_highest_def = "";
-        for name, deficit in pairs(tbl) do
-            total_deficit = total_deficit + deficit;
-            if deficit > highest_deficit then
-                highest_deficit = deficit;
-                char_with_highest_def = name;
+    if table.get_num_elements(eligible_groups) == 1 then
+        coh_target = next(eligible_groups);
+    else
+        for tar, group in pairs(eligible_groups) do
+            local total_urgency = 0;
+            for i, name in pairs(group) do
+                if urgencies[name] then
+                    total_urgency = total_urgency + urgencies[name];
+                end
             end
-        end
-        if total_deficit > highest_total_deficit then
-            highest_total_deficit = total_deficit;
-            coh_target = char_with_highest_def;
+            if total_urgency > highest_total_urgency then
+                highest_total_urgency = total_urgency;
+                coh_target = tar;
+            end
         end
     end
 
@@ -52,7 +53,7 @@ end
 
 
 local function raid_heal()
-    local target = get_raid_heal_target();
+    local target, urgencies = get_raid_heal_target(true);
     if target then
         TargetUnit(target);
     else
@@ -82,7 +83,7 @@ local function raid_heal()
         return true
     end
 
-    local coh_target = get_CoH_target(2000, 1);
+    local coh_target = get_CoH_target(2000, 1, urgencies);
     if coh_target then
         TargetUnit(coh_target);
         cast_if_nocd("Circle of Healing");

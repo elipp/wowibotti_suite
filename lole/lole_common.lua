@@ -294,6 +294,14 @@ function table.remove_duplicates(table)
     return set;
 end
 
+function table.get_num_elements(table)
+    local num = 0;
+    for key, val in pairs(table) do
+        num = num + 1;
+    end
+    return num;
+end
+
 function get_available_class_configs()
 	return get_list_of_keys(available_configs)
 end
@@ -896,37 +904,69 @@ end
 
 function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars)
 
-    -- TODO: range checks
+    -- Gieves [target] - {group members} pairs for each group with a healable target that
+    -- has at least 3 healable targets within 18 yards of itself. If there are
+    -- multiple such targets in a group, the one with the most nearby targets and
+    -- and the shortest distance to the priest is chosen.
 
     if min_deficit == nil then min_deficit = 2000; end
-    if max_ineligible_chars == nil then max_ineligible_chars = 1; end
+    if max_ineligible_chars == nil or max_ineligible_chars > 1 then max_ineligible_chars = 1; end
 
-    local grouped_deficits = {}
+    local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);
+    local coh_groups = {};
 
     for grp, tbl in pairs(groups) do
-        if #tbl == 5 then
-            local group = {};
-            local group_eligible = true;
-            local num_ineligible_chars = 0;
-            for i, name in pairs(tbl) do
-                if (not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") or UnitHealthMax(name) - UnitHealth(name) < min_deficit) or UNREACHABLE_TARGETS[name] > GetTime() then
+        if #tbl >= (5 - max_ineligible_chars) then
+            local group_candidates = {};
+            local target_data;
+            local ineligible_chars = {};
+            local num_ineligible_chars = 5 - #tbl;
+            for i, name in ipairs(tbl) do
+                local hp = UnitHealth(name);
+                for healer, info in pairs(heals_in_progress[name]) do
+                    if info[2] > GetTime()*1000 then
+                        hp = hp + info[1];
+                    end
+                end
+                if (not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") 
+                    or UnitHealthMax(name) - hp < min_deficit or UNREACHABLE_TARGETS[name] > GetTime()) then
+                    ineligible_chars[name] = true;
                     num_ineligible_chars = num_ineligible_chars + 1;
                     if num_ineligible_chars > max_ineligible_chars then
-                        group_eligible = false;
                         break;
                     end
                 else
-                    local deficit = UnitHealthMax(name) - UnitHealth(name);
-                    group[name] = deficit;
+                    group_candidates[name] = {name};
+                    for j=i-1,1,-1 do
+                        if not ineligible_chars[tbl[j]] then
+                            local distance = get_distance_between(name, tbl[j]);
+                            if distance and distance <= 18 then
+                                table.insert(group_candidates[name], tbl[j]);
+                                table.insert(group_candidates[tbl[j]], name);
+                            end
+                        end
+                    end
                 end
             end
-            if group_eligible then
-                grouped_deficits[grp] = group;
+            if num_ineligible_chars <= max_ineligible_chars then
+                for tar, grp_cand in pairs(group_candidates) do
+                    if #grp_cand >= (5 - max_ineligible_chars) then
+                        local dist_to_me = get_distance_between("player", tar);
+                        if not target_data or #grp_cand > target_data[2] then
+                            target_data = {tar, #grp_cand, dist_to_me};
+                        elseif #grp_cand == target_data[2] and dist_to_me < target_data[3] then
+                            target_data = {tar, #grp_cand, dist_to_me};
+                        end
+                    end
+                end
+                if target_data then
+                    coh_groups[target_data[1]] = group_candidates[target_data[1]];
+                end
             end
         end
     end
 
-    return grouped_deficits;
+    return coh_groups;
 
 end
 
@@ -934,11 +974,12 @@ function get_heal_targets(healer)
     return HEALER_TARGETS[healer];
 end
 
-function get_heal_target(HP_table, maxmaxHP)
+function get_heal_target(HP_table, maxmaxHP, with_urgencies)
 
     local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);
-    local best_target = nil;
-    local highest_comparison_value = 0;
+    local most_urgent = nil;
+    local highest_urgency = 0;
+    local urgencies = {};
     for target, hp_data in pairs(HP_table) do
         local tar_hp = hp_data[1];
         local tar_maxhp = hp_data[2];
@@ -948,22 +989,27 @@ function get_heal_target(HP_table, maxmaxHP)
             end
         end
         if tar_hp < tar_maxhp then
-            local comp_val = (((tar_maxhp - tar_hp) / tar_maxhp) / POINT_DEFICITS_EQUAL) ^ (maxmaxHP / tar_maxhp);
-            --echo(string.format("%f", comp_val));
-            if comp_val > highest_comparison_value then
-                highest_comparison_value = comp_val;
-                best_target = target;
+            local urgency = (((tar_maxhp - tar_hp) / tar_maxhp) / POINT_DEFICITS_EQUAL) ^ (maxmaxHP / tar_maxhp);
+            urgencies[target] = urgency;
+            --echo(string.format("%f", urgency));
+            if urgency > highest_urgency then
+                highest_urgency = urgency;
+                most_urgent = target;
             end
         end
     end
 
-    return best_target;
+    if with_urgencies then
+        return most_urgent, urgencies;
+    else
+        return most_urgent;
+    end
 
 end
 
-function get_raid_heal_target()
+function get_raid_heal_target(with_urgencies)
     local HP_table, maxmaxHP = get_HP_table_and_maxmaxHP();
-    return get_heal_target(HP_table, maxmaxHP);
+    return get_heal_target(HP_table, maxmaxHP, with_urgencies);
 end
 
 function get_single_heal_target(chars)

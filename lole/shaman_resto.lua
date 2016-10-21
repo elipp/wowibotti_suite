@@ -52,16 +52,13 @@ local function raid_heal()
         cast_spell("Lesser Healing Wave");
     else
         local target, bounce1, bounce2 = get_CH_target_trio(get_serialized_heals());
-
-			  if not target then
+        if not target then
             return false;
         end
-
-			  TargetUnit(target);
-				CH_BOUNCE_1 = bounce1
-				CH_BOUNCE_2 = bounce2
-
-			  caster_range_check(35);
+        TargetUnit(target);
+        CH_BOUNCE_1 = bounce1
+        CH_BOUNCE_2 = bounce2
+        caster_range_check(35);
         cast_spell("Chain Heal");
     end
 
