@@ -133,6 +133,10 @@ int get_wow_CTM_state() {
 	return state;
 }
 
+SIZE_T set_wow_CTM_state(int state) {
+	return writeAddr(CTM_ACTION, &state, sizeof(state));
+}
+
 void ctm_lock() {
 	ctm_locked = 1;
 }

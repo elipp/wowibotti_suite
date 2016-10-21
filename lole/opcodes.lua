@@ -35,11 +35,11 @@ local LDOP_LOS_TEST = 0xE5
 ----------------------------
 
 function enable_cc_target(name, marker, spell)
-	lole_subcommands.sendmacro_to(name, "/lole cc enable " .. marker .. " " .. spell)
+	lole_subcommands.sendmacro_to(name, "/lole cc enable", marker, spell)
 end
 
 function disable_cc_target(name, marker)
-	lole_subcommands.sendmacro_to(name, "/lole cc disable " .. marker)
+	lole_subcommands.sendmacro_to(name, "/lole cc disable", marker)
 end
 
 function disable_all_cc_targets()
@@ -61,7 +61,7 @@ function caster_range_check(minrange)
 end
 
 function target_unit_with_GUID(GUID)
-	lop_exec(LOP_TARGET_GUID)
+	lop_exec(LOP_TARGET_GUID, GUID)
 end
 
 function melee_attack_behind()

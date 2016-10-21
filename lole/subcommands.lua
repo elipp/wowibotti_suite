@@ -223,11 +223,11 @@ local function lole_broadcast_ctm(x, y, z)
 		if not tname then return end
 
 		echo("sending CTM to target " .. tname)
-		lole_subcommands.sendmacro_to(tname, "/lole ctm " .. tostring(x) .. "," .. tostring(y) .. "," .. tostring(z));
+		lole_subcommands.sendmacro_to(tname, "/lole ctm", x, y, z);
 
 		-- kinda redundant.
 	elseif mode == CTM_MODES.EVERYONE then
-		lole_subcommands.sendmacro("RAID", "/lole ctm " .. tostring(x) .. "," .. tostring(y) .. "," .. tostring(z));
+		lole_subcommands.sendmacro("RAID", "/lole ctm", x, y, z);
 
 	else
 		lole_error("lole_ctm: invalid mode: " .. tostring(mode));
@@ -237,8 +237,10 @@ local function lole_broadcast_ctm(x, y, z)
 	return true;
 end
 
-local function lole_ctm(x, y, z)
-	walk_to(tonumber(x), tonumber(y), tonumber(z))
+local function lole_ctm(x, y,z)
+	if lole_subcommands.get("playermode") == 0 then
+		walk_to(tonumber(x), tonumber(y), tonumber(z))
+	end
 end
 
 local function lole_gui()
@@ -461,42 +463,38 @@ local function lole_clearcc()
 end
 
 local function lole_pull(arg)
-	--send_opcode_addonmsg_to(LOPC_PULL_MOB, arg, MAIN_TANK);
 	lole_debug_pull_test()
---	target_best_CH_target()
 end
 
 function set_target(target_GUID)
-  BLAST_TARGET_GUID = target_GUID;
-	target_unit_with_GUID(target_GUID); -- this does a C TargetUnit call :P
+	local previous_target_GUID = UnitGUID("target")
+
+	BLAST_TARGET_GUID = target_GUID;
+	target_unit_with_GUID(target_GUID); -- this does a C SelectUnit call :P
 	FocusUnit("target")
 	update_target_text(UnitName("target"), UnitGUID("target"));
+
+	if lole_subcommands.get("playermode") == 1 then
+		-- set to previous target :D
+		target_unit_with_GUID(previous_target_GUID);
+	end
+
 end
 
 function clear_target()
-	--echo("calling clear_target!");
 	BLAST_TARGET_GUID = NOTARGET;
 	ClearFocus();
 	ClearTarget();
 	update_target_text("-none-", "");
 end
 
-
 local function lole_target_GUID(GUID)
-	if lole_subcommands.get("playermode") == 1 then return; end
-
-	--lop_exec(LOP_TARGET_GUID, GUID);
-	echo(GUID)
-
 	if GUID == NOTARGET then
 		clear_target()
-		return
-	end
 
-		if (BLAST_TARGET_GUID ~= GUID) then
-			set_target(GUID)
-			return
-		end
+	elseif BLAST_TARGET_GUID ~= GUID then
+		set_target(GUID)
+	end
 
 end
 
@@ -630,7 +628,7 @@ local function lole_sendmacro(to, ...)
 end
 
 local function lole_sendmacro_to(to, ...)
-	lole_sendmacro("WHISPER " .. to, ...)
+	lole_sendmacro("WHISPER", to, ...)
 end
 
 local invite_order = {
@@ -726,11 +724,11 @@ end
 
 
 local function lole_broadcast_target(GUID_str)
-	lole_subcommands.sendmacro("RAID", "/lole target " .. GUID_str);
+	lole_subcommands.sendmacro("RAID", "/lole target", GUID_str);
 end
 
 local function lole_broadcast_follow(target_GUID)
-	lole_subcommands.sendmacro("RAID", "/lole follow " .. target_GUID);
+	lole_subcommands.sendmacro("RAID", "/lole follow", target_GUID);
 end
 
 local function lole_broadcast_stopfollow()
@@ -738,7 +736,7 @@ local function lole_broadcast_stopfollow()
 end
 
 local function lole_broadcast_set(attrib, state)
-	lole_subcommands.sendmacro("RAID", "/lole set " .. tostring(attrib) .. " " .. tostring(state));
+	lole_subcommands.sendmacro("RAID", "/lole set", tostring(attrib), tostring(state));
 end
 
 local function lole_broadcast_cooldowns()
@@ -750,11 +748,11 @@ local function lole_broadcast_drink()
 end
 
 local function lole_broadcast_mt(name)
-	lole_subcommands.sendmacro("RAID", "/lole setmt " .. name)
+	lole_subcommands.sendmacro("RAID", "/lole setmt", name)
 end
 
 local function lole_broadcast_ot(arg)
-	lole_subcommands.sendmacro("RAID", "/lole setot " .. name)
+	lole_subcommands.sendmacro("RAID", "/lole setot", name)
 end
 
 local function lole_broadcast_drink()
@@ -799,8 +797,6 @@ local function lole_broadcast(funcname, ...)
 	end
 
 	-- call broadcast function =)
-
-	echo("calling broadcast func " .. funcname)
 
 	func(...);
 
@@ -854,6 +850,8 @@ lole_subcommands = {
 	ss = lole_sendscript,
 	sendmacro = lole_sendmacro,
 	run = lole_sendmacro,
+
+	sendmacro_to = lole_sendmacro_to,
 
 	cc = lole_cc,
 

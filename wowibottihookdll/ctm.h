@@ -14,6 +14,7 @@ void ctm_lock();
 void ctm_unlock();
 
 int get_wow_CTM_state();
+SIZE_T set_wow_CTM_state(int state);
 
 typedef void (*CTM_callback_t)();
 

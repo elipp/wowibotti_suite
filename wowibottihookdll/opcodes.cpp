@@ -298,7 +298,7 @@ static int LOP_follow_unit(const std::string& targetname) {
 }
 
 static int LOP_stopfollow() {
-
+	
 	ObjectManager OM;
 
 	WowObject p;
@@ -306,7 +306,7 @@ static int LOP_stopfollow() {
 
 	float prot = p.get_rot();
 	vec3 rot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
-	click_to_move(p.get_pos() + 0.51*rot_unit, CTM_MOVE, 0);
+	click_to_move(p.get_pos() + 0.51*rot_unit, CTM_MOVE, 1.5);
 	follow_state.clear();
 
 	return 1;
@@ -770,9 +770,10 @@ int lop_exec(lua_State *L) {
 	}
 
 	int opcode = lua_tointeger(L, 1);
-	if (opcode < LOP_NUM_OPCODES) {
-		PRINT("lop_exec: opcode = %d (%s)\n", opcode, lop_funcs[opcode].opcode_name.c_str());
-	}
+	
+	//if (opcode < LOP_NUM_OPCODES) {
+	//	PRINT("lop_exec: opcode = %d (%s)\n", opcode, lop_funcs[opcode].opcode_name.c_str());
+	//}
 	
 	//for (int i = 2; i <= nargs; ++i) {
 	//	size_t len;

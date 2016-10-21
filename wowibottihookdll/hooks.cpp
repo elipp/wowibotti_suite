@@ -100,7 +100,7 @@ static void __stdcall broadcast_CTM(float *coords, int action) {
 	y = coords[1];
 	z = coords[2];
 
-	PRINT("broadcast_CTM: got CTM coords: (%f, %f %f), action = %d\n", x, y, z, action);
+	PRINT("broadcast_CTM: got CTM coords: (%f, %f, %f), action = %d\n", x, y, z, action);
 
 	char sprintf_buf[128];
 
