@@ -717,6 +717,10 @@ local function lole_debug_test_blast_target()
 		update_target()
 end
 
+local function lole_distance_to_target()
+    echo(get_distance_between("player", "target"));
+end
+
 
 ----------------------------------------
 				----- BROADCASTS ------
@@ -862,4 +866,5 @@ lole_subcommands = {
 	dscript = lole_dscript,
 
 	register = lole_debug_lua_register,
+    distance = lole_distance_to_target,
 }

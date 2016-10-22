@@ -1,17 +1,19 @@
 local pom_time = 0;
 local mt_healer = true;
 
-local function should_cast_PoH()
+local function should_cast_PoH(min_deficit, min_healable_chars)
+    if min_deficit == nil then min_deficit = 3000; end
+    if min_healable_chars == nil then min_healable_chars = 4; end
+
 	local r = false;
-	local HP_deficits = get_HP_deficits(true);
-	if next(HP_deficits) == nil then return false; end
+	local HP_deficits = get_HP_deficits(true, true);
 
 	local num_deficients = 0;
 	for unit, deficit in pairs(HP_deficits) do
         local distance_to_unit = get_distance_between("player", UnitName(unit));
-        if distance_to_unit and distance_to_unit <= 36 and deficit > 3000 then
+        if distance_to_unit <= 36 and deficit > min_deficit then
 			num_deficients = num_deficients + 1;
-			if num_deficients > 2 then
+			if num_deficients == min_healable_chars then
 				r = true;
 				break;
 			end
@@ -21,7 +23,7 @@ local function should_cast_PoH()
 	return r;
 end
 
-local function get_CoH_target(min_deficit, max_ineligible_chars, urgencies)
+local function get_CoH_target(urgencies, min_deficit, max_ineligible_chars)
     if get_current_config().name == "priest_holy_ds" then
         return nil;
     end
@@ -65,7 +67,7 @@ local function raid_heal()
 
     caster_range_check(35);
 
-    if should_cast_PoH() then
+    if should_cast_PoH(6000, 4) then
         cast_spell("Prayer of Healing");
         return true
     end
@@ -83,7 +85,12 @@ local function raid_heal()
         return true
     end
 
-    local coh_target = get_CoH_target(2000, 1, urgencies);
+    if should_cast_PoH(3000, 4) then
+        cast_spell("Prayer of Healing");
+        return true
+    end
+
+    local coh_target = get_CoH_target(urgencies);
     if coh_target then
         TargetUnit(coh_target);
         cast_if_nocd("Circle of Healing");

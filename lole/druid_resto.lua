@@ -1,17 +1,20 @@
-local function should_cast_tranquility()
+local function should_cast_tranquility(min_deficit, min_healable_chars)
+    if min_deficit == nil then min_deficit = 5000; end
+    if min_healable_chars == nil then min_healable_chars = 4; end
+
     if GetSpellCooldown("Tranquility") > 0 then
         return false;
     end
 
     local r = false;
-    local HP_deficits = get_HP_deficits(true);
-    if next(HP_deficits) == nil then return false; end
+    local HP_deficits = get_HP_deficits(true, false);
 
     local num_deficients = 0;
     for unit, deficit in pairs(HP_deficits) do
-        if deficit > 5000 then
+        local distance_to_unit = get_distance_between("player", UnitName(unit));
+        if distance_to_unit <= 30 and deficit > min_deficit then
             num_deficients = num_deficients + 1;
-            if num_deficients > 2 then
+            if num_deficients == min_healable_chars then
                 r = true;
                 break;
             end

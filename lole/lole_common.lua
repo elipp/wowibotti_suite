@@ -369,10 +369,11 @@ function cast_spell(spellname)
 	cast_if_nocd(spellname, rank);
 end
 
-function get_HP_deficits(party_only)
+function get_HP_deficits(party_only, with_heals)
 	local HP_deficits = {};
-    local num_raid_members = 0;
+    local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);
 
+    local num_raid_members;
     if party_only then
         num_raid_members = 0;
     else
@@ -380,19 +381,34 @@ function get_HP_deficits(party_only)
     end
 
 	if num_raid_members == 0 then
-	    HP_deficits["player"] = UnitHealthMax("player") - UnitHealth("player");
+	    HP_deficits[UnitName("player")] = UnitHealthMax("player") - UnitHealth("player");
 	    for i=1,4,1 do local exists = GetPartyMember(i)
-            local name = "party" .. i;
-            if exists and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
-            	HP_deficits[name] = UnitHealthMax(name) - UnitHealth(name);
+            local name = UnitName("party" .. i);
+            if exists and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and UNREACHABLE_TARGETS[name] < GetTime() then
+                local hp = UnitHealth(name);
+                if with_heals then
+                    for healer, info in pairs(heals_in_progress[name]) do
+                        if info[2] > GetTime()*1000 then
+                            hp = hp + info[1];
+                        end
+                    end
+                end
+            	HP_deficits[name] = UnitHealthMax(name) - hp;
             end
 	    end
 	else
-		--HP_deficits["player"] = UnitHealthMax("player") - UnitHealth("player");
 		for i=1,num_raid_members,1 do
-			local name = "raid" .. tonumber(i);
-			if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) then
-				HP_deficits[name] = UnitHealthMax(name) - UnitHealth(name);
+			local name = UnitName("raid" .. i);
+			if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and UNREACHABLE_TARGETS[name] < GetTime() then
+                local hp = UnitHealth(name);
+                if with_heals then
+                    for healer, info in pairs(heals_in_progress[name]) do
+                        if info[2] > GetTime()*1000 then
+                            hp = hp + info[1];
+                        end
+                    end
+                end
+                HP_deficits[name] = UnitHealthMax(name) - hp;
 			end
 		end
 	end
