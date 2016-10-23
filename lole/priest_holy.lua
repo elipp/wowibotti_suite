@@ -8,6 +8,8 @@ local function should_cast_PoH(min_deficit, min_healable_chars)
 	local r = false;
 	local HP_deficits = get_HP_deficits(true, true);
 
+    --TODO: report players that are going to be healed. Now simply reporting whole group.
+
 	local num_deficients = 0;
 	for unit, deficit in pairs(HP_deficits) do
         local distance_to_unit = get_distance_between("player", UnitName(unit));

@@ -4,6 +4,7 @@ NOTARGET = "0x0000000000000000";
 
 BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
+OVERRIDE_COMMAND = nil;
 
 MAIN_TANK = nil;
 OFF_TANK = nil;
@@ -1272,4 +1273,27 @@ function handle_CH_report(targets, healer)
         HEALS_IN_PROGRESS[target][healer] = {heal_estimate, hfi[2]};
     end
 
+end
+
+function on_gcd()
+    local gcd_spells = {
+        Druid = "Healing Touch",
+        Hunter = "Aspect of the Hawk",
+        Mage = "Fireball",
+        Paladin = "Holy Light",
+        Priest = "Lesser Heal",
+        Rogue = "Sinister Strike",
+        Shaman = "Healing Wave",
+        Warlock = "Shadow Bolt",
+        Warrior = "Battle Shout",
+    };
+    return GetSpellCooldown(gcd_spells[UnitClass("player")]) > 0;
+end
+
+function run_override()
+    if not on_gcd() then
+        RunScript(OVERRIDE_COMMAND);
+        lole_subcommands.set("playermode", 0);
+        OVERRIDE_COMMAND = nil;
+    end
 end

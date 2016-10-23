@@ -61,7 +61,9 @@ function lole_main(args)
 			end
 
 			get_current_config().combat();
-
+            
+        elseif OVERRIDE_COMMAND then
+            run_override(OVERRIDE_COMMAND);
         end
     end
 
@@ -203,6 +205,17 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 		else
 			SendChatMessage("lole_runscript: " .. sender .. " doesn't appear to be a member of Uuslapio, not running script!", "GUILD");
 		end
+
+    elseif (prefix == "lole_override") then
+        if prevent_double_call(prefix) then return end
+        local guildies = get_guild_members()
+        if guildies[sender] then
+            OVERRIDE_COMMAND = message;
+            lole_subcommands.set("playermode", 1);
+            SpellStopCasting();
+        else
+            SendChatMessage("lole_runscript: " .. sender .. " doesn't appear to be a member of Uuslapio, not running script!", "GUILD");
+        end
 
     elseif (prefix == "lole_healers") then
         if prevent_double_call(prefix) then return end

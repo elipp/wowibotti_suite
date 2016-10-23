@@ -631,6 +631,21 @@ local function lole_sendmacro_to(to, ...)
 	lole_sendmacro("WHISPER", to, ...)
 end
 
+local function lole_override(name, ...)
+    local usage = "lole_override: Usage: override NAME scripttext";
+    if name == nil then
+        echo(usage);
+        return false;
+    end
+    local atab = {};
+    for i = 1, select('#', ...) do
+        local arg = select(i, ...);
+        table.insert(atab, arg);
+    end
+    script_text = table.concat(atab, " ");
+    SendAddonMessage("lole_override", script_text, "WHISPER", name);
+end
+
 local invite_order = {
 	"Adieux", "Igop", "Kusip", "Gyorgy",
 	"Ribb", "Meisseln", "Crq", "Josp", "Teline",
@@ -854,6 +869,7 @@ lole_subcommands = {
 	ss = lole_sendscript,
 	sendmacro = lole_sendmacro,
 	run = lole_sendmacro,
+    override = lole_override,
 
 	sendmacro_to = lole_sendmacro_to,
 
