@@ -63,7 +63,7 @@ function lole_main(args)
 			get_current_config().combat();
             
         elseif OVERRIDE_COMMAND then
-            run_override(OVERRIDE_COMMAND);
+            run_override();
         end
     end
 
