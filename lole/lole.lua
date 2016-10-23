@@ -149,7 +149,7 @@ local function on_spell_event(self, event, caster, spell, rank, target)
             if spell == "Binding Heal" then
                 targets = {SPELL_TARGET, UnitName("player")};
             elseif spell == "Prayer of Healing" then
-                targets = get_group_members(get_group_number(UnitName("player")));
+                targets = shallowcopy(POH_TARGETS);
             elseif spell == "Chain Heal" then
                 targets = {"chain-heal-targets", SPELL_TARGET, CH_BOUNCE_1, CH_BOUNCE_2};
             end

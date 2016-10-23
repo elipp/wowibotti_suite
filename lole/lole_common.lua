@@ -24,6 +24,7 @@ MAX_HEAL_ATTEMPTS = 20;
 UNREACHABLE_TARGETS = {};
 CH_BOUNCE_1 = nil;
 CH_BOUNCE_2 = nil;
+POH_TARGETS = {};
 
 -- Healers select targets based on the function shown here:
 -- http://www.wolframalpha.com/input/?i=plot+of+y%3D(x%2F0.5)%5E(15000%2F10000)+and+y%3D(x%2F0.5)%5E(15000%2F12500)+and+y%3D(x%2F0.5)%5E(15000%2F15000)++for+x%3D0+to1+

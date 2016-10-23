@@ -5,24 +5,22 @@ local function should_cast_PoH(min_deficit, min_healable_chars)
     if min_deficit == nil then min_deficit = 3000; end
     if min_healable_chars == nil then min_healable_chars = 4; end
 
-	local r = false;
 	local HP_deficits = get_HP_deficits(true, true);
 
-    --TODO: report players that are going to be healed. Now simply reporting whole group.
-
-	local num_deficients = 0;
+    local eligible_targets = {};
 	for unit, deficit in pairs(HP_deficits) do
         local distance_to_unit = get_distance_between("player", UnitName(unit));
         if distance_to_unit <= 36 and deficit > min_deficit then
-			num_deficients = num_deficients + 1;
-			if num_deficients == min_healable_chars then
-				r = true;
-				break;
-			end
+            table.insert(eligible_targets, unit);
 		end
 	end
 
-	return r;
+    if #eligible_targets >= min_healable_chars then
+        POH_TARGETS = shallowcopy(eligible_targets);
+        return true;
+    end
+
+	return false;
 end
 
 local function get_CoH_target(urgencies, min_deficit, max_ineligible_chars)
