@@ -142,6 +142,10 @@ function stopfollow()
 	lop_exec(LOP_STOPFOLLOW)
 end
 
+function is_walking()
+    return lop_exec(LOP_GET_WALKING_STATE)
+end
+
 local INJECTED_STATUS = 0
 
 function query_injected()
