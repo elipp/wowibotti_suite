@@ -8,7 +8,7 @@ local available_configs = {
 	class_config_create("druid_feral", {"Mark of the Wild", "Thorns"}, {"Omen of Clarity", "Cat Form"}, get_class_color("druid"), combat_druid_feral, {}, ROLES.mana_melee, "MELEE"),
 
 	druid_resto =
-	class_config_create("druid_resto", {"Mark of the Wild", "Thorns"}, {"Tree of Life"}, get_class_color("druid"), combat_druid_resto, {"Barkskin"}, ROLES.healer, "HEALER"),
+	class_config_create("druid_resto", {"Mark of the Wild", "Thorns"}, {"Tree of Life"}, get_class_color("druid"), combat_druid_resto, {}, ROLES.healer, "HEALER"),
 
 	druid_balance =
 	class_config_create("druid_balance", {"Mark of the Wild", "Thorns"}, {"Moonkin Form"}, get_class_color("druid"), combat_druid_balance, {"Barkskin"}, ROLES.caster, "RANGED"),
@@ -632,7 +632,7 @@ local function lole_sendmacro_to(to, ...)
 end
 
 local function lole_override(name, ...)
-    local usage = "lole_override: Usage: override NAME scripttext";
+    local usage = "lole_override: Usage: override [NAME/RAID] scripttext";
     if name == nil then
         echo(usage);
         return false;
@@ -643,7 +643,11 @@ local function lole_override(name, ...)
         table.insert(atab, arg);
     end
     script_text = table.concat(atab, " ");
-    SendAddonMessage("lole_override", script_text, "WHISPER", name);
+    if name == "RAID" then
+        SendAddonMessage("lole_override", script_text, "RAID");
+    else
+        SendAddonMessage("lole_override", script_text, "WHISPER", name);
+    end
 end
 
 local invite_order = {
@@ -759,7 +763,7 @@ local function lole_broadcast_set(attrib, state)
 end
 
 local function lole_broadcast_cooldowns()
-	lole_subcommands.sendmacro("RAID", "/lole cooldowns");
+	lole_subcommands.override("RAID", "cooldowns");
 end
 
 local function lole_broadcast_drink()
