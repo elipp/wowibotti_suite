@@ -31,7 +31,7 @@ SOCKET get_wow_socket_handle() {
 int encrypt_packet(BYTE* packet) {
 	DWORD sockobj = get_sockobj();
 
-	PRINT("sockobj = %X\n", sockobj);
+	//PRINT("sockobj = %X\n", sockobj);
 
 	for (int i = 0; i < 6; ++i) {
 	
