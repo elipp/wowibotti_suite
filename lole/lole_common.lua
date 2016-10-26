@@ -1290,9 +1290,20 @@ function on_gcd()
     return GetSpellCooldown(gcd_spells[UnitClass("player")]) > 0;
 end
 
+local passes = 0;
 function run_override()
     if not on_gcd() then
-        RunScript(OVERRIDE_COMMAND);
+        if OVERRIDE_COMMAND == "cooldowns" then
+            lole_subcommands.cooldowns();
+            passes = passes + 1;
+            if passes < 5 then
+                return;
+            else
+                passes = 0;
+            end
+        else
+            RunScript(OVERRIDE_COMMAND);
+        end
         lole_subcommands.set("playermode", 0);
         OVERRIDE_COMMAND = nil;
     end
