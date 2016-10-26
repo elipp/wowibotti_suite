@@ -52,7 +52,6 @@ int encrypt_packet(BYTE* packet) {
 		
 		*S121 = DL2 % (BYTE)0x14;
 
-		PRINT("EAX1 = %02X, EDX1 = %02X, XOR1 = %02X (== packet[%d])\n", EAX1, EDX1, DLXOR1, i);
 	}
 
 	return 1;
