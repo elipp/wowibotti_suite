@@ -1,3 +1,5 @@
+#include "defs.h"
+
 #include <Windows.h>
 #include <Shlobj.h> // for the function that gets the desktop directory path for current user
 
@@ -8,6 +10,7 @@
 #include "creds.h"
 #include "dungeon_script.h"
 #include "lua.h"
+#include "packet.h"
 
 extern HWND wow_hWnd;
 
@@ -928,9 +931,23 @@ int lop_exec(lua_State *L) {
 		dump_wowobjects_to_log();
 		break;
 	case LDOP_LOS_TEST: {
-
-	}
 		break;
+	}
+	case LDOP_ENCRYPT_TEST: {
+		// this would send blizzard rank 3 to coordinates x,y,z (below) =)
+		BYTE test[] = {
+		0x00, 0x19, 0x2E, 0x01, 0x00, 0x00, 0xEB, 0x20, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00,
+		0x26, 0xF0, 0x90, 0xC4, // x:float
+		0x27, 0x3E, 0xA8, 0x45, // y:float
+		0x06, 0x83, 0xD0, 0x41	// z:float
+		};
+		
+		encrypt_packet(test);
+		SOCKET s = get_wow_socket_handle();
+		send(s, (const char*)test, sizeof(test), 0);
+	
+		break;
+	}
 	default:
 		PRINT("lop_exec: unknown opcode %d!\n", opcode);
 		break;

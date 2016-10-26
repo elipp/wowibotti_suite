@@ -1,6 +1,8 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "stdafx.h"
 
+#define WIN32_LEAN_AND_MEAN
+
 #include <Windows.h>
 #include <D3D9.h>
 #include <string>
@@ -21,6 +23,7 @@
 #include "opcodes.h"
 #include "timer.h"
 #include "creds.h"
+#include "packet.h"
 
 #ifdef _DEBUG
 #define DEBUG_CONSOLE
@@ -183,8 +186,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 #endif
 
 		handle_pipe_stuff();
-// TODO: REPORT INJECTED STATUS
+
 		dscript_read_all();
+
+		PRINT("encrypt_packet: %p\n", encrypt_packet);
 
 		break;
 	}
