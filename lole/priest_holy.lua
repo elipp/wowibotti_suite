@@ -1,5 +1,4 @@
 local pom_time = 0;
-local mt_healer = true;
 
 local function should_cast_PoH(min_deficit, min_healable_chars)
     if min_deficit == nil then min_deficit = 3000; end
@@ -126,19 +125,13 @@ combat_priest_holy = function()
 		return;
 	end
 
-    local heal_targets = get_heal_targets(UnitName("player"));
-    if heal_targets[1] == "raid" then
+    local heal_targets = get_targets_sorted_by_urgency(get_heal_targets(UnitName("player")));
+    if heal_targets[1] == nil or heal_targets[1] == "raid" then
         raid_heal();
         return;
     end
 
-    local heal_target = get_single_heal_target(heal_targets);
-    if not heal_target then
-        raid_heal();
-        return;
-    end
-
-    TargetUnit(heal_target);
+    TargetUnit(heal_targets[1]);
 
 	local health_max = UnitHealthMax("target");
 	local health_cur = UnitHealth("target");

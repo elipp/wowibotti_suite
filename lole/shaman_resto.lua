@@ -84,19 +84,13 @@ combat_shaman_resto = function()
         if cast_if_nocd("Mana Tide Totem") then return end
     end
 
-    local heal_targets = get_heal_targets(UnitName("player"));
-    if heal_targets[1] == "raid" then
+    local heal_targets = get_targets_sorted_by_urgency(get_heal_targets(UnitName("player")));
+    if heal_targets[1] == nil or heal_targets[1] == "raid" then
         raid_heal();
         return;
     end
 
-    local heal_target = get_single_heal_target(heal_targets);
-    if not heal_target then
-        raid_heal();
-        return;
-    end
-
-    TargetUnit(heal_target);
+    TargetUnit(heal_targets[1]);
 
     local health_max = UnitHealthMax("target");
     local health_cur = UnitHealth("target");

@@ -47,19 +47,13 @@ combat_paladin_holy = function()
 		CastSpellByName("Divine Illumination");
 	end
 
-    local heal_targets = get_heal_targets(UnitName("player"));
-    if heal_targets[1] == "raid" then
+    local heal_targets = get_targets_sorted_by_urgency(get_heal_targets(UnitName("player")));
+    if heal_targets[1] == nil or heal_targets[1] == "raid" then
         raid_heal();
         return;
     end
 
-    local heal_target = get_single_heal_target(heal_targets);
-    if not heal_target then
-        raid_heal();
-        return;
-    end
-
-    TargetUnit(heal_target);
+    TargetUnit(heal_targets[1]);
 
     local health_max = UnitHealthMax("target");
     local health_cur = UnitHealth("target");
@@ -84,8 +78,10 @@ combat_paladin_holy = function()
         else
             cast_heal("Flash of Light");
         end
-    else
+    elseif table.contains(heal_targets, "raid") then
         raid_heal();
+    elseif not has or timeleft < 3 then
+        cast_heal("Holy Light(Rank 1)");
     end
 
 end

@@ -370,13 +370,14 @@ function cast_spell(spellname)
 	cast_if_nocd(spellname, rank);
 end
 
-function cast_heal(spellname, range)
+function cast_heal(spellname, target, range)
     if range == nil then range = 35; end
+    if target then TargetUnit(target); end
     if spellname ~= "Prayer of Healing" then
         caster_range_check(range);
     end
     if INSTANT_HEALS[spellname] then
-        cast_if_nocd(spellname);
+        return cast_if_nocd(spellname);
     else
         cast_spell(spellname);
     end
@@ -1041,11 +1042,10 @@ function get_raid_heal_target(with_urgencies)
     return get_heal_target(HP_table, maxmaxHP, with_urgencies);
 end
 
-function get_single_heal_target(chars)
+function get_targets_sorted_by_urgency(chars)
 
     local HP_table = {};
     local maxmaxHP = 0;
-    local num_valid_chars = 0;
     for i, name in pairs(chars) do
         if name == "raid" or not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") or UNREACHABLE_TARGETS[name] > GetTime() then
         else
@@ -1053,18 +1053,27 @@ function get_single_heal_target(chars)
             if HP_table[name][2] > maxmaxHP then
                 maxmaxHP = HP_table[name][2];
             end
-            num_valid_chars = num_valid_chars + 1;
         end
     end
 
-    if num_valid_chars > 1 then
-        return get_heal_target(HP_table, maxmaxHP);
-    elseif num_valid_chars == 1 then
-        local name, tbl = next(HP_table);
-        return name;
-    else
-        return nil;
+    local ordered_targets = {};
+    local _, urgencies = get_heal_target(HP_table, maxmaxHP, true);
+    for name, urgency in pairs(urgencies) do
+        local index = #ordered_targets + 1;
+        for i, tar in ipairs(ordered_targets) do
+            if urgency > urgencies[tar] then
+                index = i;
+                break;
+            end
+        end
+        table.insert(ordered_targets, index, name);
     end
+
+    if table.contains(chars, "raid") then
+        table.insert(ordered_targets, "raid");
+    end
+
+    return ordered_targets;
 
 end
 
