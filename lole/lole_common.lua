@@ -370,6 +370,18 @@ function cast_spell(spellname)
 	cast_if_nocd(spellname, rank);
 end
 
+function cast_heal(spellname, range)
+    if range == nil then range = 35; end
+    if spellname ~= "Prayer of Healing" then
+        caster_range_check(range);
+    end
+    if INSTANT_HEALS[spellname] then
+        cast_if_nocd(spellname);
+    else
+        cast_spell(spellname);
+    end
+end
+
 function get_HP_deficits(party_only, with_heals)
 	local HP_deficits = {};
     local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);

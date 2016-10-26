@@ -7,8 +7,7 @@ local function refresh_ES(targetname)
 
 	if not has_buff(targetname, "Earth Shield") then
 		TargetUnit(targetname)
-		caster_range_check(35)
-		cast_if_nocd("Earth Shield");
+		cast_heal("Earth Shield");
 		return true;
 	end
 
@@ -49,7 +48,7 @@ local function raid_heal()
 
     if (UnitHealth("player") < UnitHealthMax("player")*0.30) then
         TargetUnit("player");
-        cast_spell("Lesser Healing Wave");
+        cast_heal("Lesser Healing Wave");
     else
         local target, bounce1, bounce2 = get_CH_target_trio(get_serialized_heals());
         if not target then
@@ -58,8 +57,7 @@ local function raid_heal()
         TargetUnit(target);
         CH_BOUNCE_1 = bounce1
         CH_BOUNCE_2 = bounce2
-        caster_range_check(35);
-        cast_spell("Chain Heal");
+        cast_heal("Chain Heal");
     end
 
     return true;
@@ -99,21 +97,20 @@ combat_shaman_resto = function()
     end
 
     TargetUnit(heal_target);
-    caster_range_check(35);
 
     local health_max = UnitHealthMax("target");
     local health_cur = UnitHealth("target");
 
     if (health_cur < health_max * 0.30) then
-        cast_spell("Lesser Healing Wave");
+        cast_heal("Lesser Healing Wave");
     elseif (UnitHealth("player") < UnitHealthMax("player")*0.30) then
         TargetUnit("player");
-        cast_spell("Lesser Healing Wave");
+        cast_heal("Lesser Healing Wave");
     elseif (health_cur < health_max * 0.70) then
-        cast_spell("Healing Wave");
+        cast_heal("Healing Wave");
     elseif (UnitHealth("player") < UnitHealthMax("player")*0.50) then
         TargetUnit("player");
-        cast_spell("Healing Wave");
+        cast_heal("Healing Wave");
     elseif table.contains(heal_targets, "raid") then
         raid_heal();
     end

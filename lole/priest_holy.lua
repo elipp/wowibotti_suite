@@ -65,50 +65,48 @@ local function raid_heal()
     local health_cur = UnitHealth("target");
     local targeting_self = UnitName("target") == UnitName("player");
 
-    caster_range_check(35);
-
     if should_cast_PoH(6000, 4) then
-        cast_spell("Prayer of Healing");
+        cast_heal("Prayer of Healing");
         return true
     end
 
     if UnitHealth("player") < UnitHealthMax("player")*0.30 then
         TargetUnit("player");
-        cast_if_nocd("Power Word: Shield");
-        cast_spell("Flash Heal");
+        cast_heal("Power Word: Shield");
+        cast_heal("Flash Heal");
         return true
     end
 
     if (health_cur < health_max * 0.20) then
-        cast_if_nocd("Power Word: Shield");
-        cast_spell("Flash Heal");
+        cast_heal("Power Word: Shield");
+        cast_heal("Flash Heal");
         return true
     end
 
     if should_cast_PoH(3000, 4) then
-        cast_spell("Prayer of Healing");
+        cast_heal("Prayer of Healing");
         return true
     end
 
     local coh_target = get_CoH_target(urgencies);
     if coh_target then
         TargetUnit(coh_target);
-        cast_if_nocd("Circle of Healing");
+        cast_heal("Circle of Healing");
     elseif (health_cur < health_max * 0.50) then
-        cast_spell("Greater Heal");
+        cast_heal("Greater Heal");
     elseif (health_cur < health_max * 0.75) then
         if not targeting_self and (UnitHealth("player") < UnitHealthMax("player")*0.75) then
-            cast_spell("Binding Heal");
+            cast_heal("Binding Heal");
         else
-            cast_spell("Greater Heal(Rank 1)");
+            cast_heal("Greater Heal(Rank 1)");
         end
     elseif (health_cur < health_max * 0.85) then
         if time() - pom_time > 10 then
-            if cast_if_nocd("Prayer of Mending") then
+            if cast_heal("Prayer of Mending") then
                 pom_time = time();
             end
         elseif not has_buff("target", "Renew") then
-            cast_if_nocd("Renew");
+            cast_heal("Renew");
         end
     else
         return false;
@@ -141,43 +139,42 @@ combat_priest_holy = function()
     end
 
     TargetUnit(heal_target);
-    caster_range_check(35);
 
 	local health_max = UnitHealthMax("target");
 	local health_cur = UnitHealth("target");
 	local targeting_self = UnitName("target") == UnitName("player");
 
     if (health_cur < health_max * 0.15) then
-        cast_if_nocd("Power Word: Shield");
-        cast_spell("Flash Heal");
+        cast_heal("Power Word: Shield");
+        cast_heal("Flash Heal");
 	elseif (health_cur < health_max * 0.30) then
-		cast_spell("Greater Heal");
+		cast_heal("Greater Heal");
     elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
         TargetUnit("player");
-        cast_if_nocd("Power Word: Shield");
-        cast_spell("Flash Heal");
+        cast_heal("Power Word: Shield");
+        cast_heal("Flash Heal");
     elseif (health_cur < health_max * 0.50) then
-        cast_spell("Greater Heal");
+        cast_heal("Greater Heal");
     elseif time() - pom_time > 10 then
-        if cast_if_nocd("Prayer of Mending") then
+        if cast_heal("Prayer of Mending") then
             pom_time = time();
         end
     elseif (should_cast_PoH()) then
-        cast_spell("Prayer of Healing");
+        cast_heal("Prayer of Healing");
 	elseif (health_cur < health_max * 0.60) then
 		if not targeting_self and (UnitHealth("player") < UnitHealthMax("player")*0.50) then
-			cast_spell("Binding Heal");
+			cast_heal("Binding Heal");
 		else
-			cast_spell("Greater Heal");
+			cast_heal("Greater Heal");
 		end
 	elseif (health_cur < health_max * 0.80) then
 		if not targeting_self and (UnitHealth("player") < UnitHealthMax("player")*0.70) then
-			cast_spell("Binding Heal");
+			cast_heal("Binding Heal");
 		else
-			cast_spell("Greater Heal(Rank 1)");
+			cast_heal("Greater Heal(Rank 1)");
 		end
 	elseif not has_buff("target", "Renew") then
-		cast_if_nocd("Renew");
+		cast_heal("Renew");
     elseif table.contains(heal_targets, "raid") then
         raid_heal();
     end

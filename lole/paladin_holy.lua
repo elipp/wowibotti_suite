@@ -8,23 +8,21 @@ local function raid_heal()
     local health_max = UnitHealthMax("target");
     local health_cur = UnitHealth("target");
 
-    caster_range_check(35);
-
     local has, timeleft, stacks = has_buff("player", "Light's Grace");
 
     if (UnitHealth("player") < UnitHealthMax("player")*0.30) then
         TargetUnit("player");
-        cast_spell("Holy Light");
+        cast_heal("Holy Light");
     elseif (health_cur < health_max * 0.50) then
-        cast_spell("Holy Light");
+        cast_heal("Holy Light");
     elseif (health_cur < health_max * 0.80) then
         if not has or timeleft < 3 then
-            cast_spell("Holy Light(Rank 5)");
+            cast_heal("Holy Light(Rank 5)");
         else
-            cast_spell("Flash of Light");
+            cast_heal("Flash of Light");
         end
     elseif not has or timeleft < 3 then
-        cast_spell("Holy Light(Rank 1)");
+        cast_heal("Holy Light(Rank 1)");
     else
         return false;
     end
@@ -62,7 +60,6 @@ combat_paladin_holy = function()
     end
 
     TargetUnit(heal_target);
-    caster_range_check(35);
 
     local health_max = UnitHealthMax("target");
     local health_cur = UnitHealth("target");
@@ -72,20 +69,20 @@ combat_paladin_holy = function()
     if (health_cur < health_max * 0.30) then
         CastSpellByName("Divine Favor");
         CastSpellByName("Divine Illumination");
-        cast_spell("Holy Light");
+        cast_heal("Holy Light");
     elseif (UnitHealth("player") < UnitHealthMax("player")*0.30) then
         TargetUnit("player");
-        cast_spell("Holy Light");
+        cast_heal("Holy Light");
     elseif (health_cur < health_max * 0.70) then
-        cast_spell("Holy Light");
+        cast_heal("Holy Light");
     elseif (UnitHealth("player") < UnitHealthMax("player")*0.50) then
         TargetUnit("player");
-        cast_spell("Holy Light");
+        cast_heal("Holy Light");
     elseif (health_cur < health_max * 0.90) then
         if not has or timeleft < 3 then
-            cast_spell("Holy Light(Rank 5)");
+            cast_heal("Holy Light(Rank 5)");
         else
-            cast_spell("Flash of Light");
+            cast_heal("Flash of Light");
         end
     else
         raid_heal();

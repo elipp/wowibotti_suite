@@ -34,33 +34,31 @@ local function raid_heal()
     local health_max = UnitHealthMax("target");
     local health_cur = UnitHealth("target");
 
-    caster_range_check(35);
-
     local has_rg, timeleft_rg, stacks_rg = has_buff("target", "Regrowth");
     local has_rj, timeleft_rj, stacks_rj = has_buff("target", "Rejuvenation");
     local has_lb, timeleft_lb, stacks_lb = has_buff("target", "Lifebloom");
     if should_cast_tranquility() then
         CastSpellByName("Barkskin");
-        cast_spell("Tranquility");
+        CastSpellByName("Tranquility");
     elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
         CastSpellByName("Barkskin");
         TargetUnit("player");
-        cast_if_nocd("Swiftmend")
-        cast_spell("Regrowth");
+        cast_heal("Swiftmend")
+        cast_heal("Regrowth");
     elseif (health_cur < health_max * 0.35) then
-        cast_if_nocd("Swiftmend");
+        cast_heal("Swiftmend");
         if not has_rg or timeleft_rg < 5 then
-            cast_spell("Regrowth");
+            cast_heal("Regrowth");
         end
     elseif (health_cur < health_max * 0.60) then
         if not has_rj then
-            cast_if_nocd("Rejuvenation");
+            cast_heal("Rejuvenation");
         elseif not has_lb or stacks_lb < 3 then
-            cast_if_nocd("Lifebloom");
+            cast_heal("Lifebloom");
         end
     elseif (health_cur < health_max * 0.80) then
         if not has_lb or stacks_lb < 3 then
-            cast_if_nocd("Lifebloom");
+            cast_heal("Lifebloom");
         end
     else
         return false;
@@ -104,15 +102,13 @@ combat_druid_resto = function()
     local has_rj, timeleft_rj, stacks_rj = has_buff("target", "Rejuvenation");
     local has_lb, timeleft_lb, stacks_lb = has_buff("target", "Lifebloom");
 
-    caster_range_check(35);
-
     local health_max = UnitHealthMax("target");
     local health_cur = UnitHealth("target");
 
     if (health_cur < health_max * 0.35) then
-        cast_if_nocd("Swiftmend");
+        cast_heal("Swiftmend");
         if not has_rg or timeleft_rg < 5 then
-            cast_spell("Regrowth");
+            cast_heal("Regrowth");
         end
         return;
     end
@@ -120,39 +116,39 @@ combat_druid_resto = function()
     if UnitHealth("player") < UnitHealthMax("player")*0.30 then
         CastSpellByName("Barkskin");
         TargetUnit("player");
-        cast_if_nocd("Swiftmend")
-        cast_spell("Regrowth");
+        cast_heal("Swiftmend")
+        cast_heal("Regrowth");
         return;
     end
 
 	if has_lb then
 		if stacks_lb < 3 then
-			cast_if_nocd("Lifebloom")
+			cast_heal("Lifebloom")
 			return
 		elseif timeleft_lb < 1.2 then
-			cast_if_nocd("Lifebloom")
+			cast_heal("Lifebloom")
 			return
 		end
 	else
-		cast_if_nocd("Lifebloom")
+		cast_heal("Lifebloom")
 		return
 	end
 
 	if not has_rj then
-		cast_if_nocd("Rejuvenation")
+		cast_heal("Rejuvenation")
 		return
 	end
 
     if should_cast_tranquility() then
         CastSpellByName("Barkskin");
-        cast_spell("Tranquility");
+        CastSpellByName("Tranquility");
         return;
     end
 
     if UnitHealth("player") < UnitHealthMax("player")*0.50 then
         TargetUnit("player");
         if (not has_buff("target", "Rejuvenation")) then
-            cast_if_nocd("Rejuvenation");
+            cast_heal("Rejuvenation");
             return;
         end
     end
