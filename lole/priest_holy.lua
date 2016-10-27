@@ -125,7 +125,7 @@ combat_priest_holy = function()
 		return;
 	end
 
-    local heal_targets = get_targets_sorted_by_urgency(get_heal_targets(UnitName("player")));
+    local heal_targets = get_targets_sorted_by_urgency(get_assigned_targets(UnitName("player")));
     if heal_targets[1] == nil or heal_targets[1] == "raid" then
         raid_heal();
         return;

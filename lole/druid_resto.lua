@@ -25,18 +25,7 @@ local function should_cast_tranquility(min_deficit, min_healable_chars)
 end
 
 local function raid_heal()
-    local target = get_raid_heal_target();
-    if target then
-        TargetUnit(target);
-    else
-        TargetUnit("player");
-    end
-    local health_max = UnitHealthMax("target");
-    local health_cur = UnitHealth("target");
 
-    local has_rg, timeleft_rg, stacks_rg = has_buff("target", "Regrowth");
-    local has_rj, timeleft_rj, stacks_rj = has_buff("target", "Rejuvenation");
-    local has_lb, timeleft_lb, stacks_lb = has_buff("target", "Lifebloom");
     if should_cast_tranquility() then
         CastSpellByName("Barkskin");
         CastSpellByName("Tranquility");
@@ -47,29 +36,44 @@ local function raid_heal()
         cast_heal("Swiftmend")
         cast_heal("Regrowth");
         return true;
-    elseif (health_cur < health_max * 0.35) then
-        cast_heal("Swiftmend");
-        if not has_rg or timeleft_rg < 5 then
-            cast_heal("Regrowth");
-            return true;
+    end
+
+    local heal_targets = get_raid_heal_targets(4);
+
+    for i, target in ipairs(heal_targets) do
+        local health_max = UnitHealthMax(target);
+        local health_cur = UnitHealth(target);
+        local has_rg, timeleft_rg, stacks_rg = has_buff(target, "Regrowth");
+        local has_rj, timeleft_rj, stacks_rj = has_buff(target, "Rejuvenation");
+        local has_lb, timeleft_lb, stacks_lb = has_buff(target, "Lifebloom");
+
+        if (health_cur < health_max * 0.35) then
+            cast_heal("Swiftmend", target);
+            if not has_rg or timeleft_rg < 5 then
+                cast_heal("Regrowth", target);
+                return true;
+            end
+        end
+
+        if (health_cur < health_max * 0.60) then
+            if not has_rj then
+                cast_heal("Rejuvenation", target);
+                return true;
+            elseif not has_lb or stacks_lb < 3 then
+                cast_heal("Lifebloom", target);
+                return true;
+            end
+        end
+            
+        if (health_cur < health_max * 0.80) then
+            if not has_lb or timeleft_lb < 1.8 then
+                cast_heal("Lifebloom", target);
+                return true;
+            end
         end
     end
 
-    if (health_cur < health_max * 0.60) then
-        if not has_rj then
-            cast_heal("Rejuvenation");
-        elseif not has_lb or stacks_lb < 3 then
-            cast_heal("Lifebloom");
-        end
-    elseif (health_cur < health_max * 0.80) then
-        if not has_lb or stacks_lb < 3 then
-            cast_heal("Lifebloom");
-        end
-    else
-        return false;
-    end
-
-    return true;
+    return false;
 
 end
 
@@ -90,51 +94,53 @@ combat_druid_resto = function()
 		return;
 	end
 
-    local heal_targets = get_targets_sorted_by_urgency(get_heal_targets(UnitName("player")));
+    local heal_targets = get_targets_sorted_by_urgency(get_assigned_targets(UnitName("player")));
     if heal_targets[1] == nil or heal_targets[1] == "raid" then
         raid_heal();
         return;
     end
 
-    for i, heal_target in ipairs(heal_targets) do
-    	local has_rg, timeleft_rg, stacks_rg = has_buff(heal_target, "Regrowth");
-        local has_rj, timeleft_rj, stacks_rj = has_buff(heal_target, "Rejuvenation");
-        local has_lb, timeleft_lb, stacks_lb = has_buff(heal_target, "Lifebloom");
-
-        local health_max = UnitHealthMax(heal_target);
-        local health_cur = UnitHealth(heal_target);
-
-        if (health_cur < health_max * 0.35) then
-            cast_heal("Swiftmend", heal_target);
-            if not has_rg or timeleft_rg < 5 then
-                cast_heal("Regrowth", heal_target);
-                return;
-            elseif not has_rj then
-                cast_heal("Rejuvenation", heal_target);
-                return;
-            end
-        end
-
-        if UnitHealth("player") < UnitHealthMax("player")*0.30 then
-            CastSpellByName("Barkskin");
-            TargetUnit("player");
-            cast_heal("Swiftmend")
-            cast_heal("Regrowth");
+    local health_max = UnitHealthMax(heal_targets[1]);
+    local health_cur = UnitHealth(heal_targets[1]);
+    local has_rg, timeleft_rg, stacks_rg = has_buff(heal_targets[1], "Regrowth");
+    local has_rj, timeleft_rj, stacks_rj = has_buff(heal_targets[1], "Rejuvenation");
+    if (health_cur < health_max * 0.35) then
+        if cast_heal("Swiftmend", heal_targets[1]) then return; end
+        if not has_rg or timeleft_rg < 5 then
+            cast_heal("Regrowth", heal_targets[1]);
+            return;
+        elseif not has_rj then
+            cast_heal("Rejuvenation", heal_targets[1]);
             return;
         end
+    end
 
+    if UnitHealth("player") < UnitHealthMax("player")*0.30 then
+        CastSpellByName("Barkskin");
+        TargetUnit("player");
+        cast_heal("Swiftmend")
+        cast_heal("Regrowth");
+        return;
+    end
+
+    local lb_candidate = nil;
+    local unit_without_lb = nil;
+    for i, name in ipairs(heal_targets) do
+        local has_lb, timeleft_lb = has_buff(name, "Lifebloom");
     	if has_lb then
-    		if stacks_lb < 3 then
-    			cast_heal("Lifebloom", heal_target);
-    			return
-    		elseif timeleft_lb < 1.2 then
-    			cast_heal("Lifebloom", heal_target);
-    			return
-    		end
-    	else
-    		cast_heal("Lifebloom", heal_target);
-    		return
-    	end
+            if not lb_candidate then
+                lb_candidate = {name=name, timeleft=timeleft_lb};
+            elseif timeleft_lb < lb_candidate["timeleft"] then
+                lb_candidate = {name=name, timeleft=timeleft_lb};
+            end
+        elseif not unit_without_lb then
+            unit_without_lb = name;
+        end
+    end
+    if lb_candidate and lb_candidate["timeleft"] < 0.8 + #heal_targets * 0.2 then
+        cast_heal("Lifebloom", lb_candidate["name"]);
+    elseif unit_without_lb then
+        cast_heal("Lifebloom", unit_without_lb);
     end
 
     if should_cast_tranquility() then
@@ -143,7 +149,6 @@ combat_druid_resto = function()
         return;
     end
 
-    local has_rj, timeleft_rj, stacks_rj = has_buff(heal_targets[1], "Rejuvenation");
     if not has_rj then
         cast_heal("Rejuvenation", heal_targets[1]);
         return

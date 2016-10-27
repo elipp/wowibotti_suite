@@ -1000,7 +1000,7 @@ function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars)
 
 end
 
-function get_heal_targets(healer)
+function get_assigned_targets(healer)
     return HEALER_TARGETS[healer];
 end
 
@@ -1040,6 +1040,39 @@ end
 function get_raid_heal_target(with_urgencies)
     local HP_table, maxmaxHP = get_HP_table_and_maxmaxHP();
     return get_heal_target(HP_table, maxmaxHP, with_urgencies);
+end
+
+function get_raid_heal_targets(num_targets)
+    
+    -- Returns a table of healable raid members sorted in descending order of urgency.
+    -- Limit number of elements to num_targets when passed.
+
+    local HP_table, maxmaxHP = get_HP_table_and_maxmaxHP();
+
+    local ordered_targets = {};
+    local _, urgencies = get_heal_target(HP_table, maxmaxHP, true);
+    for name, urgency in pairs(urgencies) do
+        local index = #ordered_targets + 1;
+        for i, tar in ipairs(ordered_targets) do
+            if urgency > urgencies[tar] then
+                index = i;
+                break;
+            end
+        end
+        table.insert(ordered_targets, index, name);
+    end
+
+    if num_targets == nil then
+        return ordered_targets;
+    end
+
+    local r_tbl = {};
+    for i = 1, num_targets do
+        table.insert(r_tbl, ordered_targets[i]);
+    end
+
+    return r_tbl;
+
 end
 
 function get_targets_sorted_by_urgency(chars)
@@ -1102,7 +1135,7 @@ end
 function get_new_healer_targets(op, healer, new_targets)
 
     local targets = {};
-    local old_targets = shallowcopy(get_heal_targets(healer));
+    local old_targets = shallowcopy(get_assigned_targets(healer));
     if op == "set" then
         targets = new_targets;
     elseif op == "add" then
