@@ -23,12 +23,12 @@ SOCKET get_wow_socket_handle() {
 
 	DWORD S = DEREF(sockobj + 0x4);
 
-	PRINT("socket = %X\n", S);
+//	PRINT("socket = %X\n", S);
 
 	return (SOCKET)S;
 }
 
-int encrypt_packet(BYTE* packet) {
+int encrypt_packet_header(BYTE* packet) {
 	DWORD sockobj = get_sockobj();
 
 	//PRINT("sockobj = %X\n", sockobj);

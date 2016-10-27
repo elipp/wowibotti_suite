@@ -559,6 +559,10 @@ local function lole_dscript(...)
 
 end
 
+local function lole_cast_gtaoe(spellID, x, y, z)
+	cast_GTAOE(spellID, x, y, z);
+end
+
 local function lole_sendscript(to, ...)
     local usage = "lole_sendscript: Usage: sendscript/ss [(RAID)/PARTY/GUILD]/[WHISPER/w [t1,t2,...,tn]] scripttext";
     if to == nil then
@@ -873,9 +877,11 @@ lole_subcommands = {
 	ss = lole_sendscript,
 	sendmacro = lole_sendmacro,
 	run = lole_sendmacro,
-    override = lole_override,
+  override = lole_override,
 
 	sendmacro_to = lole_sendmacro_to,
+
+	cast_gtaoe = lole_cast_gtaoe,
 
 	cc = lole_cc,
 
@@ -886,7 +892,7 @@ lole_subcommands = {
 	dscript = lole_dscript,
 
 	register = lole_debug_lua_register,
-    distance = lole_distance_to_target,
+  distance = lole_distance_to_target,
 
-		encrypt = lole_encrypt_test;
+	encrypt = lole_encrypt_test;
 }

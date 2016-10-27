@@ -7,5 +7,5 @@
 #include <WinSock2.h>
 
 SOCKET get_wow_socket_handle();
-int encrypt_packet(BYTE* packet);
+int encrypt_packet_header(BYTE* packet);
 

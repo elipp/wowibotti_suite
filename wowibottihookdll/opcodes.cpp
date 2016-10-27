@@ -55,7 +55,7 @@ static lop_func_t lop_funcs[] = {
  LOPFUNC(LOP_GET_CTM_STATE, 0, 0, 1),
  LOPFUNC(LOP_GET_PREVIOUS_CAST_MSG, 0, 0, 1),
  LOPFUNC(LOP_STOPFOLLOW, 0, 0, 0),
-
+ LOPFUNC(LOP_CAST_GTAOE, 4, 4, 0),
 
 };
 
@@ -923,6 +923,36 @@ int lop_exec(lua_State *L) {
 		LOP_stopfollow();
 		break;
 
+	case LOP_CAST_GTAOE: {
+		BYTE sockbuf[] = {
+			0x00, 0x19, 0x2E, 0x01, 0x00, 0x00, // HEADER
+			0xAA, 0xBB, 0xCC, 0xDD, 0x00, 0x40, 0x00, 0x00, 0x00,
+		 // ^^^^^^^^^^^^^^^^^^^^^^ - SPELLID
+			0xA1, 0xA2, 0xA3, 0xA4, // x:float	
+			0xB1, 0xB2, 0xB3, 0xB4, // y:float
+			0xC1, 0xC2, 0xC3, 0xC4	// z:float
+		};
+
+		long spellID = lua_tointeger(L, 2);
+		
+		float x, y, z;
+		x = lua_tonumber(L, 3);
+		y = lua_tonumber(L, 4);
+		z = lua_tonumber(L, 5);
+
+		memcpy(sockbuf + 6, &spellID, sizeof(spellID));
+		memcpy(sockbuf + 15, &x, sizeof(x));
+		memcpy(sockbuf + 19, &y, sizeof(y));
+		memcpy(sockbuf + 23, &z, sizeof(z));
+
+		encrypt_packet_header(sockbuf);
+		
+		SOCKET s = get_wow_socket_handle();
+		send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+
+		break;
+	}
+
 	case LDOP_LUA_REGISTERED:
 		lua_registered = 1;
 		break;
@@ -933,21 +963,7 @@ int lop_exec(lua_State *L) {
 	case LDOP_LOS_TEST: {
 		break;
 	}
-	case LDOP_ENCRYPT_TEST: {
-		// this would send blizzard rank 3 to coordinates x,y,z (below) =)
-		BYTE test[] = {
-		0x00, 0x19, 0x2E, 0x01, 0x00, 0x00, 0xEB, 0x20, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00,
-		0x26, 0xF0, 0x90, 0xC4, // x:float
-		0x27, 0x3E, 0xA8, 0x45, // y:float
-		0x06, 0x83, 0xD0, 0x41	// z:float
-		};
-		
-		encrypt_packet(test);
-		SOCKET s = get_wow_socket_handle();
-		send(s, (const char*)test, sizeof(test), 0);
-	
-		break;
-	}
+
 	default:
 		PRINT("lop_exec: unknown opcode %d!\n", opcode);
 		break;

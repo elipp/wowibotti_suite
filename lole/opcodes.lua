@@ -18,6 +18,7 @@ local LOP_GET_WALKING_STATE = 0x10
 local LOP_GET_CTM_STATE = 0x11
 local LOP_GET_PREVIOUS_CAST_MSG = 0x12
 local LOP_STOPFOLLOW = 0x13
+local LOP_CAST_GTAOE = 0x14
 
 local LOP_EXT_NOP = 0x70
 local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x71
@@ -28,7 +29,6 @@ local LDOP_LOOT_ALL = 0xE2
 local LDOP_PULL_TEST = 0xE3
 local LDOP_LUA_REGISTERED = 0xE4
 local LDOP_LOS_TEST = 0xE5
-local LDOP_ENCRYPT_TEST = 0xE6
 
 
 ----------------------------
@@ -145,6 +145,10 @@ end
 
 function is_walking()
     return lop_exec(LOP_GET_WALKING_STATE)
+end
+
+function cast_GTAOE(spellID, x, y, z)
+	lop_exec(LOP_CAST_GTAOE, spellID, x, y, z);
 end
 
 local INJECTED_STATUS = 0
