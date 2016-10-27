@@ -136,10 +136,11 @@ local function on_spell_event(self, event, caster, spell, rank, target)
     if prevent_double_call(event) then return end
     if event == "UNIT_SPELLCAST_SENT" then
         SPELL_TARGET = target;
-        return
+        return;
     end
     if event == "UNIT_SPELLCAST_SUCCEEDED" and INSTANT_HEALS[spell] then
         HEAL_ATTEMPTS = 0;
+        return;
     end
     local heal_estimate = HEAL_ESTIMATES[spell.."("..rank..")"];
     if heal_estimate then
@@ -210,9 +211,11 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
         if prevent_double_call(prefix) then return end
         local guildies = get_guild_members()
         if guildies[sender] then
-            OVERRIDE_COMMAND = message;
-            lole_subcommands.set("playermode", 1);
-            SpellStopCasting();
+            if lole_subcommands.get("playermode") == 0 then
+                OVERRIDE_COMMAND = message;
+                lole_subcommands.set("playermode", 1);
+                SpellStopCasting();
+            end
         else
             SendChatMessage("lole_runscript: " .. sender .. " doesn't appear to be a member of Uuslapio, not running script!", "GUILD");
         end
