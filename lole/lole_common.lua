@@ -1075,7 +1075,7 @@ function get_raid_heal_targets(num_targets)
 
 end
 
-function get_targets_sorted_by_urgency(chars)
+function sorted_by_urgency(chars)
 
     local HP_table = {};
     local maxmaxHP = 0;

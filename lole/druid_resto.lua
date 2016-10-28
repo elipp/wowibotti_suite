@@ -1,3 +1,5 @@
+local do_tranquility = false;
+
 local function should_cast_tranquility(min_deficit, min_healable_chars)
     if min_deficit == nil then min_deficit = 5000; end
     if min_healable_chars == nil then min_healable_chars = 4; end
@@ -28,7 +30,7 @@ local function raid_heal()
 
     if should_cast_tranquility() then
         CastSpellByName("Barkskin");
-        CastSpellByName("Tranquility");
+        do_tranquility = true;
         return true;
     elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
         CastSpellByName("Barkskin");
@@ -79,8 +81,12 @@ end
 
 combat_druid_resto = function()
 
+    if UnitChannelInfo("player") then return; end
+    if do_tranquility then
+        if cast_if_nocd("Tranquility") then do_tranquility = false end
+        return;
+    end
     if casting_legit_heal() then return end
-    if UnitChannelInfo("player") then return; end -- tranquility
 
     if (not has_buff("player", "Tree of Life")) then
         CastSpellByName("Tree of Life")
@@ -94,7 +100,7 @@ combat_druid_resto = function()
 		return;
 	end
 
-    local heal_targets = get_targets_sorted_by_urgency(get_assigned_targets(UnitName("player")));
+    local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
     if heal_targets[1] == nil or heal_targets[1] == "raid" then
         raid_heal();
         return;
@@ -126,15 +132,17 @@ combat_druid_resto = function()
     local lb_candidate = nil;
     local unit_without_lb = nil;
     for i, name in ipairs(heal_targets) do
-        local has_lb, timeleft_lb = has_buff(name, "Lifebloom");
-    	if has_lb then
-            if not lb_candidate then
-                lb_candidate = {name=name, timeleft=timeleft_lb};
-            elseif timeleft_lb < lb_candidate["timeleft"] then
-                lb_candidate = {name=name, timeleft=timeleft_lb};
+        if name ~= "raid" then
+            local has_lb, timeleft_lb = has_buff(name, "Lifebloom");
+        	if has_lb then
+                if not lb_candidate then
+                    lb_candidate = {name=name, timeleft=timeleft_lb};
+                elseif timeleft_lb < lb_candidate["timeleft"] then
+                    lb_candidate = {name=name, timeleft=timeleft_lb};
+                end
+            elseif not unit_without_lb then
+                unit_without_lb = name;
             end
-        elseif not unit_without_lb then
-            unit_without_lb = name;
         end
     end
     if lb_candidate and lb_candidate["timeleft"] < 0.8 + #heal_targets * 0.2 then
@@ -145,7 +153,7 @@ combat_druid_resto = function()
 
     if should_cast_tranquility() then
         CastSpellByName("Barkskin");
-        CastSpellByName("Tranquility");
+        do_tranquility = true;
         return;
     end
 
