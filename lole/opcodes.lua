@@ -19,6 +19,7 @@ local LOP_GET_CTM_STATE = 0x11
 local LOP_GET_PREVIOUS_CAST_MSG = 0x12
 local LOP_STOPFOLLOW = 0x13
 local LOP_CAST_GTAOE = 0x14
+local LOP_HAS_AGGRO = 0x15
 
 local LOP_EXT_NOP = 0x70
 local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x71
@@ -149,6 +150,10 @@ end
 
 function cast_GTAOE(spellID, x, y, z)
 	lop_exec(LOP_CAST_GTAOE, spellID, x, y, z);
+end
+
+function has_aggro()
+	return lop_exec(LOP_HAS_AGGRO)
 end
 
 local INJECTED_STATUS = 0

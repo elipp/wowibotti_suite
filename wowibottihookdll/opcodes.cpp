@@ -747,6 +747,27 @@ static int LOP_get_unit_position(const std::string &name, double *out) {
 
 }
 
+static int have_aggro() {
+	ObjectManager OM;
+
+	WowObject p;
+	OM.get_local_object(&p);
+
+	GUID_t pGUID = p.get_GUID();
+
+	WowObject o = OM.get_first_object();
+
+	while (o.valid()) {
+		if (o.get_type() == OBJECT_TYPE_NPC) {
+			GUID_t tGUID = o.NPC_get_target_GUID();
+			if (pGUID == tGUID) return 1;
+		}
+		o = o.getNextObject();
+	}
+
+	return 0;
+}
+
 static int check_num_args(int opcode, int nargs) {
 
 	if (opcode >= LOP_NUM_OPCODES) return 1;
@@ -952,6 +973,12 @@ int lop_exec(lua_State *L) {
 
 		break;
 	}
+	case LOP_HAS_AGGRO: 
+		if (have_aggro()) {
+			lua_pushboolean(L, 1);
+			return 1;
+		}
+		break;
 
 	case LDOP_LUA_REGISTERED:
 		lua_registered = 1;
