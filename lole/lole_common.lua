@@ -20,7 +20,7 @@ DEFAULT_HEALER_TARGETS = {
 HEALS_IN_PROGRESS = {};
 HEAL_FINISH_INFO = {};
 HEAL_ATTEMPTS = 0;
-MAX_HEAL_ATTEMPTS = 20;
+MAX_HEAL_ATTEMPTS = 5;
 UNREACHABLE_TARGETS = {};
 CH_BOUNCE_1 = nil;
 CH_BOUNCE_2 = nil;
@@ -340,15 +340,22 @@ function get_config_name_with_color(arg_config)
 
 end
 
+local cast_failed_msgs = {
+    [44] = "Not in line of sight",
+}
+
 function track_heal_attempts(name)
-    if is_walking() or not name then return end
-    HEAL_ATTEMPTS = HEAL_ATTEMPTS + 1;
-    if HEAL_ATTEMPTS == MAX_HEAL_ATTEMPTS or (UNREACHABLE_TARGETS[name] + 5 > GetTime() and HEAL_ATTEMPTS == 5) then
-        HEAL_ATTEMPTS = 0;
-        if UNREACHABLE_TARGETS[name] + 5 < GetTime() then
-            SendChatMessage(name .. " to the penalty box for 5 sec. (not healable)", "GUILD");
+    if not name then return end
+    local fail_msg = cast_failed_msgs[get_cast_failed_msgid()];
+    if fail_msg then
+        HEAL_ATTEMPTS = HEAL_ATTEMPTS + 1;
+        if HEAL_ATTEMPTS == MAX_HEAL_ATTEMPTS then
+            HEAL_ATTEMPTS = 0;
+            if UNREACHABLE_TARGETS[name] + 5 < GetTime() then
+                SendChatMessage(string.format("%s to the penalty box for 5 sec: %s", name, fail_msg), "GUILD");
+            end
+            UNREACHABLE_TARGETS[name] = GetTime() + 5;
         end
-        UNREACHABLE_TARGETS[name] = GetTime() + 5;
     end
 end
 

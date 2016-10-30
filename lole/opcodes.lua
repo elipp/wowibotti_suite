@@ -156,6 +156,10 @@ function has_aggro()
 	return lop_exec(LOP_HAS_AGGRO)
 end
 
+function get_cast_failed_msgid()
+    return lop_exec(LOP_GET_PREVIOUS_CAST_MSG);
+end
+
 local INJECTED_STATUS = 0
 
 function query_injected()
