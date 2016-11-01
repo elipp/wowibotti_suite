@@ -499,7 +499,7 @@ function delete_all_CC_entries()
 	end
 end
 
-function new_CC(char, spellID, marker)
+function new_CC(char, marker, spellID)
 	-- echo("Asking " .. trim_string(char) .. " to do " .. trim_string(spell) .. " on " .. trim_string(marker) .. "!")
 
 	if CC_state[marker] then
@@ -605,7 +605,7 @@ function new_CC(char, spellID, marker)
 end
 
 StaticPopupDialogs["ADD_CC_DIALOG"] = {
-	text = "CC syntax: <char>, <spell>, <marker>",
+	text = "CC syntax: <character> <marker> <spell>",
 	button1 = "OK",
 	button2 = "Cancel",
 
@@ -621,14 +621,14 @@ StaticPopupDialogs["ADD_CC_DIALOG"] = {
 
 	OnAccept = function()
 		local text = getglobal(this:GetParent():GetName().."WideEditBox"):GetText()
-		local _char, _spell, _marker = strsplit(",", text);
-		local char, spell, marker = trim_string(_char), trim_string(_spell), trim_string(_marker)
+		local _char, _marker, _spell = strsplit(" ", text);
+		local char, marker, spell = trim_string(_char), trim_string(_marker), trim_string(_spell)
 
 		local spellID = get_CC_spellID(spell)
-		new_CC(char, spellID, marker)
+		new_CC(char, marker, spellID)
 
 		local spell = get_CC_spellname(spellID);
-		enable_cc_target(char, spell, marker)
+		enable_cc_target(char, marker, spell)
 	end,
 
 };

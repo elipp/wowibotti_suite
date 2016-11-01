@@ -500,11 +500,11 @@ end
 
 local function lole_cc(state, marker, spell)
 
-		echo("set_cc_target: got args: " .. enabled .. ", " .. marker .. ", " .. spell);
+		echo("set_cc_target: got args: " .. state .. ", " .. marker .. ", " .. spell);
 
 		if (state == "enable") then
 			set_CC_job(spell, marker)
-			new_CC(UnitName("player"), get_CC_spellID(spell), marker);
+			new_CC(UnitName("player"), marker, get_CC_spellID(spell));
 		elseif (state == "disable") then
 			unset_CC_job(marker)
 			delete_CC_entry(marker)
@@ -512,7 +512,7 @@ local function lole_cc(state, marker, spell)
 			unset_all_CC_jobs()
 			delete_all_CC_entries()
 		else
-			lole_error("set_cc_target: invalid argument! (enabled must be 1, 0 or -1)");
+			lole_error("set_cc_target: invalid argument! (enabled must be \"enable\" || \"disable\" || \"clear\")");
 			return false
 		end
 
