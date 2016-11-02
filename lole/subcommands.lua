@@ -550,6 +550,8 @@ local function lole_dscript(...)
 				dscript(command, scriptname)
 				return true;
 			end
+		elseif command == "next" then
+				dscript(command)
 		elseif command == "stop" then
 				dscript(command)
 		else

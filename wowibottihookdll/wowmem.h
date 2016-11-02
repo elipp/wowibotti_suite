@@ -71,7 +71,7 @@ private:
 
 public:
 	bool valid() const;
-	WowObject getNextObject() const;
+	WowObject next() const;
 
 	vec3 get_pos() const;
 	float get_rot() const;
@@ -123,6 +123,9 @@ public:
 	int DO_get_spellID() const;
 	vec3 DO_get_pos() const;
 
+	std::string GO_get_name() const;
+	vec3 GO_get_pos() const;
+
 	WowObject(unsigned int addr);
 	WowObject();
 
@@ -163,6 +166,7 @@ public:
 	GUID_t get_local_GUID() const;
 	int get_local_object(WowObject *o) const;
 	uint get_base_address() const { return base_addr; }
+	std::vector<WowObject> find_all_NPCs_at(const vec3 &pos, float radius);
 
 	std::vector<WowObject> get_spell_objects_with_spellID(long spellID);
 

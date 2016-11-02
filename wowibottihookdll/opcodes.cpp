@@ -193,7 +193,7 @@ static int LOP_melee_avoid_aoe_buff(long spellID) {
 				return 1;
 			}
 		}
-		o = o.getNextObject();
+		o = o.next();
 	}
 
 	return 0;
@@ -332,7 +332,9 @@ static void LOP_dungeon_script(const std::string &command, const std::string &sc
 	else if (command == "stop") {
 		dscript_unload();
 	}
-
+	else if (command == "next") {
+		dscript_next();
+	}
 }
 
 static int LOP_target_marker(const std::string &arg) {
@@ -529,7 +531,7 @@ static std::vector<std::string> LOP_chain_heal_target(const std::string &arg) {
 				units.push_back(WO_cached(next.get_GUID(), next.get_pos(), hp, next.unit_get_health_max(), inc_heals, 0.0, name));
 			}
 		}
-		next = next.getNextObject();
+		next = next.next();
 	}
 
 	std::vector<WO_cached> deficit_candidates;
@@ -625,7 +627,7 @@ static int LOP_maulgar_get_felhound() {
 			}
 		}
 
-		next = next.getNextObject();
+		next = next.next();
 	}
 
 	SelectUnit(0);
@@ -762,7 +764,7 @@ static int have_aggro() {
 			GUID_t tGUID = o.NPC_get_target_GUID();
 			if (pGUID == tGUID) return 1;
 		}
-		o = o.getNextObject();
+		o = o.next();
 	}
 
 	return 0;
@@ -847,13 +849,12 @@ int lop_exec(lua_State *L) {
 	case LOP_DUNGEON_SCRIPT: {
 		const char* command = lua_tolstring(L, 2, &len);
 	
-		const char* scriptname = "";
+		const char* scriptname = NULL;
 		if (nargs > 2) {
 			scriptname = lua_tolstring(L, 3, &len);
 		}
-		
-		PRINT("LOP_DUNGEON_SCRIPT: command: %s, scriptname: %s\n", command, scriptname);
-		LOP_dungeon_script(command, scriptname);
+
+		LOP_dungeon_script(command, scriptname ? scriptname : "");
 		break;	
 	}
 	
@@ -1032,21 +1033,21 @@ static int dump_wowobjects_to_log() {
 
 	fprintf(fp, "Basic info: ObjectManager base: %X, local GUID = 0x%016llX, player target: %016llX\n\n", OM.get_base_address(), OM.get_local_GUID(), target_GUID);
 
-	for (WowObject next = OM.get_first_object(); next.valid(); next = next.getNextObject()) {
-		uint type = next.get_type();
+	for (WowObject o = OM.get_first_object(); o.valid(); o = o.next()) {
+		uint type = o.get_type();
 		if (type == OBJECT_TYPE_ITEM || type == OBJECT_TYPE_CONTAINER) { continue; }  
 		
-		fprintf(fp, "object GUID: 0x%016llX, base addr = %X, type: %s\n", next.get_GUID(), next.get_base(), next.get_type_name().c_str());
+		fprintf(fp, "object GUID: 0x%016llX, base addr = %X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
 
 		if (type == OBJECT_TYPE_NPC || type == OBJECT_TYPE_UNIT) {
-			vec3 pos = next.get_pos();
-			fprintf(fp, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, next.get_rot());
+			vec3 pos = o.get_pos();
+			fprintf(fp, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, o.get_rot());
 
 			if (type == OBJECT_TYPE_NPC) {
-				fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", next.NPC_get_name().c_str(), next.NPC_get_health(), next.NPC_get_health_max(), next.NPC_get_target_GUID(), next.in_combat());
+				fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", o.NPC_get_name().c_str(), o.NPC_get_health(), o.NPC_get_health_max(), o.NPC_get_target_GUID(), o.in_combat());
 				fprintf(fp, "buffs (by spellID):\n");
 				for (int n = 1; n <= 16; ++n) { // the maximum is actually 40, but..
-					uint spellID = next.NPC_get_buff(n);
+					uint spellID = o.NPC_get_buff(n);
 					if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
 					else break;
 				}
@@ -1054,9 +1055,9 @@ static int dump_wowobjects_to_log() {
 				fprintf(fp, "\ndebuffs (by spellID):\n");
 
 				for (int n = 1; n <= 16; ++n) {
-					uint spellID = next.NPC_get_debuff(n);
+					uint spellID = o.NPC_get_debuff(n);
 					if (spellID != 0) {
-						uint duration = next.NPC_get_debuff_duration(n, spellID);
+						uint duration = o.NPC_get_debuff_duration(n, spellID);
 						fprintf(fp, "%d: %u, duration = %u\n", n, spellID, duration);
 					}
 					else break;
@@ -1066,26 +1067,30 @@ static int dump_wowobjects_to_log() {
 				
 			}
 			else if (type == OBJECT_TYPE_UNIT) {
-				fprintf(fp, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", next.unit_get_name().c_str(), next.unit_get_health(), next.unit_get_health_max(), next.unit_get_target_GUID(), next.in_combat());
+				fprintf(fp, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", o.unit_get_name().c_str(), o.unit_get_health(), o.unit_get_health_max(), o.unit_get_target_GUID(), o.in_combat());
 				fprintf(fp, "buffs (by spellID):\n");
 				for (int n = 1; n <= 16; ++n) {
-					uint spellID = next.unit_get_buff(n);
+					uint spellID = o.unit_get_buff(n);
 					if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
 				}
 
 				fprintf(fp, "debuffs (by spellID)\n");
 
 				for (int n = 1; n <= 16; ++n) {
-					uint spellID = next.unit_get_debuff(n);
+					uint spellID = o.unit_get_debuff(n);
 					if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
 				}
 
 				fprintf(fp, "\n");
 			}
 		}
-		else if (next.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
-			vec3 DO_pos = next.DO_get_pos();
-			fprintf(fp, "position: (%f, %f, %f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, next.DO_get_spellID());
+		else if (o.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
+			vec3 DO_pos = o.DO_get_pos();
+			fprintf(fp, "position: (%f, %f, %f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, o.DO_get_spellID());
+		}
+		else if (o.get_type() == OBJECT_TYPE_GAMEOBJECT) {
+			vec3 GO_pos = o.GO_get_pos();
+			fprintf(fp, "name: %s, position: (%f, %f, %f)\n\n", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
 		}
 
 		fprintf(fp, "----------------------------------------------------------------------------\n");

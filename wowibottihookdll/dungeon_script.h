@@ -32,6 +32,7 @@ struct dscript_objective_t {
 	vec3 pack_pos;
 	int num_mobs;
 	int pack_type;
+	float radius;
 
 	std::vector<GUID> mob_GUIDS;
 };
@@ -40,7 +41,7 @@ struct dscript_t {
 	std::string script_name;
 	int script_state;
 
-	std::queue<dscript_objective_t> tasks;
+	std::vector<dscript_objective_t> tasks;
 	int read_from_file(const std::string &filepath);
 
 	dscript_t() {
@@ -50,5 +51,7 @@ struct dscript_t {
 
 int dscript_read_all(); // read all from the dscript/ directory
 int dscript_run(); // run currently active script
+int dscript_next(); // advance to the next objective
 int dscript_load(const std::string &scriptname);
 int dscript_unload();
+

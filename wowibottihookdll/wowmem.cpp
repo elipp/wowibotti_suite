@@ -107,7 +107,7 @@ bool WowObject::valid() const {
 	return ((this->get_base() != 0) && ((this->get_base() & 1) == 0));
 }
 
-WowObject WowObject::getNextObject() const {
+WowObject WowObject::next() const {
 	unsigned int next_base;
 	readAddr(base + this->Next, &next_base, sizeof(next_base));
 	return WowObject(next_base);
@@ -453,6 +453,28 @@ vec3 WowObject::DO_get_pos() const {
 	return vec3(coords[0], coords[1], coords[2]);
 }
 
+std::string WowObject::GO_get_name() const {
+	// see Wow.exe: 0x5FD820
+
+	DWORD step1 = 0;
+	readAddr(base + 0x224, &step1, sizeof(step1));
+
+	if (!step1) { return "error"; }
+
+	const char* namestr = NULL;
+	readAddr(step1 + 0x78, &namestr, sizeof(namestr));
+
+	return namestr;
+
+}
+
+vec3 WowObject::GO_get_pos() const {
+	float coords[3];
+	readAddr(base + 0x258, coords, 3 * sizeof(float));
+
+	return vec3(coords[0], coords[1], coords[2]);
+}
+
 
 void ObjectManager::LoadAddresses() {
 
@@ -486,7 +508,7 @@ int ObjectManager::get_object_by_GUID(GUID_t GUID, WowObject *o) const {
 			*o = next;
 			return 1;
 		}
-		next = next.getNextObject();
+		next = next.next();
 	}
 	return 0;
 }
@@ -503,7 +525,7 @@ int ObjectManager::get_unit_by_name(const std::string &name, WowObject *o) const
 			}
 		}
 
-		next = next.getNextObject();
+		next = next.next();
 	}
 
 	PRINT("get_unit_by_name: couldn't find unit with name %s\n", name.c_str());
@@ -534,9 +556,26 @@ std::vector<WowObject> ObjectManager::get_spell_objects_with_spellID(long spellI
 				matches.push_back(next);
 			}
 		}
-		next = next.getNextObject();
+		next = next.next();
 	}
 
 	return matches;
+}
+
+std::vector<WowObject> ObjectManager::find_all_NPCs_at(const vec3 &pos, float radius) {
+	std::vector<WowObject> NPCs;
+
+	WowObject o = get_first_object();
+
+	while (o.valid()) {
+		if (o.get_type() == OBJECT_TYPE_NPC) {
+			vec3 opos = o.get_pos();
+			float dist = (opos - pos).length();
+			if (dist < radius) { NPCs.push_back(o); }
+		}
+		o = o.next();
+	}
+
+	return NPCs;
 }
 

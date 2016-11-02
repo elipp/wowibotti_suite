@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "dungeon_script.h"
 #include "defs.h"
+#include "wowmem.h"
 
 #include <fstream>
 
@@ -41,55 +42,72 @@ static int parse_coords(const std::string &coords, vec3 &out) {
 	return 1;
 }
 
-static int read_statements(const std::string &statement, dscript_objective_t &o) {
+static int parse_statement(const std::string &line_stripped, dscript_objective_t *o) {
 	
-	std::vector<std::string> e;
-	tokenize_string(statement, "=", e);
+	std::vector<std::string> L1;
+	tokenize_string(line_stripped, ";", L1);
 
-	if (e.size() != 2) {
-		PRINT("dscript-read_statements: invalid statement \"%s\", ignoring.\n", statement.c_str());
-		return 0;
-	}
+	for (auto &statement : L1) {
 
-	if (e[0] == "coords") {
-		if (!parse_coords(e[1], o.wp_pos)) {
+		std::vector<std::string> e;
+		tokenize_string(statement, "=", e);
+
+		if (e.size() != 2) {
+			PRINT("dscript::parse_statement: invalid statement \"%s\", ignoring.\n", statement.c_str());
 			return 0;
 		}
-	}
-	else if (e[0] == "mobpack") {
-		if (!parse_coords(e[1], o.pack_pos)) {
-			return 0;
-		}
-	}
 
-	else if (e[0] == "pack_type") {
-		if (e[1] == "static") {
-			o.pack_type = SCRIPT_PACKTYPE_STATIC;
-		} 
+		const std::string &keyword = e[0];
 
-		else if (e[1] == "patrol") {
-			o.pack_type = SCRIPT_PACKTYPE_PATROL;
+		if (keyword == "coords") {
+			if (!parse_coords(e[1], o->wp_pos)) {
+				return 0;
+			}
 		}
-		
+		else if (keyword == "mobpack") {
+			if (!parse_coords(e[1], o->pack_pos)) {
+				return 0;
+			}
+		}
+
+		else if (keyword == "pack_type") {
+			const std::string &v = e[1];
+			if (v == "static") {
+				o->pack_type = SCRIPT_PACKTYPE_STATIC;
+			}
+
+			else if (v == "patrol") {
+				o->pack_type = SCRIPT_PACKTYPE_PATROL;
+			}
+
+			else {
+				PRINT("dscript-parse_statement: error: invalid value for pack_type \"%s\", expected either \"static\" or \"patrol\".\n", v.c_str());
+				return 0;
+			}
+		}
+		else if (keyword == "num_mobs") {
+			int num;
+			char *endptr;
+			num = strtol(e[1].c_str(), &endptr, 10);
+
+			// TODO: error checking
+
+			o->num_mobs = num;
+		}
+		else if (keyword == "radius") {
+			float r;
+			char *endptr;
+			r = strtod(e[1].c_str(), &endptr);
+
+			// TODO: error checking
+
+			o->radius = r;
+		}
 		else {
-			PRINT("dscript-read_statements: error: invalid value for pack_type \"%s\", expected either \"static\" or \"patrol\".\n", e[1].c_str());
+			PRINT("dscript-parse_statement: error: unknown keyword \"%s\" with value \"%s\"\n", e[0].c_str(), e[1].c_str());
 			return 0;
 		}
 	}
-	else if (e[0] == "num_mobs") {
-		int num;
-		char *endptr;
-		num = strtol(e[1].c_str(), &endptr, 10);
-
-		// TODO: error checking
-
-		o.num_mobs = num;
-	}
-	else {
-		PRINT("dscript-read_statements: error: unknown parameter \"%s\" with value \"%s\"\n", e[0].c_str(), e[1].c_str());
-		return 0;
-	}
-
 	return 1;
 }
 
@@ -132,23 +150,19 @@ int dscript_t::read_from_file(const std::string &filename) {
 				PRINT("dscript_t::read_from_file: syntax error: line beginning with '{' didn't end with '}'. \nLine: \"%s\"\n", l.c_str());
 				return 0;
 			}
-			else {
-				std::string between = l.substr(1, l.size() - 2);
-				std::vector<std::string> L1;
 
-				tokenize_string(between, ";", L1);
+			std::string between = l.substr(1, l.size() - 2);
 
-				dscript_objective_t obj;
+			dscript_objective_t obj;
 
-				for (auto &statement : L1) {
-					if (!read_statements(statement, obj)) {
-						return 0;
-					}
-
-					this->tasks.push(obj);
-				}
+			if (!parse_statement(between, &obj)) {
+				return 0;
 			}
+	
+			this->tasks.push_back(obj);
+
 		}
+			
 		else {
 			// we should have a simple assignment of type var = value
 			std::vector <std::string> tt;
@@ -233,6 +247,32 @@ int dscript_run() {
 
 	return 1;
 
+}
+
+
+int dscript_next() {
+
+	if (!current_script) {
+		return 0;
+	}
+
+	const dscript_objective_t &o = current_script->tasks.front();
+
+	ObjectManager OM;
+	//PRINT("script: num_tasks = %u\n", current_script->tasks.size());
+
+	std::vector<WowObject> mobs = OM.find_all_NPCs_at(o.pack_pos, o.radius);
+
+	if (mobs.size() != o.num_mobs) {
+		PRINT("dscript_next: warning: found %u mobs at (%.1f, %.1f, %.1f), radius %f, expected %u\n", mobs.size(), o.pack_pos.x, o.pack_pos.y, o.pack_pos.z, o.radius, o.num_mobs);
+	}
+
+	PRINT("list of mobs found at objective point (%.0f, %.0f, %.0f):\n", o.pack_pos.x, o.pack_pos.y, o.pack_pos.z);
+	for (auto &m : mobs) {
+		PRINT("Name: %s, GUID: 0x%llX\n", m.NPC_get_name().c_str(), m.get_GUID());
+	}
+
+	return 1;
 }
 
 int dscript_load(const std::string &scriptname) {
