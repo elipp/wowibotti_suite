@@ -56,6 +56,8 @@ static lop_func_t lop_funcs[] = {
  LOPFUNC(LOP_GET_PREVIOUS_CAST_MSG, 0, 0, 1),
  LOPFUNC(LOP_STOPFOLLOW, 0, 0, 0),
  LOPFUNC(LOP_CAST_GTAOE, 4, 4, 0),
+ LOPFUNC(LOP_HAS_AGGRO, 0, 0, 1),
+ LOPFUNC(LOP_INTERACT_GOBJECT, 1, 1, 1)
 
 };
 
@@ -654,6 +656,42 @@ static int LOP_tank_face() {
 	ctm_add(face);
 }
 
+static int LOP_interact_object(const std::string &objname) {
+	BYTE sockbuf[14] = {
+		0x00, 0x0C, 0xB1, 0x00, 0x00, 0x00,
+		0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8
+	};
+
+	ObjectManager OM;
+	WowObject o;
+	if (!OM.get_GO_by_name(objname, &o)) {
+		PRINT("LOP_interact_object: error: couldn't find gobject with name \"%s\"!\n", objname.c_str());
+		return 0;
+	}
+
+	WowObject p;
+	OM.get_local_object(&p);
+
+	vec3 diff = o.GO_get_pos() - p.get_pos();
+	float dist = diff.length();
+
+	if (dist > 2.5) {
+		PRINT("LOP_interact_object: too far from object \"%s\" (dist = %.2f)\n", objname.c_str(), dist);
+		return 0;
+	}
+
+
+	GUID_t oGUID = o.get_GUID();
+
+	memcpy(sockbuf + 6, &oGUID, sizeof(GUID_t));
+	
+	encrypt_packet_header(sockbuf);
+
+	SOCKET s = get_wow_socket_handle();
+	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+
+}
+
 static void LOPDBG_dump(const std::string &arg) {
 	dump_wowobjects_to_log();
 }
@@ -980,7 +1018,10 @@ int lop_exec(lua_State *L) {
 			return 1;
 		}
 		break;
-
+	case LOP_INTERACT_GOBJECT: {
+		LOP_interact_object(lua_tolstring(L, 2, &len));
+		break;
+	}
 	case LDOP_LUA_REGISTERED:
 		lua_registered = 1;
 		break;
@@ -1096,6 +1137,7 @@ static int dump_wowobjects_to_log() {
 		fprintf(fp, "----------------------------------------------------------------------------\n");
 
 	}
+
 	fclose(fp);
 	err = fopen_s(&fp, log_path.c_str(), "r");
 
@@ -1109,6 +1151,8 @@ static int dump_wowobjects_to_log() {
 	}
 	
 	fclose(fp);
+
+	SelectUnit(target_GUID); // this is because the *_get_[de]buff calls call SelectUnit
 
 	return 1;
 }

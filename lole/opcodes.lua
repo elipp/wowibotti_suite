@@ -20,6 +20,7 @@ local LOP_GET_PREVIOUS_CAST_MSG = 0x12
 local LOP_STOPFOLLOW = 0x13
 local LOP_CAST_GTAOE = 0x14
 local LOP_HAS_AGGRO = 0x15
+local LOP_INTERACT_GOBJECT = 0x16
 
 local LOP_EXT_NOP = 0x70
 local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x71
@@ -158,6 +159,23 @@ end
 
 function get_cast_failed_msgid()
     return lop_exec(LOP_GET_PREVIOUS_CAST_MSG);
+end
+
+function interact_with_object(...)
+
+	if select('#', ...) < 1 then
+		lole_error("interact_with_object: no argument!")
+		return
+	end
+
+	local name_concatenated = select(1, ...)
+
+	for i = 2, select('#', ...) do
+			local arg = select(i, ...);
+			name_concatenated = name_concatenated .. " " .. arg
+	end
+
+	return lop_exec(LOP_INTERACT_GOBJECT, name_concatenated)
 end
 
 local INJECTED_STATUS = 0

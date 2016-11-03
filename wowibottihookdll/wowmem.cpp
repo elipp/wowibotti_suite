@@ -534,6 +534,24 @@ int ObjectManager::get_unit_by_name(const std::string &name, WowObject *o) const
 
 }
 
+int ObjectManager::get_GO_by_name(const std::string &name, WowObject *o) const {
+	WowObject n = get_first_object();
+
+	while (n.valid()) {
+		if (n.get_type() == OBJECT_TYPE_GAMEOBJECT) {
+			if (n.GO_get_name() == name) {
+				*o = n;
+				return 1;
+			}
+		}
+		
+		n = n.next();
+	}
+	
+	return 0;
+
+}
+
 
 GUID_t ObjectManager::get_local_GUID() const { return localGUID; }
 

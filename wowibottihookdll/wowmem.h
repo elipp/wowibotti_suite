@@ -163,6 +163,7 @@ public:
 
 	int get_object_by_GUID(GUID_t GUID, WowObject *o) const;
 	int get_unit_by_name(const std::string &name, WowObject *o) const;
+	int get_GO_by_name(const std::string &name, WowObject *o) const;
 	GUID_t get_local_GUID() const;
 	int get_local_object(WowObject *o) const;
 	uint get_base_address() const { return base_addr; }

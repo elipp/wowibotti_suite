@@ -520,6 +520,10 @@ local function lole_cc(state, marker, spell)
 
 end
 
+local function lole_object_interact(...)
+	interact_with_object(...)
+end
+
 local function lole_dscript(...)
 
 		local usage = "dscript: usage: /lole dscript {run SCRIPTNAME | stop}";
@@ -884,6 +888,7 @@ lole_subcommands = {
 	sendmacro_to = lole_sendmacro_to,
 
 	cast_gtaoe = lole_cast_gtaoe,
+	object_interact = lole_object_interact,
 
 	cc = lole_cc,
 
