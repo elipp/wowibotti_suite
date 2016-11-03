@@ -1031,13 +1031,13 @@ static int dump_wowobjects_to_log() {
 	PRINT("Dumping WowObjects to file \"%s\"!\n", log_path.c_str());
 	GUID_t target_GUID = get_target_GUID();
 
-	fprintf(fp, "Basic info: ObjectManager base: %X, local GUID = 0x%016llX, player target: %016llX\n\n", OM.get_base_address(), OM.get_local_GUID(), target_GUID);
+	fprintf(fp, "Basic info: ObjectManager base: %X, local GUID = 0x%016llX, player target: 0x%016llX\n\n", OM.get_base_address(), OM.get_local_GUID(), target_GUID);
 
 	for (WowObject o = OM.get_first_object(); o.valid(); o = o.next()) {
 		uint type = o.get_type();
 		if (type == OBJECT_TYPE_ITEM || type == OBJECT_TYPE_CONTAINER) { continue; }  
 		
-		fprintf(fp, "object GUID: 0x%016llX, base addr = %X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+		fprintf(fp, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
 
 		if (type == OBJECT_TYPE_NPC || type == OBJECT_TYPE_UNIT) {
 			vec3 pos = o.get_pos();
@@ -1045,14 +1045,14 @@ static int dump_wowobjects_to_log() {
 
 			if (type == OBJECT_TYPE_NPC) {
 				fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", o.NPC_get_name().c_str(), o.NPC_get_health(), o.NPC_get_health_max(), o.NPC_get_target_GUID(), o.in_combat());
-				fprintf(fp, "buffs (by spellID):\n");
+				fprintf(fp, "--- buffs (by spellID): ---\n");
 				for (int n = 1; n <= 16; ++n) { // the maximum is actually 40, but..
 					uint spellID = o.NPC_get_buff(n);
 					if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
 					else break;
 				}
 
-				fprintf(fp, "\ndebuffs (by spellID):\n");
+				fprintf(fp, "--- debuffs (by spellID): ---\n");
 
 				for (int n = 1; n <= 16; ++n) {
 					uint spellID = o.NPC_get_debuff(n);
@@ -1068,13 +1068,13 @@ static int dump_wowobjects_to_log() {
 			}
 			else if (type == OBJECT_TYPE_UNIT) {
 				fprintf(fp, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", o.unit_get_name().c_str(), o.unit_get_health(), o.unit_get_health_max(), o.unit_get_target_GUID(), o.in_combat());
-				fprintf(fp, "buffs (by spellID):\n");
+				fprintf(fp, "--- buffs (by spellID): ---\n");
 				for (int n = 1; n <= 16; ++n) {
 					uint spellID = o.unit_get_buff(n);
 					if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
 				}
 
-				fprintf(fp, "debuffs (by spellID)\n");
+				fprintf(fp, "--- debuffs (by spellID): ---\n");
 
 				for (int n = 1; n <= 16; ++n) {
 					uint spellID = o.unit_get_debuff(n);
@@ -1084,19 +1084,29 @@ static int dump_wowobjects_to_log() {
 				fprintf(fp, "\n");
 			}
 		}
-		else if (o.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
+		else if (type == OBJECT_TYPE_DYNAMICOBJECT) {
 			vec3 DO_pos = o.DO_get_pos();
-			fprintf(fp, "position: (%f, %f, %f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, o.DO_get_spellID());
+			fprintf(fp, "position: (%.1f, %.1f, %.1f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, o.DO_get_spellID());
 		}
-		else if (o.get_type() == OBJECT_TYPE_GAMEOBJECT) {
+		else if (type == OBJECT_TYPE_GAMEOBJECT) {
 			vec3 GO_pos = o.GO_get_pos();
-			fprintf(fp, "name: %s, position: (%f, %f, %f)\n\n", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
+			fprintf(fp, "name: %s, position: (%.1f, %.1f, %.1f)\n\n", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
 		}
 
 		fprintf(fp, "----------------------------------------------------------------------------\n");
 
 	}
-	
+	fclose(fp);
+	err = fopen_s(&fp, log_path.c_str(), "r");
+
+	char buf[256];
+
+	while (fgets(buf, 256, fp) != NULL) {
+		if (*buf) {
+			buf[strlen(buf) - 1] = '\0'; // the AddMessage function will fail with unfinished string error without this
+			DoString("DEFAULT_CHAT_FRAME:AddMessage(\"|cFFFFD100%s\")", buf);
+		}
+	}
 	
 	fclose(fp);
 
