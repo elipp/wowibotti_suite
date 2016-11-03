@@ -36,7 +36,7 @@ DEFAULT_HEALER_IGNORES = {
 HEALER_TARGETS = {};
 HELAER_HOTTARGETS = {};
 HEALER_IGNORES = {};
-ASSIGNMENT_DOMAINS = {["heals"] = true, ["hots"] = true, ["ignores"] = true};
+ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
 HEALS_IN_PROGRESS = {};
 HEAL_FINISH_INFO = {};
 HEAL_ATTEMPTS = 0;
@@ -1159,21 +1159,30 @@ end
 
 function sync_healer_targets_with_mine()
 
-    local healer_targets_copy = shallowcopy(HEALER_TARGETS);
+    local assignments = {
+        ["heals"] = shallowcopy(HEALER_TARGETS),
+        ["hots"] = shallowcopy(HEALER_HOTTARGETS),
+        ["ignores"] = shallowcopy(HEALER_IGNORES),
+    }
     local msg = "set;";
     for i, healer in ipairs(HEALERS) do
-        local targets = healer_targets_copy[healer];
         msg = msg .. healer .. ":"
-        for j, target in ipairs(targets) do
-            msg = msg .. target
-            if j ~= #targets then
-                msg = msg .. ","
+        for j, domain in ipairs(ASSIGNMENT_DOMAINS) do
+            local targets = assignments[domain][healer];
+            msg = msg .. "<" .. domain .. ">";
+            for k, target in ipairs(targets) do
+                msg = msg .. target
+                if k ~= #targets then
+                    msg = msg .. ","
+                end
             end
         end
         if i ~= #HEALERS then
             msg = msg .. "."
         end
     end
+
+    echo(msg);
 
     SendAddonMessage("lole_healers", msg, "RAID");
 
@@ -1226,24 +1235,29 @@ end
 
 function get_healer_target_info()
 
-    local healer_targets_copy = shallowcopy(HEALER_TARGETS);
+    -- local healer_targets_copy = shallowcopy(HEALER_TARGETS);
+    -- local info = "";
+    -- for i, healer in ipairs(HEALERS) do
+    --     local targets = healer_targets_copy[healer];
+    --     if i ~= 1 then
+    --         info = info .. "\n";
+    --     end
+    --     info = info .. healer .. ": "
+    --     if next(targets) == nil then
+    --         info = info .. "(none)";
+    --     else
+    --         for j, target in ipairs(targets) do
+    --             info = info .. target
+    --             if j ~= #targets then
+    --                 info = info .. ", "
+    --             end
+    --         end
+    --     end
+    -- end
+
     local info = "";
     for i, healer in ipairs(HEALERS) do
-        local targets = healer_targets_copy[healer];
-        if i ~= 1 then
-            info = info .. "\n";
-        end
-        info = info .. healer .. ": "
-        if next(targets) == nil then
-            info = info .. "(none)";
-        else
-            for j, target in ipairs(targets) do
-                info = info .. target
-                if j ~= #targets then
-                    info = info .. ", "
-                end
-            end
-        end
+        info = info .. get_healer_assignments_msg(healer) .. "\n";
     end
 
     return info;
@@ -1289,6 +1303,8 @@ function handle_healer_assignment(message)
 
     if op == "reset" then
         HEALER_TARGETS = shallowcopy(DEFAULT_HEALER_TARGETS);
+        HEALER_HOTTARGETS = shallowcopy(DEFAULT_HEALER_HOTTARGETS);
+        HEALER_IGNORES = shallowcopy(DEFAULT_HEALER_IGNORES);
         echo("Healer assignments reset to default:\n" .. get_healer_target_info());
         return;
     elseif op == "sync" then
@@ -1312,7 +1328,7 @@ function handle_healer_assignment(message)
             return;
         end
         new_assignments[healer] = {};
-        for domain, _ in pairs(ASSIGNMENT_DOMAINS) do
+        for i, domain in pairs(ASSIGNMENT_DOMAINS) do
             new_assignments[healer][domain] = nil;
         end
         if ht[2] ~= "" then

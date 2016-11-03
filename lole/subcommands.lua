@@ -690,7 +690,7 @@ local function change_healer_targets(op, ...)
     	local name = strsplit(",", arg);
     	if guildies[name] or name == "raid" then
     		return "unit";
-    	elseif ASSIGNMENT_DOMAINS[arg] then
+    	elseif table.contains(ASSIGNMENT_DOMAINS, arg) then
     		return "domain";
     	else
     		return nil
