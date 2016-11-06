@@ -1,5 +1,26 @@
 local pom_time = 0;
 
+local function refresh_healbuffs(hottargets)
+
+    if not hottargets or not hottargets[1] then return false; end
+
+    for i, targetname in ipairs(hottargets) do
+        if not UnitExists(targetname) or not UnitIsConnected(targetname) or UnitIsDead(targetname) or has_buff(targetname, "Spirit of Redemption") or UNREACHABLE_TARGETS[targetname] > GetTime() then
+        elseif not has_buff(targetname, "Prayer of Mending") and time() - pom_time > 10 then
+            if cast_heal("Prayer of Mending", targetname) then
+                pom_time = time();
+            end
+            return true;
+        elseif not has_buff(targetname, "Renew") then
+            cast_heal("Renew", targetname);
+            return true;
+        end
+    end
+
+    return false
+
+end
+
 local function should_cast_PoH(min_deficit, min_healable_chars)
     if min_deficit == nil then min_deficit = 3000; end
     if min_healable_chars == nil then min_healable_chars = 4; end
@@ -52,8 +73,26 @@ local function get_CoH_target(urgencies, min_deficit, max_ineligible_chars)
     
 end
 
+local function cast_PoM_here(has_single_targets, from_raid_heal)
 
-local function raid_heal()
+    local hottargets = get_assigned_hottargets(UnitName("player"));
+    for i, targetname in ipairs(hottargets) do
+        if not UnitExists(targetname) or not UnitIsConnected(targetname) or UnitIsDead(targetname) or has_buff(targetname, "Spirit of Redemption") or UNREACHABLE_TARGETS[targetname] > GetTime() then
+        else
+            return false;
+        end
+    end
+
+    if has_single_targets and from_raid_heal then
+        return false;
+    end
+
+    return true;
+
+end
+
+
+local function raid_heal(has_single_targets)
     local target, urgencies = get_raid_heal_target(true);
     if target then
         TargetUnit(target);
@@ -91,6 +130,7 @@ local function raid_heal()
     if coh_target then
         TargetUnit(coh_target);
         cast_heal("Circle of Healing");
+    elseif refresh_healbuffs(get_assigned_hottargets(UnitName("player"))) then
     elseif (health_cur < health_max * 0.50) then
         cast_heal("Greater Heal");
     elseif (health_cur < health_max * 0.75) then
@@ -100,7 +140,7 @@ local function raid_heal()
             cast_heal("Greater Heal(Rank 1)");
         end
     elseif (health_cur < health_max * 0.85) then
-        if time() - pom_time > 10 then
+        if cast_PoM_here(has_single_targets, true) and not has_buff("target", "Prayer of Mending") and time() - pom_time > 10 then
             if cast_heal("Prayer of Mending") then
                 pom_time = time();
             end
@@ -127,7 +167,7 @@ combat_priest_holy = function()
 
     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
     if heal_targets[1] == nil or heal_targets[1] == "raid" then
-        raid_heal();
+        raid_heal(false);
         return;
     end
 
@@ -148,7 +188,8 @@ combat_priest_holy = function()
         cast_heal("Flash Heal");
     elseif (health_cur < health_max * 0.50) then
         cast_heal("Greater Heal");
-    elseif time() - pom_time > 10 then
+    elseif refresh_healbuffs(get_assigned_hottargets(UnitName("player"))) then
+    elseif cast_PoM_here(true, false) and not has_buff("target", "Prayer of Mending") and time() - pom_time > 10 then
         if cast_heal("Prayer of Mending") then
             pom_time = time();
         end
@@ -169,7 +210,7 @@ combat_priest_holy = function()
 	elseif not has_buff("target", "Renew") then
 		cast_heal("Renew");
     elseif table.contains(heal_targets, "raid") then
-        raid_heal();
+        raid_heal(true);
     end
 
 end

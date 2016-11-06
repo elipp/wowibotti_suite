@@ -1043,7 +1043,7 @@ function get_assigned_targets(healer)
     return shallowcopy(HEALER_TARGETS[healer]);
 end
 
-function get_assigned_hots(healer)
+function get_assigned_hottargets(healer)
     return shallowcopy(HEALER_HOTTARGETS[healer]);
 end
 
@@ -1182,8 +1182,6 @@ function sync_healer_targets_with_mine()
         end
     end
 
-    echo(msg);
-
     SendAddonMessage("lole_healers", msg, "RAID");
 
 end
@@ -1235,26 +1233,6 @@ end
 
 function get_healer_target_info()
 
-    -- local healer_targets_copy = shallowcopy(HEALER_TARGETS);
-    -- local info = "";
-    -- for i, healer in ipairs(HEALERS) do
-    --     local targets = healer_targets_copy[healer];
-    --     if i ~= 1 then
-    --         info = info .. "\n";
-    --     end
-    --     info = info .. healer .. ": "
-    --     if next(targets) == nil then
-    --         info = info .. "(none)";
-    --     else
-    --         for j, target in ipairs(targets) do
-    --             info = info .. target
-    --             if j ~= #targets then
-    --                 info = info .. ", "
-    --             end
-    --         end
-    --     end
-    -- end
-
     local info = "";
     for i, healer in ipairs(HEALERS) do
         info = info .. get_healer_assignments_msg(healer) .. "\n";
@@ -1275,18 +1253,21 @@ function get_healer_assignments_msg(healer)
     }
     local assignments = {
         heals = get_assigned_targets(healer),
-        hots = get_assigned_hots(healer),
+        hots = get_assigned_hottargets(healer),
         ignores = get_assigned_ignores(healer),
     }
     for i, domain in ipairs(order) do
-        local tmp_str = "(none)";
+        local tmp_str = "";
         if next(assignments[domain]) then
             tmp_str = table.concat(assignments[domain], ",");
         end
+        if tmp_str ~= "" then
+            tmp_str = " " .. tmp_str;
+        end
         if not msg then
-            msg = verbose[domain] .. ": " .. tmp_str;
+            msg = verbose[domain] .. ":" .. tmp_str;
         else
-            msg = msg .. " | " .. verbose[domain] .. ": " .. tmp_str;
+            msg = msg .. " | " .. verbose[domain] .. ":" .. tmp_str;
         end
     end
     
@@ -1296,7 +1277,6 @@ function get_healer_assignments_msg(healer)
 end
 
 function handle_healer_assignment(message)
-    -- message: healer1:target1,target2,...,targetN.healerN:target1,...
     local msg_tbl = {strsplit(";", message)};
     local op = msg_tbl[1];
     local msg = msg_tbl[2];
@@ -1306,6 +1286,14 @@ function handle_healer_assignment(message)
         HEALER_HOTTARGETS = shallowcopy(DEFAULT_HEALER_HOTTARGETS);
         HEALER_IGNORES = shallowcopy(DEFAULT_HEALER_IGNORES);
         echo("Healer assignments reset to default:\n" .. get_healer_target_info());
+        return;
+    elseif op == "wipe" then
+        for i, healer in pairs(HEALERS) do
+            HEALER_TARGETS[healer] = {};
+            HEALER_HOTTARGETS[healer] = {};
+            HEALER_IGNORES[healer] = {};
+        end
+        echo("Wiped healer assignments:\n" .. get_healer_target_info());
         return;
     elseif op == "sync" then
         if msg then
@@ -1405,7 +1393,7 @@ function get_raid_members()
 
     local members = {};
     local raid_groups = get_raid_groups();
-    for grp, tbl in ipairs(raid_groups) do
+    for grp, tbl in pairs(raid_groups) do
         for i, member in ipairs(tbl) do
             table.insert(members, member);
         end
@@ -1489,8 +1477,8 @@ end
 
 function is_valid_pair(healer, target)
 
-	local healer_ignores = HEALER_IGNORES[healer];
-	if healer_ignores and healer_ignores[target] then
+	local healer_ignores = get_assigned_ignores(healer);
+	if healer_ignores and table.contains(healer_ignores, target) then
 		return false;
 	end
 

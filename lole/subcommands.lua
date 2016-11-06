@@ -733,18 +733,23 @@ local function reset_healer_targets()
     SendAddonMessage("lole_healers", "reset", "RAID");
 end
 
+local function wipe_healer_targets()
+    SendAddonMessage("lole_healers", "wipe", "RAID");
+end
+
 local function echo_healer_target_info()
     local info = "Current healer assignments (on local client):\n" .. get_healer_target_info();
     echo(info);
 end
 
-local function process_healer_assignment(...)
+local function manage_healers(...)
 	local funcs = {
 		set = change_healer_targets,
 		add = change_healer_targets,
 		del = change_healer_targets,
 		reset = reset_healer_targets,
 		sync = sync_healer_targets,
+        wipe = wipe_healer_targets,
 		info = echo_healer_target_info,
 	};
 	local atab = {};
@@ -759,7 +764,7 @@ local function process_healer_assignment(...)
     	for f, _ in pairs(funcs) do
     		table.insert(available_ops, f);
     	end
-    	echo("Not a valid healer assignment operation: " .. func);
+    	echo("Not a valid healer management operation: " .. func);
     	echo("Available operations: " .. table.concat(available_ops, ", "));
     	return false;
     end
@@ -896,7 +901,7 @@ lole_subcommands = {
 	durability = lole_durability,
 	inv_ordered = lole_inv_ordered,
   raid_aoe = lole_raid_aoe,
-  	healer = process_healer_assignment,
+  	healer = manage_healers,
 	de_greeniez = lole_disenchant_greeniez,
 
 	follow = lole_follow,

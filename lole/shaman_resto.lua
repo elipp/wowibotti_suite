@@ -1,8 +1,9 @@
 
-local function refresh_ES(targetname)
+local function refresh_ES(hottargets)
 
-	if not targetname then return false; end
+	if not hottargets or not hottargets[1] then return false; end
 
+    local targetname = hottargets[1];
     if not UnitExists(targetname) or not UnitIsConnected(targetname) or UnitIsDead(targetname) or has_buff(targetname, "Spirit of Redemption") or UNREACHABLE_TARGETS[targetname] > GetTime() then return false end
 
 	if not has_buff(targetname, "Earth Shield") then
@@ -74,11 +75,7 @@ combat_shaman_resto = function()
 	end
 
 	if refresh_totems(TOTEMS) then return; end
-	if UnitName("player") == "Igop" then
-		if refresh_ES(OFF_TANK) then return end
-	else
-		if refresh_ES(MAIN_TANK) then return end
-	end
+    if refresh_ES(get_assigned_hottargets(UnitName("player"))) then return end
 
     if UnitMana("player") < 5000 then
         if cast_if_nocd("Mana Tide Totem") then return end
