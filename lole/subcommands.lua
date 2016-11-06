@@ -688,43 +688,46 @@ local function lole_raid_aoe(on_off_str)
     SendAddonMessage("lole_runscript", script_text, "RAID");
 end
 
-local function lole_set_healer_targets(healer, targets)
-    -- targets: target1,target2,...,targetN where target = unit name or "raid"
-    local usage = "lole_set_healer_targets: Usage: heal_set healername target1,target2,...,targetN where target = unitname or 'raid'";
-    if healer == nil then
-        echo(usage);
-        return false;
+local function change_healer_targets(op, ...)
+    local usage = "change_healer_targets: Usage: healer [set/add/del] healername [heals/hots/ignores] target1,target2,...,targetN [heals/hots/ignores] *targets ... where target = unitname (or 'raid' for heals option)";
+
+    local function get_arg_class(arg)
+    	local guildies = get_guild_members()
+    	local name = strsplit(",", arg);
+    	if guildies[name] or name == "raid" then
+    		return "unit";
+    	elseif table.contains(ASSIGNMENT_DOMAINS, arg) then
+    		return "domain";
+    	else
+    		return nil
+    	end
     end
-    if targets == nil then
-        targets = "";
-    end
-    local message = "set;" .. healer .. ":" .. targets;
-    SendAddonMessage("lole_healers", message, "RAID");
+
+    local msg = "";
+    local previous_class = "domain";
+    local class_delimiters = {["unit"] = ">", ["domain"] = "<"};
+    if select('#', ...) == 1 then echo(usage); return false; end
+    for i = 1, select('#', ...) do
+        local arg = select(i, ...);
+        local arg_class = get_arg_class(arg);
+	    if not arg_class or (i == 1 and arg_class ~= "unit") or (arg_class == "unit" and previous_class ~= "domain") then
+        	echo(usage);
+	        return false;
+	    end
+	    if i == 1 then
+        	msg = arg .. ":";
+        else
+	    	msg = msg .. class_delimiters[arg_class] .. arg;
+	    end
+        previous_class = arg_class;
+    end	
+
+    msg = op .. ";" .. msg;
+
+    SendAddonMessage("lole_healers", msg, "RAID");
 end
 
-local function lole_add_healer_targets(healer, targets)
-    -- targets: target1,target2,...,targetN where target = unit name or "raid"
-    local usage = "lole_add_healer_targets: Usage: heal_add healername target1,target2,...,targetN where target = unitname or 'raid'";
-    if healer == nil or targets == nil then
-        echo(usage);
-        return false;
-    end
-    local message = "add;" .. healer .. ":" .. targets;
-    SendAddonMessage("lole_healers", message, "RAID");
-end
-
-local function lole_remove_healer_targets(healer, targets)
-    -- targets: target1,target2,...,targetN where target = unit name or "raid"
-    local usage = "lole_remove_healer_targets: Usage: heal_del healername target1,target2,...,targetN where target = unitname or 'raid'";
-    if healer == nil or targets == nil then
-        echo(usage);
-        return false;
-    end
-    local message = "remove;" .. healer .. ":" .. targets;
-    SendAddonMessage("lole_healers", message, "RAID");
-end
-
-local function lole_sync_healer_targets(with)
+local function sync_healer_targets(with)
     local arg_str = "sync";
     if with then
         arg_str = arg_str .. ";" .. with;
@@ -732,13 +735,50 @@ local function lole_sync_healer_targets(with)
     SendAddonMessage("lole_healers", arg_str, "RAID");
 end
 
-local function lole_reset_healer_targets()
+local function reset_healer_targets()
     SendAddonMessage("lole_healers", "reset", "RAID");
 end
 
-local function lole_echo_healer_target_info()
+local function wipe_healer_targets()
+    SendAddonMessage("lole_healers", "wipe", "RAID");
+end
+
+local function echo_healer_target_info()
     local info = "Current healer assignments (on local client):\n" .. get_healer_target_info();
     echo(info);
+end
+
+local function manage_healers(...)
+	local funcs = {
+		set = change_healer_targets,
+		add = change_healer_targets,
+		del = change_healer_targets,
+		reset = reset_healer_targets,
+		sync = sync_healer_targets,
+        wipe = wipe_healer_targets,
+		info = echo_healer_target_info,
+	};
+	local atab = {};
+    for i = 1, select('#', ...) do
+        local arg = select(i, ...);
+        table.insert(atab, arg);
+    end	
+	local _, func = next(atab);
+    table.remove(atab, 1);
+    if not funcs[func] then
+    	local available_ops = {};
+    	for f, _ in pairs(funcs) do
+    		table.insert(available_ops, f);
+    	end
+    	echo("Not a valid healer management operation: " .. func);
+    	echo("Available operations: " .. table.concat(available_ops, ", "));
+    	return false;
+    end
+    if func == "set" or func == "add" or func == "del" then
+		funcs[func](...);
+	else
+		funcs[func](unpack(atab));
+	end
 end
 
 local function lole_debug_test_blast_target()
@@ -867,13 +907,7 @@ lole_subcommands = {
 	durability = lole_durability,
 	inv_ordered = lole_inv_ordered,
   raid_aoe = lole_raid_aoe,
-  heal_set = lole_set_healer_targets,
-  heal_add = lole_add_healer_targets,
-  heal_del = lole_remove_healer_targets,
-  heal_reset = lole_reset_healer_targets,
-  heal_sync = lole_sync_healer_targets,
-  heal_info = lole_echo_healer_target_info,
-
+  	healer = manage_healers,
 	de_greeniez = lole_disenchant_greeniez,
 
 	follow = lole_follow,

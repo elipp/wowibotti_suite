@@ -1,5 +1,21 @@
 local do_tranquility = false;
 
+local function refresh_rejuvenation(hottargets)
+
+    if not hottargets or not hottargets[1] then return false; end
+
+    for i, targetname in ipairs(hottargets) do
+        if not UnitExists(targetname) or not UnitIsConnected(targetname) or UnitIsDead(targetname) or has_buff(targetname, "Spirit of Redemption") or UNREACHABLE_TARGETS[targetname] > GetTime() then
+        elseif not has_buff(targetname, "Rejuvenation") then
+            cast_heal("Rejuvenation", targetname);
+            return true;
+        end
+    end
+
+    return false
+
+end
+
 local function should_cast_tranquility(min_deficit, min_healable_chars)
     if min_deficit == nil then min_deficit = 5000; end
     if min_healable_chars == nil then min_healable_chars = 4; end
@@ -42,6 +58,7 @@ local function raid_heal()
 
     local heal_targets = get_raid_heal_targets(4);
 
+    local reju_checked = false;
     for i, target in ipairs(heal_targets) do
         local health_max = UnitHealthMax(target);
         local health_cur = UnitHealth(target);
@@ -55,6 +72,11 @@ local function raid_heal()
                 cast_heal("Regrowth", target);
                 return true;
             end
+        end
+
+        if not reju_checked then
+            if refresh_rejuvenation(get_assigned_hottargets(UnitName("player"))) then return; end
+            reju_checked = true;
         end
 
         if (health_cur < health_max * 0.60) then
@@ -150,6 +172,8 @@ combat_druid_resto = function()
     elseif unit_without_lb then
         cast_heal("Lifebloom", unit_without_lb);
     end
+
+    if refresh_rejuvenation(get_assigned_hottargets(UnitName("player"))) then return; end
 
     if should_cast_tranquility() then
         CastSpellByName("Barkskin");
