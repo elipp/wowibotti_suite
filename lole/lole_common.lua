@@ -10,32 +10,13 @@ MAIN_TANK = nil;
 OFF_TANK = nil;
 HEALERS = {"Ceucho", "Kusip", "Kasio", "Mam", "Igop", "Puhveln"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
-    Ceucho = {"Adieux", "Noctur", "raid"};
-    Kusip = {"Adieux", "Noctur", "raid"};
-    Kasio = {"raid"};
-    Mam = {"raid"};
-    Igop = {"raid"};
-    Puhveln = {"raid"};
+    Ceucho = {heals = {"Adieux", "Noctur", "raid"}, hots = {}, ignores = {}},
+    Kusip = {heals = {"Adieux", "Noctur", "raid"}, hots = {}, ignores = {}},
+    Kasio = {heals = {"raid"}, hots = {"Adieux"}, ignores = {"Adieux", "Noctur"}},
+    Mam = {heals = {"raid"}, hots = {"Noctur"}, ignores = {"Adieux", "Noctur"}},
+    Igop = {heals = {"raid"}, hots = {"Adieux"}, ignores = {}},
+    Puhveln = {heals = {"raid"}, hots = {"Noctur"}, ignores = {}}
 }
-DEFAULT_HEALER_HOTTARGETS = {
-    Ceucho = {};
-    Kusip = {};
-    Kasio = {"Adieux"};
-    Mam = {"Noctur"};
-    Igop = {"Adieux"};
-    Puhveln = {"Noctur"};
-}
-DEFAULT_HEALER_IGNORES = {
-	Ceucho = {};
-    Kusip = {};
-    Kasio = {"Adieux", "Noctur"};
-    Mam = {"Adieux", "Noctur"};
-    Igop = {};
-    Puhveln = {};
-};
-HEALER_TARGETS = {};
-HELAER_HOTTARGETS = {};
-HEALER_IGNORES = {};
 ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
 HEALS_IN_PROGRESS = {};
 HEAL_FINISH_INFO = {};
@@ -253,9 +234,22 @@ function shallowcopy(orig)
     return copy
 end
 
-HEALER_TARGETS = shallowcopy(DEFAULT_HEALER_TARGETS);
-HEALER_HOTTARGETS = shallowcopy(DEFAULT_HEALER_HOTTARGETS);
-HEALER_IGNORES = shallowcopy(DEFAULT_HEALER_IGNORES);
+function deepcopy(orig)
+    local orig_type = type(orig)
+    local copy
+    if orig_type == 'table' then
+        copy = {}
+        for orig_key, orig_value in next, orig, nil do
+            copy[deepcopy(orig_key)] = deepcopy(orig_value)
+        end
+        setmetatable(copy, deepcopy(getmetatable(orig)))
+    else -- number, string, boolean, etc
+        copy = orig
+    end
+    return copy
+end
+
+HEALER_TARGETS = deepcopy(DEFAULT_HEALER_TARGETS);
 
 function first_to_upper(str)
     return (str:gsub("^%l", string.upper))
@@ -1040,15 +1034,15 @@ function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars)
 end
 
 function get_assigned_targets(healer)
-    return shallowcopy(HEALER_TARGETS[healer]);
+    return shallowcopy(HEALER_TARGETS[healer]["heals"]);
 end
 
 function get_assigned_hottargets(healer)
-    return shallowcopy(HEALER_HOTTARGETS[healer]);
+    return shallowcopy(HEALER_TARGETS[healer]["hots"]);
 end
 
 function get_assigned_ignores(healer)
-    return shallowcopy(HEALER_IGNORES[healer]);
+    return shallowcopy(HEALER_TARGETS[healer]["ignores"]);
 end
 
 function get_heal_target(HP_table, maxmaxHP, with_urgencies)
@@ -1159,16 +1153,13 @@ end
 
 function sync_healer_targets_with_mine()
 
-    local assignments = {
-        ["heals"] = shallowcopy(HEALER_TARGETS),
-        ["hots"] = shallowcopy(HEALER_HOTTARGETS),
-        ["ignores"] = shallowcopy(HEALER_IGNORES),
-    }
+    local healer_targets = deepcopy(HEALER_TARGETS);
+
     local msg = "set;";
     for i, healer in ipairs(HEALERS) do
         msg = msg .. healer .. ":"
         for j, domain in ipairs(ASSIGNMENT_DOMAINS) do
-            local targets = assignments[domain][healer];
+            local targets = healer_targets[healer][domain];
             msg = msg .. "<" .. domain .. ">";
             for k, target in ipairs(targets) do
                 msg = msg .. target
@@ -1282,16 +1273,14 @@ function handle_healer_assignment(message)
     local msg = msg_tbl[2];
 
     if op == "reset" then
-        HEALER_TARGETS = shallowcopy(DEFAULT_HEALER_TARGETS);
-        HEALER_HOTTARGETS = shallowcopy(DEFAULT_HEALER_HOTTARGETS);
-        HEALER_IGNORES = shallowcopy(DEFAULT_HEALER_IGNORES);
+        HEALER_TARGETS = deepcopy(DEFAULT_HEALER_TARGETS);
         echo("Healer assignments reset to default:\n" .. get_healer_target_info());
         return;
     elseif op == "wipe" then
         for i, healer in pairs(HEALERS) do
-            HEALER_TARGETS[healer] = {};
-            HEALER_HOTTARGETS[healer] = {};
-            HEALER_IGNORES[healer] = {};
+            for j, domain in pairs(ASSIGNMENT_DOMAINS) do
+                HEALER_TARGETS[healer][domain] = {};
+            end
         end
         echo("Wiped healer assignments:\n" .. get_healer_target_info());
         return;
@@ -1344,14 +1333,10 @@ function handle_healer_assignment(message)
     end
     for i, healer in ipairs(HEALERS) do
         if new_assignments[healer] then
-            if new_assignments[healer]["heals"] then
-                HEALER_TARGETS[healer] = new_assignments[healer]["heals"];
-            end
-            if new_assignments[healer]["hots"] then
-                HEALER_HOTTARGETS[healer] = new_assignments[healer]["hots"];
-            end
-            if new_assignments[healer]["ignores"] then
-                HEALER_IGNORES[healer] = new_assignments[healer]["ignores"];
+            for j, domain in pairs(ASSIGNMENT_DOMAINS) do
+                if new_assignments[healer][domain] then
+                    HEALER_TARGETS[healer][domain] = new_assignments[healer][domain];
+                end
             end
             echo_noprefix("   " .. get_healer_assignments_msg(healer));
         end
