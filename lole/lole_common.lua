@@ -30,7 +30,7 @@ DEFAULT_HEALER_IGNORES = {
     Kusip = {};
     Kasio = {"Adieux", "Noctur"};
     Mam = {"Adieux", "Noctur"};
-    Igop = {"Adieux", "Noctur"};
+    Igop = {};
     Puhveln = {};
 };
 HEALER_TARGETS = {};
