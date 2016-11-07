@@ -735,6 +735,14 @@ local function sync_healer_targets(with)
     SendAddonMessage("lole_healers", arg_str, "RAID");
 end
 
+local function restore_healer_targets(with)
+    local arg_str = "restore";
+    if with then
+        arg_str = arg_str .. ";" .. with;
+    end
+    SendAddonMessage("lole_healers", arg_str, "RAID");
+end
+
 local function reset_healer_targets()
     SendAddonMessage("lole_healers", "reset", "RAID");
 end
@@ -748,14 +756,15 @@ local function echo_healer_target_info()
     echo(info);
 end
 
-local function manage_healers(...)
+local function lole_manage_healers(...)
 	local funcs = {
 		set = change_healer_targets,
 		add = change_healer_targets,
 		del = change_healer_targets,
 		reset = reset_healer_targets,
-		sync = sync_healer_targets,
         wipe = wipe_healer_targets,
+		sync = sync_healer_targets,
+        restore = restore_healer_targets,
 		info = echo_healer_target_info,
 	};
 	local atab = {};
@@ -779,6 +788,10 @@ local function manage_healers(...)
 	else
 		funcs[func](unpack(atab));
 	end
+end
+
+local function lole_echo(msg)
+    SendAddonMessage("lole_echo", msg, "RAID");
 end
 
 local function lole_debug_test_blast_target()
@@ -876,7 +889,7 @@ local function lole_broadcast(funcname, ...)
 end
 
 lole_subcommands = {
-  lbuffcheck = lole_leaderbuffcheck,
+    lbuffcheck = lole_leaderbuffcheck,
 	buffcheck = lole_buffcheck,
 	cooldowns = lole_cooldowns,
 	setconfig = lole_setconfig,
@@ -906,8 +919,8 @@ lole_subcommands = {
 	pull = lole_pull,
 	durability = lole_durability,
 	inv_ordered = lole_inv_ordered,
-  raid_aoe = lole_raid_aoe,
-  	healer = manage_healers,
+    raid_aoe = lole_raid_aoe,
+  	healer = lole_manage_healers,
 	de_greeniez = lole_disenchant_greeniez,
 
 	follow = lole_follow,
@@ -917,7 +930,8 @@ lole_subcommands = {
 	ss = lole_sendscript,
 	sendmacro = lole_sendmacro,
 	run = lole_sendmacro,
-  override = lole_override,
+    override = lole_override,
+    echo = lole_echo,
 
 	sendmacro_to = lole_sendmacro_to,
 
@@ -933,7 +947,7 @@ lole_subcommands = {
 	dscript = lole_dscript,
 
 	register = lole_debug_lua_register,
-  distance = lole_distance_to_target,
+    distance = lole_distance_to_target,
 
 	encrypt = lole_encrypt_test;
 }

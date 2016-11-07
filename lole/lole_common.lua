@@ -1285,12 +1285,40 @@ function handle_healer_assignment(message)
         echo("Wiped healer assignments:\n" .. get_healer_target_info());
         return;
     elseif op == "sync" then
+        local sync_with = "raid leader";
         if msg then
+            sync_with = msg;
             if msg == UnitName("player") then
                 sync_healer_targets_with_mine();
             end
         elseif IsRaidLeader() then
             sync_healer_targets_with_mine();
+        end
+        echo("Syncing healer assignments with " .. sync_with .. "...");
+        return;
+    elseif op == "restore" then
+        local sync_with = "raid leader";
+        local is_restorer = false;
+        local not_found = false;
+        if msg then
+            sync_with = msg;
+            if msg == UnitName("player") then
+                is_restorer = true;
+            end
+        elseif IsRaidLeader() then
+            is_restorer = true;
+        end
+        if is_restorer then
+            if LOLE_HEALER_TARGETS_SAVED then
+                HEALER_TARGETS = deepcopy(LOLE_HEALER_TARGETS_SAVED);
+                sync_healer_targets_with_mine();
+            else
+                not_found = true;
+            end
+        end
+        echo("Restoring and syncing with " .. sync_with .. "'s saved healer assignments...");
+        if not_found then
+            lole_subcommands.echo("No saved healer assignments found on " .. sync_with .. ".");
         end
         return;
     end
@@ -1341,6 +1369,8 @@ function handle_healer_assignment(message)
             echo_noprefix("   " .. get_healer_assignments_msg(healer));
         end
     end
+
+    LOLE_HEALER_TARGETS_SAVED = HEALER_TARGETS;
 
 end
 
