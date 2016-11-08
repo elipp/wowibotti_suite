@@ -781,7 +781,11 @@ local function lole_manage_healers(...)
     	for f, _ in pairs(funcs) do
     		table.insert(available_ops, f);
     	end
-    	echo("Not a valid healer management operation: " .. func);
+        if not func then
+            echo("Please enter a healer management operation.");
+        else
+            echo("Not a valid healer management operation: " .. func);
+        end
     	echo("Available operations: " .. table.concat(available_ops, ", "));
     	return false;
     end
