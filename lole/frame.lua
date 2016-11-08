@@ -265,7 +265,7 @@ local function update_target_onclick()
 
 	if not target_GUID then
 		clear_target();
-		broadcast_target_GUID(NOTARGET);
+		lole_subcommands.broadcast("target", NOTARGET);
 		return
 	end
 

@@ -74,14 +74,14 @@ function lole_main(args)
 		--if (BLAST_TARGET_GUID ~= NOTARGET or (not UnitExists("focus")))
 		if (UnitExists("focus") and UnitIsDead("focus")) then
 			clear_target()
-			broadcast_target_GUID(NOTARGET)
+			lole_subcommands.broadcast("target", NOTARGET)
 		end
 
 		if BLAST_TARGET_GUID == NOTARGET then
 			if not UnitExists("focus") then
 				if UnitExists("target") and not UnitIsDead("target") and UnitReaction("target", "player") < 5 then
 					set_target(UnitGUID("target"))
-					broadcast_target_GUID(UnitGUID("target"));
+					lole_subcommands.broadcast("target", UnitGUID("target"));
 				end
 			else
 					-- not sure if this is reachable or not
