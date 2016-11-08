@@ -3,7 +3,7 @@ combat_druid_feral = function()
     if not validate_target() then return end
 
     melee_avoid_aoe_buff(33238)
-	--melee_attack_behind()
+	melee_attack_behind()
 
     if (not has_buff("player", "Omen of Clarity")) then
         CastSpellByName("Omen of Clarity")
