@@ -722,7 +722,7 @@ local function change_healer_targets(op, ...)
 	    	msg = msg .. class_delimiters[arg_class] .. arg;
 	    end
         previous_class = arg_class;
-    end	
+    end
 
     msg = op .. ";" .. msg;
 
@@ -773,7 +773,7 @@ local function lole_manage_healers(...)
     for i = 1, select('#', ...) do
         local arg = select(i, ...);
         table.insert(atab, arg);
-    end	
+    end
 	local _, func = next(atab);
     table.remove(atab, 1);
     if not funcs[func] then
@@ -852,7 +852,7 @@ local function lole_broadcast_drink()
 end
 
 local function lole_broadcast_release()
-	lole_subcommands.sendscript("GUILD", "/lole release")
+	lole_subcommands.sendmacro("GUILD", "/lole release")
 end
 
 local function lole_broadcast_leavegroup()
