@@ -10,13 +10,14 @@ MAIN_TANK = nil;
 OFF_TANK = nil;
 HEALERS = {"Ceucho", "Kusip", "Kasio", "Mam", "Igop", "Puhveln"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
-    Ceucho = {"Adieux", "Noctur", "raid"};
-    Kusip = {"Adieux", "Noctur", "raid"};
-    Kasio = {"raid"};
-    Mam = {"raid"};
-    Igop = {"raid"};
-    Puhveln = {"raid"};
+    Ceucho = {heals = {"Adieux", "Noctur", "raid"}, hots = {}, ignores = {}},
+    Kusip = {heals = {"Adieux", "Noctur", "raid"}, hots = {}, ignores = {}},
+    Kasio = {heals = {"raid"}, hots = {"Adieux"}, ignores = {"Adieux", "Noctur"}},
+    Mam = {heals = {"raid"}, hots = {"Noctur"}, ignores = {"Adieux", "Noctur"}},
+    Igop = {heals = {"raid"}, hots = {"Adieux"}, ignores = {}},
+    Puhveln = {heals = {"raid"}, hots = {"Noctur"}, ignores = {}}
 }
+ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
 HEALS_IN_PROGRESS = {};
 HEAL_FINISH_INFO = {};
 HEAL_ATTEMPTS = 0;
@@ -233,7 +234,22 @@ function shallowcopy(orig)
     return copy
 end
 
-HEALER_TARGETS = shallowcopy(DEFAULT_HEALER_TARGETS);
+function deepcopy(orig)
+    local orig_type = type(orig)
+    local copy
+    if orig_type == 'table' then
+        copy = {}
+        for orig_key, orig_value in next, orig, nil do
+            copy[deepcopy(orig_key)] = deepcopy(orig_value)
+        end
+        setmetatable(copy, deepcopy(getmetatable(orig)))
+    else -- number, string, boolean, etc
+        copy = orig
+    end
+    return copy
+end
+
+HEALER_TARGETS = deepcopy(DEFAULT_HEALER_TARGETS);
 
 function first_to_upper(str)
     return (str:gsub("^%l", string.upper))
@@ -302,6 +318,16 @@ function table.get_num_elements(table)
         num = num + 1;
     end
     return num;
+end
+
+function table.rid(tbl, value)
+    local new_tbl = {};
+    for i, val in ipairs(tbl) do
+        if val ~= value then
+            table.insert(new_tbl, val);
+        end
+    end
+    return new_tbl;
 end
 
 function get_available_class_configs()
@@ -475,7 +501,7 @@ function get_HP_table_and_maxmaxHP(party_only)
         HP_table[UnitName("player")] = {UnitHealth("player"), UnitHealthMax("player")};
         for i=1,4,1 do local exists = GetPartyMember(i)
             local name = UnitName("party" .. i);
-            if exists and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and UNREACHABLE_TARGETS[name] < GetTime() then
+            if exists and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and UNREACHABLE_TARGETS[name] < GetTime() and is_valid_pair(UnitName("player"), name) then
                 HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
                 if HP_table[name][2] > maxmaxHP then
                     maxmaxHP = HP_table[name][2];
@@ -485,7 +511,7 @@ function get_HP_table_and_maxmaxHP(party_only)
     else
         for i=1,num_raid_members,1 do
             local name = UnitName("raid" .. tonumber(i));
-            if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and UNREACHABLE_TARGETS[name] < GetTime() then
+            if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and UNREACHABLE_TARGETS[name] < GetTime() and is_valid_pair(UnitName("player"), name) then
                 HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
                 if HP_table[name][2] > maxmaxHP then
                     maxmaxHP = HP_table[name][2];
@@ -1008,7 +1034,15 @@ function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars)
 end
 
 function get_assigned_targets(healer)
-    return HEALER_TARGETS[healer];
+    return shallowcopy(HEALER_TARGETS[healer]["heals"]);
+end
+
+function get_assigned_hottargets(healer)
+    return shallowcopy(HEALER_TARGETS[healer]["hots"]);
+end
+
+function get_assigned_ignores(healer)
+    return shallowcopy(HEALER_TARGETS[healer]["ignores"]);
 end
 
 function get_heal_target(HP_table, maxmaxHP, with_urgencies)
@@ -1119,15 +1153,19 @@ end
 
 function sync_healer_targets_with_mine()
 
-    local healer_targets_copy = shallowcopy(HEALER_TARGETS);
+    local healer_targets = deepcopy(HEALER_TARGETS);
+
     local msg = "set;";
     for i, healer in ipairs(HEALERS) do
-        local targets = healer_targets_copy[healer];
         msg = msg .. healer .. ":"
-        for j, target in ipairs(targets) do
-            msg = msg .. target
-            if j ~= #targets then
-                msg = msg .. ","
+        for j, domain in ipairs(ASSIGNMENT_DOMAINS) do
+            local targets = healer_targets[healer][domain];
+            msg = msg .. "<" .. domain .. ">";
+            for k, target in ipairs(targets) do
+                msg = msg .. target
+                if k ~= #targets then
+                    msg = msg .. ","
+                end
             end
         end
         if i ~= #HEALERS then
@@ -1139,10 +1177,16 @@ function sync_healer_targets_with_mine()
 
 end
 
-function get_new_healer_targets(op, healer, new_targets)
+function get_new_healer_targets(domain, op, healer, new_targets)
 
     local targets = {};
-    local old_targets = shallowcopy(get_assigned_targets(healer));
+    local old_targets = {};
+    if domain == "ignores" then
+        old_targets = get_assigned_ignores(healer);
+    else
+        old_targets = get_assigned_targets(healer);
+    end
+    
     if op == "set" then
         targets = new_targets;
     elseif op == "add" then
@@ -1150,7 +1194,7 @@ function get_new_healer_targets(op, healer, new_targets)
         for i, target in ipairs(new_targets) do
             table.insert(targets, target);
         end
-    elseif op == "remove" then
+    elseif op == "del" then
         for i, target in ipairs(old_targets) do
             if not table.contains(new_targets, target) then
                 table.insert(targets, target);
@@ -1169,7 +1213,9 @@ function get_new_healer_targets(op, healer, new_targets)
     end
     if raid_i then
         table.remove(targets, raid_i);
-        table.insert(targets, "raid") -- "raid" must be last
+        if domain == "heals" then
+            table.insert(targets, "raid") -- "raid" must be last
+        end
     end
 
     return targets;
@@ -1178,51 +1224,106 @@ end
 
 function get_healer_target_info()
 
-    local healer_targets_copy = shallowcopy(HEALER_TARGETS);
     local info = "";
     for i, healer in ipairs(HEALERS) do
-        local targets = healer_targets_copy[healer];
-        if i ~= 1 then
-            info = info .. "\n";
-        end
-        info = info .. healer .. ": "
-        if next(targets) == nil then
-            info = info .. "(none)";
-        else
-            for j, target in ipairs(targets) do
-                info = info .. target
-                if j ~= #targets then
-                    info = info .. ", "
-                end
-            end
-        end
+        info = info .. get_healer_assignments_msg(healer) .. "\n";
     end
 
     return info;
 
 end
 
+function get_healer_assignments_msg(healer)
+
+    local msg = nil;
+    local order = {"heals", "hots", "ignores"};
+    local verbose = {
+        heals = "Heals",
+        hots = "HoT/ES",
+        ignores = "Raid heals ignore",
+    }
+    local assignments = {
+        heals = get_assigned_targets(healer),
+        hots = get_assigned_hottargets(healer),
+        ignores = get_assigned_ignores(healer),
+    }
+    for i, domain in ipairs(order) do
+        local tmp_str = "";
+        if next(assignments[domain]) then
+            tmp_str = table.concat(assignments[domain], ",");
+        end
+        if tmp_str ~= "" then
+            tmp_str = " " .. tmp_str;
+        end
+        if not msg then
+            msg = verbose[domain] .. ":" .. tmp_str;
+        else
+            msg = msg .. " | " .. verbose[domain] .. ":" .. tmp_str;
+        end
+    end
+    
+    msg = "[" .. healer .. "] " .. msg;
+    return msg;
+
+end
+
 function handle_healer_assignment(message)
-    -- message: healer1:target1,target2,...,targetN.healerN:target1,...
     local msg_tbl = {strsplit(";", message)};
     local op = msg_tbl[1];
-    msg = msg_tbl[2];
+    local msg = msg_tbl[2];
 
     if op == "reset" then
-        HEALER_TARGETS = shallowcopy(DEFAULT_HEALER_TARGETS);
+        HEALER_TARGETS = deepcopy(DEFAULT_HEALER_TARGETS);
         echo("Healer assignments reset to default:\n" .. get_healer_target_info());
         return;
+    elseif op == "wipe" then
+        for i, healer in pairs(HEALERS) do
+            for j, domain in pairs(ASSIGNMENT_DOMAINS) do
+                HEALER_TARGETS[healer][domain] = {};
+            end
+        end
+        echo("Wiped healer assignments:\n" .. get_healer_target_info());
+        return;
     elseif op == "sync" then
+        local sync_with = "raid leader";
         if msg then
+            sync_with = msg;
             if msg == UnitName("player") then
                 sync_healer_targets_with_mine();
             end
         elseif IsRaidLeader() then
             sync_healer_targets_with_mine();
         end
+        echo("Syncing healer assignments with " .. sync_with .. "...");
+        return;
+    elseif op == "restore" then
+        local sync_with = "raid leader";
+        local is_restorer = false;
+        local not_found = false;
+        if msg then
+            sync_with = msg;
+            if msg == UnitName("player") then
+                is_restorer = true;
+            end
+        elseif IsRaidLeader() then
+            is_restorer = true;
+        end
+        if is_restorer then
+            if LOLE_HEALER_TARGETS_SAVED then
+                HEALER_TARGETS = deepcopy(LOLE_HEALER_TARGETS_SAVED);
+                sync_healer_targets_with_mine();
+            else
+                not_found = true;
+            end
+        end
+        echo("Restoring and syncing with " .. sync_with .. "'s saved healer assignments...");
+        if not_found then
+            lole_subcommands.echo("No saved healer assignments found on " .. sync_with .. ".");
+        end
         return;
     end
     local per_healer = {strsplit(".", msg)};
+    local new_assignments = {};
     echo("Healer assignments change:")
     for key, healer_targets in pairs(per_healer) do
         local ht = {strsplit(":", healer_targets)};
@@ -1231,26 +1332,45 @@ function handle_healer_assignment(message)
             echo("No such healer: " .. "'" .. healer .. "'");
             return;
         end
-        local targets_str = ht[2];
-        local targets = {};
-        if targets_str ~= "" then
-            targets = {strsplit(",", targets_str)};
-            local guildies = get_guild_members();
-            for i, target in ipairs(targets) do
-                if not guildies[target] and target ~= "raid" then
-                    echo("Not a valid target: " .. "'" .. target .. "'");
-                    return;
+        new_assignments[healer] = {};
+        for i, domain in pairs(ASSIGNMENT_DOMAINS) do
+            new_assignments[healer][domain] = nil;
+        end
+        if ht[2] ~= "" then
+            local assign_data = {};
+            local tars_itars = table.rid({strsplit("<", ht[2])}, "");
+            for i, tars in pairs(tars_itars) do
+                local tmp = {strsplit(">", tars)};
+                local tmp_tars = {};
+                if tmp[2] then
+                    tmp_tars = table.rid({strsplit(",", tmp[2])}, "");
+                end
+                assign_data[tmp[1]] = tmp_tars;
+            end
+            for domain, domain_targets in pairs(assign_data) do
+                local guildies = get_guild_members();
+                for i, target in ipairs(domain_targets) do
+                    if not guildies[target] and not (target == "raid" and domain == "heals") then
+                        echo("Not a valid target for " .. domain .. ": '" .. target .. "'");
+                        return;
+                    end
+                end
+                new_assignments[healer][domain] = get_new_healer_targets(domain, op, healer, domain_targets);
+            end
+        end
+    end
+    for i, healer in ipairs(HEALERS) do
+        if new_assignments[healer] then
+            for j, domain in pairs(ASSIGNMENT_DOMAINS) do
+                if new_assignments[healer][domain] then
+                    HEALER_TARGETS[healer][domain] = new_assignments[healer][domain];
                 end
             end
-            targets = get_new_healer_targets(op, healer, targets);
-            targets_str = table.concat(targets, ",");
+            echo_noprefix("   " .. get_healer_assignments_msg(healer));
         end
-        HEALER_TARGETS[healer] = targets;
-        if targets_str == "" then
-            targets_str = "(none)";
-        end
-        echo_noprefix("   " .. healer .. ": " .. targets_str);
     end
+
+    LOLE_HEALER_TARGETS_SAVED = HEALER_TARGETS;
 
 end
 
@@ -1261,7 +1381,7 @@ function get_serialized_heals()
     local raid_members = get_raid_members();
     for i, target in ipairs(raid_members) do
         local target_heals = 0;
-        if not UnitExists(target) or not UnitIsConnected(target) or UnitIsDead(target) or has_buff(target, "Spirit of Redemption") or UNREACHABLE_TARGETS[target] > GetTime() then
+        if not UnitExists(target) or not UnitIsConnected(target) or UnitIsDead(target) or has_buff(target, "Spirit of Redemption") or UNREACHABLE_TARGETS[target] > GetTime() or not is_valid_pair(UnitName("player"), target) then
             target_heals = 100000; -- Dirty hack to make DLL backend not consider this target for Chain Heal.
         else
             local heals = heals_in_progress[target];
@@ -1288,7 +1408,7 @@ function get_raid_members()
 
     local members = {};
     local raid_groups = get_raid_groups();
-    for grp, tbl in ipairs(raid_groups) do
+    for grp, tbl in pairs(raid_groups) do
         for i, member in ipairs(tbl) do
             table.insert(members, member);
         end
@@ -1368,4 +1488,15 @@ function run_override()
         lole_subcommands.set("playermode", 0);
         OVERRIDE_COMMAND = nil;
     end
+end
+
+function is_valid_pair(healer, target)
+
+	local healer_ignores = get_assigned_ignores(healer);
+	if healer_ignores and table.contains(healer_ignores, target) then
+		return false;
+	end
+
+	return true;
+
 end
