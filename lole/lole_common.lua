@@ -8,14 +8,14 @@ OVERRIDE_COMMAND = nil;
 
 MAIN_TANK = nil;
 OFF_TANK = nil;
-HEALERS = {"Ceucho", "Kusip", "Kasio", "Mam", "Igop", "Puhveln"}; -- for keeping order mostly
+HEALERS = {"Ceucho", "Kusip", "Kasio", "Mam", "Igop", "Pehmware"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
     Ceucho = {heals = {"Adieux", "Noctur", "raid"}, hots = {}, ignores = {}},
     Kusip = {heals = {"Adieux", "Noctur", "raid"}, hots = {}, ignores = {}},
     Kasio = {heals = {"raid"}, hots = {"Adieux"}, ignores = {"Adieux", "Noctur"}},
     Mam = {heals = {"raid"}, hots = {"Noctur"}, ignores = {"Adieux", "Noctur"}},
     Igop = {heals = {"raid"}, hots = {"Adieux"}, ignores = {}},
-    Puhveln = {heals = {"raid"}, hots = {"Noctur"}, ignores = {}}
+    Pehmware = {heals = {"raid"}, hots = {"Noctur"}, ignores = {}}
 }
 ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
 HEALS_IN_PROGRESS = {};
