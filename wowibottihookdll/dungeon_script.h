@@ -50,8 +50,11 @@ struct dscript_t {
 };
 
 int dscript_read_all(); // read all from the dscript/ directory
+
+int dscript_load(const std::string &scriptname); // load script
 int dscript_run(); // run currently active script
 int dscript_next(); // advance to the next objective
-int dscript_load(const std::string &scriptname);
 int dscript_unload();
+
+int dscript_state(const std::string &arg);
 

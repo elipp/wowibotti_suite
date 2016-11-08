@@ -298,3 +298,23 @@ int dscript_unload() {
 	current_script = NULL;
 	return 1;
 }
+
+int dscript_state(const std::string &arg) {
+
+	if (!current_script) return 1;
+
+	if (arg == "SCRIPT_STATE_IDLE") {
+		// nop
+		current_script->script_state = SCRIPT_STATE_IDLE;
+	}
+	else if (arg == "SCRIPT_STATE_DRINKING") {
+		current_script->script_state = SCRIPT_STATE_DRINKING;
+	}
+	else if (arg == "SCRIPT_STATE_FIGHTING") {
+		current_script->script_state = SCRIPT_STATE_FIGHTING;
+	}
+	else if (arg == "SCRIPT_STATE_MOVING") {
+		current_script->script_state = SCRIPT_STATE_MOVING;
+	}
+
+}

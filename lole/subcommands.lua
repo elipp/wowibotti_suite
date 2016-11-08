@@ -462,8 +462,10 @@ local function lole_clearcc()
 	disable_all_cc_targets()
 end
 
-local function lole_pull(arg)
-	lole_debug_pull_test()
+local function lole_pull(target_GUID)
+	target_unit_with_GUID(target_GUID)
+	caster_range_check(28)
+	CastSpellByName("Avenger's Shield")
 end
 
 function set_target(target_GUID)
@@ -537,23 +539,23 @@ local function lole_dscript(...)
 		local numargs = table.getn(atab);
 
 		if numargs < 1 then
-			lole_error("dscript: usage: /lole dscript {run SCRIPTNAME | stop}")
+			lole_error("dscript: usage: /lole dscript {load SCRIPTNAME | run | next | stop}")
 			return false;
 		end
 
-		--echo("dscript: args: " .. args .. ", numargs = " .. tostring(numargs))
-
 		local command = atab[1];
 
-	  if command == "run" then
+	  if command == "load" then
 			if numargs < 2 then
-				lole_error("dscript run: missing SCRIPTNAME argument!")
+				lole_error("dscript load: missing SCRIPTNAME argument!")
 				return false;
 			else
 				local scriptname = atab[2];
 				dscript(command, scriptname)
 				return true;
 			end
+		elseif command == "run" then
+				dscript(command) -- TODO: if return value is nil, then report erreur
 		elseif command == "next" then
 				dscript(command)
 		elseif command == "stop" then

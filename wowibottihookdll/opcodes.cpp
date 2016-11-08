@@ -326,16 +326,22 @@ static void LOP_nop(const std::string& arg) {
 	return;
 }
 
-static void LOP_dungeon_script(const std::string &command, const std::string &scriptname) {
+static void LOP_dungeon_script(const std::string &command, const std::string &arg) {
 
-	if (command == "run") {
-		dscript_load(scriptname);
+	if (command == "load") {
+		dscript_load(arg);
+	}
+	else if (command == "run") {
+		dscript_run();
 	}
 	else if (command == "stop") {
 		dscript_unload();
 	}
 	else if (command == "next") {
 		dscript_next();
+	}
+	else if (command == "state") {
+		dscript_state(arg);
 	}
 }
 
@@ -680,9 +686,7 @@ static int LOP_interact_object(const std::string &objname) {
 		return 0;
 	}
 
-
 	GUID_t oGUID = o.get_GUID();
-
 	memcpy(sockbuf + 6, &oGUID, sizeof(GUID_t));
 	
 	encrypt_packet_header(sockbuf);
