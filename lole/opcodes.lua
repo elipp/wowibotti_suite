@@ -133,8 +133,9 @@ function lole_debug_loot_all()
 	lop_exec(LDOP_LOOT_ALL);
 end
 
-function walk_to(x, y, z)
-	lop_exec(LOP_CTM, x, y, z)
+function walk_to(x, y, z, prio)
+	-- the last argument is the priority level
+	lop_exec(LOP_CTM, x, y, z, prio)
 end
 
 function follow_unit(name)

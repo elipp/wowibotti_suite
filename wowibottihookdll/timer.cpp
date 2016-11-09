@@ -19,7 +19,7 @@ void Timer::start() {
 	counter_start = li.QuadPart;
 }
 
-__int64 Timer::get() {
+__int64 Timer::get() const {
 	LARGE_INTEGER li;
 	QueryPerformanceCounter(&li);
 	return li.QuadPart;

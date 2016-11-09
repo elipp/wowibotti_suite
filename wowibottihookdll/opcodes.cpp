@@ -39,7 +39,7 @@ static lop_func_t lop_funcs[] = {
  LOPFUNC(LOP_TARGET_GUID, 1, 1, 0),
  LOPFUNC(LOP_CASTER_RANGE_CHECK, 1, 1, 0),
  LOPFUNC(LOP_FOLLOW, 1, 1, 0),
- LOPFUNC(LOP_CTM, 3, 3, 0),
+ LOPFUNC(LOP_CTM, 4, 4, 0),
  LOPFUNC(LOP_DUNGEON_SCRIPT, 1, 2, 0),
  LOPFUNC(LOP_TARGET_MARKER, 1, 1, 0),
  LOPFUNC(LOP_MELEE_BEHIND, 0, 0, 0),
@@ -146,7 +146,7 @@ static int LOP_melee_behind() {
 	vec3 diff = point_behind_ctm - ppos;
 	
 	if (diff.length() > 1.0) {
-		ctm_add(CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_LOW, 0, 0.5));
+		ctm_add(CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 0.5));
 		return 1;
 	}
 	else {
@@ -158,7 +158,7 @@ static int LOP_melee_behind() {
 			 // and for auto-attacking, the valid sector is actually rather small, unlike spells,
 			 // for which perfectly perpendicular is ok
 			vec3 face = (tpos - ppos).unit();
-			ctm_add(CTM_t(ppos + face, CTM_MOVE, CTM_PRIO_LOW, 0, 1.5));
+			ctm_add(CTM_t(ppos + face, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
 		}
 	}
 
@@ -264,7 +264,6 @@ static int LOP_range_check(double minrange) {
 
 static int LOP_follow_unit(const std::string& targetname) {
 
-	// CONSIDER: change this to straight up player name and implement a get WowObject by name func?
 	ObjectManager OM;
 
 	WowObject p, t;
@@ -279,7 +278,7 @@ static int LOP_follow_unit(const std::string& targetname) {
 
 	GUID_t tGUID = t.get_GUID();
 	
-	click_to_move(t.get_pos(), CTM_MOVE, 0);
+	ctm_add(CTM_t(t.get_pos(), CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
 
 	if ((t.get_pos() - p.get_pos()).length() < 10) {
 		PRINT("follow difference < 10! calling WOWAPI FollowUnit()\n");
@@ -311,15 +310,15 @@ static int LOP_stopfollow() {
 
 	float prot = p.get_rot();
 	vec3 rot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
-	click_to_move(p.get_pos() + 0.51*rot_unit, CTM_MOVE, 1.5);
+	ctm_add(CTM_t(p.get_pos() + 0.51*rot_unit, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
 	follow_state.clear();
 
 	return 1;
 
 }
 
-static void LOP_CTM_act(double x, double y, double z) {
-	click_to_move(vec3(x, y, z), CTM_MOVE, 0);
+static void LOP_CTM_act(double x, double y, double z, int priority) {
+	ctm_add(CTM_t(vec3(x, y, z), CTM_MOVE, priority, 0, 1.5));
 }
 
 static void LOP_nop(const std::string& arg) {
@@ -882,9 +881,10 @@ int lop_exec(lua_State *L) {
 		x = lua_tonumber(L, 2);
 		y = lua_tonumber(L, 3);
 		z = lua_tonumber(L, 4);
-		PRINT("LOP_CTM: %f, %f, %f\n", x, y, z);
+		int prio = lua_tointeger(L, 5);
+		PRINT("LOP_CTM: %f, %f, %f, prio\n", x, y, z);
 
-		LOP_CTM_act(x, y, z);
+		LOP_CTM_act(x, y, z, prio);
 		break;
 	}
 	

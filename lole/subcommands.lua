@@ -223,11 +223,11 @@ local function lole_broadcast_ctm(x, y, z)
 		if not tname then return end
 
 		echo("sending CTM to target " .. tname)
-		lole_subcommands.sendmacro_to(tname, "/lole ctm", x, y, z);
+		lole_subcommands.sendmacro_to(tname, "/lole ctm", x, y, z, 1); -- last arg == priority level
 
 		-- kinda redundant.
 	elseif mode == CTM_MODES.EVERYONE then
-		lole_subcommands.sendmacro("RAID", "/lole ctm", x, y, z);
+		lole_subcommands.sendmacro("RAID", "/lole ctm", x, y, z, 1);
 
 	else
 		lole_error("lole_ctm: invalid mode: " .. tostring(mode));
@@ -237,9 +237,9 @@ local function lole_broadcast_ctm(x, y, z)
 	return true;
 end
 
-local function lole_ctm(x, y,z)
+local function lole_ctm(x, y, z, prio)
 	if lole_subcommands.get("playermode") == 0 then
-		walk_to(tonumber(x), tonumber(y), tonumber(z))
+		walk_to(tonumber(x), tonumber(y), tonumber(z), prio)
 	end
 end
 

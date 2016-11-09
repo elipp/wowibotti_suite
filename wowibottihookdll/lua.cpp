@@ -26,7 +26,7 @@ int register_lop_exec() {
 	uint *vfp_max = (uint*)0xE1F834;
 
 	// explanation: there's a check during lua_register that ensures the jump address lies within
-	// Wow.exe's .code section, so the upper limit needs to be adjusted =)
+	// Wow.exe's .code section, so the upper limit needs to be... adjusted =)
 	*vfp_max = 0xFFFFFFFF;
 	
 	return 1;

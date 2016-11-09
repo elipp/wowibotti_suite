@@ -1,12 +1,45 @@
 #include "ctm.h"
+#include "timer.h"
 
 #include <queue>
 
 static std::queue<CTM_t> ctm_queue;
 static int ctm_locked = 0;
 
+static const int num_prevpos = 4;
+static vec3 previous_positions[num_prevpos]; // TODO: use these to determine whether or not we're actually moving or not
+static int pos_index = 0;
+
+static void ctm_queue_reset() {
+	ctm_queue = std::queue<CTM_t>();
+	ctm_unlock();
+}
+
+void ctm_update_prevpos() {
+	ObjectManager OM;
+	if (!OM.valid()) return;
+
+	WowObject p;
+	if (!OM.get_local_object(&p)) return;
+
+	previous_positions[pos_index] = p.get_pos();
+	pos_index = (++pos_index) % num_prevpos;
+}
+
+int char_is_moving() {
+	float dd = 0;
+
+	for (int i = 0; i < num_prevpos - 1; ++i) {
+		dd += (previous_positions[i] - previous_positions[i + 1]).length();
+	}
+
+	dd = dd/(float)num_prevpos;
+
+	return (dd > 0.01) ? 1 : 0;
+}
+
 static int ctm_posthook_delay_active() {
-	if (ctm_queue.size() < 1) { return 0; }
+	if (ctm_queue.empty()) { return 0; }
 
 	CTM_t *c = ctm_get_current_action();
 	if (!c) return 0;
@@ -19,25 +52,58 @@ static int ctm_posthook_delay_active() {
 	return 0;
 }
 
+static void ctm_queue_reinit_with(const CTM_t &new_ctm) {
+	ctm_queue_reset();
+	ctm_queue.push(new_ctm);
+}
 
-void ctm_add(const CTM_t &ctm) {
-	if (ctm_queue.size() > 5) return;
-
-	if (ctm.priority == CTM_PRIO_EXCLUSIVE) {
-		ctm_queue = std::queue<CTM_t>();
-		ctm_queue.push(ctm);
-		ctm_unlock();
-		ctm_act();
+static int ctm_queue_get_top_prio() {
+	if (!ctm_queue.empty()) {
+		const CTM_t &top = ctm_queue.front();
+		return top.priority;
 	}
 	else {
-		if (ctm_queue.size() > 0) {
-			const CTM_t &c = ctm_queue.front();
-			if (c.priority == CTM_PRIO_EXCLUSIVE) return;
-		}
-		
-		PRINT("called ctm_ADD with %.3f, %.3f, %.3f, ID=%ld, prio %d, action 0x%X\n", ctm.destination.x, ctm.destination.y, ctm.destination.z, ctm.ID, ctm.priority, ctm.action);
-		ctm_queue.push(ctm);
+		return CTM_PRIO_NONE;
 	}
+}
+
+void ctm_add(const CTM_t &new_ctm) {
+	
+	PRINT("called ctm_ADD with %.1f, %.1f, %.1f, ID=%ld, prio %d, action 0x%X\n", 
+		new_ctm.destination.x, new_ctm.destination.y, new_ctm.destination.z, new_ctm.ID, new_ctm.priority, new_ctm.action);
+
+	switch (new_ctm.priority) {
+	case CTM_PRIO_EXCLUSIVE:
+		// clear queue, insert new, act, no questions asked
+		ctm_queue_reinit_with(new_ctm);
+		ctm_act();
+		break;
+
+	case CTM_PRIO_REPLACE:
+		if (ctm_queue_get_top_prio() < CTM_PRIO_EXCLUSIVE) {
+			ctm_queue_reinit_with(new_ctm);
+			ctm_act();
+		}
+		break;
+
+	case CTM_PRIO_FOLLOW:
+		if (ctm_queue_get_top_prio() < CTM_PRIO_REPLACE) {
+			ctm_queue_reinit_with(new_ctm);
+			ctm_act();
+		}
+		break;
+
+	case CTM_PRIO_LOW:
+		if (ctm_queue_get_top_prio() < CTM_PRIO_FOLLOW) {
+			ctm_queue.push(new_ctm);
+		}
+
+		break;
+
+	default:
+		break; 
+	}
+
 }
 
 void ctm_act() {
@@ -46,7 +112,7 @@ void ctm_act() {
 	if (ctm_queue.empty()) return;
 	if (ctm_posthook_delay_active()) return;
 
-	auto &ctm = ctm_queue.front();
+	CTM_t &ctm = ctm_queue.front();
 
 	PRINT("called ctm_act with %.3f, %.3f, %.3f, ID=%ld prio %d, action 0x%X\n", ctm.destination.x, ctm.destination.y, ctm.destination.z, ctm.ID, ctm.priority, ctm.action);
 
@@ -55,14 +121,49 @@ void ctm_act() {
 	ctm_lock();
 }
 
+static uint movemask = 0;
+static int n_bits_set(uint i) {
+	i = i - ((i >> 1) & 0x55555555);
+	i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+	return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+}
+
 void ctm_next() {
 
 	if (ctm_queue.empty()) return;
 	
-	ctm_unlock();
-	ctm_pop();
+	CTM_t &ctm = ctm_queue.front();
 
-	PRINT("called ctm_next(), ctm_queue.size() = %u\n", ctm_queue.size());
+	ObjectManager OM;
+	WowObject p;
+	OM.get_local_object(&p);
+
+	vec3 ppos = p.get_pos();
+	float dist = (ppos - ctm.destination).length();
+	if (dist > ctm.min_distance + 1) {
+		if (n_bits_set(movemask) > 10) {
+			PRINT("ctm_next(): determined that we have not been moving during the last 10 calls to ctm_next, aborting CTM task!\n");
+			DoString("SendChatMessage(\"GUILD\", \"I'm stuck, halp plx!\")");
+			ctm_queue_reset();
+			movemask = 0;
+		}
+		else {
+			PRINT("ctm_next() called, but we're not actually within 1 yd of the destination point, retrying...\n");
+			ctm_unlock();
+			ctm_act(); // refresh
+
+			movemask = movemask << 1;
+			movemask |= (!char_is_moving());
+		}
+
+	}
+	else {
+		PRINT("called ctm_next(), ctm_queue.size() = %u\n", ctm_queue.size());
+		ctm_unlock();
+		ctm_pop();
+		movemask = 0;
+	}
+
 
 }
 
@@ -74,7 +175,7 @@ CTM_t ctm_pop() {
 
 
 CTM_t *ctm_get_current_action() {
-	if (ctm_queue.size() < 1) { return NULL;  }
+	if (ctm_queue.empty()) { return NULL;  }
 	return &ctm_queue.front();
 }
 
@@ -88,14 +189,13 @@ int ctm_handle_delayed_posthook() {
 
 		PRINT("CTM id: %ld\n", c.ID);
 
-		if (h->frame_counter < h->delay_frames) {
-			++h->frame_counter;
+		if (h->timestamp.get_ms() < h->delay_ms) {
 			return 1;
 		}
 		else {
 			h->active = 0;
 			h->callback();
-			PRINT("called posthook callback after %d frames!\n", h->delay_frames);
+			PRINT("called posthook callback after %f ms!\n", h->delay_ms);
 			
 			if (!c.hook_next()) { // this also increments the iterator (crap?)
 				ctm_next();
@@ -106,6 +206,18 @@ int ctm_handle_delayed_posthook() {
 	}
 
 	return 0;
+}
+
+void ctm_purge_old() {
+	while (!ctm_queue.empty()) {
+		const CTM_t &c = ctm_queue.front();
+		if (c.timestamp.get_s() > 15) {
+			ctm_queue.pop();
+		}
+		else {
+			break;
+		}
+	}
 }
 
 static const uint

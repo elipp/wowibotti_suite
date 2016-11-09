@@ -10,7 +10,7 @@ class Timer {
 	static bool initialized;
 
 	__int64 counter_start;
-	__int64 get();
+	__int64 get() const;
 
 public:
 
@@ -18,15 +18,15 @@ public:
 	
 	void start();
 
-	inline double get_s() {
+	inline double get_s() const {
 		return double(get() - counter_start) / Timer::cpu_freq;
 	}
 
-	inline double get_ms() {
+	inline double get_ms() const {
 		return double(1000 * get_s());
 	}
 
-	inline double get_us() {
+	inline double get_us() const {
 		return double(1000000 * get_s());
 	}
 

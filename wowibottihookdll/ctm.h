@@ -2,6 +2,7 @@
 
 #include "defs.h"
 #include "wowmem.h"
+#include "timer.h"
 
 void ctm_next();
 void ctm_act();
@@ -13,35 +14,45 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 void ctm_lock();
 void ctm_unlock();
 
+void ctm_purge_old();
+
 int get_wow_CTM_state();
 SIZE_T set_wow_CTM_state(int state);
 
 typedef void (*CTM_callback_t)();
 
+
+void ctm_update_prevpos();
+int char_is_moving();
+
 struct CTM_posthook_t {
 	CTM_callback_t callback;
-	int delay_frames;
+	float delay_ms;
 
-	int frame_counter, active;
+	Timer timestamp;
+	int active;
 
-	CTM_posthook_t(CTM_callback_t hookfunc, int frame_delay) : callback(hookfunc), delay_frames(frame_delay), frame_counter(0), active(0) {};
-	CTM_posthook_t() {
-		callback = NULL;
-		delay_frames = 0;
-		frame_counter = 0;
-		active = 0;
-	}
+	CTM_posthook_t(CTM_callback_t hookfunc, float delay_milliseconds) : callback(hookfunc), delay_ms(delay_milliseconds), active(0) {
+		timestamp.start();
+	};
+
+	CTM_posthook_t() : callback(NULL), delay_ms(0), active(0) {}
 };
 
 enum {
+	CTM_PRIO_NONE,
 	CTM_PRIO_LOW,
-	CTM_PRIO_EXCLUSIVE
+	CTM_PRIO_FOLLOW,
+	CTM_PRIO_REPLACE,
+	CTM_PRIO_EXCLUSIVE,
+	CTM_PRIO_HOLD_POSITION,
+	CTM_PRIO_CLEAR_HOLD
 };
 
 static LONG CTMID = 0;
 
 struct CTM_t {
-	DWORD timestamp;
+	Timer timestamp;
 	LONG ID;
 	vec3 destination;
 	int action;
@@ -56,7 +67,7 @@ struct CTM_t {
 	CTM_t(const vec3 pos, int act, int prio, GUID_t interact, float min_dist) 
 		: destination(pos), action(act), priority(prio), interact_GUID(interact), min_distance(min_dist) {
 		
-		timestamp = GetTickCount();
+		timestamp.start();
 		ID = CTMID;
 
 		posthook_chain = std::vector<CTM_posthook_t>();
@@ -98,7 +109,7 @@ struct CTM_t {
 		if (hookchain_index < posthook_chain.size()) {
 			CTM_posthook_t &h = posthook_chain[hookchain_index];
 			h.active = 1;
-			PRINT("DEBUG: run_posthook: setting posthook->active = 1; delay expected = %d frames\n", h.delay_frames);
+			PRINT("DEBUG: run_posthook: setting posthook->active = 1; delay expected = %f ms\n", h.delay_ms);
 			return 1;
 		}
 		else {

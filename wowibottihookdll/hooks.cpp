@@ -63,10 +63,14 @@ static void __stdcall EndScene_hook() {
 	static timer_interval_t half_second(500);
 
 	ctm_handle_delayed_posthook();
-
 	register_luafunc_if_not_registered();
+	ctm_update_prevpos();
+
+	char_is_moving();
 
 	if (fifty_ms.passed()) {
+		ctm_purge_old();
+
 		refollow_if_needed();
 		ctm_act();
 
