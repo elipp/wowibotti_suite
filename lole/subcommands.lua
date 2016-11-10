@@ -211,6 +211,13 @@ local function lole_blast(arg)
 
 end
 
+local CTM_PRIO_NONE = 0
+local CTM_PRIO_LOW = 1
+local CTM_PRIO_FOLLOW = 2
+local CTM_PRIO_REPLACE = 3
+local CTM_PRIO_EXCLUSIVE = 4
+local CTM_PRIO_HOLD_POSITION = 5
+local CTM_PRIO_CLEAR_HOLD = 6
 
 local function lole_broadcast_ctm(x, y, z)
 
@@ -223,11 +230,11 @@ local function lole_broadcast_ctm(x, y, z)
 		if not tname then return end
 
 		echo("sending CTM to target " .. tname)
-		lole_subcommands.sendmacro_to(tname, "/lole ctm", x, y, z, 1); -- last arg == priority level
+		lole_subcommands.sendmacro_to(tname, "/lole ctm", x, y, z, CTM_PRIO_LOW); -- last arg == priority level
 
 		-- kinda redundant.
 	elseif mode == CTM_MODES.EVERYONE then
-		lole_subcommands.sendmacro("RAID", "/lole ctm", x, y, z, 1);
+		lole_subcommands.sendmacro("RAID", "/lole ctm", x, y, z, CTM_PRIO_LOW);
 
 	else
 		lole_error("lole_ctm: invalid mode: " .. tostring(mode));

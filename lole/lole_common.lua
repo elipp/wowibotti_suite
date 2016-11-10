@@ -70,44 +70,18 @@ ROLES = { healer = 1, caster = 2, warrior_tank = 3, paladin_tank = 4, melee = 5,
 
 local CLASS_COLORS = {
 	druid = "FF7D0A",
-	DRUID = "FF7D0A",
-	Druid = "FF7D0A",
-
 	hunter = "ABD473",
-	HUNTER = "ABD473",
-	Hunter = "ABD473",
-
 	mage = "69CCF0",
-	MAGE = "69CCF0",
-	Mage = "69CCF0",
-
 	paladin = "F58CBA",
-	PALADIN = "F58CBA",
-	Paladin = "F58CBA",
-
 	priest = "FFFFFF",
-	PRIEST = "FFFFFF",
-	Priest = "FFFFFF",
-
 	rogue = "FFF569",
-	ROGUE = "FFF569",
-	Rogue = "FFF569",
-
 	shaman = "0070DE",
-	SHAMAN = "0070DE",
-	Shaman = "0070DE",
-
 	warlock = "9482C9",
-	WARLOCK = "9482C9",
-	Warlock = "9482C9",
-
 	warrior = "C79C6E",
-	WARRIOR = "C79C6E",
-	Warrior = "C79C6E",
 }
 
 function get_class_color(class)
-	local r = CLASS_COLORS[class]
+	local r = CLASS_COLORS[string.lower(class)]
 	if not r then
 		return "(ERR)"
 	else
@@ -118,61 +92,32 @@ end
 local raid_target_indices = {
 
 ["star"] = 1,
-["Star"] = 1,
-
 ["circle"] = 2,
-["Circle"] = 2,
-
 ["diamond"] = 3,
-["Diamond"] = 3,
-
 ["triangle"] = 4,
-["Triangle"] = 4,
-
 ["crescent"] = 5,
-["Crescent"] = 5,
-
 ["moon"] = 5,
-["Moon"] = 5,
-
 ["square"] = 6,
-["Square"] = 6,
-
 ["cross"] = 7,
-["Cross"] = 7,
-
 ["skull"] = 8,
-["Skull"] = 8
 
 }
 
+function get_marker_index(marker)
+	return raid_target_indices[string.lower(marker)]
+end
 
 local CC_spells = {
-	Polymorph = 118,
-	Sheep = 118,
+  -- full ranks
+	polymorph = 118,
 	sheep = 118,
-
-	Cyclone = 33786,
 	cyclone = 33786,
-
-	["Entangling Roots"] = 26989,
-	Roots = 26989,
 	roots = 26989,
 	root = 26989,
-
-	Banish = 18647,
 	banish = 18647,
 	ban = 18647,
-
-	Fear = 6215,
 	fear = 6215,
-
-	["Shackle Undead"] = 10955,
-	Shackle = 10955,
 	shackle = 10955,
-
-	["Turn Evil"] = 10326,
-	Turn = 10326,
 	turn = 10326,
 }
 
@@ -188,24 +133,11 @@ local CC_spellnames = { -- in a CastSpellByName-able format
 }
 
 function get_CC_spellID(name)
-	return CC_spells[name];
+	return CC_spells[string.lower(name)];
 end
 
 function get_CC_spellname(spellID)
 	return CC_spellnames[spellID];
-end
-
-function get_marker_index(name)
-	return raid_target_indices[name]
-end
-
-function injected()
-	local s = GetCVar("screenshotQuality");
-	if s ~= "iok" then
-		return nil;
-	else
-		return 1
-	end
 end
 
 function echo(text)
@@ -615,8 +547,6 @@ function has_debuff_by_self(targetname, debuff_name)
 	end
 
 	return false;
-
-
 end
 
 function get_num_debuff_stacks(targetname, debuff_name)
@@ -739,28 +669,6 @@ function validate_target()
 		return false;
 	end
 
-end
-
-function cipher_GUID(GUID)
-	local part1 = tonumber(string.sub(GUID, 3, 10), 16); -- the GUID string still has the 0x part in it
-	local part2 = tonumber(string.sub(GUID, 11), 16);
-
-	--DEFAULT_CHAT_FRAME:AddMessage("part 1: " .. string.format("%08X", part1) .. ", part 2: " .. string.format("%08X", part2));
-
-	local XOR_mask1 = 0xAB0AB03F; -- just some arbitrary constants
-	local XOR_mask2 = 0xEBAEBA55;
-
-	local xor1 = string.format("%08X", bit.bxor(part1, XOR_mask1));
-	local xor2 = string.format("%08X", bit.bxor(part2, XOR_mask2));
-
-	--DEFAULT_CHAT_FRAME:AddMessage("XOR'd 1: " .. xor1 .. ", XOR'd 2: " .. xor2);
-
-	return "0x" .. xor1 .. xor2;
-end
-
-function decipher_GUID(ciphered)
--- this works because XOR is reversible ^^
-	return cipher_GUID(ciphered);
 end
 
 function get_distance_between(c1, c2)
@@ -905,6 +813,7 @@ function get_item_bag_position(itemLink)
         end
     end
 
+-- (else)
 	return nil,nil
 
 end
@@ -991,7 +900,7 @@ function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars)
                         hp = hp + info[1];
                     end
                 end
-                if (not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") 
+                if (not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption")
                     or UnitHealthMax(name) - hp < min_deficit or UNREACHABLE_TARGETS[name] > GetTime()) then
                     ineligible_chars[name] = true;
                     num_ineligible_chars = num_ineligible_chars + 1;
@@ -1084,7 +993,7 @@ function get_raid_heal_target(with_urgencies)
 end
 
 function get_raid_heal_targets(num_targets)
-    
+
     -- Returns a table of healable raid members sorted in descending order of urgency.
     -- Limit number of elements to num_targets when passed.
 
@@ -1186,7 +1095,7 @@ function get_new_healer_targets(domain, op, healer, new_targets)
     else
         old_targets = get_assigned_targets(healer);
     end
-    
+
     if op == "set" then
         targets = new_targets;
     elseif op == "add" then
@@ -1261,7 +1170,7 @@ function get_healer_assignments_msg(healer)
             msg = msg .. " | " .. verbose[domain] .. ":" .. tmp_str;
         end
     end
-    
+
     msg = "[" .. healer .. "] " .. msg;
     return msg;
 
