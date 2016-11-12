@@ -8,8 +8,12 @@ static std::queue<CTM_t> ctm_queue;
 static int ctm_locked = 0;
 
 static const int num_prevpos = 4;
-static vec3 previous_positions[num_prevpos]; // TODO: use these to determine whether or not we're actually moving or not
-static int pos_index = 0;
+static Timer pos_timer;
+static vec3 prev_pos;
+static struct {
+	float dist;
+	float dt;
+} previous_positions[num_prevpos]; 
 
 static void ctm_queue_reset() {
 	ctm_queue = std::queue<CTM_t>();
@@ -23,22 +27,29 @@ void ctm_update_prevpos() {
 	WowObject p;
 	if (!OM.get_local_object(&p)) return;
 
-	previous_positions[pos_index] = p.get_pos();
-	pos_index = (++pos_index) % num_prevpos;
+	for (int i = 0; i < num_prevpos - 1; ++i) {
+		previous_positions[i] = previous_positions[i + 1];
+	}
+	vec3 ppos = p.get_pos();
+	previous_positions[3].dist = (ppos - prev_pos).length();
+	previous_positions[3].dt = pos_timer.get_s();
+	prev_pos = p.get_pos();
+
+	pos_timer.start();
 }
 
 int char_is_moving() {
 	float dd = 0;
 
 	for (int i = 0; i < num_prevpos - 1; ++i) {
-		dd += (previous_positions[i] - previous_positions[i + 1]).length();
+		dd += previous_positions[i].dist / (previous_positions[i].dt + previous_positions[i+1].dt);
 	}
 
 	dd = dd/(float)num_prevpos;
+	PRINT("dd = %f\n", dd);
 
-	PRINT("move speed: %f\n", dd * 100);
 
-	return (dd > 0.05) ? 1 : 0;
+	return (dd > 0.7) ? 1 : 0;
 }
 
 static int ctm_posthook_delay_active() {
@@ -132,7 +143,7 @@ void ctm_act() {
 static uint movemask = 0;
 void ctm_abort_if_not_moving() {
 
-	if (!ctm_job_in_progress()) { return; }
+	if (!ctm_job_in_progress()) { movemask = 0; return; }
 
 	if (movemask > 10) {
 		PRINT("ctm_next(): determined that we have not been moving during, aborting CTM task!\n");
@@ -143,7 +154,7 @@ void ctm_abort_if_not_moving() {
 	}
 
 	movemask += !char_is_moving();
-
+	
 }
 
 
