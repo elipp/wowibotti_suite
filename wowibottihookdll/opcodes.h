@@ -60,6 +60,7 @@ enum LDOP_OPCODES {
 };
 
 void refollow_if_needed();
+void stopfollow();
 
 int lop_exec(lua_State *s);
 

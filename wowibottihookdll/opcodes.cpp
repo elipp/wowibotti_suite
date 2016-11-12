@@ -301,8 +301,7 @@ static int LOP_follow_unit(const std::string& targetname) {
 
 }
 
-static int LOP_stopfollow() {
-	
+void stopfollow() {
 	ObjectManager OM;
 
 	WowObject p;
@@ -310,11 +309,13 @@ static int LOP_stopfollow() {
 
 	float prot = p.get_rot();
 	vec3 rot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
-	ctm_add(CTM_t(p.get_pos() + 0.51*rot_unit, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
+	ctm_add(CTM_t(p.get_pos() + 0.51*rot_unit, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 1.5));
 	follow_state.clear();
+}
 
+static int LOP_stopfollow() {
+	stopfollow();
 	return 1;
-
 }
 
 static void LOP_CTM_act(double x, double y, double z, int priority) {

@@ -223,7 +223,7 @@ local function lole_broadcast_ctm(x, y, z)
 
 	local mode = get_CTM_mode();
 	if mode == CTM_MODES.LOCAL then
-		lole_subcommands.ctm(x, y, z);
+		lole_subcommands.ctm(x, y, z, CTM_PRIO_LOW);
 
 	elseif mode == CTM_MODES.TARGET then
 		local tname = UnitName("target")
