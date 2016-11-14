@@ -165,7 +165,7 @@ function lole_error(text)
 	DEFAULT_CHAT_FRAME:AddMessage("|cFFFF3300lole: error: " .. tostring(text))
 end
 
-function player_casting() then
+function player_casting()
   return UnitCastingInfo("player") or UnitChannelInfo("player")
 end
 
