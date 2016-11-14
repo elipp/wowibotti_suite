@@ -1,6 +1,7 @@
 combat_druid_balance = function()
 
 	if UnitCastingInfo("player") then return; end
+	if UnitChannelInfo("player") then return; end
 
     if (not has_buff("player", "Moonkin Form")) then
         CastSpellByName("Moonkin Form")
@@ -21,6 +22,13 @@ combat_druid_balance = function()
     end
 
 	caster_range_check(30)
+
+	if lole_subcommands.get("aoemode") == 1 then
+		if GetSpellCooldown("Hurricane") == 0 then
+					lole_subcommands.cast_gtaoe("Hurricane", get_unit_position("target"))
+		end
+	end
+
 
     CastSpellByName("Starfire");
 

@@ -30,13 +30,7 @@ local function feed_pet_if_need_to()
 end
 
 combat_hunter = function()
-    PetPassiveMode() -- just do this no matter what :D
-    --TargetUnit("pet")
-
-    -- if not UnitExists("target") or UnitIsDead("pet") then
-    --     CastSpellByName("Call Pet");
-    --     CastSpellByName("Revive Pet");
-    -- end
+    PetPassiveMode()
 
     if not UnitAffectingCombat("player") then if feed_pet_if_need_to() then return end end
 
@@ -68,11 +62,6 @@ combat_hunter = function()
     PetAttack()
     caster_range_check(35)
 
-    -- if GetSpellCooldown("Claw") == 0 then
-    --     CastSpellByName("Scorpid Poison")
-    --     CastSpellByName("Claw")
-    -- end
-
     if IsUsableSpell("Kill Command") then
         cast_if_nocd("Kill Command")
     end
@@ -84,6 +73,15 @@ combat_hunter = function()
             CastSpellByName("Gore")
         end
     end
+
+    if UnitCastingInfo("player") then return; end
+    if UnitChannelInfo("player") then return; end
+
+
+    if lole_subcommands.get("aoemode") == 1 then
+  			lole_subcommands.cast_gtaoe("Volley", get_unit_position("target"))
+  	end
+
 
     if not has_debuff("target", "Hunter's Mark") then
         CastSpellByName("Hunter's Mark");

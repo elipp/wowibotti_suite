@@ -741,17 +741,15 @@ static int LOPDBG_pull_test() {
 	ctm_add(pull);
 }
 
-static int LOP_get_unit_position(const std::string &name, double *out) {
+static int LOP_get_unit_position(const std::string &name, vec3 *pos_out, double *rot) {
 	ObjectManager OM;
 	
 	if (name == "player") {
 		WowObject p;
 		if (!OM.get_local_object(&p)) return 0;
 
-		vec3 ppos = p.get_pos();
-		out[0] = ppos.x;
-		out[1] = ppos.y;
-		out[2] = ppos.z;
+		*pos_out = p.get_pos();
+		*rot = p.get_rot();
 
 		return 1;
 	}
@@ -764,11 +762,9 @@ static int LOP_get_unit_position(const std::string &name, double *out) {
 		if (!OM.get_object_by_GUID(target_GUID, &t)) {
 			return 0;
 		}
-		vec3 tpos = t.get_pos();
-
-		out[0] = tpos.x;
-		out[1] = tpos.y;
-		out[2] = tpos.z;
+		
+		*pos_out = t.get_pos();
+		*rot = t.get_rot();
 
 		return 1;
 	}
@@ -776,11 +772,8 @@ static int LOP_get_unit_position(const std::string &name, double *out) {
 		WowObject u;
 		if (!OM.get_unit_by_name(name, &u)) { return 0; }
 
-		vec3 upos = u.get_pos();
-
-		out[0] = upos.x;
-		out[1] = upos.y;
-		out[2] = upos.z;
+		*pos_out = u.get_pos();
+		*rot = u.get_rot();
 		
 		return 1;
 		
@@ -950,15 +943,17 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LOP_GET_UNIT_POSITION: {
-		double coords[3];
-		int r = LOP_get_unit_position(lua_tolstring(L, 2, &len), coords);
+		vec3 pos;
+		double rot;
+		int r = LOP_get_unit_position(lua_tolstring(L, 2, &len), &pos, &rot);
 		
 		if (!r) { return 0; }
 		else {
-			lua_pushnumber(L, coords[0]);
-			lua_pushnumber(L, coords[1]);
-			lua_pushnumber(L, coords[2]);
-			return 3;
+			lua_pushnumber(L, pos.x);
+			lua_pushnumber(L, pos.y);
+			lua_pushnumber(L, pos.z);
+			lua_pushnumber(L, rot);
+			return 4;
 		}
 		break;
 	}

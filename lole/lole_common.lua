@@ -132,6 +132,17 @@ local CC_spellnames = { -- in a CastSpellByName-able format
 	[10326] = "Turn Evil",
 }
 
+local AOE_spellIDs = {
+  ["Flamestrike"] = 27086,
+  ["Blizzard"] = 27085,
+  ["Volley"] = 27022,
+  ["Hurricane"] = 27012
+}
+
+function get_AOE_spellID(name)
+  return AOE_spellIDs[name]
+end
+
 function get_CC_spellID(name)
 	return CC_spells[string.lower(name)];
 end
