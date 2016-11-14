@@ -239,7 +239,7 @@ static int LOP_range_check(double minrange) {
 	if (diff.length() > minrange - 1) {
 		// move in a straight line to a distance of minrange-1 yd from the target. Kinda bug-prone though..
 		vec3 new_point = tpos - (minrange - 1) * diff.unit();
-		ctm_add(CTM_t(new_point, CTM_MOVE, CTM_PRIO_LOW, 0, 1.5));
+		ctm_add(CTM_t(new_point, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
 		return 1;
 
 	}
@@ -254,7 +254,7 @@ static int LOP_range_check(double minrange) {
 	//	PRINT("dot product: %f\n", d);
 
 		if (d < 0) {
-			ctm_add(CTM_t(ppos + diff.unit(), CTM_MOVE, CTM_PRIO_LOW, 0, 1.5)); // this seems quite stable for just changing orientation.
+			ctm_add(CTM_t(ppos + diff.unit(), CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5)); // this seems quite stable for just changing orientation.
 		}
 	}
 
