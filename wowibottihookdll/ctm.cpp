@@ -1,5 +1,6 @@
 #include "ctm.h"
 #include "timer.h"
+#include "opcodes.h"
 
 #include <queue>
 
@@ -7,8 +8,12 @@ static std::queue<CTM_t> ctm_queue;
 static int ctm_locked = 0;
 
 static const int num_prevpos = 4;
-static vec3 previous_positions[num_prevpos]; // TODO: use these to determine whether or not we're actually moving or not
-static int pos_index = 0;
+static Timer pos_timer;
+static vec3 prev_pos;
+static struct {
+	float dist;
+	float dt;
+} previous_positions[num_prevpos]; 
 
 static void ctm_queue_reset() {
 	ctm_queue = std::queue<CTM_t>();
@@ -22,20 +27,29 @@ void ctm_update_prevpos() {
 	WowObject p;
 	if (!OM.get_local_object(&p)) return;
 
-	previous_positions[pos_index] = p.get_pos();
-	pos_index = (++pos_index) % num_prevpos;
+	for (int i = 0; i < num_prevpos - 1; ++i) {
+		previous_positions[i] = previous_positions[i + 1];
+	}
+	vec3 ppos = p.get_pos();
+	previous_positions[3].dist = (ppos - prev_pos).length();
+	previous_positions[3].dt = pos_timer.get_s();
+	prev_pos = p.get_pos();
+
+	pos_timer.start();
 }
 
 int char_is_moving() {
 	float dd = 0;
 
 	for (int i = 0; i < num_prevpos - 1; ++i) {
-		dd += (previous_positions[i] - previous_positions[i + 1]).length();
+		dd += previous_positions[i].dist / (previous_positions[i].dt + previous_positions[i+1].dt);
 	}
 
 	dd = dd/(float)num_prevpos;
+	PRINT("dd = %f\n", dd);
 
-	return (dd > 0.01) ? 1 : 0;
+
+	return (dd > 0.7) ? 1 : 0;
 }
 
 static int ctm_posthook_delay_active() {
@@ -66,6 +80,11 @@ static int ctm_queue_get_top_prio() {
 		return CTM_PRIO_NONE;
 	}
 }
+
+int ctm_job_in_progress() {
+	return ctm_queue_get_top_prio() != CTM_PRIO_NONE && get_wow_CTM_state() != CTM_DONE;
+}
+
 
 void ctm_add(const CTM_t &new_ctm) {
 	
@@ -122,11 +141,22 @@ void ctm_act() {
 }
 
 static uint movemask = 0;
-static int n_bits_set(uint i) {
-	i = i - ((i >> 1) & 0x55555555);
-	i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
-	return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+void ctm_abort_if_not_moving() {
+
+	if (!ctm_job_in_progress()) { movemask = 0; return; }
+
+	if (movemask > 10) {
+		PRINT("ctm_next(): determined that we have not been moving during, aborting CTM task!\n");
+		DoString("SendChatMessage(\"I'm stuck, halp plx!\", \"GUILD\")");
+		ctm_queue_reset();
+		stopfollow();
+		movemask = 0;
+	}
+
+	movemask += !char_is_moving();
+	
 }
+
 
 void ctm_next() {
 
@@ -141,21 +171,9 @@ void ctm_next() {
 	vec3 ppos = p.get_pos();
 	float dist = (ppos - ctm.destination).length();
 	if (dist > ctm.min_distance + 1) {
-		if (n_bits_set(movemask) > 10) {
-			PRINT("ctm_next(): determined that we have not been moving during the last 10 calls to ctm_next, aborting CTM task!\n");
-			DoString("SendChatMessage(\"GUILD\", \"I'm stuck, halp plx!\")");
-			ctm_queue_reset();
-			movemask = 0;
-		}
-		else {
-			PRINT("ctm_next() called, but we're not actually within 1 yd of the destination point, retrying...\n");
-			ctm_unlock();
-			ctm_act(); // refresh
-
-			movemask = movemask << 1;
-			movemask |= (!char_is_moving());
-		}
-
+		PRINT("ctm_next() called, but we're not actually within 1 yd of the destination point, retrying...\n");
+		ctm_unlock();
+		ctm_act(); // refresh
 	}
 	else {
 		PRINT("called ctm_next(), ctm_queue.size() = %u\n", ctm_queue.size());

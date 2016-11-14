@@ -16,11 +16,13 @@ void ctm_unlock();
 
 void ctm_purge_old();
 
+int ctm_job_in_progress();
+void ctm_abort_if_not_moving();
+
 int get_wow_CTM_state();
 SIZE_T set_wow_CTM_state(int state);
 
 typedef void (*CTM_callback_t)();
-
 
 void ctm_update_prevpos();
 int char_is_moving();
