@@ -66,8 +66,8 @@ combat_warlock_affli = function()
 
 	if tap_if_need_to() then return true; end
 
-	if UnitCastingInfo("player") then return; end
-	if UnitChannelInfo("player") then return; end
+	if player_casting() then return end
+
 	if GetSpellCooldown("Corruption") > 0 then return; end -- check gcd. this could add unnecessary latency to spam though
 
 	if lole_subcommands.get("aoemode") == 1 then

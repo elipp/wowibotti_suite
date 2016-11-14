@@ -90,7 +90,7 @@ end
 local time_from_succubus_summon = 0
 
 combat_warlock_sb = function()
-    if UnitCastingInfo("player") then return; end
+	if player_casting() then return end
 
 	--MAULGAR()
 
@@ -116,9 +116,6 @@ combat_warlock_sb = function()
 	if not validate_target() then return end
 
 	caster_range_check(30);
-
-	if UnitCastingInfo("player") then return; end
-	if UnitChannelInfo("player") then return; end
 
 	if tap_if_need_to() then return; end
 

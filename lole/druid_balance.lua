@@ -1,7 +1,6 @@
 combat_druid_balance = function()
 
-	if UnitCastingInfo("player") then return; end
-	if UnitChannelInfo("player") then return; end
+	if player_casting() then return end
 
     if (not has_buff("player", "Moonkin Form")) then
         CastSpellByName("Moonkin Form")

@@ -74,9 +74,7 @@ combat_hunter = function()
         end
     end
 
-    if UnitCastingInfo("player") then return; end
-    if UnitChannelInfo("player") then return; end
-
+    if player_casting() then return end
 
     if lole_subcommands.get("aoemode") == 1 then
   			lole_subcommands.cast_gtaoe("Volley", get_unit_position("target"))

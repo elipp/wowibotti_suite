@@ -139,6 +139,8 @@ local AOE_spellIDs = {
   ["Hurricane"] = 27012
 }
 
+
+
 function get_AOE_spellID(name)
   return AOE_spellIDs[name]
 end
@@ -161,6 +163,10 @@ end
 
 function lole_error(text)
 	DEFAULT_CHAT_FRAME:AddMessage("|cFFFF3300lole: error: " .. tostring(text))
+end
+
+function player_casting() then
+  return UnitCastingInfo("player") or UnitChannelInfo("player")
 end
 
 function shallowcopy(orig)

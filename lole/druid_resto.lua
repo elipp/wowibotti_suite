@@ -88,7 +88,7 @@ local function raid_heal()
                 return true;
             end
         end
-            
+
         if (health_cur < health_max * 0.80) then
             if not has_lb or timeleft_lb < 1.8 then
                 cast_heal("Lifebloom", target);
@@ -103,7 +103,8 @@ end
 
 combat_druid_resto = function()
 
-    if UnitChannelInfo("player") then return; end
+  if player_casting() then return end
+
     if do_tranquility then
         if cast_if_nocd("Tranquility") then do_tranquility = false end
         return;

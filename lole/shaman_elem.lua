@@ -16,7 +16,7 @@ local TOTEMS = {
 
 combat_shaman_elem = function()
 
-	if UnitCastingInfo("player") then return; end
+	if player_casting() then return end
 
 	if not has_buff("player", "Water Shield") then
 		CastSpellByName("Water Shield");

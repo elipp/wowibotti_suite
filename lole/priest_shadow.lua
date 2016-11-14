@@ -2,8 +2,7 @@ local ve_guard = false;
 
 combat_priest_shadow = function()
 
-	if UnitChannelInfo("player") then return; end	-- don't clip mind flay
-	if UnitCastingInfo("player") then return; end
+	if player_casting() then return end
 
 	--if cleanse_party("Enveloping Wind") then return; end
 --	if cleanse_party("Lung Burst") then return; end

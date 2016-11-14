@@ -1,7 +1,7 @@
 
 combat_mage_frost = function()
 
-    if UnitChannelInfo("player") then return; end -- mainly in reference to evocation
+  if player_casting() then return end
 
     if ((GetItemCount(22044) == 0) and (not UnitAffectingCombat("player"))) then
         CastSpellByName("Conjure Mana Emerald");
