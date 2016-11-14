@@ -4,16 +4,24 @@ local function refresh_healbuffs(hottargets)
 
     if not hottargets or not hottargets[1] then return false; end
 
+    local pom_checked = false;
     for i, targetname in ipairs(hottargets) do
         if not UnitExists(targetname) or not UnitIsConnected(targetname) or UnitIsDead(targetname) or has_buff(targetname, "Spirit of Redemption") or UNREACHABLE_TARGETS[targetname] > GetTime() then
-        elseif not has_buff(targetname, "Prayer of Mending") and time() - pom_time > 10 then
-            if cast_heal("Prayer of Mending", targetname) then
-                pom_time = time();
+        else
+            if not pom_checked then
+                pom_checked = true; -- first healable hot target always gets PoM
+                if not has_buff(targetname, "Prayer of Mending") and time() - pom_time > 10 then
+                    if cast_heal("Prayer of Mending", targetname) then
+                        pom_time = time();
+                    end
+                    return true;
+                end
             end
-            return true;
-        elseif not has_buff(targetname, "Renew") then
-            cast_heal("Renew", targetname);
-            return true;
+            local found, timeleft = has_buff(targetname, "Renew");
+            if not found or not timeleft then
+                cast_heal("Renew", targetname);
+                return true;
+            end
         end
     end
 
@@ -144,8 +152,11 @@ local function raid_heal(has_single_targets)
             if cast_heal("Prayer of Mending") then
                 pom_time = time();
             end
-        elseif not has_buff("target", "Renew") then
-            cast_heal("Renew");
+        else
+            local found, timeleft = has_buff("target", "Renew");
+            if not found or not timeleft then
+                cast_heal("Renew");
+            end
         end
     else
         return false;
@@ -176,6 +187,7 @@ combat_priest_holy = function()
 	local health_max = UnitHealthMax("target");
 	local health_cur = UnitHealth("target");
 	local targeting_self = UnitName("target") == UnitName("player");
+    local found, timeleft = has_buff("target", "Renew");
 
     if (health_cur < health_max * 0.15) then
         cast_heal("Power Word: Shield");
@@ -207,7 +219,7 @@ combat_priest_holy = function()
 		else
 			cast_heal("Greater Heal(Rank 1)");
 		end
-	elseif not has_buff("target", "Renew") then
+	elseif not found or not timeleft then
 		cast_heal("Renew");
     elseif table.contains(heal_targets, "raid") then
         raid_heal(true);

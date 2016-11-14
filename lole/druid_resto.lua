@@ -30,7 +30,7 @@ local function should_cast_tranquility(min_deficit, min_healable_chars)
     local num_deficients = 0;
     for unit, deficit in pairs(HP_deficits) do
         local distance_to_unit = get_distance_between("player", UnitName(unit));
-        if distance_to_unit <= 30 and deficit > min_deficit then
+        if distance_to_unit and distance_to_unit <= 30 and deficit > min_deficit then
             num_deficients = num_deficients + 1;
             if num_deficients == min_healable_chars then
                 r = true;
@@ -129,12 +129,18 @@ combat_druid_resto = function()
         return;
     end
 
+    local heal_raid = false;
+    if table.contains(heal_targets, "raid") then
+        heal_raid = true;
+        heal_targets = table.rid(heal_targets, "raid");
+    end
+
     local health_max = UnitHealthMax(heal_targets[1]);
     local health_cur = UnitHealth(heal_targets[1]);
     local has_rg, timeleft_rg, stacks_rg = has_buff(heal_targets[1], "Regrowth");
     local has_rj, timeleft_rj, stacks_rj = has_buff(heal_targets[1], "Rejuvenation");
     if (health_cur < health_max * 0.35) then
-        if cast_heal("Swiftmend", heal_targets[1]) then return; end
+        cast_heal("Swiftmend", heal_targets[1]);
         if not has_rg or timeleft_rg < 5 then
             cast_heal("Regrowth", heal_targets[1]);
             return;
@@ -154,24 +160,33 @@ combat_druid_resto = function()
 
     local lb_candidate = nil;
     local unit_without_lb = nil;
+    local least_stacks = 3;
+    local unit_with_least_stacks = nil;
     for i, name in ipairs(heal_targets) do
-        if name ~= "raid" then
-            local has_lb, timeleft_lb = has_buff(name, "Lifebloom");
-        	if has_lb then
-                if not lb_candidate then
-                    lb_candidate = {name=name, timeleft=timeleft_lb};
-                elseif timeleft_lb < lb_candidate["timeleft"] then
-                    lb_candidate = {name=name, timeleft=timeleft_lb};
-                end
-            elseif not unit_without_lb then
-                unit_without_lb = name;
+        local has_lb, timeleft_lb, stacks_lb = has_buff(name, "Lifebloom");
+    	if has_lb then
+            if not lb_candidate then
+                lb_candidate = {name=name, timeleft=timeleft_lb};
+            elseif timeleft_lb < lb_candidate["timeleft"] then
+                lb_candidate = {name=name, timeleft=timeleft_lb};
             end
+            if stacks_lb < least_stacks then
+                least_stacks = stacks_lb;
+                unit_with_least_stacks = name;
+            end
+        elseif not unit_without_lb then
+            unit_without_lb = name;
         end
     end
     if lb_candidate and lb_candidate["timeleft"] < 0.8 + #heal_targets * 0.2 then
         cast_heal("Lifebloom", lb_candidate["name"]);
+        return;
     elseif unit_without_lb then
         cast_heal("Lifebloom", unit_without_lb);
+        return;
+    elseif unit_with_least_stacks then
+        cast_heal("Lifebloom", unit_with_least_stacks);
+        return;
     end
 
     if refresh_rejuvenation(get_assigned_hottargets(UnitName("player"))) then return; end
@@ -195,7 +210,7 @@ combat_druid_resto = function()
         end
     end
 
-    if table.contains(heal_targets, "raid") then
+    if heal_raid then
         raid_heal();
     end
 
