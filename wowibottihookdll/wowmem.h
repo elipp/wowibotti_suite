@@ -101,11 +101,13 @@ public:
 	uint NPC_get_buff(int index) const;
 	uint NPC_get_debuff(int index) const;
 
-	uint NPC_get_buff_duration(int index, uint spellID) const;
-	uint NPC_get_debuff_duration(int index, uint spellID) const;
+	int NPC_get_buff_duration(int index, uint spellID) const;
+	int NPC_get_debuff_duration(int index, uint spellID) const;
 
 	int NPC_has_buff(uint spellID) const;
 	int NPC_has_debuff(uint spellID) const;
+
+	int NPC_has_debuff_by_self(uint spellID) const;
 
 	std::string unit_get_name() const;
 	GUID_t unit_get_target_GUID() const;
@@ -164,6 +166,7 @@ public:
 	int get_object_by_GUID(GUID_t GUID, WowObject *o) const;
 	int get_unit_by_name(const std::string &name, WowObject *o) const;
 	int get_GO_by_name(const std::string &name, WowObject *o) const;
+
 	GUID_t get_local_GUID() const;
 	int get_local_object(WowObject *o) const;
 	uint get_base_address() const { return base_addr; }

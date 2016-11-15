@@ -57,7 +57,8 @@ static lop_func_t lop_funcs[] = {
  LOPFUNC(LOP_STOPFOLLOW, 0, 0, 0),
  LOPFUNC(LOP_CAST_GTAOE, 4, 4, 0),
  LOPFUNC(LOP_HAS_AGGRO, 0, 0, 1),
- LOPFUNC(LOP_INTERACT_GOBJECT, 1, 1, 1)
+ LOPFUNC(LOP_INTERACT_GOBJECT, 1, 1, 1),
+ LOPFUNC(LOP_GET_SEED_TARGET, 0, 0, 0)
 
 };
 
@@ -146,7 +147,7 @@ static int LOP_melee_behind() {
 	vec3 diff = point_behind_ctm - ppos;
 	
 	if (diff.length() > 1.0) {
-		ctm_add(CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 0.5));
+		ctm_add(CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_REPLACE, 0, 0.5));
 		return 1;
 	}
 	else {
@@ -158,7 +159,7 @@ static int LOP_melee_behind() {
 			 // and for auto-attacking, the valid sector is actually rather small, unlike spells,
 			 // for which perfectly perpendicular is ok
 			vec3 face = (tpos - ppos).unit();
-			ctm_add(CTM_t(ppos + face, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
+			ctm_add(CTM_t(ppos + face, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
 		}
 	}
 
@@ -267,10 +268,8 @@ static int LOP_follow_unit(const std::string& targetname) {
 	ObjectManager OM;
 
 	WowObject p, t;
-	if (!OM.get_local_object(&p) 
-		|| !OM.get_unit_by_name(targetname, &t)) {
-		return 0;
-	}
+	if (!OM.get_local_object(&p)) return 0;
+	if (!OM.get_unit_by_name(targetname, &t)) return 0;
 
 	if (p.get_GUID() == t.get_GUID()) {
 		return 1;
@@ -311,7 +310,7 @@ void stopfollow() {
 
 	float prot = p.get_rot();
 	vec3 rot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
-	ctm_add(CTM_t(p.get_pos() + 0.51*rot_unit, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 1.5));
+	ctm_add(CTM_t(p.get_pos() + 0.51*rot_unit, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
 	follow_state.clear();
 }
 
@@ -618,6 +617,26 @@ static int mob_has_debuff(const WowObject &mob, uint debuff_spellID) {
 	return 0;
 }
 
+static GUID_t LOP_get_seed_target() {
+
+	ObjectManager OM;
+
+	WowObject i = OM.get_first_object();
+
+	while (i.valid()) {
+		if (i.get_type() == OBJECT_TYPE_NPC) {
+			if (!i.NPC_has_debuff_by_self(27243)) {
+				return i.get_GUID();
+			}
+		}
+
+		i = i.next();
+	}
+
+	return 0;
+
+}
+
 static int LOP_maulgar_get_felhound() {
 
 	// TODO: ONLY RETURN TARGET GUID, DON'T CAST BANISH HERE ETC
@@ -662,6 +681,30 @@ static int LOP_tank_face() {
 
 	CTM_t face(ppos + dir, CTM_MOVE, 0, 0, 1.5);
 	ctm_add(face);
+}
+
+static int LOP_cast_gtaoe(long spellID, const vec3 &pos) {
+	BYTE sockbuf[] = {
+		0x00, 0x19, 0x2E, 0x01, 0x00, 0x00, // HEADER
+		0xAA, 0xBB, 0xCC, 0xDD, 0x00, 0x40, 0x00, 0x00, 0x00,
+		// ^^^^^^^^^^^^^^^^^^^^^^ - SPELLID
+		0xA1, 0xA2, 0xA3, 0xA4, // x:float	
+		0xB1, 0xB2, 0xB3, 0xB4, // y:float
+		0xC1, 0xC2, 0xC3, 0xC4	// z:float
+	};
+
+
+	memcpy(sockbuf + 6, &spellID, sizeof(spellID));
+	memcpy(sockbuf + 15, &pos.x, sizeof(pos.x));
+	memcpy(sockbuf + 19, &pos.y, sizeof(pos.y));
+	memcpy(sockbuf + 23, &pos.z, sizeof(pos.z));
+
+	encrypt_packet_header(sockbuf);
+
+	SOCKET s = get_wow_socket_handle();
+	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+
+	return 1;
 }
 
 static int LOP_interact_object(const std::string &objname) {
@@ -985,32 +1028,29 @@ int lop_exec(lua_State *L) {
 		LOP_stopfollow();
 		break;
 
+	case LOP_GET_SEED_TARGET: {
+		GUID_t target_GUID = LOP_get_seed_target();
+		if (target_GUID == 0) return 0;
+
+		char buffer[20];
+
+		sprintf(buffer, "0x%016llX", target_GUID);
+		lua_pushlstring(L, buffer, 18);
+		return 1;
+
+		break;
+	}
+
 	case LOP_CAST_GTAOE: {
-		BYTE sockbuf[] = {
-			0x00, 0x19, 0x2E, 0x01, 0x00, 0x00, // HEADER
-			0xAA, 0xBB, 0xCC, 0xDD, 0x00, 0x40, 0x00, 0x00, 0x00,
-		 // ^^^^^^^^^^^^^^^^^^^^^^ - SPELLID
-			0xA1, 0xA2, 0xA3, 0xA4, // x:float	
-			0xB1, 0xB2, 0xB3, 0xB4, // y:float
-			0xC1, 0xC2, 0xC3, 0xC4	// z:float
-		};
 
 		long spellID = lua_tointeger(L, 2);
-		
-		float x, y, z;
-		x = lua_tonumber(L, 3);
-		y = lua_tonumber(L, 4);
-		z = lua_tonumber(L, 5);
 
-		memcpy(sockbuf + 6, &spellID, sizeof(spellID));
-		memcpy(sockbuf + 15, &x, sizeof(x));
-		memcpy(sockbuf + 19, &y, sizeof(y));
-		memcpy(sockbuf + 23, &z, sizeof(z));
+		vec3 p;
+		p.x = lua_tonumber(L, 3);
+		p.y = lua_tonumber(L, 4);
+		p.z = lua_tonumber(L, 5);
 
-		encrypt_packet_header(sockbuf);
-		
-		SOCKET s = get_wow_socket_handle();
-		send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+		LOP_cast_gtaoe(spellID, p);
 
 		break;
 	}

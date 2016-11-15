@@ -302,16 +302,14 @@ uint WowObject::NPC_get_debuff(int index) const {
 	return NPC_get_buff(index+0x27);
 }
 
-uint WowObject::NPC_get_buff_duration(int index, uint spellID) const {
-	
-	// if the mob has debuffs from another player, this segfaults
-	
+int WowObject::NPC_get_buff_duration(int index, uint spellID) const {
+		
 	uint EDX1;
 	readAddr(base + 0x116C, &EDX1, sizeof(EDX1));
 
 	if (EDX1 == 0) {
 		PRINT("EDX1 was 0\n");
-		return 0;
+		return -1;
 	}
 
 	uint EDI1;
@@ -334,8 +332,8 @@ uint WowObject::NPC_get_buff_duration(int index, uint spellID) const {
 		}
 
 		if (EDX1 == 0) {
-			printf("EDX1 reached 0, returning 0 for duration!\n");
-			return 0;
+			printf("EDX1 reached 0, returning -1 for duration!\n");
+			return -1;
 		}
 
 	}
@@ -344,7 +342,7 @@ uint WowObject::NPC_get_buff_duration(int index, uint spellID) const {
 
 	if (DEREF(EDI1 + EDX1 + 0x8) == 0) {
 		PRINT("EDI1+EDX1+0x8 was 0 :(\n");
-		return 0;
+		return -1;
 	}
 
 	uint duration = DEREF(EDX1 + EAX1 + 0x8);
@@ -355,7 +353,7 @@ uint WowObject::NPC_get_buff_duration(int index, uint spellID) const {
 
 }
 
-uint WowObject::NPC_get_debuff_duration(int index, uint spellID) const {
+int WowObject::NPC_get_debuff_duration(int index, uint spellID) const {
 	return NPC_get_buff_duration(index + 0x27, spellID);
 }
 
@@ -383,6 +381,20 @@ int WowObject::NPC_has_debuff(uint spellID) const {
 	}
 
 	return 0;
+}
+
+int WowObject::NPC_has_debuff_by_self(uint spellID) const {
+	for (int i = 1; i < 40; ++i) {
+		int t = NPC_get_debuff_duration(i, spellID);
+		if (t == 0) {
+			return 0;
+		}
+		else if (t > 0) {
+			return 1;
+		}
+		// else continue :D
+	}
+
 }
 
 GUID_t WowObject::unit_get_target_GUID() const {

@@ -120,12 +120,11 @@ combat_warlock_sb = function()
 	if tap_if_need_to() then return; end
 
 	if lole_subcommands.get("aoemode") == 1 then
-		for i=1,16,1 do
-			TargetNearestEnemy();
-			if (UnitExists("target") and not has_debuff_by_self("target", "Seed of Corruption")) then
-				CastSpellByName("Seed of Corruption");
-				return
-			end
+		local eligible_seed_target = get_seed_target();
+		if eligible_seed_target then
+			target_unit_with_GUID(eligible_seed_target)
+			CastSpellByName("Seed of Corruption")
+			return
 		end
 	end
 

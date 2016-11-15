@@ -21,6 +21,7 @@ local LOP_STOPFOLLOW = 0x13
 local LOP_CAST_GTAOE = 0x14
 local LOP_HAS_AGGRO = 0x15
 local LOP_INTERACT_GOBJECT = 0x16
+local LOP_GET_SEED_TARGET = 0x17
 
 local LOP_EXT_NOP = 0x70
 local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x71
@@ -94,6 +95,10 @@ end
 
 function pull_target()
 	CastSpellByName("Avenger Shield")
+end
+
+function get_seed_target()
+	return lop_exec(LOP_GET_SEED_TARGET)
 end
 
 function walk_to_pulling_range()

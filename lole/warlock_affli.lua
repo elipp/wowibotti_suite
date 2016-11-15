@@ -60,23 +60,20 @@ combat_warlock_affli = function()
 		end
 	end
 
-	if not validate_target() then return end
-
+--	if not validate_target() then return end
 	caster_range_check(30);
 
 	if tap_if_need_to() then return true; end
-
 	if player_casting() then return end
 
 	if GetSpellCooldown("Corruption") > 0 then return; end -- check gcd. this could add unnecessary latency to spam though
 
 	if lole_subcommands.get("aoemode") == 1 then
-		for i=1,16,1 do
-			TargetNearestEnemy();
-			if (UnitExists("target") and not has_debuff_by_self("target", "Seed of Corruption")) then
-				CastSpellByName("Seed of Corruption");
-				return;
-			end
+		local eligible_seed_target = get_seed_target();
+		if eligible_seed_target then
+			target_unit_with_GUID(eligible_seed_target)
+			CastSpellByName("Seed of Corruption")
+			return
 		end
 	end
 
