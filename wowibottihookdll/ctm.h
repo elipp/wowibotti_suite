@@ -125,5 +125,5 @@ struct CTM_t {
 void ctm_add(const CTM_t&);
 CTM_t ctm_pop();
 void click_to_move(const CTM_t&);
-
+void ctm_queue_reset();
 CTM_t *ctm_get_current_action();

@@ -284,6 +284,8 @@ static int LOP_follow_unit(const std::string& targetname) {
 		PRINT("follow difference < 10! calling WOWAPI FollowUnit()\n");
 		DoString("FollowUnit(\"%s\")", t.unit_get_name().c_str());
 		follow_state.clear();
+		ctm_queue_reset();
+		return 1;
 	}
 	else {
 		// close_enough == 1 means the follow attempt either hasn't been started yet or that the char has actually reached its target

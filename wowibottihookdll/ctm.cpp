@@ -15,7 +15,7 @@ static struct {
 	float dt;
 } previous_positions[num_prevpos]; 
 
-static void ctm_queue_reset() {
+void ctm_queue_reset() {
 	ctm_queue = std::queue<CTM_t>();
 	ctm_unlock();
 }
@@ -99,14 +99,14 @@ void ctm_add(const CTM_t &new_ctm) {
 		break;
 
 	case CTM_PRIO_REPLACE:
-		if (ctm_queue_get_top_prio() < CTM_PRIO_EXCLUSIVE) {
+		if (ctm_queue_get_top_prio() < CTM_FOLLOW) {
 			ctm_queue_reinit_with(new_ctm);
 			ctm_act();
 		}
 		break;
 
 	case CTM_PRIO_FOLLOW:
-		if (ctm_queue_get_top_prio() < CTM_PRIO_REPLACE) {
+		if (ctm_queue_get_top_prio() < CTM_PRIO_EXCLUSIVE) {
 			ctm_queue_reinit_with(new_ctm);
 			ctm_act();
 		}
