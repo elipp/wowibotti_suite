@@ -29,10 +29,26 @@ local function feed_pet_if_need_to()
 
 end
 
+local PET_NAME = "MUKOJ"
+
 combat_hunter = function()
+
+    if not UnitExists(PET_NAME) then
+      CastSpellByName("Call Pet")
+    end
+
     PetPassiveMode()
 
-    if not UnitAffectingCombat("player") then if feed_pet_if_need_to() then return end end
+    if not UnitAffectingCombat("player") then
+      if UnitIsDead(PET_NAME) then
+        CastSpellByName("Revive Pet")
+        return
+      end
+
+      if feed_pet_if_need_to() then
+        return
+      end
+    end
 
     if not validate_target() then
         PetStopAttack()
@@ -78,6 +94,7 @@ combat_hunter = function()
 
     if lole_subcommands.get("aoemode") == 1 then
   			lole_subcommands.cast_gtaoe("Volley", get_unit_position("target"))
+        return
   	end
 
 

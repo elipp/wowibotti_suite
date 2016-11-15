@@ -1,7 +1,7 @@
 local function curator()
 	TargetUnit("Astral Flare")
 	if (UnitExists("target") and not UnitIsDead("target") and UnitName("target") == "Astral Flare") then
-		lole_subcommands.broadcast("target", UnitGUID("target"));
+		broadcast_target_GUID(UnitGUID("target"));
 		set_target(UnitGUID("target"))
 		RunMacroText("/cast [nostance:3] Berserker Stance")
 		RunMacroText("/cast Intercept");
@@ -11,7 +11,7 @@ local function curator()
 		if (UnitExists("target") and not UnitIsDead("target") and UnitName("target") == "The Curator") then
 			local spell = UnitChannelInfo("target");
 			if spell == "Evocation" then
-				lole_subcommands.broadcast("target", UnitGUID("target"));
+				broadcast_target_GUID(UnitGUID("target"));
 				set_target(UnitGUID("target"))
 				return true;
 			end
@@ -26,13 +26,13 @@ local function terestian()
 	TargetUnit("Demon Chains")
 	local GUID = UnitGUID("target")
 	if (UnitExists("target") and not UnitIsDead("target") and UnitName("target") == "Demon Chains") then
-		lole_subcommands.broadcast("target", UnitGUID("target"));
+		broadcast_target_GUID(UnitGUID("target"));
 		set_target(UnitGUID("target"))
 		return true;
 	else
 		TargetUnit("Terestian Illhoof")
 		if (UnitExists("target") and not UnitIsDead("target") and UnitName("target") == "Terestian Illhoof") then
-			lole_subcommands.broadcast("target", UnitGUID("target"));
+			broadcast_target_GUID(UnitGUID("target"));
 			set_target(UnitGUID("target"))
 		end
 	end
@@ -44,8 +44,8 @@ combat_warrior_fury = function()
 
 	if not validate_target() then return end
 
-	melee_avoid_aoe_buff(33238)
-	--melee_attack_behind()
+	melee_attack_behind()
+	--melee_avoid_aoe_buff(33238)
 
 	if (not UnitAffectingCombat("player")) then
 		RunMacroText("/cast [nostance:1] Battle Stance"); -- charge doesnt work
