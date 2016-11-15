@@ -62,6 +62,9 @@ function lole_main(args)
 				ClearFocus()
 			end
 
+            if has_aggro() then
+                get_current_config().survive();
+            end
 			get_current_config().combat();
             
         elseif OVERRIDE_COMMAND then
