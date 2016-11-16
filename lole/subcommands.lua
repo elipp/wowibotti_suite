@@ -873,7 +873,7 @@ local function lole_broadcast_release()
 end
 
 local function lole_broadcast_leavegroup()
-	lole_subcommands.sendscript("GUILD", "/lole leavegroup")
+	lole_subcommands.sendmacro("GUILD", "/lole leavegroup")
 end
 
 

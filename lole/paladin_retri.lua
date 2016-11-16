@@ -4,7 +4,7 @@ combat_paladin_retri = function()
 
 	if not validate_target() then return; end
 
-	melee_avoid_aoe_buff(33238)
+	--melee_avoid_aoe_buff(33238)
 	melee_attack_behind()
 
     local jud_on_cd = true;
