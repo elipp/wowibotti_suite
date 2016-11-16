@@ -38,7 +38,7 @@ local function should_cast_PoH(min_deficit, min_healable_chars)
     local eligible_targets = {};
 	for unit, deficit in pairs(HP_deficits) do
         local distance_to_unit = get_distance_between("player", UnitName(unit));
-        if distance_to_unit <= 36 and deficit > min_deficit then
+        if distance_to_unit and distance_to_unit <= 36 and deficit > min_deficit then
             table.insert(eligible_targets, unit);
 		end
 	end
