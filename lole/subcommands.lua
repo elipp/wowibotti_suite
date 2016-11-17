@@ -476,18 +476,10 @@ local function lole_pull(target_GUID)
 end
 
 function set_target(target_GUID)
-	local previous_target_GUID = UnitGUID("target")
-
 	BLAST_TARGET_GUID = target_GUID;
 	target_unit_with_GUID(target_GUID); -- this does a C SelectUnit call :P
 	FocusUnit("target")
 	update_target_text(UnitName("target"), UnitGUID("target"));
-
-	if lole_subcommands.get("playermode") == 1 then
-		-- set to previous target :D
-		target_unit_with_GUID(previous_target_GUID);
-	end
-
 end
 
 function clear_target()
