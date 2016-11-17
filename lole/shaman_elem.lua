@@ -33,6 +33,7 @@ combat_shaman_elem = function()
 		if cast_if_nocd("Chain Lightning") then return end
 	end
 
+	if cast_if_nocd("Chain Lightning") then return end
 	CastSpellByName("Lightning Bolt");
 
 end

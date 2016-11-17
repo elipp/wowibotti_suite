@@ -137,7 +137,9 @@ local function lole_followme()
 end
 
 local function lole_follow(name)
-	follow_unit(name)
+	if lole_subcommands.get("playermode") == 0 then
+		follow_unit(name)
+	end
 end
 
 local function lole_stopfollow()
