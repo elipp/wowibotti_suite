@@ -146,7 +146,7 @@ static int LOP_melee_behind() {
 	vec3 diff = point_behind_ctm - ppos;
 	
 	if (diff.length() > 1.0) {
-		ctm_add(CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 0.5));
+		ctm_add(CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_REPLACE, 0, 0.5));
 		return 1;
 	}
 	else {
@@ -158,7 +158,7 @@ static int LOP_melee_behind() {
 			 // and for auto-attacking, the valid sector is actually rather small, unlike spells,
 			 // for which perfectly perpendicular is ok
 			vec3 face = (tpos - ppos).unit();
-			ctm_add(CTM_t(ppos + face, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
+			ctm_add(CTM_t(ppos + face, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
 		}
 	}
 

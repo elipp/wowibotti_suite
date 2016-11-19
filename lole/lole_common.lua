@@ -119,6 +119,8 @@ local CC_spells = {
 	fear = 6215,
 	shackle = 10955,
 	turn = 10326,
+  sleep = 18658,
+
 }
 
 
@@ -130,6 +132,7 @@ local CC_spellnames = { -- in a CastSpellByName-able format
 	[6215] = "Fear",
 	[10955] = "Shackle Undead",
 	[10326] = "Turn Evil",
+  [18658] = "Hibernate"
 }
 
 local AOE_spellIDs = {
