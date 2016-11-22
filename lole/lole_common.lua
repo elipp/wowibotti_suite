@@ -43,6 +43,7 @@ HEAL_ESTIMATES = {
     ["Lesser Healing Wave(Rank 7)"] = 2200,
     ["Healing Wave(Rank 12)"] = 4700,
     ["Chain Heal(Rank 5)"] = 3200,
+    ["Chain Heal(Rank 4)"] = 2700,
     ["Regrowth(Rank 10)"] = 3200, -- a few ticks included
     ["Healing Touch(Rank 13)"] = 5300,
     ["Flash Heal(Rank 9)"] = 2300,

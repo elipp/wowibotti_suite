@@ -67,6 +67,13 @@ static void __stdcall EndScene_hook() {
 	ctm_update_prevpos();
 	ctm_abort_if_not_moving();
 
+	if (noclip_enabled) {
+		if (since_noclip.get_ms() > 250) {
+			disable_noclip();
+		}
+	}
+	
+
 	if (fifty_ms.passed()) {
 		ctm_purge_old();
 

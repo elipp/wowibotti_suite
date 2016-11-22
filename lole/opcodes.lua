@@ -31,6 +31,7 @@ local LDOP_LOOT_ALL = 0xE2
 local LDOP_PULL_TEST = 0xE3
 local LDOP_LUA_REGISTERED = 0xE4
 local LDOP_LOS_TEST = 0xE5
+local LDOP_NOCLIP = 0xE6
 
 
 ----------------------------
@@ -201,4 +202,8 @@ end
 
 function lole_debug_pull_test()
 	lop_exec(LDOP_PULL_TEST)
+end
+
+function noclip(mode)
+	lop_exec(LDOP_NOCLIP, mode)
 end

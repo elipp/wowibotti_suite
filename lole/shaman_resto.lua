@@ -58,7 +58,7 @@ local function raid_heal()
         TargetUnit(target);
         CH_BOUNCE_1 = bounce1
         CH_BOUNCE_2 = bounce2
-        cast_heal("Chain Heal");
+        cast_heal("Chain Heal(Rank 4)");
     end
 
     return true;

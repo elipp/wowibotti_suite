@@ -13,6 +13,8 @@
 #include "packet.h"
 
 extern HWND wow_hWnd;
+Timer since_noclip;
+int noclip_enabled;
 
 static int dump_wowobjects_to_log();
 
@@ -820,6 +822,25 @@ static int check_num_args(int opcode, int nargs) {
 	return 1;
 }
 
+static const DWORD noclip_dgo = 0x006A4B6E;
+static const DWORD noclip_go = 0x006A49FE;
+
+void enable_noclip() {
+	static DWORD noclip_enabled_dgo = 0x968B1DEB;
+	static DWORD noclip_enabled_go = 0x0000B4E9;
+	writeAddr(noclip_dgo, &noclip_enabled_dgo, sizeof(DWORD));
+	writeAddr(noclip_go, &noclip_enabled_go, sizeof(DWORD));
+	since_noclip.start();
+	noclip_enabled = 1;
+}
+
+void disable_noclip() {
+	static DWORD noclip_disabled_dgo = 0x968B1D74;
+	static DWORD noclip_disabled_go = 0x00B3840F;
+	writeAddr(noclip_dgo, &noclip_disabled_dgo, sizeof(DWORD));
+	writeAddr(noclip_go, &noclip_disabled_go, sizeof(DWORD));
+	noclip_enabled = 0;
+}
 
 int lop_exec(lua_State *L) {
 
@@ -1035,6 +1056,22 @@ int lop_exec(lua_State *L) {
 		break;
 	}
 
+	case LDOP_NOCLIP: {
+
+		static const DWORD noclip_dgo = 0x006A4B6E;
+		static const DWORD noclip_go = 0x006A49FE;
+
+		int arg = lua_tointeger(L, 2);
+		if (arg == 1) {
+			enable_noclip();
+		}
+		else {
+			disable_noclip();
+		}
+
+		return 0;
+		break;
+	}
 	default:
 		PRINT("lop_exec: unknown opcode %d!\n", opcode);
 		break;

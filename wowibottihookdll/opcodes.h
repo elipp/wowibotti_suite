@@ -7,6 +7,7 @@
 #include "wowmem.h"
 #include "addrs.h"
 #include "lua.h"
+#include "timer.h"
 
 // lole opcodes. also defined in lole.lua (let's just hope they match XD)
 
@@ -54,6 +55,7 @@ enum LDOP_OPCODES {
  LDOP_PULL_TEST,
  LDOP_LUA_REGISTERED,
  LDOP_LOS_TEST,
+ LDOP_NOCLIP,
 
  LDOP_DUMMY_LAST,
  LDOP_NUM_OPCODES = (LDOP_DUMMY_LAST - LDOP_NOP)
@@ -69,3 +71,8 @@ extern struct cast_msg_t {
 	LONG timestamp;
 } previous_cast_msg;
 
+extern Timer since_noclip;
+extern int noclip_enabled;
+
+void enable_noclip();
+void disable_noclip();

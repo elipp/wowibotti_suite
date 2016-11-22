@@ -820,6 +820,10 @@ local function lole_distance_to_target()
     echo(get_distance_between("player", "target"));
 end
 
+local function lole_noclip(mode)
+	noclip(mode)
+end
+
 
 ----------------------------------------
 				----- BROADCASTS ------
@@ -966,5 +970,7 @@ lole_subcommands = {
 	register = lole_debug_lua_register,
     distance = lole_distance_to_target,
 
-	encrypt = lole_encrypt_test;
+	encrypt = lole_encrypt_test,
+	noclip = lole_noclip,
+
 }
