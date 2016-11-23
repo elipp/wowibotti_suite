@@ -212,7 +212,7 @@ int ctm_handle_delayed_posthook() {
 		}
 		else {
 			h->active = 0;
-			h->callback();
+			h->callback(h->argument);
 			PRINT("called posthook callback after %f ms!\n", h->delay_ms);
 			
 			if (!c.hook_next()) { // this also increments the iterator (crap?)

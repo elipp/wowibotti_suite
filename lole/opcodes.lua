@@ -21,6 +21,7 @@ local LOP_STOPFOLLOW = 0x13
 local LOP_CAST_GTAOE = 0x14
 local LOP_HAS_AGGRO = 0x15
 local LOP_INTERACT_GOBJECT = 0x16
+local LOP_GET_BISCUITS = 0x17
 
 local LOP_EXT_NOP = 0x70
 local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x71
@@ -196,6 +197,10 @@ function query_injected()
 
 end
 
+function get_biscuits()
+	lop_exec(LOP_GET_BISCUITS)
+end
+
 function lole_encrypt_test()
 	lop_exec(LDOP_ENCRYPT_TEST)
 end
@@ -204,6 +209,6 @@ function lole_debug_pull_test()
 	lop_exec(LDOP_PULL_TEST)
 end
 
-function noclip(mode)
-	lop_exec(LDOP_NOCLIP, mode)
+function noclip()
+	lop_exec(LDOP_NOCLIP)
 end

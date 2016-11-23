@@ -582,6 +582,10 @@ local function lole_cast_gtaoe(spellname, x, y, z)
 	end
 end
 
+local function lole_getbiscuit()
+	get_biscuits()
+end
+
 local function lole_sendscript(to, ...)
     local usage = "lole_sendscript: Usage: sendscript/ss [(RAID)/PARTY/GUILD]/[WHISPER/w [t1,t2,...,tn]] scripttext";
     if to == nil then
@@ -820,8 +824,8 @@ local function lole_distance_to_target()
     echo(get_distance_between("player", "target"));
 end
 
-local function lole_noclip(mode)
-	noclip(mode)
+local function lole_noclip()
+	noclip()
 end
 
 
@@ -972,5 +976,6 @@ lole_subcommands = {
 
 	encrypt = lole_encrypt_test,
 	noclip = lole_noclip,
+	getbiscuit = lole_getbiscuit,
 
 }

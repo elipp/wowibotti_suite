@@ -711,7 +711,6 @@ end
 local function do_combat_stuff()
 	do_CC_jobs();
 	lole_main();
-	avoid_spell_with_spellID(36240, 10); -- Cave In :)
 end
 
 local mtwarn_given = GetTime()

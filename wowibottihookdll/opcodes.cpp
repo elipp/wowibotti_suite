@@ -37,29 +37,30 @@ enum {
 
 static lop_func_t lop_funcs[] = {
 
- LOPFUNC(LOP_NOP, 0, 0, 0),
- LOPFUNC(LOP_TARGET_GUID, 1, 1, 0),
- LOPFUNC(LOP_CASTER_RANGE_CHECK, 1, 1, 0),
- LOPFUNC(LOP_FOLLOW, 1, 1, 0),
- LOPFUNC(LOP_CTM, 4, 4, 0),
- LOPFUNC(LOP_DUNGEON_SCRIPT, 1, 2, 0),
- LOPFUNC(LOP_TARGET_MARKER, 1, 1, 0),
- LOPFUNC(LOP_MELEE_BEHIND, 0, 0, 0),
- LOPFUNC(LOP_AVOID_SPELL_OBJECT, 1, 2, 0),
- LOPFUNC(LOP_HUG_SPELL_OBJECT, 1, 1, 0),
- LOPFUNC(LOP_SPREAD, 0, 0, 0),
- LOPFUNC(LOP_CHAIN_HEAL_TARGET, 1, 1, 1),
- LOPFUNC(LOP_MELEE_AVOID_AOE_BUFF, 1, 1, 0),
- LOPFUNC(LOP_TANK_FACE, 0, 0, 0),
- LOPFUNC(LOP_WALK_TO_PULLING_RANGE, 0, 0, 0),
- LOPFUNC(LOP_GET_UNIT_POSITION, 1, 1, 3),
- LOPFUNC(LOP_GET_WALKING_STATE, 0, 0, 1),
- LOPFUNC(LOP_GET_CTM_STATE, 0, 0, 1),
- LOPFUNC(LOP_GET_PREVIOUS_CAST_MSG, 0, 0, 1),
- LOPFUNC(LOP_STOPFOLLOW, 0, 0, 0),
- LOPFUNC(LOP_CAST_GTAOE, 4, 4, 0),
- LOPFUNC(LOP_HAS_AGGRO, 0, 0, 1),
- LOPFUNC(LOP_INTERACT_GOBJECT, 1, 1, 1)
+	 LOPFUNC(LOP_NOP, 0, 0, 0),
+	 LOPFUNC(LOP_TARGET_GUID, 1, 1, 0),
+	 LOPFUNC(LOP_CASTER_RANGE_CHECK, 1, 1, 0),
+	 LOPFUNC(LOP_FOLLOW, 1, 1, 0),
+	 LOPFUNC(LOP_CTM, 4, 4, 0),
+	 LOPFUNC(LOP_DUNGEON_SCRIPT, 1, 2, 0),
+	 LOPFUNC(LOP_TARGET_MARKER, 1, 1, 0),
+	 LOPFUNC(LOP_MELEE_BEHIND, 0, 0, 0),
+	 LOPFUNC(LOP_AVOID_SPELL_OBJECT, 1, 2, 0),
+	 LOPFUNC(LOP_HUG_SPELL_OBJECT, 1, 1, 0),
+	 LOPFUNC(LOP_SPREAD, 0, 0, 0),
+	 LOPFUNC(LOP_CHAIN_HEAL_TARGET, 1, 1, 1),
+	 LOPFUNC(LOP_MELEE_AVOID_AOE_BUFF, 1, 1, 0),
+	 LOPFUNC(LOP_TANK_FACE, 0, 0, 0),
+	 LOPFUNC(LOP_WALK_TO_PULLING_RANGE, 0, 0, 0),
+	 LOPFUNC(LOP_GET_UNIT_POSITION, 1, 1, 3),
+	 LOPFUNC(LOP_GET_WALKING_STATE, 0, 0, 1),
+	 LOPFUNC(LOP_GET_CTM_STATE, 0, 0, 1),
+	 LOPFUNC(LOP_GET_PREVIOUS_CAST_MSG, 0, 0, 1),
+	 LOPFUNC(LOP_STOPFOLLOW, 0, 0, 0),
+	 LOPFUNC(LOP_CAST_GTAOE, 4, 4, 0),
+	 LOPFUNC(LOP_HAS_AGGRO, 0, 0, 1),
+	 LOPFUNC(LOP_INTERACT_GOBJECT, 1, 1, 1),
+	 LOPFUNC(LOP_GET_BISCUITS, 0, 0, 0)
 
 };
 
@@ -425,11 +426,11 @@ static int LOP_spread() {
 }
 
 
-static void pull_mob() {
+static void pull_mob(void *mob_GUID) {
 	DoString("CastSpellByName(\"Avenger's Shield\")");
 }
 
-static void set_target_and_blast() {
+static void set_target_and_blast(void *noarg) {
 	DoString("RunMacroText(\"/lole test_blast_target\")");
 }
 
@@ -449,12 +450,12 @@ static int LOP_walk_to_pull() {
 	if (d.length() > 30) {
 		vec3 newpos = tpos - 29 * dn;
 		CTM_t c(newpos, CTM_MOVE, 0, 0, 0.5);
-		c.add_posthook(CTM_posthook_t(pull_mob, 10));
+		c.add_posthook(CTM_posthook_t(pull_mob, NULL, 0, 10));
 		ctm_add(c);
 	}
 	else {
 		CTM_t c(ppos + dn, CTM_MOVE, 0, 0, 0.5);
-		c.add_posthook(CTM_posthook_t(pull_mob, 10));
+		c.add_posthook(CTM_posthook_t(pull_mob, NULL, 0, 10));
 		ctm_add(c);
 	}
 
@@ -740,8 +741,8 @@ static int LOPDBG_pull_test() {
 	ctm_add(CTM_t(pull_pos, CTM_MOVE, 0, 0, 0.5));
 
 	CTM_t pull(pull_pos + dir, CTM_MOVE, 0, 0, 0.5);
-	pull.add_posthook(CTM_posthook_t(pull_mob, 30));
-	pull.add_posthook(CTM_posthook_t(set_target_and_blast, 120));
+	pull.add_posthook(CTM_posthook_t(pull_mob, NULL, 0, 30));
+	pull.add_posthook(CTM_posthook_t(set_target_and_blast, NULL, 0, 120));
 
 	ctm_add(pull);
 }
@@ -840,6 +841,43 @@ void disable_noclip() {
 	writeAddr(noclip_dgo, &noclip_disabled_dgo, sizeof(DWORD));
 	writeAddr(noclip_go, &noclip_disabled_go, sizeof(DWORD));
 	noclip_enabled = 0;
+}
+
+void LOP_cast_gtaoe(int spellID, const vec3 &coords) {
+	
+	BYTE sockbuf[] = {
+		0x00, 0x19, 0x2E, 0x01, 0x00, 0x00, // HEADER
+		0xAA, 0xBB, 0xCC, 0xDD, 0x00, 0x40, 0x00, 0x00, 0x00,
+		// ^^^^^^^^^^^^^^^^^^^^^^ - SPELLID
+		0xA1, 0xA2, 0xA3, 0xA4, // x:float	
+		0xB1, 0xB2, 0xB3, 0xB4, // y:float
+		0xC1, 0xC2, 0xC3, 0xC4	// z:float
+	};
+
+
+	memcpy(sockbuf + 6, &spellID, sizeof(spellID));
+	memcpy(sockbuf + 15, &coords.x, sizeof(float));
+	memcpy(sockbuf + 19, &coords.y, sizeof(float));
+	memcpy(sockbuf + 23, &coords.z, sizeof(float));
+
+	encrypt_packet_header(sockbuf);
+
+	SOCKET s = get_wow_socket_handle();
+	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+}
+
+static void get_biscuits(void *noarg) {
+	LOP_interact_object("Refreshment Table");
+}
+
+int LOP_get_biscuits() {
+	ObjectManager OM;
+
+	WowObject t;
+	if (!OM.get_GO_by_name("Refreshment Table", &t)) return 0;
+	CTM_t b = CTM_t(t.GO_get_pos(), CTM_MOVE, CTM_PRIO_LOW, 0, 0.5);
+	b.add_posthook(CTM_posthook_t(get_biscuits, NULL, 0, 100));
+	ctm_add(b);
 }
 
 int lop_exec(lua_State *L) {
@@ -1007,31 +1045,11 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LOP_CAST_GTAOE: {
-		BYTE sockbuf[] = {
-			0x00, 0x19, 0x2E, 0x01, 0x00, 0x00, // HEADER
-			0xAA, 0xBB, 0xCC, 0xDD, 0x00, 0x40, 0x00, 0x00, 0x00,
-		 // ^^^^^^^^^^^^^^^^^^^^^^ - SPELLID
-			0xA1, 0xA2, 0xA3, 0xA4, // x:float	
-			0xB1, 0xB2, 0xB3, 0xB4, // y:float
-			0xC1, 0xC2, 0xC3, 0xC4	// z:float
-		};
 
-		long spellID = lua_tointeger(L, 2);
-		
-		float x, y, z;
-		x = lua_tonumber(L, 3);
-		y = lua_tonumber(L, 4);
-		z = lua_tonumber(L, 5);
-
-		memcpy(sockbuf + 6, &spellID, sizeof(spellID));
-		memcpy(sockbuf + 15, &x, sizeof(x));
-		memcpy(sockbuf + 19, &y, sizeof(y));
-		memcpy(sockbuf + 23, &z, sizeof(z));
-
-		encrypt_packet_header(sockbuf);
-		
-		SOCKET s = get_wow_socket_handle();
-		send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+		uint spellID = lua_tointeger(L, 2);
+		vec3 pos = vec3(lua_tonumber(L, 3), lua_tonumber(L, 4), lua_tonumber(L, 5));
+	
+		LOP_cast_gtaoe(spellID, pos);
 
 		break;
 	}
@@ -1041,10 +1059,15 @@ int lop_exec(lua_State *L) {
 			return 1;
 		}
 		break;
-	case LOP_INTERACT_GOBJECT: {
+	
+	case LOP_INTERACT_GOBJECT: 
 		LOP_interact_object(lua_tolstring(L, 2, &len));
 		break;
-	}
+	
+	case LOP_GET_BISCUITS:
+		LOP_get_biscuits();
+		break;
+
 	case LDOP_LUA_REGISTERED:
 		lua_registered = 1;
 		break;
@@ -1056,22 +1079,10 @@ int lop_exec(lua_State *L) {
 		break;
 	}
 
-	case LDOP_NOCLIP: {
-
-		static const DWORD noclip_dgo = 0x006A4B6E;
-		static const DWORD noclip_go = 0x006A49FE;
-
-		int arg = lua_tointeger(L, 2);
-		if (arg == 1) {
-			enable_noclip();
-		}
-		else {
-			disable_noclip();
-		}
-
-		return 0;
+	case LDOP_NOCLIP:
+		enable_noclip();
 		break;
-	}
+
 	default:
 		PRINT("lop_exec: unknown opcode %d!\n", opcode);
 		break;

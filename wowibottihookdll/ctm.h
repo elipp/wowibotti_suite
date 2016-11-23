@@ -22,7 +22,7 @@ void ctm_abort_if_not_moving();
 int get_wow_CTM_state();
 SIZE_T set_wow_CTM_state(int state);
 
-typedef void (*CTM_callback_t)();
+typedef void (*CTM_callback_t)(void*);
 
 void ctm_update_prevpos();
 int char_is_moving();
@@ -31,14 +31,24 @@ struct CTM_posthook_t {
 	CTM_callback_t callback;
 	float delay_ms;
 
+	void *argument;
+	size_t arg_size;
+
 	Timer timestamp;
 	int active;
 
-	CTM_posthook_t(CTM_callback_t hookfunc, float delay_milliseconds) : callback(hookfunc), delay_ms(delay_milliseconds), active(0) {
+	CTM_posthook_t(CTM_callback_t hookfunc, void *hookfunc_arg, size_t arg_size, float delay_milliseconds) : callback(hookfunc), delay_ms(delay_milliseconds), active(0) {
 		timestamp.start();
+		argument = malloc(arg_size);
+		memcpy(hookfunc_arg, argument, arg_size);
 	};
 
 	CTM_posthook_t() : callback(NULL), delay_ms(0), active(0) {}
+
+	~CTM_posthook_t() {
+		if (argument) delete argument;
+		argument = NULL;
+	}
 };
 
 enum {
