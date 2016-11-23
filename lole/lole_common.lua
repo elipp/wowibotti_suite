@@ -6,8 +6,6 @@ BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 OVERRIDE_COMMAND = nil;
 
-MAIN_TANK = nil;
-OFF_TANK = nil;
 HEALERS = {"Ceucho", "Kusip", "Kasio", "Mam", "Igop", "Pehmware"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
     Ceucho = {heals = {"Adieux", "Noctur", "raid"}, hots = {}, ignores = {}},

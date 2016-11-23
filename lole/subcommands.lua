@@ -455,18 +455,6 @@ local function lole_disenchant_greeniez()
 
 end
 
-local function lole_setmt(name)
-		MAIN_TANK = name
-		update_main_tank(MAIN_TANK)
-		echo("Main tank set to " .. MAIN_TANK .. ". (change with /lole mt <mtname>)")
-end
-
-local function lole_setot(name)
-		OFF_TANK = name
-		update_off_tank(OFF_TANK)
-		echo("Off tank set to " .. OFF_TANK .. ". (change with /lole ot <mtname>)")
-end
-
 local function lole_clearcc()
 	disable_all_cc_targets()
 end
@@ -858,14 +846,6 @@ local function lole_broadcast_drink()
 	lole_subcommands.sendmacro("RAID", "/lole drink")
 end
 
-local function lole_broadcast_mt(name)
-	lole_subcommands.sendmacro("RAID", "/lole setmt", name)
-end
-
-local function lole_broadcast_ot(arg)
-	lole_subcommands.sendmacro("RAID", "/lole setot", name)
-end
-
 local function lole_broadcast_drink()
 	lole_subcommands.sendmacro("RAID", "/lole drink")
 end
@@ -883,8 +863,6 @@ local lole_broadcast_commands = {
 	ctm = lole_broadcast_ctm;
 	drink = lole_broadcast_drink;
 	release = lole_broadcast_release;
-	mt = lole_broadcast_mt;
-	ot = lole_broadcast_ot;
 	cooldowns = lole_broadcast_cooldowns;
 	set = lole_broadcast_set;
 	follow = lole_broadcast_follow;
@@ -936,9 +914,6 @@ lole_subcommands = {
 	party = lole_party,
 	leavegroup = lole_leavegroup,
 	release = lole_release,
-
-	setmt = lole_setmt,
-	setot = lole_setot,
 
 	clearcc = lole_clearcc,
 	pull = lole_pull,

@@ -44,7 +44,7 @@ local function set_button_states()
 end
 
 lole_frame:SetHeight(380)
-lole_frame:SetWidth(250)
+lole_frame:SetWidth(290)
 lole_frame:SetPoint("RIGHT", -25, 0)
 
 local backdrop = {
@@ -636,35 +636,6 @@ StaticPopupDialogs["ADD_CC_DIALOG"] = {
 local add_cc_button =
 create_simple_button("add_cc_button", lole_frame, 22, -175, "Add CC...", 85, 27, function() StaticPopup_Show("ADD_CC_DIALOG") end);
 
-local main_tank_string = lole_frame:CreateFontString(nil, "OVERLAY");
-main_tank_string:SetFont("Fonts\\FRIZQT__.TTF", 9);
-main_tank_string:SetPoint("BOTTOMLEFT", 15, 25);
-main_tank_string:SetText("|cFFFFD100Main tank:")
-
-local main_tank_name_string = lole_frame:CreateFontString(nil, "OVERLAY")
-main_tank_name_string:SetFont("Fonts\\FRIZQT__.TTF", 9);
-main_tank_name_string:SetPoint("BOTTOMLEFT", 70, 25);
-main_tank_name_string:SetText("-none-")
-
-
-local off_tank_string = lole_frame:CreateFontString(nil, "OVERLAY");
-off_tank_string:SetFont("Fonts\\FRIZQT__.TTF", 9);
-off_tank_string:SetPoint("BOTTOMLEFT", 15, 15);
-off_tank_string:SetText("|cFFFFD100Off tank:")
-
-local off_tank_name_string = lole_frame:CreateFontString(nil, "OVERLAY")
-off_tank_name_string:SetFont("Fonts\\FRIZQT__.TTF", 9);
-off_tank_name_string:SetPoint("BOTTOMLEFT", 70, 15);
-off_tank_name_string:SetText("-none-")
-
-function update_main_tank(name)
-	main_tank_name_string:SetText("|cFF" .. get_class_color(UnitClass(name)) .. name)
-end
-
-function update_off_tank(name)
-	off_tank_name_string:SetText("|cFF" .. get_class_color(UnitClass(name)) .. name)
-end
-
 local inject_status_text = lole_frame:CreateFontString(nil, "OVERLAY");
 inject_status_text:SetFont("Fonts\\FRIZQT__.TTF", 9);
 inject_status_text:SetPoint("BOTTOMRIGHT", -22, 15);
@@ -713,26 +684,11 @@ local function do_combat_stuff()
 	lole_main();
 end
 
-local mtwarn_given = GetTime()
-
 local raid_zones = {
 	["Gruul's Lair"] = 1,
 	["Black Temple"] = 2,
 	["Karazhan"] = 3
 }
-
-local function MT_OT_warning()
-
-	if (GetTime() - mtwarn_given) < 15 then return end
-
-	local zone = GetZoneText()
-	if not raid_zones[zone] then return end
-
-	if not MAIN_TANK or not OFF_TANK then
-		SendChatMessage("warning! MAIN_TANK or OFF_TANK not set!", "GUILD")
-		mtwarn_given = GetTime()
-	end
-end
 
 local function gui_set_injected_status()
 		local inj = query_injected()
@@ -751,8 +707,6 @@ lole_frame:SetScript("OnUpdate", function()
 	if query_injected() == 0 then return end
 
 	if every_4th_frame == 0 then
-
-		MT_OT_warning()
 
 		local r = get_current_config().general_role;
 
