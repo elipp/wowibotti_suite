@@ -315,6 +315,11 @@ create_simple_button("lbuffcheck_clean_button", lole_frame, 120, -160, "Buff (cl
 local lbuffcheck_button =
 create_simple_button("lbuffcheck_button", lole_frame, 250, -160, "Buff", 62, 27, function() lole_subcommands.lbuffcheck() end);
 
+local getbiscuit_button =
+create_simple_button("getbiscuit_button", lole_frame, 313, -130, "Biscuit", 68, 27, function() lole_subcommands.getbiscuit() end);
+
+
+
 local ctm_host = { title = "CTM mode:", title_fontstr = nil, buttons = {}, num_buttons = 0, first_pos_x = 223, first_pos_y = -205, increment = 18 }
 
 CTM_MODES = {
@@ -635,6 +640,7 @@ StaticPopupDialogs["ADD_CC_DIALOG"] = {
 
 local add_cc_button =
 create_simple_button("add_cc_button", lole_frame, 22, -175, "Add CC...", 85, 27, function() StaticPopup_Show("ADD_CC_DIALOG") end);
+
 
 local inject_status_text = lole_frame:CreateFontString(nil, "OVERLAY");
 inject_status_text:SetFont("Fonts\\FRIZQT__.TTF", 9);
