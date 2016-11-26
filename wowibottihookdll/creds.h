@@ -29,8 +29,9 @@ struct cred_t {
 	}
 
 	void try_login() const {
-		PRINT("login script: %s\n", login_script.c_str());
-		DoString(login_script.c_str());
+		if (account_name != "") {
+			DoString(login_script.c_str());
+		}
 	}
 };
 

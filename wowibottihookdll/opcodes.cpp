@@ -875,8 +875,10 @@ int LOP_get_biscuits() {
 
 	WowObject t;
 	if (!OM.get_GO_by_name("Refreshment Table", &t)) return 0;
+	
 	CTM_t b = CTM_t(t.GO_get_pos(), CTM_MOVE, CTM_PRIO_LOW, 0, 0.5);
 	b.add_posthook(CTM_posthook_t(get_biscuits, NULL, 0, 100));
+	
 	ctm_add(b);
 }
 

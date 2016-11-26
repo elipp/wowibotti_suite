@@ -1,7 +1,5 @@
 local function delrissa()
 
-	if keep_CCd("Warlord Salaris", "Polymorph") then return end
-
 	if has_buff("Priestess Delrissa", "Power Word: Shield") or
 	   has_buff("Priestess Delrissa", "Renew") then
 		TargetUnit("Priestess Delrissa")

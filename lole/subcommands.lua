@@ -489,13 +489,11 @@ local function lole_target_GUID(GUID)
 
 end
 
-local function lole_cc(state, marker, spell)
-
-		echo("set_cc_target: got args: " .. state .. ", " .. marker .. ", " .. spell);
+local function lole_cc(state, marker, spellID)
 
 		if (state == "enable") then
-			set_CC_job(spell, marker)
-			new_CC(UnitName("player"), marker, get_CC_spellID(spell));
+			set_CC_job(tonumber(spellID), marker)
+			new_CC(UnitName("player"), marker, tonumber(spellID));
 		elseif (state == "disable") then
 			unset_CC_job(marker)
 			delete_CC_entry(marker)

@@ -152,7 +152,7 @@ function get_CC_spellID(name)
 end
 
 function get_CC_spellname(spellID)
-	return CC_spellnames[spellID];
+	return CC_spellnames[tonumber(spellID)];
 end
 
 function echo(text)
@@ -646,9 +646,9 @@ end
 local CC_jobs = {}
 local num_CC_jobs = 0
 
-function set_CC_job(spell, marker)
+function set_CC_job(spellID, marker)
 	num_CC_jobs = num_CC_jobs + 1
-	CC_jobs[marker] = spell
+	CC_jobs[marker] = spellID
 end
 
 function unset_CC_job(marker)
@@ -662,16 +662,17 @@ end
 
 function do_CC_jobs()
 
-	for marker, spell in pairs(CC_jobs) do
+	for marker, spellID in pairs(CC_jobs) do
 		target_unit_with_marker(marker);
 
 		if UnitExists("target") and not UnitIsDead("target") then
-			a, d = has_debuff("target", spell)
+      local spellname = get_CC_spellname(spellID)
+			a, d = has_debuff("target", spellname)
 			if not a then
-				CastSpellByName(spell)
+				CastSpellByName(spellname)
 				return true;
 			elseif d < 3 then
-				CastSpellByName(spell)
+				CastSpellByName(spellname)
 				return true;
 			end
 		end
@@ -680,21 +681,6 @@ function do_CC_jobs()
 	return false
 end
 
-function keep_CCd(targetname, spellname)
-	TargetUnit(targetname);
-	if UnitExists("target") then
-		a, d = has_debuff("target", spellname);
-		if not a then
-			CastSpellByName(spellname);
-			return true;
-		elseif d < 6 then
-			CastSpellByName(spellname);
-			return true;
-		end
-	end
-
-	return false;
-end
 
 function validate_target()
 

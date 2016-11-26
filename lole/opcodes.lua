@@ -39,8 +39,8 @@ local LDOP_NOCLIP = 0xE6
 ---- public functions ------
 ----------------------------
 
-function enable_cc_target(name, marker, spell)
-	lole_subcommands.sendmacro_to(name, "/lole cc enable", marker, spell)
+function enable_cc_target(name, marker, spellID)
+	lole_subcommands.sendmacro_to(name, "/lole cc enable", marker, spellID)
 end
 
 function disable_cc_target(name, marker)

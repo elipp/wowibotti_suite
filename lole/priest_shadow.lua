@@ -4,8 +4,6 @@ combat_priest_shadow = function()
 
 	if player_casting() then return end
 
-	--if cleanse_party("Enveloping Wind") then return; end
---	if cleanse_party("Lung Burst") then return; end
 
 	if not validate_target() then return end
 

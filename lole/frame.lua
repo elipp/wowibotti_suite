@@ -283,7 +283,7 @@ local function update_target_onclick()
 end
 
 local update_target_button =
-create_simple_button("update_target_button", lole_frame, 120, -100, "Update target", 115, 27, update_target_onclick);
+create_simple_button("update_target_button", lole_frame, 115, -100, "Update target", 115, 27, update_target_onclick);
 
 function update_target()
 	update_target_onclick()
@@ -295,28 +295,31 @@ local function clear_target_onclick()
 end
 
 local clear_target_button =
-create_simple_button("clear_target_button", lole_frame, 250, -100, "Clear", 62, 27, clear_target_onclick);
+create_simple_button("clear_target_button", lole_frame, 240, -100, "Clear", 62, 27, clear_target_onclick);
 
 local cooldowns_button =
-create_simple_button("cooldowns_button", lole_frame, 120, -130, "Cooldowns", 115, 27,
+create_simple_button("cooldowns_button", lole_frame, 115, -130, "Cooldowns", 115, 27,
 function()
 	lole_subcommands.broadcast("cooldowns");
 end);
 
 local drink_button =
-create_simple_button("drink_button", lole_frame, 250, -130, "Drink", 62, 27,
+create_simple_button("drink_button", lole_frame, 240, -130, "Drink", 62, 27,
 function()
 	lole_subcommands.broadcast("drink")
 end);
 
 local lbuffcheck_clean_button =
-create_simple_button("lbuffcheck_clean_button", lole_frame, 120, -160, "Buff (clean)", 115, 27, function() lole_subcommands.lbuffcheck("clean") end);
+create_simple_button("lbuffcheck_clean_button", lole_frame, 115, -160, "Buff (clean)", 115, 27, function() lole_subcommands.lbuffcheck("clean") end);
 
 local lbuffcheck_button =
-create_simple_button("lbuffcheck_button", lole_frame, 250, -160, "Buff", 62, 27, function() lole_subcommands.lbuffcheck() end);
+create_simple_button("lbuffcheck_button", lole_frame, 240, -160, "Buff", 62, 27, function() lole_subcommands.lbuffcheck() end);
+
+local reloadui_button =
+create_simple_button("reloadui_button", lole_frame, 310, -100, "Reload", 68, 27, function() RunMacroText("/console reloadui") end);
 
 local getbiscuit_button =
-create_simple_button("getbiscuit_button", lole_frame, 313, -130, "Biscuit", 68, 27, function() lole_subcommands.getbiscuit() end);
+create_simple_button("getbiscuit_button", lole_frame, 310, -130, "Biscuit", 68, 27, function() lole_subcommands.getbiscuit() end);
 
 
 
@@ -481,7 +484,7 @@ function delete_CC_entry(CC_marker)
 	local hostID = CC_host.ID
 
 	CC_host:Hide()
-	disable_cc_target(CC_host.char, CC_host.spell, CC_host.marker);
+	disable_cc_target(CC_host.char_name, CC_host.marker);
 
 	--table.remove(CC_state, hostID);
 	CC_state[CC_host.marker] = nil;
@@ -504,31 +507,32 @@ function delete_all_CC_entries()
 	end
 end
 
-function new_CC(char, marker, spellID)
+function new_CC(char_name, marker, spellID)
 	-- echo("Asking " .. trim_string(char) .. " to do " .. trim_string(spell) .. " on " .. trim_string(marker) .. "!")
 
 	if CC_state[marker] then
 		local cc = CC_state[marker];
-		if cc.char:lower() == char:lower() and cc.spell == get_CC_spellname(spellID) then
+		if cc.char_name:lower() == char_name:lower() and cc.spellID == spellID then
 			echo("(new_CC request is identical (normal double-posted AddonMessage?), ignoring.)")
 		else
-			lole_error("A conflicting entry for marker \"" .. marker .. "\" seems to already exist (info: " .. cc.char .. ":" .. cc.spell .. "). Please delete this one before reassigning.")
+			lole_error("A conflicting entry for marker \"" .. marker .. "\" seems to already exist!")
+			lole_error("(info: " .. cc.char_name .. ":" .. get_CC_spellname(cc.spellID) .. "). Please delete this one before reassigning.")
 		end
 
 		return
 	end
 
-	if not UnitExists(char) then
-		lole_error("Character " .. char .. " doesn't appear to exist!")
+	if not UnitExists(char_name) then
+		lole_error("Character " .. char_name .. " doesn't appear to exist!")
 		return false
 	end
 
-	if not spellID then
-		lole_error("Unknown CC spell!");
+	local spellname = get_CC_spellname(spellID); -- get the spellname in a CastSpellByName-able format
+
+	if not spellname then
+		lole_error("Unknown CC spell with ID " .. tostring(spellID));
 		return false
 	end
-
-	local spell = get_CC_spellname(spellID); -- get the spellname in a CastSpellByName-able format
 
 	local name, rank, icon, castTime, minRange, maxRange = GetSpellInfo(spellID)
 
@@ -541,8 +545,8 @@ function new_CC(char, marker, spellID)
 
 	local CC_host = CreateFrame("Frame", nil, lole_frame);
 
-	CC_host.char = first_to_upper(char)
-	CC_host.spell = spell
+	CC_host.char_name = first_to_upper(char_name)
+	CC_host.spellID = spellID
 	CC_host.marker = marker
 
 	CC_host.ID = num_CC_targets
@@ -575,7 +579,7 @@ function new_CC(char, marker, spellID)
 	caster_char_text:SetFont("Fonts\\FRIZQT__.TTF", 9);
 
 	caster_char_text:SetPoint("TOPLEFT", 3, -6);
-	caster_char_text:SetText("|cFF" .. get_class_color(UnitClass(CC_host.char)) .. CC_host.char)
+	caster_char_text:SetText("|cFF" .. get_class_color(UnitClass(CC_host.char_name)) .. CC_host.char_name)
 
 	local marker_frame = CreateFrame("Frame", nil, CC_host)
 	marker_frame:SetWidth(16)
@@ -609,6 +613,37 @@ function new_CC(char, marker, spellID)
 
 end
 
+local dialog_handle = nil -- dirty lil hack to hide the cc dialog from accept_cc
+local function hide_cc_dialog()
+	if dialog_handle then dialog_handle:Hide() end
+	dialog_handle = nil
+end
+
+
+local function accept_cc(editbox_text)
+	local _char, _marker, _spell = strsplit(" ", editbox_text);
+
+	if not _char or not _marker or not _spell then
+		lole_error("accept_cc: invalid arguments!")
+		return
+	end
+
+	local char, marker, spell = trim_string(_char), trim_string(_marker), trim_string(_spell)
+
+	local spellID = get_CC_spellID(spell)
+
+	if not spellID then
+		lole_error("accept_cc: unknown CC spell with name \"" .. spell .. "\"!")
+		hide_cc_dialog()
+		return
+	end
+
+	new_CC(char, marker, spellID)
+	enable_cc_target(char, marker, spellID)
+
+	hide_cc_dialog()
+end
+
 StaticPopupDialogs["ADD_CC_DIALOG"] = {
 	text = "CC syntax: <character> <marker> <spell>",
 	button1 = "OK",
@@ -620,20 +655,20 @@ StaticPopupDialogs["ADD_CC_DIALOG"] = {
 	hasEditBox = 1,
 	hasWideEditBox = 1,
 
-	OnShow = function()
-		getglobal(this:GetName().."WideEditBox"):SetText("")
+	get_edit_text = function()
+		return getglobal(this:GetParent():GetName().."WideEditBox"):GetText()
 	end,
 
 	OnAccept = function()
-		local text = getglobal(this:GetParent():GetName().."WideEditBox"):GetText()
-		local _char, _marker, _spell = strsplit(" ", text);
-		local char, marker, spell = trim_string(_char), trim_string(_marker), trim_string(_spell)
+		accept_cc(this:get_edit_text())
+	end,
 
-		local spellID = get_CC_spellID(spell)
-		new_CC(char, marker, spellID)
-
-		local spell = get_CC_spellname(spellID);
-		enable_cc_target(char, marker, spell)
+	OnShow = function()
+		local edit = getglobal(this:GetName().."WideEditBox")
+		edit:SetText("")
+		edit:SetScript("OnEnterPressed", function() accept_cc(this:GetText()) end)
+		edit:SetScript("OnEscapePressed", function() this:GetParent():Hide() end)
+		dialog_handle = this
 	end,
 
 };
@@ -686,8 +721,8 @@ function update_target_pos_text(x, y, z)
 end
 
 local function do_combat_stuff()
-	do_CC_jobs();
-	lole_main();
+	if do_CC_jobs() then return
+	else lole_main() end
 end
 
 local raid_zones = {
