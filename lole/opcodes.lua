@@ -118,7 +118,16 @@ function warlock_maulgar_get_felhound()
 end
 
 function dscript(command, scriptname)
-	lop_exec(LOP_DUNGEON_SCRIPT, command, scriptname);
+	local ret = {lop_exec(LOP_DUNGEON_SCRIPT, command, scriptname)};
+
+	if command == "get_mobpack" then
+		MOBPACK_TO_KILL = shallowcopy(ret)
+
+	elseif command == "run"
+		DSCRIPT_ACTIVE = 1
+		echo("DUNGEON SCRIPT ACTIVATED!")
+	end
+
 end
 
 function get_unit_position(unitname)

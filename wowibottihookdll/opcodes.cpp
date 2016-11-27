@@ -331,7 +331,9 @@ static void LOP_nop(const std::string& arg) {
 	return;
 }
 
-static void LOP_dungeon_script(const std::string &command, const std::string &arg) {
+static std::vector<std::string> LOP_dungeon_script(const std::string &command, const std::string &arg) {
+
+	std::vector<std::string> rvals;
 
 	if (command == "load") {
 		dscript_load(arg);
@@ -348,6 +350,14 @@ static void LOP_dungeon_script(const std::string &command, const std::string &ar
 	else if (command == "state") {
 		dscript_state(arg);
 	}
+	else if (command == "get_mobpack") {
+		auto GUIDs = dscript_get_current_mobpack_GUIDs();
+		for (auto &g : GUIDs) {
+			rvals.push_back(GUID_as_string(g)); 
+		}
+
+	}
+	return rvals;
 }
 
 static int LOP_target_marker(const std::string &arg) {
@@ -953,7 +963,12 @@ int lop_exec(lua_State *L) {
 			scriptname = lua_tolstring(L, 3, &len);
 		}
 
-		LOP_dungeon_script(command, scriptname ? scriptname : "");
+		auto rvals = LOP_dungeon_script(command, scriptname ? scriptname : "");
+		for (auto &r : rvals) {
+			lua_pushlstring(L, r.c_str(), r.length());
+		}
+
+		return rvals.size();
 		break;	
 	}
 	
@@ -1077,13 +1092,14 @@ int lop_exec(lua_State *L) {
 	case LDOP_DUMP:
 		dump_wowobjects_to_log();
 		break;
-	case LDOP_LOS_TEST: {
+	case LDOP_LOS_TEST: 
 		break;
-	}
+	
 
 	case LDOP_NOCLIP:
 		enable_noclip();
 		break;
+
 
 	default:
 		PRINT("lop_exec: unknown opcode %d!\n", opcode);

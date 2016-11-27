@@ -134,3 +134,10 @@ inline int find_stuff_between(const std::string &in_str, char cbegin, char cend,
 #define M_PI 3.14159265358979323846
 #endif 
 
+inline std::string GUID_as_string(GUID_t g) {
+	char GUID_str[32];
+	sprintf(GUID_str, "0x%016llX", g);
+
+	return GUID_str;
+}
+

@@ -535,21 +535,21 @@ local function lole_dscript(...)
 	  if command == "load" then
 			if numargs < 2 then
 				lole_error("dscript load: missing SCRIPTNAME argument!")
-				return false;
+				return nil;
 			else
 				local scriptname = atab[2];
 				dscript(command, scriptname)
-				return true;
+				return 1;
 			end
-		elseif command == "run" then
-				dscript(command) -- TODO: if return value is nil, then report erreur
-		elseif command == "next" then
-				dscript(command)
-		elseif command == "stop" then
-				dscript(command)
+		elseif
+			command == "run" or
+		 	command == "next" or
+			command == "stop" or
+			command == "get_mobpack" then
+				return dscript(command)
 		else
 			lole_error("dscript: unknown COMMAND " .. command);
-			return false
+			return nil
 		end
 
 end

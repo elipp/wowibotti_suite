@@ -35,6 +35,8 @@ shaman_resto.lua
 opcodes.lua
 subcommands.lua
 
+dscript.lua
+
 lole.xml
 lole.lua
 

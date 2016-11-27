@@ -720,9 +720,55 @@ function update_target_pos_text(x, y, z)
 	target_pos_text:SetText("|cFFFFD100Target pos: |cFFFFFFFF" .. pos)
 end
 
+local time_since_pull = nil
+
+local function handle_dscript()
+
+	if next(MOBPACK_TO_KILL) then
+		for i, GUID in pairs(MOBPACK_TO_KILL) then
+			target_unit_with_GUID(GUID)
+
+			if not UnitAffectingCombat("target") then
+					echo("pulling mob " .. GUID)
+					if cast_if_nocd("Avenger's Shield") then
+						time_since_pull = GetTime()
+					end
+			end
+
+
+			if not UnitIsDead("target") then
+				if BLAST_TARGET_GUID ~= GUID then
+					echo("Broadcasting blast target " .. GUID)
+					broadcast_target_GUID(GUID)
+					if lole_subcommands.get("blast") ~= 1 then
+						lole_subcommands.broadcast("set", "blast", "1")
+					end
+
+					return
+				end
+
+			else -- unit is dead
+				table.remove(MOBPACK_TO_KILL, i)
+				return
+			end
+		end
+	else
+		echo("DSCRIPT: no more mobs to kill!")
+		DSCRIPT_ACTIVE = nil
+		lole_subcommands.broadcast("set", "blast", "0")
+		broadcast_target_GUID(NOTARGET)
+		time_since_pull = nil
+	end
+end
+
 local function do_combat_stuff()
 	if do_CC_jobs() then return
-	else lole_main() end
+
+	elseif DSCRIPT_ACTIVE then
+		handle_dscript()
+	else
+		lole_main()
+	end
 end
 
 local raid_zones = {

@@ -34,7 +34,7 @@ struct dscript_objective_t {
 	int pack_type;
 	float radius;
 
-	std::vector<GUID> mob_GUIDS;
+	std::vector<GUID_t> mob_GUIDs;
 };
 
 struct dscript_t {
@@ -58,3 +58,4 @@ int dscript_unload();
 
 int dscript_state(const std::string &arg);
 
+std::vector<GUID_t> dscript_get_current_mobpack_GUIDs();

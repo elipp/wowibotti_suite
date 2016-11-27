@@ -318,3 +318,19 @@ int dscript_state(const std::string &arg) {
 	}
 
 }
+
+std::vector<GUID_t> dscript_get_current_mobpack_GUIDs() {
+	if (!current_script) return std::vector<GUID_t>();
+
+	ObjectManager OM;
+
+	auto mobs = OM.find_all_NPCs_at(current_script->tasks[0].pack_pos, current_script->tasks[0].radius);
+	
+	current_script->tasks[0].mob_GUIDs = std::vector<GUID_t>();
+	for (auto &m : mobs) {
+		current_script->tasks[0].mob_GUIDs.push_back(m.get_GUID());
+	}
+
+	return current_script->tasks[0].mob_GUIDs;
+
+}
