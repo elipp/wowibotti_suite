@@ -91,37 +91,11 @@ void ctm_add(const CTM_t &new_ctm) {
 	PRINT("called ctm_ADD with %.1f, %.1f, %.1f, ID=%ld, prio %d, action 0x%X\n", 
 		new_ctm.destination.x, new_ctm.destination.y, new_ctm.destination.z, new_ctm.ID, new_ctm.priority, new_ctm.action);
 
-	switch (new_ctm.priority) {
-	case CTM_PRIO_EXCLUSIVE:
-		// clear queue, insert new, act, no questions asked
+	if (ctm_queue_get_top_prio() < new_ctm.priority) {
 		ctm_queue_reinit_with(new_ctm);
 		ctm_act();
-		break;
-
-	case CTM_PRIO_REPLACE:
-		if (ctm_queue_get_top_prio() < CTM_FOLLOW) {
-			ctm_queue_reinit_with(new_ctm);
-			ctm_act();
-		}
-		break;
-
-	case CTM_PRIO_FOLLOW:
-		if (ctm_queue_get_top_prio() < CTM_PRIO_EXCLUSIVE) {
-			ctm_queue_reinit_with(new_ctm);
-			ctm_act();
-		}
-		break;
-
-	case CTM_PRIO_LOW:
-		if (ctm_queue_get_top_prio() < CTM_PRIO_FOLLOW) {
-			ctm_queue.push(new_ctm);
-		}
-
-		break;
-
-	default:
-		break; 
 	}
+
 
 }
 
