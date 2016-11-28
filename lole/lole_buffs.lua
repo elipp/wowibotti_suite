@@ -428,7 +428,7 @@ function need_to_buff()
     elseif self_class == "Mage" then
         colleagues = {"Dissona", "Consona"};
     elseif self_class == "Priest" then
-        colleagues = {"Mam", "Bogomips", "Pussu", "Kasio"}; -- The one with Divine Spirit should be last.
+        colleagues = {"Kasio", "Bogomips", "Pussu", "Mam"}; -- The one with Divine Spirit should be last.
     else
         return false;
     end
