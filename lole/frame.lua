@@ -655,12 +655,8 @@ StaticPopupDialogs["ADD_CC_DIALOG"] = {
 	hasEditBox = 1,
 	hasWideEditBox = 1,
 
-	get_edit_text = function()
-		return getglobal(this:GetParent():GetName().."WideEditBox"):GetText()
-	end,
-
 	OnAccept = function()
-		accept_cc(this:get_edit_text())
+		accept_cc(getglobal(this:GetParent():GetName().."WideEditBox"):GetText())
 	end,
 
 	OnShow = function()
@@ -721,8 +717,8 @@ function update_target_pos_text(x, y, z)
 end
 
 local function do_combat_stuff()
-	if do_CC_jobs() then return
-	else lole_main() end
+	do_CC_jobs()
+	lole_main() 
 end
 
 local raid_zones = {

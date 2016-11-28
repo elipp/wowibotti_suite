@@ -90,7 +90,7 @@ struct CTM_t {
 	
 	void add_posthook(const CTM_posthook_t &hook) {
 		posthook_chain.push_back(hook);
-		PRINT("@add_posthook, base addr = %p, ID=%ld posthook_chain.size() = %lp\n", this, this->ID, posthook_chain.size());
+		PRINT("@add_posthook, base addr = %p, ID=%ld posthook_chain.size() = %lu\n", this, this->ID, posthook_chain.size());
 	}
 
 	CTM_posthook_t *get_current_posthook() {

@@ -317,4 +317,6 @@ int dscript_state(const std::string &arg) {
 		current_script->script_state = SCRIPT_STATE_MOVING;
 	}
 
+	return 1;
+
 }
