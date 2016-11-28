@@ -33,6 +33,13 @@ local function should_cast_PoH(min_deficit, min_healable_chars)
     if min_deficit == nil then min_deficit = 3000; end
     if min_healable_chars == nil then min_healable_chars = 4; end
 
+    if UnitCastingInfo("Focus") == "Spirit Bolts" then
+        if UnitCastingInfo("player") and not UnitCastingInfo("player") == "Prayer of Healing" then
+            SpellStopCasting();
+        end
+        return true;
+    end
+
 	local HP_deficits = get_HP_deficits(true, true);
 
     local eligible_targets = {};
