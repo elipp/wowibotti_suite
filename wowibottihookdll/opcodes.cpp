@@ -403,9 +403,16 @@ static int LOP_avoid_spell_object(long spellID, float radius) {
 
 	for (auto &s : objs) {
 		vec3 spos = s.DO_get_pos();
-		if ((ppos - spos).length() < radius) {
+		vec3 dist = ppos - spos;
+		if (dist.length() < radius) {
 			// then we need to run away from it :D
-			escape_pos = spos + (radius+1.5)*(ppos - spos).unit();
+			if (dist.length() < 0.5) {
+				escape_pos = spos + (radius + 1.5)*vec3(0, 1, 0);
+			}
+			else {
+				escape_pos = spos + (radius + 1.5)*dist.unit();
+			}
+
 			need_to_escape = 1;
 		}
 	}
@@ -415,6 +422,7 @@ static int LOP_avoid_spell_object(long spellID, float radius) {
 		return 0;
 	}
 
+	PRINT("ESCAPING spell with id %d at %.0f, %.0f, %.0f\n", spellID, escape_pos.x, escape_pos.y, escape_pos.z);
 	ctm_add(CTM_t(escape_pos, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 0.5));
 
 	return 1;
