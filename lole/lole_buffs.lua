@@ -42,7 +42,7 @@ function get_desired_buffs(role)
         "Divine Spirit",
         "Mark of the Wild",
         --"Amplify Magic",
-        --"Shadow Protection",
+        "Shadow Protection",
     };
 
     local caster_buffs = {

@@ -21,7 +21,9 @@ combat_shaman_elem = function()
         if GetSpellCooldown("Earth Shock") > 1 then
             lole_subcommands.override("Consona", "Counterspell");
         else
+            SpellStopCasting();
             CastSpellByName("Earth Shock");
+            SendChatMessage("Cast Earth Shock", "GUILD");
         end
     end
 
@@ -42,7 +44,7 @@ combat_shaman_elem = function()
 		if cast_if_nocd("Chain Lightning") then return end
 	end
 
-	if cast_if_nocd("Chain Lightning") then return end
+	--if cast_if_nocd("Chain Lightning") then return end
 	CastSpellByName("Lightning Bolt");
 
 end
