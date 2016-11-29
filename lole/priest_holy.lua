@@ -33,7 +33,8 @@ local function should_cast_PoH(min_deficit, min_healable_chars)
     if min_deficit == nil then min_deficit = 3000; end
     if min_healable_chars == nil then min_healable_chars = 4; end
 
-    if UnitChannelInfo("Focus") == "Spirit Bolts" then
+    TargetUnit("Hex Lord Malacrass");
+    if UnitChannelInfo("target") == "Spirit Bolts" then
         SendChatMessage("Detected Spirit Bolts", "GUILD");
         if UnitCastingInfo("player") and not UnitCastingInfo("player") == "Prayer of Healing" then
             SpellStopCasting();

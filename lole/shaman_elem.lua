@@ -19,7 +19,7 @@ combat_shaman_elem = function()
     local spell = UnitCastingInfo("target");
     if spell == "Heal" or spell == "Holy Light" or spell == "Healing Wave" then
         if GetSpellCooldown("Earth Shock") > 1 then
-            lole_subcommands.override("Consona", "Counterspell");
+            lole_subcommands.override("Consona", "CastSpellByName(\"Counterspell\")");
         else
             SpellStopCasting();
             CastSpellByName("Earth Shock");
