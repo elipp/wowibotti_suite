@@ -406,7 +406,7 @@ static int LOP_avoid_spell_object(long spellID, float radius) {
 		vec3 dist = ppos - spos;
 		if (dist.length() < radius) {
 			// then we need to run away from it :D
-			if (dist.length() < 0.5) {
+			if (dist.length() < 0.5) { // this avoids a nasty divide by (almost) zero erreur
 				escape_pos = spos + (radius + 1.5)*vec3(0, 1, 0);
 			}
 			else {

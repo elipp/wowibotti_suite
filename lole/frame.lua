@@ -745,9 +745,6 @@ lole_frame:SetScript("OnUpdate", function()
 
 	if every_4th_frame == 0 then
 
-		avoid_spell_with_spellID(43429, 10)
-		avoid_spell_with_spellID(43440, 10)
-
 		local r = get_current_config().general_role;
 
 		if r == "HEALER" then
