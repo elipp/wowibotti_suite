@@ -89,20 +89,23 @@ combat_shaman_resto = function()
 
     TargetUnit(heal_targets[1]);
 
-    local health_max = UnitHealthMax("target");
-    local health_cur = UnitHealth("target");
+		local target_HPP = health_percentage("target")
 
-    if (health_cur < health_max * 0.30) then
+    if target_HPP < 30 then
         cast_heal("Lesser Healing Wave");
-    elseif (UnitHealth("player") < UnitHealthMax("player")*0.30) then
+
+		elseif health_percentage("player") < 30 then
         TargetUnit("player");
         cast_heal("Lesser Healing Wave");
-    elseif (health_cur < health_max * 0.70) then
+
+	  elseif target_HPP < 70 then
         cast_heal("Healing Wave");
-    elseif (UnitHealth("player") < UnitHealthMax("player")*0.50) then
+
+	  elseif health_percentage("player") < 50 then
         TargetUnit("player");
         cast_heal("Healing Wave");
-    elseif table.contains(heal_targets, "raid") then
+
+	  elseif table.contains(heal_targets, "raid") then
         raid_heal();
     end
 

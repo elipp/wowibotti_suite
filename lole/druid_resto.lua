@@ -60,13 +60,13 @@ local function raid_heal()
 
     local reju_checked = false;
     for i, target in ipairs(heal_targets) do
-        local health_max = UnitHealthMax(target);
-        local health_cur = UnitHealth(target);
+        local target_HPP = health_percentage(target)
+
         local has_rg, timeleft_rg, stacks_rg = has_buff(target, "Regrowth");
         local has_rj, timeleft_rj, stacks_rj = has_buff(target, "Rejuvenation");
         local has_lb, timeleft_lb, stacks_lb = has_buff(target, "Lifebloom");
 
-        if (health_cur < health_max * 0.35) then
+        if (target_HPP < 35) then
             cast_heal("Swiftmend", target);
             if not has_rg or timeleft_rg < 5 then
                 cast_heal("Regrowth", target);
@@ -79,7 +79,7 @@ local function raid_heal()
             reju_checked = true;
         end
 
-        if (health_cur < health_max * 0.60) then
+        if (target_HPP < 60) then
             if not has_rj then
                 cast_heal("Rejuvenation", target);
                 return true;
@@ -89,7 +89,7 @@ local function raid_heal()
             end
         end
 
-        if (health_cur < health_max * 0.80) then
+        if (target_HPP < 80) then
             if not has_lb or timeleft_lb < 1.8 then
                 cast_heal("Lifebloom", target);
                 return true;
@@ -135,11 +135,12 @@ combat_druid_resto = function()
         heal_targets = table.rid(heal_targets, "raid");
     end
 
-    local health_max = UnitHealthMax(heal_targets[1]);
-    local health_cur = UnitHealth(heal_targets[1]);
+    local target_HPP = health_percentage(heal_targets[1]);
+
     local has_rg, timeleft_rg, stacks_rg = has_buff(heal_targets[1], "Regrowth");
     local has_rj, timeleft_rj, stacks_rj = has_buff(heal_targets[1], "Rejuvenation");
-    if (health_cur < health_max * 0.35) then
+
+    if target_HPP < 35 then
         cast_heal("Swiftmend", heal_targets[1]);
         if not has_rg or timeleft_rg < 5 then
             cast_heal("Regrowth", heal_targets[1]);
@@ -150,7 +151,7 @@ combat_druid_resto = function()
         end
     end
 
-    if UnitHealth("player") < UnitHealthMax("player")*0.30 then
+    if health_percentage("player") < 30 then
         CastSpellByName("Barkskin");
         TargetUnit("player");
         cast_heal("Swiftmend")
@@ -202,7 +203,7 @@ combat_druid_resto = function()
         return
     end
 
-    if UnitHealth("player") < UnitHealthMax("player")*0.50 then
+    if health_percentage("player") < 50 then
         TargetUnit("player");
         if (not has_buff("target", "Rejuvenation")) then
             cast_heal("Rejuvenation");
