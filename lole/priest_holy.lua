@@ -88,7 +88,7 @@ local function get_CoH_target(urgencies, min_deficit, max_ineligible_chars)
     end
 
     return coh_target;
-    
+
 end
 
 local function cast_PoM_here(has_single_targets, from_raid_heal)
@@ -117,8 +117,9 @@ local function raid_heal(has_single_targets)
     else
         TargetUnit("player");
     end
-    local health_max = UnitHealthMax("target");
-    local health_cur = UnitHealth("target");
+
+    local target_HPP = health_percentage("target");
+
     local targeting_self = UnitName("target") == UnitName("player");
 
     if should_cast_PoH(6000, 4) then
@@ -126,14 +127,14 @@ local function raid_heal(has_single_targets)
         return true
     end
 
-    if UnitHealth("player") < UnitHealthMax("player")*0.30 then
+    if health_percentage("player") < 30 then
         TargetUnit("player");
         cast_heal("Power Word: Shield");
         cast_heal("Flash Heal");
         return true
     end
 
-    if (health_cur < health_max * 0.20) then
+    if target_HPP < 20 then
         cast_heal("Power Word: Shield");
         cast_heal("Flash Heal");
         return true
@@ -149,15 +150,15 @@ local function raid_heal(has_single_targets)
         TargetUnit(coh_target);
         cast_heal("Circle of Healing");
     elseif refresh_healbuffs(get_assigned_hottargets(UnitName("player"))) then
-    elseif (health_cur < health_max * 0.50) then
+    elseif target_HPP < 50 then
         cast_heal("Greater Heal");
-    elseif (health_cur < health_max * 0.75) then
-        if not targeting_self and (UnitHealth("player") < UnitHealthMax("player")*0.75) then
+    elseif target_HPP < 75 then
+        if not targeting_self and health_percentage("player") < 75 then
             cast_heal("Binding Heal");
         else
             cast_heal("Greater Heal(Rank 1)");
         end
-    elseif (health_cur < health_max * 0.85) then
+    elseif target_HPP < 85 then
         if cast_PoM_here(has_single_targets, true) and not has_buff("target", "Prayer of Mending") and time() - pom_time > 10 then
             if cast_heal("Prayer of Mending") then
                 pom_time = time();
@@ -194,37 +195,45 @@ combat_priest_holy = function()
 
     TargetUnit(heal_targets[1]);
 
-	local health_max = UnitHealthMax("target");
-	local health_cur = UnitHealth("target");
+
+  local target_HPP = health_percentage("target")
+
 	local targeting_self = UnitName("target") == UnitName("player");
     local found, timeleft = has_buff("target", "Renew");
 
-    if (health_cur < health_max * 0.15) then
+    if target_HPP < 15 then
         cast_heal("Power Word: Shield");
         cast_heal("Flash Heal");
-	elseif (health_cur < health_max * 0.30) then
+
+  elseif target_HPP < 30 then
 		cast_heal("Greater Heal");
-    elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
+
+  elseif health_percentage("player") < 30 then
         TargetUnit("player");
         cast_heal("Power Word: Shield");
         cast_heal("Flash Heal");
-    elseif (health_cur < health_max * 0.50) then
+
+    elseif target_HPP < 50 then
         cast_heal("Greater Heal");
+
     elseif refresh_healbuffs(get_assigned_hottargets(UnitName("player"))) then
+
     elseif cast_PoM_here(true, false) and not has_buff("target", "Prayer of Mending") and time() - pom_time > 10 then
         if cast_heal("Prayer of Mending") then
             pom_time = time();
         end
     elseif (should_cast_PoH()) then
         cast_heal("Prayer of Healing");
-	elseif (health_cur < health_max * 0.60) then
-		if not targeting_self and (UnitHealth("player") < UnitHealthMax("player")*0.50) then
+
+	elseif target_HPP < 60 then
+		if not targeting_self and health_percentage("player") < 50 then
 			cast_heal("Binding Heal");
 		else
 			cast_heal("Greater Heal");
 		end
-	elseif (health_cur < health_max * 0.80) then
-		if not targeting_self and (UnitHealth("player") < UnitHealthMax("player")*0.70) then
+
+  elseif target_HPP < 80 then
+		if not targeting_self and health_percentage("player") < 70 then
 			cast_heal("Binding Heal");
 		else
 			cast_heal("Greater Heal(Rank 1)");

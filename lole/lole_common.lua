@@ -1457,3 +1457,11 @@ function playermode()
     return nil
   end
 end
+
+function health_percentage(unitname)
+  return UnitHealth(unitname)/UnitHealthMax(unitname) * 100
+end
+
+function mana_percentage(unitname)
+  return UnitMana(unitname)/UnitManaMax(unitname) * 100
+end
