@@ -1451,7 +1451,7 @@ end
 -- just a convenience function
 
 function playermode()
-  if lole_subcommands.get("playermode") == 1
+  if lole_subcommands.get("playermode") == 1 then
     return 1
   else
     return nil

@@ -122,6 +122,19 @@ local function raid_heal(has_single_targets)
 
     local targeting_self = UnitName("target") == UnitName("player");
 
+    if not has_buff("player", "Prayer of Mending") and time() - pom_time > 10 then
+        if cast_heal("Prayer of Mending", "player") then
+            pom_time = time();
+        end
+    end
+
+    local coh_target = get_CoH_target(urgencies, 1000, 2);
+    if coh_target then
+        TargetUnit(coh_target);
+        cast_heal("Circle of Healing");
+        return true
+    end
+
     if should_cast_PoH(6000, 4) then
         cast_heal("Prayer of Healing");
         return true
