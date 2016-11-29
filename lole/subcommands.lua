@@ -137,7 +137,7 @@ local function lole_followme()
 end
 
 local function lole_follow(name)
-	if lole_subcommands.get("playermode") == 0 then
+	if not playermode() then
 		follow_unit(name)
 	end
 end
@@ -247,7 +247,7 @@ local function lole_broadcast_ctm(x, y, z)
 end
 
 local function lole_ctm(x, y, z, prio)
-	if lole_subcommands.get("playermode") == 0 then
+	if not playermode() then
 		walk_to(tonumber(x), tonumber(y), tonumber(z), prio)
 	end
 end

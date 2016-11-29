@@ -57,7 +57,7 @@ function lole_main(args)
 			return;
         end
 
-		if lole_subcommands.get("playermode") ~= 1 then
+		if not playermode() then
             if UnitExists("focus") and UnitIsDead("focus") then
 				ClearFocus()
 			end
@@ -66,7 +66,7 @@ function lole_main(args)
                 get_current_config().survive();
             end
 			get_current_config().combat();
-            
+
         elseif OVERRIDE_COMMAND then
             run_override();
         end
@@ -216,7 +216,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
         if prevent_double_call(prefix) then return end
         local guildies = get_guild_members()
         if guildies[sender] then
-            if lole_subcommands.get("playermode") == 0 then
+            if not playermode() then
                 OVERRIDE_COMMAND = message;
                 lole_subcommands.set("playermode", 1);
                 SpellStopCasting();
@@ -247,7 +247,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
             -- end
         end
 
-    elseif (prefix == "lole_echo") then 
+    elseif (prefix == "lole_echo") then
         -- Feenix addon messaging cannot handle "\n", so we use "§" instead
         -- and substitute "§" symbols with "\n" here.
         if prevent_double_call(prefix) then return end

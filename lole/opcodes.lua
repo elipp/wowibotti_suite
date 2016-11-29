@@ -56,7 +56,7 @@ function target_unit_with_marker(marker)
 end
 
 function caster_range_check(minrange)
-	if lole_subcommands.get("playermode") == 0 then
+	if not playermode then
 		if lop_exec(LOP_CASTER_RANGE_CHECK, minrange) then
 			return true
 		else
@@ -70,26 +70,26 @@ function target_unit_with_GUID(GUID)
 end
 
 function melee_attack_behind()
-	if lole_subcommands.get("playermode") == 0 then
+	if not playermode() then
 		lop_exec(LOP_MELEE_BEHIND);
 	end
 end
 
 function melee_avoid_aoe_buff(buff_spellID)
-	if lole_subcommands.get("playermode") == 0 then
+	if not playermode() then
 		lop_exec(LOP_MELEE_AVOID_AOE_BUFF, buff_spellID);
 	end
 
 end
 
 function hug_spell_with_spellID(spellID)
-	if (lole_subcommands.get("playermode") == 0) then
+	if not playermode() then
 		lop_exec(LOP_HUG_SPELL_OBJECT, spellID)
 	end
 end
 
 function avoid_spell_with_spellID(spellID, radius)
-	if (lole_subcommands.get("playermode") == 0) then
+	if not playermode() then
 		lop_exec(LOP_AVOID_SPELL_OBJECT, spellID, radius)
 	end
 end
