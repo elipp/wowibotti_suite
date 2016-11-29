@@ -34,11 +34,11 @@ local function should_cast_PoH(min_deficit, min_healable_chars)
     if min_healable_chars == nil then min_healable_chars = 4; end
 
     local is_channeling = false;
-    TargetUnit("Hex Lord Malacrass");
-    if UnitChannelInfo("target") == "Spirit Bolts" then
-        is_channeling = true;
-        min_deficit = 3000;
-    end
+    -- TargetUnit("Hex Lord Malacrass");
+    -- if UnitChannelInfo("target") == "Spirit Bolts" then
+    --     is_channeling = true;
+    --     min_deficit = 3000;
+    -- end
 
 	local HP_deficits = get_HP_deficits(true, true);
 
