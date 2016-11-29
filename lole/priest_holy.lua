@@ -33,13 +33,11 @@ local function should_cast_PoH(min_deficit, min_healable_chars)
     if min_deficit == nil then min_deficit = 3000; end
     if min_healable_chars == nil then min_healable_chars = 4; end
 
+    local is_channeling = false;
     TargetUnit("Hex Lord Malacrass");
     if UnitChannelInfo("target") == "Spirit Bolts" then
-        SendChatMessage("Detected Spirit Bolts", "GUILD");
-        if UnitCastingInfo("player") and not UnitCastingInfo("player") == "Prayer of Healing" then
-            SpellStopCasting();
-        end
-        return true;
+        is_channeling = true;
+        min_deficit = 3000;
     end
 
 	local HP_deficits = get_HP_deficits(true, true);
@@ -53,6 +51,9 @@ local function should_cast_PoH(min_deficit, min_healable_chars)
 	end
 
     if #eligible_targets >= min_healable_chars then
+        if is_channeling and UnitCastingInfo("player") and not UnitCastingInfo("player") == "Prayer of Healing" then
+            SpellStopCasting();
+        end
         POH_TARGETS = shallowcopy(eligible_targets);
         return true;
     end
