@@ -54,7 +54,7 @@ struct CTM_posthook_t {
 	CTM_posthook_t() : callback(NULL), delay_ms(0), active(0) {}
 
 	~CTM_posthook_t() {
-		if (argument) delete argument;
+		if (argument) free(argument);
 		argument = NULL;
 	}
 };
