@@ -54,11 +54,23 @@ local function raid_heal()
         local target, bounce1, bounce2 = get_CH_target_trio(get_serialized_heals());
         if not target then
             return false;
+        else
+            TargetUnit(target);
+            if not bounce1 then
+                local deficit = get_HP_deficits(false, true)[target];
+                if deficit < 2500 then
+                    cast_heal("Healing Wave(Rank 7)");
+                elseif deficit < 4000 then
+                    cast_heal("Healing Wave(Rank 9)");
+                else
+                    cast_heal("Healing Wave(Rank 12)");
+                end
+            else
+                CH_BOUNCE_1 = bounce1
+                CH_BOUNCE_2 = bounce2
+                cast_heal("Chain Heal(Rank 4)");
+            end
         end
-        TargetUnit(target);
-        CH_BOUNCE_1 = bounce1
-        CH_BOUNCE_2 = bounce2
-        cast_heal("Chain Heal(Rank 4)");
     end
 
     return true;
