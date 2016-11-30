@@ -856,6 +856,9 @@ local function lole_broadcast_leavegroup()
 	lole_subcommands.sendmacro("GUILD", "/lole leavegroup")
 end
 
+local function lole_broadcast_getbiscuits()
+	lole_subcommands.sendmacro("GUILD", "/lole getbiscuit")
+end
 
 local lole_broadcast_commands = {
 	ctm = lole_broadcast_ctm;
@@ -867,6 +870,7 @@ local lole_broadcast_commands = {
 	stopfollow = lole_broadcast_stopfollow;
 	target = lole_broadcast_target;
 	leavegroup = lole_broadcast_leavegroup;
+	getbiscuits = lole_broadcast_getbiscuits;
 }
 
 local function lole_broadcast(funcname, ...)

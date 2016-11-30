@@ -319,7 +319,7 @@ local reloadui_button =
 create_simple_button("reloadui_button", lole_frame, 310, -100, "Reload", 68, 27, function() RunMacroText("/console reloadui") end);
 
 local getbiscuit_button =
-create_simple_button("getbiscuit_button", lole_frame, 310, -130, "Biscuit", 68, 27, function() lole_subcommands.getbiscuit() end);
+create_simple_button("getbiscuit_button", lole_frame, 310, -130, "Biscuit", 68, 27, function() lole_subcommands.broadcast("getbiscuits") end);
 
 
 
