@@ -39,24 +39,25 @@ struct CTM_posthook_t {
 
 	CTM_posthook_t(CTM_callback_t hookfunc, void *hookfunc_arg, size_t arg_size, float delay_milliseconds) : callback(hookfunc), delay_ms(delay_milliseconds), active(0) {
 		timestamp.start();
+		delay_ms = delay_milliseconds;
 		
-		if (hookfunc_arg) {
-			argument = malloc(arg_size);
-			memcpy(hookfunc_arg, argument, arg_size);
-			argument_size = arg_size;
-		}
-		else {
-			hookfunc_arg = NULL;
-			argument_size = 0;
-		}
+		//if (hookfunc_arg) {
+		//	argument = malloc(arg_size);
+		//	memcpy(hookfunc_arg, argument, arg_size);
+		//	argument_size = arg_size;
+		//}
+		//else {
+		//	hookfunc_arg = NULL;
+		//	argument_size = 0;
+		//}
 	};
 
 	CTM_posthook_t() : callback(NULL), delay_ms(0), active(0) {}
 
-	~CTM_posthook_t() {
-		if (argument) free(argument);
-		argument = NULL;
-	}
+	//~CTM_posthook_t() {
+	//	if (argument) free(argument);
+	//	argument = NULL;
+	//}
 };
 
 enum {
