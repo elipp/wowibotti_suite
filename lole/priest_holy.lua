@@ -122,6 +122,10 @@ local function raid_heal(has_single_targets)
 
     local targeting_self = UnitName("target") == UnitName("player");
 
+    if UnitHealth("Adieux") < 5000 then
+        cast_heal("Flash Heal", "Adieux");
+    end
+
     if not has_buff("player", "Prayer of Mending") and time() - pom_time > 10 then
         if cast_heal("Prayer of Mending", "player") then
             pom_time = time();
@@ -171,20 +175,24 @@ local function raid_heal(has_single_targets)
         else
             cast_heal("Greater Heal(Rank 1)");
         end
-    elseif target_HPP < 85 then
-        if cast_PoM_here(has_single_targets, true) and not has_buff("target", "Prayer of Mending") and time() - pom_time > 10 then
-            if cast_heal("Prayer of Mending") then
-                pom_time = time();
-            end
-        else
-            local found, timeleft = has_buff("target", "Renew");
-            if not found or not timeleft then
-                cast_heal("Renew");
-            end
-        end
     else
-        return false;
+        TargetUnit("Hex Lord Malacrass");
+        CastSpellByName("Shoot");
     end
+    -- elseif target_HPP < 85 then
+    --     if cast_PoM_here(has_single_targets, true) and not has_buff("target", "Prayer of Mending") and time() - pom_time > 10 then
+    --         if cast_heal("Prayer of Mending") then
+    --             pom_time = time();
+    --         end
+    --     else
+    --         local found, timeleft = has_buff("target", "Renew");
+    --         if not found or not timeleft then
+    --             cast_heal("Renew");
+    --         end
+    --     end
+    -- else
+    --     return false;
+    -- end
 
     return true;
 end
@@ -196,6 +204,7 @@ combat_priest_holy = function()
 	local mana_left = UnitMana("player");
 
 	if mana_left < 3000 and GetSpellCooldown("Shadowfiend") == 0 and validate_target() then
+        TargetUnit("focus");
 		CastSpellByName("Shadowfiend");
 		return;
 	end
