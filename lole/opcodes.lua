@@ -56,7 +56,7 @@ function target_unit_with_marker(marker)
 end
 
 function caster_range_check(minrange)
-	if not playermode then
+	if not playermode() then
 		if lop_exec(LOP_CASTER_RANGE_CHECK, minrange) then
 			return true
 		else
