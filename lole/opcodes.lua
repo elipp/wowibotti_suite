@@ -108,8 +108,7 @@ function tank_face()
 end
 
 function get_CH_target_trio(heals_in_progress)
-	local t = lop_exec(LOP_CHAIN_HEAL_TARGET, heals_in_progress);
-	return t;
+	return lop_exec(LOP_CHAIN_HEAL_TARGET, heals_in_progress);
 end
 
 function warlock_maulgar_get_felhound()
