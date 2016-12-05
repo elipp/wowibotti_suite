@@ -146,7 +146,7 @@ void ctm_abort_if_not_moving() {
 	if (!ctm_job_in_progress()) { movemask = 0; return; }
 
 	if (movemask > 5) {
-		PRINT("ctm_next(): determined that we have not been moving during, aborting CTM task!\n");
+		PRINT("ctm_next(): determined that we have not been moving, aborting CTM task!\n");
 	//	DoString("SendChatMessage(\"I'm stuck, halp plx!\", \"GUILD\")");
 		ctm_queue_reset();
 		stopfollow();
