@@ -16,6 +16,17 @@ local TOTEMS = {
 
 combat_shaman_elem = function()
 
+    local spell = UnitCastingInfo("target");
+    if spell == "Heal" or spell == "Holy Light" or spell == "Healing Wave" then
+        if GetSpellCooldown("Earth Shock") > 1 then
+            lole_subcommands.override("Consona", "CastSpellByName(\"Counterspell\")");
+        else
+            SpellStopCasting();
+            CastSpellByName("Earth Shock");
+            SendChatMessage("Cast Earth Shock", "GUILD");
+        end
+    end
+
 	if player_casting() then return end
 
 	if not has_buff("player", "Water Shield") then
@@ -33,7 +44,7 @@ combat_shaman_elem = function()
 		if cast_if_nocd("Chain Lightning") then return end
 	end
 
-	if cast_if_nocd("Chain Lightning") then return end
+	--if cast_if_nocd("Chain Lightning") then return end
 	CastSpellByName("Lightning Bolt");
 
 end

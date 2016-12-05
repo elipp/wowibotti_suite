@@ -718,6 +718,12 @@ end
 
 local function do_combat_stuff()
 	do_CC_jobs()
+
+	if not playermode() then
+		avoid_spell_with_spellID(43429, 10) -- hex lord's concatenation
+		avoid_spell_with_spellID(43440, 10) -- hex lord's rain of fire
+	end
+
 	lole_main()
 end
 

@@ -33,6 +33,13 @@ local function should_cast_PoH(min_deficit, min_healable_chars)
     if min_deficit == nil then min_deficit = 3000; end
     if min_healable_chars == nil then min_healable_chars = 4; end
 
+    local is_channeling = false;
+    -- TargetUnit("Hex Lord Malacrass");
+    -- if UnitChannelInfo("target") == "Spirit Bolts" then
+    --     is_channeling = true;
+    --     min_deficit = 3000;
+    -- end
+
 	local HP_deficits = get_HP_deficits(true, true);
 
     local eligible_targets = {};
@@ -44,6 +51,9 @@ local function should_cast_PoH(min_deficit, min_healable_chars)
 	end
 
     if #eligible_targets >= min_healable_chars then
+        if is_channeling and UnitCastingInfo("player") and not UnitCastingInfo("player") == "Prayer of Healing" then
+            SpellStopCasting();
+        end
         POH_TARGETS = shallowcopy(eligible_targets);
         return true;
     end
@@ -112,6 +122,23 @@ local function raid_heal(has_single_targets)
 
     local targeting_self = UnitName("target") == UnitName("player");
 
+    if UnitHealth("Adieux") < 5000 then
+        cast_heal("Flash Heal", "Adieux");
+    end
+
+    if not has_buff("player", "Prayer of Mending") and time() - pom_time > 10 then
+        if cast_heal("Prayer of Mending", "player") then
+            pom_time = time();
+        end
+    end
+
+    local coh_target = get_CoH_target(urgencies, 1000, 2);
+    if coh_target then
+        TargetUnit(coh_target);
+        cast_heal("Circle of Healing");
+        return true
+    end
+
     if should_cast_PoH(6000, 4) then
         cast_heal("Prayer of Healing");
         return true
@@ -148,20 +175,24 @@ local function raid_heal(has_single_targets)
         else
             cast_heal("Greater Heal(Rank 1)");
         end
-    elseif target_HPP < 85 then
-        if cast_PoM_here(has_single_targets, true) and not has_buff("target", "Prayer of Mending") and time() - pom_time > 10 then
-            if cast_heal("Prayer of Mending") then
-                pom_time = time();
-            end
-        else
-            local found, timeleft = has_buff("target", "Renew");
-            if not found or not timeleft then
-                cast_heal("Renew");
-            end
-        end
     else
-        return false;
+        TargetUnit("Hex Lord Malacrass");
+        CastSpellByName("Shoot");
     end
+    -- elseif target_HPP < 85 then
+    --     if cast_PoM_here(has_single_targets, true) and not has_buff("target", "Prayer of Mending") and time() - pom_time > 10 then
+    --         if cast_heal("Prayer of Mending") then
+    --             pom_time = time();
+    --         end
+    --     else
+    --         local found, timeleft = has_buff("target", "Renew");
+    --         if not found or not timeleft then
+    --             cast_heal("Renew");
+    --         end
+    --     end
+    -- else
+    --     return false;
+    -- end
 
     return true;
 end
@@ -173,6 +204,7 @@ combat_priest_holy = function()
 	local mana_left = UnitMana("player");
 
 	if mana_left < 3000 and GetSpellCooldown("Shadowfiend") == 0 and validate_target() then
+        TargetUnit("focus");
 		CastSpellByName("Shadowfiend");
 		return;
 	end
