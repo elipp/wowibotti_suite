@@ -105,7 +105,7 @@ combat_warlock_sb = function()
 
 	if not has_buff("player", "Touch of Shadow") then
 		CastSpellByName("Fel Domination")
-		if (time() - time_from_succubus_summon) > 8 then
+		if (time() - time_from_succubus_summon) > 12 then
 			CastSpellByName("Summon Succubus")
 			time_from_succubus = time()
 		end
