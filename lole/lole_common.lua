@@ -10,8 +10,8 @@ HEALERS = {"Ceucho", "Kusip", "Kasio", "Mam", "Igop", "Pehmware"}; -- for keepin
 DEFAULT_HEALER_TARGETS = {
     Ceucho = {heals = {"Adieux", "Noctur", "raid"}, hots = {}, ignores = {}},
     Kusip = {heals = {"Adieux", "Noctur", "raid"}, hots = {}, ignores = {}},
-    Kasio = {heals = {"raid"}, hots = {"Adieux"}, ignores = {"Adieux", "Noctur"}},
-    Mam = {heals = {"raid"}, hots = {"Noctur"}, ignores = {"Adieux", "Noctur"}},
+    Kasio = {heals = {"raid"}, hots = {"Adieux"}, ignores = {}},
+    Mam = {heals = {"raid"}, hots = {"Noctur"}, ignores = {}},
     Igop = {heals = {"raid"}, hots = {"Adieux"}, ignores = {}},
     Pehmware = {heals = {"raid"}, hots = {"Noctur"}, ignores = {}}
 }
@@ -1400,6 +1400,9 @@ function handle_CH_report(targets, healer)
     for i, target in ipairs(targets) do
         local div = 2 ^ (i - 1);
         local heal_estimate = hfi[1] / div;
+        if not hfi[2] then
+            echo("hfi[2] is nil")
+        end
         HEALS_IN_PROGRESS[target][healer] = {heal_estimate, hfi[2]};
     end
 
