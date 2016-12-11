@@ -13,6 +13,8 @@ lole_frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 lole_frame:RegisterEvent("PLAYER_LOGOUT")
 lole_frame:RegisterEvent("TRADE_SHOW")
 
+LOOT_OPENED_REASON = nil
+
 local every_4th_frame = 0
 local every_30th_frame = 0
 
@@ -321,7 +323,8 @@ create_simple_button("reloadui_button", lole_frame, 310, -100, "Reload", 68, 27,
 local getbiscuit_button =
 create_simple_button("getbiscuit_button", lole_frame, 310, -130, "Biscuit", 68, 27, function() lole_subcommands.broadcast("getbiscuits") end);
 
-
+local loot_badge_button =
+create_simple_button("loot_badge_button", lole_frame, 310, -160, "Badge", 68, 27, function() lole_subcommands.broadcast("loot_badge", UnitGUID("target")) end);
 
 local ctm_host = { title = "CTM mode:", title_fontstr = nil, buttons = {}, num_buttons = 0, first_pos_x = 223, first_pos_y = -205, increment = 18 }
 
@@ -867,13 +870,6 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 			SendChatMessage(summoner .. " attempted to summon my ass to " .. GetSummonConfirmAreaName() .. " but doesn't appear to be a member of Uuslapio, not auto-accepting!", "GUILD")
 		end
 
-	-- elseif event == "LOOT_OPENED" then
-	-- 	local num_items = GetNumLootItems()
-	-- 	for i = 1, num_items do
-	-- 		lootIcon, lootName, lootQuantity, rarity = GetLootSlotInfo(i);
-	-- 		echo(tostring(lootName) .. ", " .. tostring(lootQuantity) .. ", " .. tostring(rarity))
-	-- 	end
-
 	elseif event == "TRADE_SHOW" then
 		local guildies = get_guild_members();
 		if guildies[UnitName("npc")] then -- this is weird as fuck.. but the unit "npc" apparently represents the char that's trading with us
@@ -891,12 +887,21 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 	elseif event == "PLAYER_ENTERING_WORLD" then
 
 	elseif event == "LOOT_OPENED" then
-		-- the only code that can register this event is the
-		-- de_greeniez subcommand, so we can be fairly sure auto-looting will be ok
-		local num_items = GetNumLootItems()
-		for i = 1, num_items do LootSlot(i) end
-		lole_frame:UnregisterEvent("LOOT_OPENED")
+		if LOOT_OPENED_REASON then
+			if LOOT_OPENED_REASON == "DE_GREENIEZ" then
+				local num_items = GetNumLootItems()
+				for i = 1, num_items do LootSlot(i) end
 
+			elseif LOOT_OPENED_REASON == "LOOT_BADGE" then
+				local num_items = GetNumLootItems()
+				for i = 1, num_items do
+					local icon, name = GetLootSlotInfo(i)
+					if name == "Badge of Justice" then LootSlot(i) end
+				end
+			end
+		end
+		lole_frame:UnregisterEvent("LOOT_OPENED")
+		LOOT_OPENED_REASON = nil
 	end
 end
 )

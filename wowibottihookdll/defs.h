@@ -130,6 +130,20 @@ inline int find_stuff_between(const std::string &in_str, char cbegin, char cend,
 
 }
 
+inline GUID_t convert_str_to_GUID(const std::string &GUID_str) {
+	std::string GUID_numstr(GUID_str.substr(2, 16)); // better make a copy of it. the GUID_str still has the "0x" prefix in it 
+
+	char *end;
+	GUID_t GUID = strtoull(GUID_numstr.c_str(), &end, 16);
+
+	if (end != GUID_numstr.c_str() + GUID_numstr.length()) {
+		PRINT("[WARNING]: convert_str_to_GUID: couldn't wholly convert GUID string argument (strtoull(\"%s\", &end, 16) failed, bailing out\n", GUID_numstr.c_str());
+		return 0;
+	}
+
+	return GUID;
+}
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif 
