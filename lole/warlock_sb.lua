@@ -106,12 +106,12 @@ combat_warlock_sb = function()
 	if not has_buff("player", "Touch of Shadow") then
 		CastSpellByName("Demonic Sacrifice")
 		CastSpellByName("Fel Domination")
-		if not time_from_succubus_summon or GetTime() - time_from_succubus_summon > 16 then
+		if GetTime() - time_from_succubus_summon > 16 then
 			CastSpellByName("Summon Succubus")
 			time_from_succubus_summon = GetTime()
 		end
 	else
-		time_from_succubus_summon = nil
+		time_from_succubus_summon = 0
 	end
 
 	if not validate_target() then return end
