@@ -440,12 +440,13 @@ local function lole_disenchant_greeniez()
                 itemEquipLoc, itemTexture = GetItemInfo(n)
 
                 if itemEquipLoc ~= "" then
-					lole_frame:RegisterEvent("LOOT_OPENED")
-					SpellStopCasting()
-					CastSpellByName("Disenchant")
-                    echo("disenchanting " .. n)
-					UseContainerItem(b,s)
-                    return
+									LOOT_OPENED_REASON = "DE_GREENIEZ"
+									lole_frame:RegisterEvent("LOOT_OPENED")
+									SpellStopCasting()
+									CastSpellByName("Disenchant")
+                  echo("disenchanting " .. n)
+									UseContainerItem(b,s)
+                  return
                 end
         	end
     	end
@@ -663,6 +664,23 @@ local function lole_override(name, ...)
     end
 end
 
+local function lole_loot_badge(corpse_GUID)
+
+	if not corpse_GUID then
+		lole_error("lole_loot_badge: no target GUID given!")
+		return false
+	end
+
+	target_unit_with_GUID(corpse_GUID)
+	if not UnitExists("target") or not UnitIsDead("target") then
+		lole_error("loot_badge: invalid loot target with GUID " .. corpse_GUID .. " (does not exist or is still alive)!")
+	else
+		LOOT_OPENED_REASON = "LOOT_BADGE"
+		lole_frame:RegisterEvent("LOOT_OPENED")
+		loot_badge(corpse_GUID)
+	end
+end
+
 local invite_order = {
 	"Adieux", "Igop", "Kusip", "Gyorgy",
 	"Ribb", "Meisseln", "Crq", "Josp", "Teline",
@@ -860,6 +878,15 @@ local function lole_broadcast_getbiscuits()
 	lole_subcommands.sendmacro("GUILD", "/lole getbiscuit")
 end
 
+local function lole_broadcast_loot_badge(target_GUID)
+	if not target_GUID then
+		lole_error("lole_broadcast_loot_badge: no target_GUID specified!")
+		return false
+	end
+
+	lole_subcommands.sendmacro("GUILD", "/lole loot_badge " .. target_GUID)
+end
+
 local lole_broadcast_commands = {
 	ctm = lole_broadcast_ctm;
 	drink = lole_broadcast_drink;
@@ -871,6 +898,7 @@ local lole_broadcast_commands = {
 	target = lole_broadcast_target;
 	leavegroup = lole_broadcast_leavegroup;
 	getbiscuits = lole_broadcast_getbiscuits;
+	loot_badge = lole_broadcast_loot_badge;
 }
 
 local function lole_broadcast(funcname, ...)
@@ -954,5 +982,6 @@ lole_subcommands = {
 	encrypt = lole_encrypt_test,
 	noclip = lole_noclip,
 	getbiscuit = lole_getbiscuit,
+	loot_badge = lole_loot_badge,
 
 }

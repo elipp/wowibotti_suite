@@ -17,6 +17,10 @@ static struct {
 	float dt;
 } previous_positions[num_prevpos]; 
 
+void clear_prevpos_array() {
+	memset(previous_positions, 0x0, sizeof(previous_positions));
+}
+
 void ctm_queue_reset() {
 	ctm_queue = std::queue<CTM_t>();
 	ctm_unlock();
@@ -109,7 +113,11 @@ void ctm_add(const CTM_t &new_ctm) {
 	PRINT("called ctm_ADD with %.1f, %.1f, %.1f, ID=%ld, prio %d, action 0x%X\n", 
 		new_ctm.destination.x, new_ctm.destination.y, new_ctm.destination.z, new_ctm.ID, new_ctm.priority, new_ctm.action);
 
-	if (ctm_queue_get_top_prio() < new_ctm.priority) {
+	if (ctm_queue_get_top_prio() == new_ctm.priority == CTM_PRIO_LOW) {
+		ctm_queue.push(new_ctm);
+	}
+
+	else if (ctm_queue_get_top_prio() <= new_ctm.priority) {
 		ctm_queue_reinit_with(new_ctm);
 		ctm_act();
 	}
@@ -145,7 +153,7 @@ void ctm_abort_if_not_moving() {
 
 	if (!ctm_job_in_progress()) { movemask = 0; return; }
 
-	if (movemask > 5) {
+	if (movemask > 10) {
 		PRINT("ctm_next(): determined that we have not been moving, aborting CTM task!\n");
 	//	DoString("SendChatMessage(\"I'm stuck, halp plx!\", \"GUILD\")");
 		ctm_queue_reset();

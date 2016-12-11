@@ -125,7 +125,7 @@ combat_warlock_sb = function()
 		end
 	end
 
- if drain_soul_if_needed() then return end
+  if drain_soul_if_needed() then return end
 	if cast_assigned_curse() then return end
 
 	CastSpellByName("Shadow Bolt");

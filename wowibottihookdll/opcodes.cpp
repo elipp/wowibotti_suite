@@ -60,7 +60,8 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_CAST_GTAOE, 4, 4, 0),
 	 LOPFUNC(LOP_HAS_AGGRO, 0, 0, 1),
 	 LOPFUNC(LOP_INTERACT_GOBJECT, 1, 1, 1),
-	 LOPFUNC(LOP_GET_BISCUITS, 0, 0, 0)
+	 LOPFUNC(LOP_GET_BISCUITS, 0, 0, 0),
+	 LOPFUNC(LOP_LOOT_BADGE, 1, 1, 0),
 
 };
 
@@ -205,21 +206,8 @@ static int LOP_melee_avoid_aoe_buff(long spellID) {
 }
 
 static int LOP_target_GUID(const std::string &arg) {
-
-	std::string GUID_numstr(arg.substr(2, 16)); // better make a copy of it. the GUID_str still has the "0x" prefix in it 
-
-	char *end;
-	GUID_t GUID = strtoull(GUID_numstr.c_str(), &end, 16);
-
-	if (end != GUID_numstr.c_str() + GUID_numstr.length()) {
-		PRINT("[WARNING]: change_target: couldn't wholly convert GUID string argument (strtoull(\"%s\", &end, 16) failed, bailing out\n", GUID_numstr.c_str());
-		return 0;
-	}
-	
-	PRINT("got LOLE_OPCODE_TARGET_GUID: GUID = %llX\nGUID_str + prefix.length() + 2 = \"%s\"\n", GUID, GUID_numstr.c_str());
-
-	SelectUnit(GUID);
-
+	GUID_t GUID = convert_str_to_GUID(arg);
+	SelectUnit(GUID); // GUID 0 is also valid for this
 	return 1;
 }
 
@@ -890,6 +878,29 @@ int LOP_get_biscuits() {
 	ctm_add(b);
 }
 
+int LOP_loot_badge(const std::string &GUID_str) {
+
+	GUID_t corpse_GUID = convert_str_to_GUID(GUID_str);
+	if (corpse_GUID == 0) return 0;
+
+	ObjectManager OM;
+	WowObject p, c;
+	if (!OM.get_object_by_GUID(corpse_GUID, &c) || !OM.get_local_object(&p)) return 0;
+	
+	// TODO: fix the following detour code =D fails because the new dot product checking system in char_is_moving() messes up
+	// really tight direction changes :P
+
+	//vec3 diff = p.get_pos() - c.get_pos();
+
+	//if (diff.length() < 2) {
+	//	// the wow CTM-loot doesn't work if we're too close, need to make a small detour first =)
+	//	ctm_add(CTM_t(p.get_pos() + vec3(6, -6, 0), CTM_MOVE, CTM_PRIO_LOW, 0, 1.5));
+	//}
+
+	ctm_add(CTM_t(c.get_pos(), CTM_LOOT, CTM_PRIO_LOW, corpse_GUID, 1.5));
+
+}
+
 int lop_exec(lua_State *L) {
 
 	// NOTE: the return value of this function --> number of values returned to caller in LUA
@@ -1078,6 +1089,10 @@ int lop_exec(lua_State *L) {
 		LOP_get_biscuits();
 		break;
 
+	case LOP_LOOT_BADGE:
+		LOP_loot_badge(lua_tolstring(L, 2, &len));
+		break;
+
 	case LDOP_LUA_REGISTERED:
 		lua_registered = 1;
 		break;
@@ -1085,9 +1100,7 @@ int lop_exec(lua_State *L) {
 	case LDOP_DUMP:
 		dump_wowobjects_to_log();
 		break;
-	case LDOP_LOS_TEST: {
-		break;
-	}
+
 
 	case LDOP_NOCLIP:
 		enable_noclip();
