@@ -56,6 +56,9 @@ local function enough_shards()
 end
 
 local function cast_assigned_curse()
+
+	if UnitHealth("target") < 30000 then return end
+
 	for name,curse in pairs(curse_assignments) do
 		if name == UnitName("player") and UnitExists("target") then
 			if not has_debuff_by_self("target", curse) then
@@ -130,7 +133,7 @@ combat_warlock_sb = function()
 		end
 	end
 
-  if drain_soul_if_needed() then return end
+  --if drain_soul_if_needed() then return end
 	if cast_assigned_curse() then return end
 
 	CastSpellByName("Shadow Bolt");

@@ -13,6 +13,11 @@ combat_priest_shadow = function()
 
 	-- this has a slight bug, the debuffs take a while (ie. too long, longer than your avg spaminterval delay) to actually show up in the list
 	-- the ve_guard stuff along with the UnitCasting/ChannelInfo is to combat that
+	if UnitHealth("target") < 30000 then
+		if cast_if_nocd("Mind Blast") then return end
+		CastSpellByName("Mind Flay")
+	end
+
 	if not has_debuff("target", "Vampiric Touch") and not ve_guard then
 		CastSpellByName("Vampiric Touch");
 		ve_guard = true;
