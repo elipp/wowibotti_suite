@@ -92,10 +92,10 @@ combat_hunter = function()
 
     if player_casting() then return end
 
-    if lole_subcommands.get("aoemode") == 1 then
-  			lole_subcommands.cast_gtaoe("Volley", get_unit_position("target"))
-        return
-  	end
+  --  if lole_subcommands.get("aoemode") == 1 then
+  		--	lole_subcommands.cast_gtaoe("Volley", get_unit_position("target"))
+      --  return
+  --	end
 
 
     if not has_debuff("target", "Hunter's Mark") then

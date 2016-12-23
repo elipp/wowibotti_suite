@@ -18,6 +18,7 @@ combat_warrior_prot = function()
 	end
 
 	if cast_if_nocd("Shield Block") then return; end
+	if cast_if_nocd("Revenge") then return end
 
 	CastSpellByName("Heroic Strike");
 
@@ -26,6 +27,8 @@ combat_warrior_prot = function()
 			if cast_if_nocd("Shield Bash") then return end
 		end
 	end
+
+	if cast_if_nocd("Shield Slam") then return; end
 
 	if not has_debuff("target", "Thunder Clap") then
 		CastSpellByName("Thunder Clap");
@@ -37,10 +40,6 @@ combat_warrior_prot = function()
 		CastSpellByName("Devastate")
 		return
 	end
-
-	if cast_if_nocd("Shield Slam") then return; end
-
-	if cast_if_nocd("Revenge") then return end
 
 	if not has_debuff("target", "Demoralizing Shout") then
 		CastSpellByName("Demoralizing Shout");

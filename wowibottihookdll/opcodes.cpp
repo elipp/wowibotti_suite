@@ -617,7 +617,7 @@ static int mob_has_debuff(const WowObject &mob, uint debuff_spellID) {
 	return 0;
 }
 
-static int LOP_maulgar_get_felhound() {
+static int LOPEXT_maulgar_get_felhound() {
 
 	// TODO: ONLY RETURN TARGET GUID, DON'T CAST BANISH HERE ETC
 	ObjectManager OM;
@@ -1091,6 +1091,10 @@ int lop_exec(lua_State *L) {
 
 	case LOP_LOOT_BADGE:
 		LOP_loot_badge(lua_tolstring(L, 2, &len));
+		break;
+
+	case LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND:
+		LOPEXT_maulgar_get_felhound();
 		break;
 
 	case LDOP_LUA_REGISTERED:

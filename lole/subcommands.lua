@@ -829,6 +829,10 @@ local function lole_distance_to_target()
 end
 
 local function lole_noclip()
+	for k,v in pairs(StaticPopupDialogs) do
+		echo(k)
+	end
+
 	noclip()
 end
 
