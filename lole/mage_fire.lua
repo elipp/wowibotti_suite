@@ -45,7 +45,7 @@ end
 
 combat_mage_fire = function()
 
-	--if MAULGAR_KROSH() then return end
+	if MAULGAR_KROSH() then return end
 	if player_casting() then return end
 
 	if ((GetItemCount(22044) == 0) and (not UnitAffectingCombat("player"))) then

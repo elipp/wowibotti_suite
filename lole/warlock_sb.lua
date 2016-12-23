@@ -38,7 +38,7 @@ local function vexallus()
 end
 
 local function MAULGAR()
-	warlock_banish_felhound()
+	warlock_maulgar_get_felhound()
 end
 
 local curse_assignments = {
@@ -95,7 +95,7 @@ local time_from_succubus_summon = 0
 combat_warlock_sb = function()
 	if player_casting() then return end
 
-	--MAULGAR()
+	MAULGAR()
 
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
@@ -119,7 +119,7 @@ combat_warlock_sb = function()
 
 	if not validate_target() then return end
 
-	caster_range_check(30);
+	caster_range_check(36);
 
 	if tap_if_need_to() then return; end
 
@@ -133,7 +133,7 @@ combat_warlock_sb = function()
 		end
 	end
 
-  --if drain_soul_if_needed() then return end
+  if drain_soul_if_needed() then return end
 	if cast_assigned_curse() then return end
 
 	CastSpellByName("Shadow Bolt");
