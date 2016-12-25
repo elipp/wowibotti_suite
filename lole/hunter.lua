@@ -78,12 +78,11 @@ combat_hunter = function()
     PetAttack()
     caster_range_check(35)
 
-    if IsUsableSpell("Kill Command") then
-        cast_if_nocd("Kill Command")
-    end
+    cast_if_nocd("Kill Command")
 
-    if not GetSpellCooldown("Gore") then
-        if not GetSpellCooldown("Bite") then
+
+    if GetSpellCooldown("Gore") == 0 then
+        if GetSpellCooldown("Bite") == 0 then
             CastSpellByName("Bite")
         else
             CastSpellByName("Gore")

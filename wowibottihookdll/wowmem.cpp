@@ -287,10 +287,11 @@ uint WowObject::NPC_get_buff(int index) const {
 
 	// 5469BA is the place where the buff spellID first appears in EAX
 	
-	uint spellid_addr = index * 4 + DEREF(base + 0x120) + 0xA8;
+	uint spellid_addr = (index-1) * 4 + DEREF(base + 0x120) + 0xA8;
 	uint buff_spellID = DEREF(spellid_addr);
 	
-	if (buff_spellID != 0) PRINT("base: %X, spellid_addr = %X, spellID = %u\n", get_base(), spellid_addr, buff_spellID);
+	if (buff_spellID != 0)
+		PRINT("base: %X, spellid_addr = %X, spellID = %u\n", get_base(), spellid_addr, buff_spellID);
 
 	return buff_spellID;
 
@@ -299,7 +300,7 @@ uint WowObject::NPC_get_buff(int index) const {
 }
 
 uint WowObject::NPC_get_debuff(int index) const {
-	return NPC_get_buff(index+0x27);
+	return NPC_get_buff(index+0x28);
 }
 
 uint WowObject::NPC_get_buff_duration(int index, uint spellID) const {
@@ -328,7 +329,7 @@ uint WowObject::NPC_get_buff_duration(int index, uint spellID) const {
 		if (index == EAX_content) {
 			uint EAX_spellid_content = DEREF(EAX1 + 0x4);
 			if (EAX_spellid_content == spellID) {
-				PRINT("EAX_spellid_content == spellID!\n");
+				PRINT("EAX_spellid_content == spellID! (EAX == %08X)\n", EAX1);
 				break;
 			}
 		}

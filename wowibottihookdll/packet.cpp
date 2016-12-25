@@ -1,18 +1,18 @@
 #include "packet.h"
 #include "defs.h"
 
-#define DEREF(X) *(DWORD*)((X))
+#define DEREFD(X) *(DWORD*)((X))
 #define DEREFB(X) *(BYTE*)((X))
 
 static DWORD get_sockobj() {
 	//[0xD4332C + 2198]
 
-	DWORD A = DEREF(0xD4332C);
+	DWORD A = DEREFD(0xD4332C);
 	if (A == 0) {
 		return 0;
 	}
 
-	return DEREF(A + 0x2198);
+	return DEREFD(A + 0x2198);
 }
 
 SOCKET get_wow_socket_handle() {
@@ -21,7 +21,7 @@ SOCKET get_wow_socket_handle() {
 	DWORD sockobj = get_sockobj();
 	if (!sockobj) return NULL;
 
-	DWORD S = DEREF(sockobj + 0x4);
+	DWORD S = DEREFD(sockobj + 0x4);
 
 //	PRINT("socket = %X\n", S);
 
