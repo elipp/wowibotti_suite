@@ -113,7 +113,7 @@ void ctm_add(const CTM_t &new_ctm) {
 	PRINT("called ctm_ADD with %.1f, %.1f, %.1f, ID=%ld, prio %d, action 0x%X\n", 
 		new_ctm.destination.x, new_ctm.destination.y, new_ctm.destination.z, new_ctm.ID, new_ctm.priority, new_ctm.action);
 
-	if (ctm_queue_get_top_prio() == new_ctm.priority == CTM_PRIO_LOW) {
+	if (new_ctm.priority == CTM_PRIO_LOW && ctm_queue_get_top_prio() == CTM_PRIO_LOW) {
 		ctm_queue.push(new_ctm);
 	}
 
