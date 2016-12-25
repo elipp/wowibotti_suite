@@ -43,7 +43,9 @@ end
 
 local curse_assignments = {
 	["Nilck"] = "Curse of Weakness",
-	["Mulck"] = "Curse of Doom",
+--	["Mulck"] = "Curse of Doom"
+	["Mulck"] = "Curse of the Elements",
+
 	["Jobim"] = "Curse of the Elements",
 }
 
