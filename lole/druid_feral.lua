@@ -1,4 +1,46 @@
+local function curator()
+	TargetUnit("Astral Flare")
+	if (UnitExists("target") and not UnitIsDead("target") and UnitName("target") == "Astral Flare") then
+		lole_subcommands.broadcast("target", UnitGUID("target"));
+		set_target(UnitGUID("target"))
+		return true;
+	else
+		TargetUnit("The Curator")
+		if (UnitExists("target") and not UnitIsDead("target") and UnitName("target") == "The Curator") then
+			local spell = UnitChannelInfo("target");
+			if spell == "Evocation" then
+				lole_subcommands.broadcast("target", UnitGUID("target"));
+				set_target(UnitGUID("target"))
+				return true;
+			end
+		end
+	end
+
+	return false;
+end
+
+local function terestian()
+	TargetUnit("Demon Chains")
+	local GUID = UnitGUID("target")
+	if (UnitExists("target") and not UnitIsDead("target") and UnitName("target") == "Demon Chains") then
+		lole_subcommands.broadcast("target", UnitGUID("target"));
+		set_target(UnitGUID("target"))
+		return true;
+	else
+		TargetUnit("Terestian Illhoof")
+		if (UnitExists("target") and not UnitIsDead("target") and UnitName("target") == "Terestian Illhoof") then
+			lole_subcommands.broadcast("target", UnitGUID("target"));
+			set_target(UnitGUID("target"))
+		end
+	end
+
+	return false;
+end
+
 combat_druid_feral = function()
+
+  --if curator() then return end
+if terestian() then return end
 
     if not validate_target() then return end
 

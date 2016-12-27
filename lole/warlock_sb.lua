@@ -16,7 +16,6 @@ local function vexallus()
 	if tap_if_need_to() then return true; end
 
 	caster_range_check(30);
-	caster_face_target();
 
 	TargetUnit("Pure Energy")
 
@@ -43,8 +42,8 @@ end
 
 local curse_assignments = {
 	["Nilck"] = "Curse of Weakness",
---	["Mulck"] = "Curse of Doom"
-	["Mulck"] = "Curse of the Elements",
+	["Mulck"] = "Curse of Doom",
+	--["Mulck"] = "Curse of the Elements",
 
 	["Jobim"] = "Curse of the Elements",
 }
@@ -97,7 +96,7 @@ local time_from_succubus_summon = 0
 combat_warlock_sb = function()
 	if player_casting() then return end
 
-	MAULGAR()
+	--MAULGAR()
 
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
@@ -121,7 +120,7 @@ combat_warlock_sb = function()
 
 	if not validate_target() then return end
 
-	caster_range_check(36);
+	caster_range_check(30);
 
 	if tap_if_need_to() then return; end
 
