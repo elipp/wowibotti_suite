@@ -1,11 +1,6 @@
-local tap_warning_given = false;
-local ua_guard = true;
-local immolate_guard = true;
-
-
-local function tap_if_need_to()
-	if UnitMana("player") < 2500 then
-		if UnitHealth("player") > 3500 then
+local function tap_if_need_to(threshold)
+	if UnitMana("player") < threshold then -- higher threshold for affli since it's being done only once all the dots are in place
+		if UnitHealth("player") > 1450 then
 			CastSpellByName("Life Tap");
 			return true;
 		end
@@ -43,11 +38,66 @@ local function MAULGAR()
 	warlock_banish_felhound()
 end
 
+local function enough_shards()
+	if (GetItemCount(6265) < 20) then
+		return false
+	else
+		return true
+	end-- 6265 -- soul shard
+end
+
+
+local function drain_soul_if_needed()
+	if not enough_shards() then
+		local HP_threshold = 10000 -- for 5-man groups
+		if in_raid_group() then
+			if GetNumRaidMembers() > 10 then
+				HP_threshold = 40000
+			else
+				HP_threshold = 20000
+			end
+		end
+
+		if (UnitHealth("target") < HP_threshold) then
+			CastSpellByName("Drain Soul");
+			return true;
+		end
+	end
+
+	return false
+end
+
+
+local LAST_SPELL_CAST = ""
+
+local cast_frame = CreateFrame("Frame")
+cast_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
+
+	if event == "UNIT_SPELLCAST_SUCCEEDED" then
+		LAST_SPELL_CAST = message
+		--LAST_SPELL_RESIST = ""
+	end
+	-- elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
+	-- 	if message == "SPELL_MISSED" then
+	-- 		LAST_SPELL_CAST = ""
+	-- 		LAST_SPELL_RESIST = arhhh -- arhhh is SIX arguments after sender
+	-- 	--	echo(tostring(arhhh))
+	-- 	end
+	-- end
+end)
+
+cast_frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+cast_frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+
 combat_warlock_affli = function()
 
 --	MAULGAR()
 	--vexallus()
 	--if true then return end
+
+
+	local S = player_casting()
+	if S and S == LAST_SPELL_CAST and S ~= "Shadow Bolt" and S ~= "Drain Life" then SpellStopCasting() end
 
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
@@ -60,14 +110,9 @@ combat_warlock_affli = function()
 	end
 
 	if not validate_target() then return end
-
 	caster_range_check(30);
 
-	if tap_if_need_to() then return true; end
-
-	if player_casting() then return end
-
-	if GetSpellCooldown("Corruption") > 0 then return; end -- check gcd. this could add unnecessary latency to spam though
+	if tap_if_need_to(2000) then return end
 
 	if lole_subcommands.get("aoemode") == 1 then
 		for i=1,16,1 do
@@ -79,53 +124,40 @@ combat_warlock_affli = function()
 		end
 	end
 
-	if (GetItemCount(6265) < 20) then -- 6265 -- soul shard
-		if (UnitExists("target") and not UnitIsDead("target") and UnitHealth("target") < 20000) then
-			SpellStopCasting();
-			CastSpellByName("Drain Soul");
-			return;
-		end
-	end
-
-
+	if drain_soul_if_needed() then return end
 
 	if not has_debuff("target", "Curse of the Elements") then
 		CastSpellByName("Curse of the Elements");
 		return;
-	end
 
-	if has_buff("player", "Nightfall") then
-		CastSpellByName("Shadow Bolt")
-		ua_guard = false;
-		immolate_guard = false;
-		return;
-	elseif not has_debuff("target", "Unstable Affliction") and not ua_guard then
+	elseif not has_debuff_by_self("target", "Unstable Affliction") then
 		CastSpellByName("Unstable Affliction");
-		ua_guard = true;
-		immolate_guard = false;
 		return;
-	elseif not has_debuff("target", "Corruption") then
-		CastSpellByName("Corruption");
-		ua_guard = false;
-		immolate_guard = false;
-		return;
-	elseif not has_debuff("target", "Immolate") and not immolate_guard then
-		CastSpellByName("Immolate");
-		immolate_guard = true;
-		ua_guard = false;
-		return;
-	else
-		if (UnitHealthMax("player") - UnitHealth("player") > 2000) then
-			CastSpellByName("Drain Life");
-			return
-		else
-			CastSpellByName("Shadow Bolt");
-		end
-		ua_guard = false;
-		immolate_guard = true;
-		return;
-	end
 
-	tap_warning_given = false;
+	elseif not has_debuff_by_self("target", "Siphon Life") then
+		CastSpellByName("Siphon Life")
+		return;
+
+	elseif not has_debuff_by_self("target", "Corruption") then
+		CastSpellByName("Corruption");
+		return;
+
+	elseif not has_debuff_by_self("target", "Immolate") then
+		CastSpellByName("Immolate");
+		return;
+
+	elseif has_buff("player", "Nightfall") then
+		CastSpellByName("Shadow Bolt")
+		return;
+
+	elseif tap_if_need_to(5000) then
+		return;
+
+	elseif UnitHealth("player") < 4000 then
+		CastSpellByName("Drain Life");
+		return
+	else
+		CastSpellByName("Shadow Bolt");
+	end
 
 end

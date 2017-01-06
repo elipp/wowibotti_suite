@@ -78,6 +78,8 @@ combat_hunter = function()
     PetAttack()
     caster_range_check(35)
 
+    StartAttack()
+
     cast_if_nocd("Kill Command")
 
 

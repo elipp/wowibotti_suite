@@ -1,4 +1,4 @@
-lole_frame = CreateFrame("Frame");
+local lole_frame = CreateFrame("Frame");
 lole_frame:RegisterEvent("ADDON_LOADED")
 lole_frame:RegisterEvent("PLAYER_REGEN_DISABLED") -- this is fired when player enters combat
 lole_frame:RegisterEvent("PLAYER_REGEN_ENABLED") -- and this when combat is over
@@ -12,6 +12,15 @@ lole_frame:RegisterEvent("CVAR_UPDATE")
 lole_frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 lole_frame:RegisterEvent("PLAYER_LOGOUT")
 lole_frame:RegisterEvent("TRADE_SHOW")
+
+
+function lole_frame_register(EVENTNAME)
+	lole_frame:RegisterEvent(EVENTNAME)
+end
+
+function lole_frame_unregister(EVENTNAME)
+	lole_frame:UnRegisterEvent(EVENTNAME)
+end
 
 LOOT_OPENED_REASON = nil
 

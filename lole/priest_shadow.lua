@@ -1,36 +1,45 @@
-local ve_guard = false;
+local LAST_SPELL_CAST = ""
 
+local cast_frame = CreateFrame("Frame")
+
+cast_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
+	if event == "UNIT_SPELLCAST_SUCCEEDED" then
+		LAST_SPELL_CAST = message
+	end
+end)
+
+cast_frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+cast_frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 combat_priest_shadow = function()
 
-	if player_casting() then return end
 
+	local S = player_casting()
+	if S and S == "Mind Flay" then return end
+	if S and S == LAST_SPELL_CAST and S ~= "Mind Blast" then SpellStopCasting() end
 
 	if not validate_target() then return end
-
 	caster_range_check(20); -- 20 yd on mind flay  :()
 
 	if (UnitMana("player") < 4000 and UnitHealth("target") > 50000) then if cast_if_nocd("Shadowfiend") then return; end end
 
-	-- this has a slight bug, the debuffs take a while (ie. too long, longer than your avg spaminterval delay) to actually show up in the list
-	-- the ve_guard stuff along with the UnitCasting/ChannelInfo is to combat that
-	if UnitHealth("target") < 30000 then
-		if cast_if_nocd("Mind Blast") then return end
-		CastSpellByName("Mind Flay")
-	end
+	--if UnitMana("player") < 800 then
+	--	CastSpellByName("Shoot")
+	--	return
+	--end
 
-	if not has_debuff("target", "Vampiric Touch") and not ve_guard then
+	if not has_debuff("target", "Vampiric Touch") then
 		CastSpellByName("Vampiric Touch");
-		ve_guard = true;
+		return
+
 	elseif not has_debuff("target", "Shadow Word: Pain") then
 		CastSpellByName("Shadow Word: Pain");
-		ve_guard = false;
+		return
+
 	elseif GetSpellCooldown("Mind Blast") == 0 then
 		CastSpellByName("Mind Blast");
-		ve_guard = false;
 	--elseif GetSpellCooldown("Shadow Word: Death") == 0 then CastSpellByName("Shadow Word: Death");
-	else
+	elseif S ~= "Mind Flay" then
 		CastSpellByName("Mind Flay");
-		ve_guard = false;
 	end
 
 

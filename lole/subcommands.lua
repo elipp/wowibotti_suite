@@ -403,7 +403,7 @@ local function lole_raid()
 	local guildies = get_guild_members()
 
 	if raid_first_pass then -- inv first guy, because more ppl can only be invited when a group exists
-		lole_frame:RegisterEvent("PARTY_MEMBERS_CHANGED");
+		lole_frame_register("PARTY_MEMBERS_CHANGED");
 		for name, _ in pairs(guildies) do
 			InviteUnit(name);
 			break;
@@ -441,7 +441,7 @@ local function lole_disenchant_greeniez()
 
                 if itemEquipLoc ~= "" then
 									LOOT_OPENED_REASON = "DE_GREENIEZ"
-									lole_frame:RegisterEvent("LOOT_OPENED")
+									lole_frame_register("LOOT_OPENED")
 									SpellStopCasting()
 									CastSpellByName("Disenchant")
                   echo("disenchanting " .. n)
@@ -676,7 +676,7 @@ local function lole_loot_badge(corpse_GUID)
 		lole_error("loot_badge: invalid loot target with GUID " .. corpse_GUID .. " (does not exist or is still alive)!")
 	else
 		LOOT_OPENED_REASON = "LOOT_BADGE"
-		lole_frame:RegisterEvent("LOOT_OPENED")
+		lole_frame_register("LOOT_OPENED")
 		loot_badge(corpse_GUID)
 	end
 end

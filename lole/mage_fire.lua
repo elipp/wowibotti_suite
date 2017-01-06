@@ -73,6 +73,10 @@ combat_mage_fire = function()
 	if not validate_target() then return end
 	caster_range_check(36);
 
+	--if UnitCastingInfo("target") or UnitChannelingInfo("target") then
+		--if cast_if_nocd("Counterspell") then return end
+--	end
+
 	if lole_subcommands.get("aoemode") == 1 then
 			lole_subcommands.cast_gtaoe("Flamestrike", get_unit_position("target"))
 			return

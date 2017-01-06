@@ -29,8 +29,8 @@ local function get_total_deficit(hp_deficits)
 end
 
 local TOTEMS = {
-["air"] = "Windfury Totem",
---["air"] = "Wrath of Air Totem",
+--["air"] = "Windfury Totem",
+["air"] = "Wrath of Air Totem",
 
 --["earth"] = "Tremor Totem",
 --["earth"] = "Strength of Earth Totem",
