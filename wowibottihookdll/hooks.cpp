@@ -567,19 +567,19 @@ static int prepare_patch(const std::string &funcname, LPVOID hook_func_addr) {
 
 int prepare_patches_and_pipe_data() {
 
-	prepare_patch("LUA_prot", 0x0);
-	prepare_patch("CTM_main", broadcast_CTM);
-	prepare_patch("CTM_update", CTM_finished_hookfunc);
-	prepare_patch("EndScene", EndScene_hook);
-	prepare_patch("SpellErrMsg", SpellErrMsg_hook);
-	prepare_patch("ClosePetStables", ClosePetStables_hook);
+//	prepare_patch("LUA_prot", 0x0);
+//	prepare_patch("CTM_main", broadcast_CTM);
+//	prepare_patch("CTM_update", CTM_finished_hookfunc);
+//	prepare_patch("EndScene", EndScene_hook);
+//	prepare_patch("SpellErrMsg", SpellErrMsg_hook);
+//	prepare_patch("ClosePetStables", ClosePetStables_hook);
 
-	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
-	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("LUA_prot")));
-	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_main")));
-	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));
-	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("SpellErrMsg")));
-	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("ClosePetStables")));
+	//PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
+//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("LUA_prot")));
+//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_main")));
+//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));
+//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("SpellErrMsg")));
+//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("ClosePetStables")));
 
 	return 1;
 }
