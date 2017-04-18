@@ -246,6 +246,12 @@ void ctm_purge_old() {
 	}
 }
 
+// WOTLK:
+// action 0xCA11F4: action
+// CTM_X: 0xCA1264,
+// CTM_Y: 0xCA1268,
+// CTM_Z: 0xCA126C,
+
 static const uint
 	CTM_X = 0xD68A18,
 	CTM_Y = 0xD68A1C,

@@ -179,60 +179,53 @@ function main_frame_show()
 	lole_frame:Show();
 end
 
-local config_dropdown = CreateFrame("Frame", "config_dropdown", lole_frame, "UIDropDownMenuTemplate");
-config_dropdown:SetPoint("BOTTOMLEFT", 42, 35);
-config_dropdown:SetScale(0.88)
 
-UIDropDownMenu_SetWidth(100, config_dropdown)
+
+local config_dropdown = CreateFrame("Frame", "config_dropdown", lole_frame, "UIDropDownMenuTemplate")
+config_dropdown:ClearAllPoints()
+config_dropdown:SetPoint("BOTTOMLEFT", 42, 35)
+config_dropdown:Show()
+
 
 local config_text = config_dropdown:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 config_text:SetPoint("LEFT", -23, 3);
 config_text:SetText("Config:")
 
---local r,g,b,a = config_text:GetTextColor();
---echo(r .. " " .. g .. " " ..  b .. " " .. a)
-
-
-local function config_drop_onClick(name)
-	lole_subcommands.setconfig(string.sub(name, 11)); -- these have the color string in front of them, length 10
-end
-
-local drop_formatted_configs = {}
-local drop_formatted_config_indices = {}
-
-local i = 1;
+local drop_configs = {}
 
 for k, v in pairs_by_key(get_available_configs()) do
-	drop_formatted_configs[i] = "|cFF" .. v.color .. k
-	drop_formatted_config_indices[k] = i -- XD
-	i = i + 1;
+	drop_configs[#drop_configs + 1] = { unformatted = k, formatted = "|cFF" .. v.color .. k }
 end
 
-function set_visible_dropdown_config(configname)
-	UIDropDownMenu_SetSelectedID(config_dropdown, drop_formatted_config_indices[configname])
+local function config_drop_onclick(self)
+	UIDropDownMenu_SetSelectedID(config_dropdown, self:GetID())
+	lole_subcommands.setconfig(self.value)
 end
 
-local function config_drop_initialize()
-
-	local info = {}
-
-	for n = 1, #drop_formatted_configs do
-		info.text = drop_formatted_configs[n];
-		info.value = n;
-		info.arg1 = info.text;
-
-		if n == drop_formatted_config_indices[get_current_config()] then
-			info.checked = 1
-		else
-			info.checked = nil;
-		end
-
-		info.func = config_drop_onClick;
-		UIDropDownMenu_AddButton(info)
+local function config_drop_initialize(self, level)
+	local info = UIDropDownMenu_CreateInfo()
+	for k,v in pairs(drop_configs) do
+		info = UIDropDownMenu_CreateInfo()
+		info.text = v.formatted
+		info.value = v.unformatted
+		info.func = config_drop_onclick
+		UIDropDownMenu_AddButton(info, level)
 	end
 end
 
 UIDropDownMenu_Initialize(config_dropdown, config_drop_initialize)
+UIDropDownMenu_SetWidth(config_dropdown, 100);
+UIDropDownMenu_SetButtonWidth(config_dropdown, 124)
+UIDropDownMenu_SetSelectedValue(config_dropdown, get_current_config().name)
+UIDropDownMenu_JustifyText(config_dropdown, "LEFT")
+
+function set_visible_dropdown_config(configname)
+	for k,v in pairs(drop_configs) do
+		if v.unformatted == configname then
+			UIDropDownMenu_SetSelectedValue(config_dropdown, v.unformatted)
+		end
+	end
+end
 
 local function create_simple_button(name, parent, x, y, text, width, height, onclick, scale) -- scale optional
 	local button = CreateFrame("Button", name, parent, "UIPanelButtonTemplate");

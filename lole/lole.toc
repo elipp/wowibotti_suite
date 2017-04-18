@@ -1,4 +1,4 @@
-## Interface: 20400
+## Interface: 30300
 ## Title: LOLEXDD
 ## Author: Toni Pillu
 ## Notes: epic
@@ -35,10 +35,11 @@ shaman_resto.lua
 opcodes.lua
 subcommands.lua
 
+frame.lua
+
 lole.xml
 lole.lua
 
-frame.lua
 
 
 ##SavedVariablesPerCharacter: LOLE_CLASS_CONFIG_NAME_SAVED LOLE_CLASS_CONFIG_ATTRIBS_SAVED LOLE_HEALER_TARGETS_SAVED
