@@ -58,12 +58,15 @@ static void update_debug_positions() {
 
 
 static void __stdcall EndScene_hook() {
+	register_luafunc_if_not_registered();
+
+	return;
 
 	static timer_interval_t fifty_ms(50);
 	static timer_interval_t half_second(500);
+	
 
 	ctm_handle_delayed_posthook();
-	register_luafunc_if_not_registered();
 	ctm_update_prevpos();
 	ctm_abort_if_not_moving();
 
@@ -230,21 +233,26 @@ static int prepare_LUA_prot_patch(LPVOID hook_func_addr, hookable &h) {
 static int prepare_EndScene_patch(LPVOID hook_func_addr, hookable &h) {
 
 	// this actually seems to work :)
+#define STATIC_243_DIRECT3DDEVICE 0xD2A15C
+#define STATIC_243_D3DDEVICE_OFFSET 0x3864
+
+	#define STATIC_335_DIRECT3DDEVICE 0xC5DF88 
+	#define STATIC_335_D3DDEVICE_OFFSET 0x397C
 
 	PRINT("Preparing EndScene patch...\n");
 
-	unsigned char *wow_static_DX9 = *(unsigned char**)0xD2A15C;
-	unsigned char *tmp1 = *(unsigned char**)(wow_static_DX9 + 0x3864);
+	unsigned char *wow_static_DX9 = *(unsigned char**)STATIC_335_DIRECT3DDEVICE;
+	unsigned char *tmp1 = *(unsigned char**)(wow_static_DX9 + STATIC_335_D3DDEVICE_OFFSET);
 	unsigned char *tmp2 = *(unsigned char**)(tmp1);
 
 	EndScene = (HRESULT(*)(void))*(unsigned char**)(tmp2 + 0xA8);
-	PRINT("Found EndScene at %p\n(Details:\n[0xD2A15C] = %p\n[[0xD2A15C] + 0x3864] = %p\n[[[0xD2A15C] + 0x3864]] = %p)\n\n", EndScene, wow_static_DX9, tmp1, tmp2);
+	PRINT("Found EndScene at 0x%X\n(Details:\nwow_static_DX9 = 0x%X, tmp1 = 0x%X, tmp2 = 0x%X\n", EndScene, wow_static_DX9, tmp1, tmp2);
 	h.address = EndScene;
 
 	static BYTE EndScene_trampoline[] = {
 		// original EndScene opcodes follow
 		0x6A, 0x20, // push 20
-		0xB8, 0xD8, 0xB9, 0x08, 0x6C, // MOV EAX, 6C08B9D8 after this should be mu genitals :D
+		0xB8, 0x47, 0x7F, 0xD8, 0x6F,
 		0x68, 0x00, 0x00, 0x00, 0x00, // push return address (endscene + 7) onto stack for ret
 		0x60, // pushad
 		0xE8, 0x00, 0x00, 0x00, 0x00, // call hook_func
@@ -567,15 +575,15 @@ static int prepare_patch(const std::string &funcname, LPVOID hook_func_addr) {
 
 int prepare_patches_and_pipe_data() {
 
-//	prepare_patch("LUA_prot", 0x0);
+	//prepare_patch("LUA_prot", 0x0);
 //	prepare_patch("CTM_main", broadcast_CTM);
 //	prepare_patch("CTM_update", CTM_finished_hookfunc);
-//	prepare_patch("EndScene", EndScene_hook);
+	prepare_patch("EndScene", EndScene_hook);
 //	prepare_patch("SpellErrMsg", SpellErrMsg_hook);
 //	prepare_patch("ClosePetStables", ClosePetStables_hook);
 
-	//PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("LUA_prot")));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_main")));
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("SpellErrMsg")));

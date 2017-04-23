@@ -748,6 +748,8 @@ lole_frame:SetScript("OnUpdate", function()
 
 	if query_injected() == 0 then return end
 
+	lua_unlock()
+
 	if every_4th_frame == 0 then
 
 		local r = get_current_config().general_role;
@@ -775,6 +777,9 @@ lole_frame:SetScript("OnUpdate", function()
 
 	every_4th_frame = every_4th_frame >= 4 and 0 or (every_4th_frame + 1)
 	every_30th_frame = every_30th_frame >= 30 and 0 or (every_30th_frame + 1)
+
+
+	lua_lock()
 
 end);
 

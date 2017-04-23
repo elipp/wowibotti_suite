@@ -23,6 +23,8 @@ local LOP_HAS_AGGRO = 0x15
 local LOP_INTERACT_GOBJECT = 0x16
 local LOP_GET_BISCUITS = 0x17
 local LOP_LOOT_BADGE = 0x18
+local LOP_LUA_UNLOCK = 0x19
+local LOP_LUA_LOCK = 0x1A
 
 local LOP_EXT_NOP = 0x70
 local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x71
@@ -204,6 +206,15 @@ end
 
 function get_biscuits()
 	lop_exec(LOP_GET_BISCUITS)
+end
+
+
+function lua_unlock()
+	return lop_exec(LOP_LUA_UNLOCK)
+end
+
+function lua_lock()
+	return lop_exec(LOP_LUA_LOCK)
 end
 
 function lole_encrypt_test()

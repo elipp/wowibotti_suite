@@ -3,7 +3,6 @@
 
 #include "creds.h"
 
-
 int const (*LUA_DoString)(const char*, const char*, const char*) = (int const(*)(const char*, const char*, const char*)) LUA_DoString_addr;
 int const (*SelectUnit)(GUID_t) = (int const(*)(GUID_t)) SelectUnit_addr;
 

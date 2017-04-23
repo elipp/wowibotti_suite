@@ -62,6 +62,8 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_INTERACT_GOBJECT, 1, 1, 1),
 	 LOPFUNC(LOP_GET_BISCUITS, 0, 0, 0),
 	 LOPFUNC(LOP_LOOT_BADGE, 1, 1, 0),
+	 LOPFUNC(LOP_LUA_UNLOCK, 0, 0, 0),
+	 LOPFUNC(LOP_LUA_LOCK, 0, 0, 0),
 
 };
 
@@ -644,6 +646,31 @@ static int LOPEXT_maulgar_get_felhound() {
 	return 0;
 }
 
+static int LOP_lua_unlock() {
+
+	static BYTE LUA_prot_patch[] = {
+		0xB8, 0x01, 0x00, 0x00, 0x00, // MOV EAX, 1
+		0xC3						  // RET
+	};
+
+	WriteProcessMemory(glhProcess, (LPVOID)LUA_prot, LUA_prot_patch, 6, NULL);
+
+	return 1;
+}
+
+static int LOP_lua_lock() {
+	static const BYTE LUA_prot_original[] = {
+		// we're just making an early exit, so nevermind opcode boundaries
+		0x55,
+		0x8B, 0xEC,
+		0x83, 0x3D, 0x9C // this one is cut in the middle
+	};
+
+	WriteProcessMemory(glhProcess, (LPVOID)LUA_prot, LUA_prot_original, 6, NULL);
+
+	return 1;
+}
+
 static int LOP_tank_face() {
 	ObjectManager OM;
 
@@ -936,6 +963,14 @@ int lop_exec(lua_State *L) {
 
 	switch (opcode) {
 	case LOP_NOP:
+		break;
+
+	case LOP_LUA_UNLOCK:
+		LOP_lua_unlock();
+		break;
+
+	case LOP_LUA_LOCK:
+		LOP_lua_lock();
 		break;
 	
 	case LOP_TARGET_GUID:

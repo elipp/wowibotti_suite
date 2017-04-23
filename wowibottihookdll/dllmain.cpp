@@ -154,7 +154,7 @@ int handle_pipe_stuff() {
 	}
 	else {
 		if (tokens[0] == "PATCH_FAIL") {
-			PRINT("Got PATCH_FAIL. RIP. No idea what's going to happen next.\n");
+			PRINT("Got PATCH_FAIL. RIP.\n");
 		}
 		else if (tokens[0] == "PATCH_OK") {
 			PRINT("Got PATCH_OK. No login credentials sent.\n");
