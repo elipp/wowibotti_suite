@@ -812,6 +812,28 @@ static int LOP_get_unit_position(const std::string &name, vec3 *pos_out, double 
 
 }
 
+static int LOPDBG_test() {
+	ObjectManager OM;
+
+	WowObject i = OM.get_first_object();
+	while (i.valid()) {
+		PRINT("address: %X, GUID: %llX, type: %d\n", i.get_base(), i.get_GUID(), i.get_type());
+
+		if (i.get_type() == OBJECT_TYPE_UNIT) {
+			vec3 pos = i.get_pos();
+			PRINT("name: %s, position: (%f, %f, %f), %f\n", i.unit_get_name().c_str(), pos.x, pos.y, pos.z, i.get_rot());
+		}
+		else if (i.get_type() == OBJECT_TYPE_NPC) {
+			vec3 pos = i.get_pos();
+			PRINT("name: %s, (%f, %f, %f), %f\n", i.NPC_get_name().c_str(), pos.x, pos.y, pos.z, i.get_rot());
+		}
+
+		i = i.next();
+	}
+
+	return 1;
+}
+
 static int have_aggro() {
 	ObjectManager OM;
 
@@ -1140,6 +1162,9 @@ int lop_exec(lua_State *L) {
 		dump_wowobjects_to_log();
 		break;
 
+	case LDOP_TEST:
+		LOPDBG_test();
+		break;
 
 	case LDOP_NOCLIP:
 		enable_noclip();

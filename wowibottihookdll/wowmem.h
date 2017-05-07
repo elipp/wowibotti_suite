@@ -48,6 +48,11 @@ private:
 
 		UnitHealth = 0x40,
 		UnitHealthMax = 0x58,
+		UnitPosX = 0x798,
+		UnitPosY = UnitPosX + 0x4,
+		UnitPosZ = UnitPosX + 0x8,
+		UnitRot = 0x7A8,
+
 
 		NPCHealth = 0x11E8,
 		NPCMana = 0x11EC,
@@ -70,10 +75,11 @@ private:
 	float get_pos_z() const;
 
 public:
+
 	bool valid() const;
 	WowObject next() const;
 
-	vec3 get_pos() const;
+	vec3 get_pos() const; // works for units and NPCs
 	float get_rot() const;
 
 	GUID_t get_GUID() const;
@@ -97,6 +103,9 @@ public:
 
 	std::string NPC_get_name() const;
 	GUID_t NPC_get_target_GUID() const;
+
+	vec3 NPC_get_pos() const;
+	float NPC_get_rot() const;
 
 	uint NPC_get_buff(int index) const;
 	uint NPC_get_debuff(int index) const;
@@ -138,9 +147,9 @@ public:
 class ObjectManager {
 
 private:
-	const unsigned int clientConnection_addr_static = 0x00D43318,
+	const unsigned int clientConnection_addr_static = 0xC79CE0,
 		clientConnection = 0,
-		objectManagerOffset = 0x2218, // 0x46E134 has this [edx + 0x2218] thing in it
+		objectManagerOffset = 0x2ED0, 
 		localGUIDOffset = 0xC0,                                             // offset from the object manager to the local guid
 
 		firstObjectOffset = 0xAC,                                          // offset from the object manager to the first object

@@ -979,7 +979,7 @@ lole_subcommands = {
 	register = lole_debug_lua_register,
     distance = lole_distance_to_target,
 
-	encrypt = lole_encrypt_test,
+	debug_test = lole_debug_test,
 	noclip = lole_noclip,
 	getbiscuit = lole_getbiscuit,
 	loot_badge = lole_loot_badge,

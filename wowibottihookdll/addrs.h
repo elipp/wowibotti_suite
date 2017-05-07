@@ -9,22 +9,25 @@
 #define ClosePetStables 0x4FACA0
 #define CTM_main 0x612A90
 #define CTM_aux 0x7B8940
-#define PLAYER_TARGET_ADDR 0xC6E960
-#define PLAYER_TARGET_ADDR2 0xC6E968
-#define PLAYER_TARGET_ADDR3 0xC6E970
+
+//#define PLAYER_TARGET_ADDR 0xC6E960 // <-- tbc
+
+#define PLAYER_TARGET_ADDR 0xBD07B0
+
 //#define LUA_DoString_addr 0x706C80 // <-- tbc
 #define LUA_DoString_addr 0x00819210
-#define SelectUnit_addr 0x4A6690
+//#define SelectUnit_addr 0x4A6690 // <-- tbc
+#define SelectUnit_addr 0x524BF0
 #define GetOSTickCount 0x749850
 #define SpellErrMsg 0x6F0B70
 
 // these are for wotlk!
-//00B499A4   LastHardwareAction
-//00B1D618   TimeStamp
+#define LastHardwareAction 0x00B499A4   
+#define CurrentTicks 0x00B1D618   
 
 
 #define CTM_update 0x612990 // this could be used to signal a completed CTM action
 #define CTM_update_hookaddr 0x612A71
 
-#define TicksSinceLastHWEvent 0xBE10FC
+//#define TicksSinceLastHWEvent 0xBE10FC // <-- tbc
 

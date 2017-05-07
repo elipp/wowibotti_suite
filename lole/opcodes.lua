@@ -36,6 +36,7 @@ local LDOP_PULL_TEST = 0xE3
 local LDOP_LUA_REGISTERED = 0xE4
 local LDOP_LOS_TEST = 0xE5
 local LDOP_NOCLIP = 0xE6
+local LDOP_TEST = 0xE7
 
 
 ----------------------------
@@ -139,6 +140,7 @@ end
 
 function walk_to(x, y, z, prio)
 	-- the last argument is the priority level
+	echo(x .. ", " .. y .. ", " .. z)
 	lop_exec(LOP_CTM, x, y, z, prio)
 end
 
@@ -217,8 +219,8 @@ function lua_lock()
 	return lop_exec(LOP_LUA_LOCK)
 end
 
-function lole_encrypt_test()
-	lop_exec(LDOP_ENCRYPT_TEST)
+function lole_debug_test()
+	lop_exec(LDOP_TEST)
 end
 
 function lole_debug_pull_test()

@@ -783,31 +783,11 @@ function trim_string(s)
 end
 
 local guild_members = {
-	["Adieux"] = 1,
-	["Bogomips"] = 2,
-	["Ceucho"] = 3,
-	["Consona"] = 4,
-	["Crq"] = 5,
-	["Dissona"] = 6,
-	["Gawk"] = 7,
-	["Gyorgy"] = 8,
-	["Igop"] = 9,
-	["Jobim"] = 10,
-	["Josp"] = 11,
-	["Kasio"] = 12,
-	["Kusip"] = 13,
-	["Mam"] = 14,
-	["Meisseln"] = 15,
-	["Mulck"] = 16,
-	["Nilck"] = 17,
-	["Noctur"] = 18,
-	["Pehmware"] = 19,
-	["Pogi"] = 20,
-	["Puhveln"] = 21,
-	["Pussu"] = 22,
-	["Ribb"] = 23,
-	["Teline"] = 24,
-	["Viginti"] = 25,
+  ["Printf"] = 1,
+  ["Rektorn"] = 2,
+  ["Robins"] = 3,
+  ["Eino"] = 4,
+  ["Kuratorn"] = 5,
 }
 
 for name, num in pairs(guild_members) do

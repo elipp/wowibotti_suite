@@ -88,18 +88,29 @@ static const std::string wowobject_type_names[] = {
 
 float WowObject::get_pos_x() const {
 	float x;
-	readAddr(base + X, &x, sizeof(x));
+	readAddr(base + UnitPosX, &x, sizeof(x));
 	return x;
 }
 float WowObject::get_pos_y() const {
 	float y;
-	readAddr(base + Y, &y, sizeof(y));
+	readAddr(base + UnitPosY, &y, sizeof(y));
 	return y;
 }
 float WowObject::get_pos_z() const {
 	float z;
-	readAddr(base + Z, &z, sizeof(z));
+	readAddr(base + UnitPosZ, &z, sizeof(z));
 	return z;
+}
+
+
+vec3 WowObject::get_pos() const {
+	return vec3(get_pos_x(), get_pos_y(), get_pos_z());
+}
+
+float WowObject::get_rot() const {
+	float r;
+	readAddr(base + UnitRot, &r, sizeof(r));
+	return r;
 }
 
 bool WowObject::valid() const {
@@ -110,16 +121,6 @@ WowObject WowObject::next() const {
 	unsigned int next_base;
 	readAddr(base + this->Next, &next_base, sizeof(next_base));
 	return WowObject(next_base);
-}
-
-vec3 WowObject::get_pos() const {
-	return vec3(get_pos_x(), get_pos_y(), get_pos_z());
-}
-
-float WowObject::get_rot() const {
-	float r;
-	readAddr(base + R, &r, sizeof(r));
-	return r;
 }
 
 
@@ -201,18 +202,21 @@ int WowObject::NPC_get_focus_max() const {
 }
 
 std::string WowObject::NPC_get_name() const {
-	unsigned int name;
-	readAddr(base + Name, &name, sizeof(name));
-	if (!name) {
+	DWORD interm;
+	readAddr(base + 0x964, &interm, sizeof(interm));
+	if (!interm) {
 		return "null";
 	}
-	return *(char**)(name + 0x40);
+
+	const char *name;
+	readAddr(interm + 0x5C, &name, sizeof(name));
+	return name;
 }
 
 std::string WowObject::unit_get_name() const {
 
-	// 0xD29BB0 is some kind of static / global string-related thing, resides in the .data segment. (look at Wow.exe:0x6D9850)
-	const uint ecx = 0xD29BB0;
+	//// 0xD29BB0 is some kind of static / global string-related thing, resides in the .data segment. (look at Wow.exe:0x6D9850)
+	const uint ecx = 0xC5D940; // tbc: 0xD29BB0
 
 	uint ECX24 = ecx + 0x24;
 	readAddr(ECX24, &ECX24, sizeof(ECX24));
@@ -244,7 +248,14 @@ std::string WowObject::unit_get_name() const {
 		// THERES STILL THAT WEIRD EAX+0x18 thing to figure out. the GUID is at [eax], but is also at [eax + 0x18]? :D
 	}
 
-	char *ret = (char*)(eax + 0x20);
+	const char *ret = (const char*)(eax + 0x20);
+
+	//const char *ret = NULL;
+
+	//typedef const char*(*getnamefunc_t)(GUID_t, void*);
+	//getnamefunc_t getname = (getnamefunc_t)0x67D770;
+
+	//ret = getname(get_GUID(), (void*)0xC5D938);
 
 	return ret;
 }
@@ -482,7 +493,11 @@ void ObjectManager::LoadAddresses() {
 
 	DWORD currentManager_pre = 0;
 	readAddr(clientConnection_addr_static, &currentManager_pre, sizeof(currentManager_pre));
+	//PRINT("objectmanager: loadaddresses\n[0x%X] = 0x%X\n", clientConnection_addr_static, currentManager_pre);
+
 	readAddr(currentManager_pre + objectManagerOffset, &base_addr, sizeof(base_addr));
+	//PRINT("[0x%X + 0x%X] = 0x%X\n", currentManager_pre, objectManagerOffset, base_addr);
+
 	readAddr(base_addr + localGUIDOffset, &localGUID, sizeof(localGUID));
 
 	this->invalid = 0;

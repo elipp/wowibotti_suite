@@ -800,7 +800,7 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 		blast_check_settext(" BLAST off!")
 		heal_blast_check_settext( "HEALING off!")
 
-		ClosePetStables()
+		--ClosePetStables()
 		-- ^ this one's hooked too; sets lua_registered = 0 in the DLL, to re-register on reloadui
 
 		lole_frame:UnregisterEvent("ADDON_LOADED");

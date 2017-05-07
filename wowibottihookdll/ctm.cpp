@@ -143,6 +143,8 @@ void ctm_act() {
 		CTM_direction = CTM_direction.unit();
 	}
 
+	PRINT("CTM_direction: (%.3f, %.3f, %.3f)\n", CTM_direction.x, CTM_direction.y, CTM_direction.z);
+
 	click_to_move(ctm);
 
 	ctm_lock();
@@ -246,30 +248,47 @@ void ctm_purge_old() {
 	}
 }
 
+
+
+// TBC:
+//static const uint
+//	CTM_X = 0xD68A18,
+//	CTM_Y = 0xD68A1C,
+//	CTM_Z = 0xD68A20,
+//	CTM_ACTION = 0xD689BC,
+//	CTM_GUID = 0xD689C0, // this is for interaction
+//	CTM_MOVE_ATTACK_ZERO = 0xD689CC,
+//
+//	CTM_walking_angle = 0xD689A0,
+//	CTM_FL_A4 = 0xD689A4,
+//	CTM_FL_A8 = 0xD689A8,
+//	CTM_min_distance = 0xD689AC,
+//
+//	CTM_increment = 0xD689B8,
+//
+//	CTM_mystery_C8 = 0xD689C8,
+//	CTM_mystery_A90 = 0xD68A90,
+//	CTM_mystery_A94 = 0xD68A94;
+
 // WOTLK:
 // action 0xCA11F4: action
 // CTM_X: 0xCA1264,
 // CTM_Y: 0xCA1268,
 // CTM_Z: 0xCA126C,
 
+//
+
 static const uint
-	CTM_X = 0xD68A18,
-	CTM_Y = 0xD68A1C,
-	CTM_Z = 0xD68A20,
-	CTM_ACTION = 0xD689BC,
-	CTM_GUID = 0xD689C0, // this is for interaction
-	CTM_MOVE_ATTACK_ZERO = 0xD689CC,
+	CTM_X = 0xCA1264,
+	CTM_Y = 0xCA1268,
+	CTM_Z = 0xCA126C,
+	CTM_ACTION = 0xCA11F4,
+	CTM_GUID = 0xCA11FC, // this is for interaction
 
-	CTM_walking_angle = 0xD689A0,
-	CTM_FL_A4 = 0xD689A4,
-	CTM_FL_A8 = 0xD689A8,
-	CTM_min_distance = 0xD689AC,
-
-	CTM_increment = 0xD689B8,
-
-	CTM_mystery_C8 = 0xD689C8,
-	CTM_mystery_A90 = 0xD68A90,
-	CTM_mystery_A94 = 0xD68A94;
+	CTM_walking_angle = 0xCA11D8,
+	CTM_GLOBAL_CONST1 = 0xCA11DC,
+	CTM_CONST2 = 0xCA11E0,
+	CTM_min_distance = 0xCA11E4;
 
 int get_wow_CTM_state() {
 	int state;
@@ -301,96 +320,54 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 
 	WowObject p;
 	if (!OM.get_local_object(&p)) return;
+	vec3 pp = p.get_pos();
+	vec3 diff = pp - point; // this is kinda weird, since usually one would take dest - current_loc, but np
+	//float directed_angle = atan2(diff.y, diff.x);
+	float directed_angle = atan2(point.y, point.x) - atan2(pp.y, pp.x) - 0.5*M_PI;
+	if (directed_angle < 0) { directed_angle += 2 * M_PI; }
 
-	vec3 diff = p.get_pos() - point; // this is kinda weird, since usually one would take dest - current_loc, but np
-	float directed_angle = atan2(diff.y, diff.x);
+	//PRINT("directed angle: %f, diff: %.3f, %.3f, %.3f\n", directed_angle, diff.x, diff.y, diff.z);
 
 	writeAddr(CTM_walking_angle, &directed_angle, sizeof(directed_angle));
 
-
 	static const uint
-		ALL_9A4 = 0x415F66F3;
+		GLOBAL_CONST1 = 0x415F66F3;
 
 	static const float
-		MOVE_9A8 = 0.25, // 0.25, don't really know what this is
+		MOVE_CONST2 = 0.25, // 0.25, don't really know what this is
 		MOVE_MINDISTANCE = 0.5; // this is 0.5, minimum distance from exact point
 
 	static const float
-		FOLLOW_9A8 = 9.0,
-		FOLLOW_MINDISTANCE = 3.0;
-
-	static const float
-		MOVE_AND_ATTACK_9A8 = 13.444444, // for M&A its something like 13.444
-										 //	MOVE_AND_ATTACK_9AC = 0x406AAAAA; // 3.6666 (melee range?)
-		MOVE_AND_ATTACK_MINDISTANCE = 1.5; // use 1.5 for this (test!) seems to work:P http://www.h-schmidt.net/FloatConverter/IEEE754.html
-
-	static const float
-		LOOT_9A8 = 13.4444444,
+		LOOT_CONST2 = 13.4444444,
 		LOOT_MINDISTANCE = 3.6666666;
 
-	float float_9A8, min_dist;
+	float float_CONST2, min_dist;
 	GUID_t interact;
 
 	switch (action) {
 	case CTM_MOVE:
-		float_9A8 = MOVE_9A8;
+		float_CONST2 = MOVE_CONST2;
 		min_dist = min_distance == 0 ? MOVE_MINDISTANCE : min_distance;
 		interact = 0;
 		break;
 
-	case CTM_FOLLOW:
-		float_9A8 = FOLLOW_9A8;
-		min_dist = min_distance == 0 ? FOLLOW_MINDISTANCE : min_distance;
-		interact = 0;
-		break;
-
-	case CTM_MOVE_AND_ATTACK:
-		float_9A8 = MOVE_AND_ATTACK_9A8;
-		min_dist = min_distance == 0 ? MOVE_AND_ATTACK_MINDISTANCE : min_distance;
-		interact = interact_GUID;
-		break;
-
-
 	case CTM_LOOT:
-		float_9A8 = LOOT_9A8;
+		float_CONST2 = LOOT_CONST2;
 		min_dist = min_distance == 0 ? LOOT_MINDISTANCE : min_distance;
 		interact = interact_GUID;
 		break;
 
 	default:
-		float_9A8 = MOVE_9A8;
+		float_CONST2 = MOVE_CONST2;
 		min_dist = 0.5;
 		interact = 0;
 		break;
 	}
 
-	writeAddr(CTM_FL_A4, &ALL_9A4, sizeof(ALL_9A4));
-	writeAddr(CTM_FL_A8, &float_9A8, sizeof(float));
+	writeAddr(CTM_GLOBAL_CONST1, &GLOBAL_CONST1, sizeof(float));
+	writeAddr(CTM_CONST2, &float_CONST2, sizeof(float));
 	writeAddr(CTM_min_distance, &min_dist, sizeof(float));
 	writeAddr(CTM_GUID, &interact, sizeof(GUID_t));
-
-	// the value of 0xD689B8 seems to be incremented with every step CTM'd, but it seems to be ok like this (modify once, after that keeps track of itself)
-
-	float increment = 0;
-	readAddr(CTM_increment, &increment, sizeof(increment));
-
-	if (increment == 0) {
-		static const float B8 = 0.01;
-		writeAddr(CTM_increment, &B8, sizeof(B8));
-	}
-
-	// 0xD689C8 usually gets the value 2.
-	static const uint C8 = 0x2;
-	writeAddr(CTM_mystery_C8, &C8, sizeof(C8));
-
-	// 0xD68A0C:14 contain the player's current position, probably updated even when the CTM is not legit??
-
-	// 0xD68A90 is a constant 0x3F7FF605 (float ~0.9998, or perhaps not a float at all. who knows?)
-	static const uint A90 = 0x3F7FF605;
-	static const uint A94 = 0x1;
-
-	writeAddr(CTM_mystery_A90, &A90, sizeof(A90));
-	writeAddr(CTM_mystery_A94, &A94, sizeof(A94));
 
 	writeAddr(CTM_X, &point.x, sizeof(point.x));
 	writeAddr(CTM_Y, &point.y, sizeof(point.y));

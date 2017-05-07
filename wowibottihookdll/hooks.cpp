@@ -20,9 +20,10 @@ static void register_luafunc_if_not_registered() {
 
 static void update_hwevent_tick() {
 	typedef int tick_count_t(void);
-	int ticks = ((tick_count_t*)GetOSTickCount)();
+	//int ticks = ((tick_count_t*)GetOSTickCount)();
+	DWORD ticks = *(DWORD*)CurrentTicks;
 
-	*(int*)(TicksSinceLastHWEvent) = ticks;
+	*(DWORD*)(LastHardwareAction) = ticks;
 	// this should make us immune to AFK ^^
 }
 
@@ -60,11 +61,19 @@ static void update_debug_positions() {
 static void __stdcall EndScene_hook() {
 	register_luafunc_if_not_registered();
 
-	return;
 
 	static timer_interval_t fifty_ms(50);
 	static timer_interval_t half_second(500);
 	
+	if (half_second.passed()) {
+		update_hwevent_tick();
+
+		if (credentials.valid && !credentials.logged_in) credentials.try_login();
+
+		half_second.reset();
+	}
+
+	return;
 
 	ctm_handle_delayed_posthook();
 	ctm_update_prevpos();
@@ -86,17 +95,7 @@ static void __stdcall EndScene_hook() {
 		fifty_ms.reset();
 	}
 
-	if (half_second.passed()) {
-		update_hwevent_tick();
 
-		if (credentials.valid && !credentials.logged_in) credentials.try_login();
-
-		if (credentials.logged_in) {
-			update_debug_positions();
-		}
-			
-		half_second.reset();
-	}
 
 
 }
@@ -135,10 +134,10 @@ static void __stdcall CTM_finished_hookfunc() {
 
 static void __stdcall SpellErrMsg_hook(int msg) {
 	typedef int tick_count_t(void);
-	int ticks = ((tick_count_t*)GetOSTickCount)();
+	//int ticks = ((tick_count_t*)GetOSTickCount)();
 
 	previous_cast_msg.msg = msg;
-	previous_cast_msg.timestamp = ticks;
+	//previous_cast_msg.timestamp = ticks;
 }
 
 struct hookable {
