@@ -67,7 +67,7 @@ local available_configs = {
 	warrior_prot =
 	class_config_create("warrior_prot", {}, {"Commanding Shout"}, get_class_color("warrior"), combat_warrior_prot, {}, ROLES.warrior_tank, "TANK", survive_warrior_prot),
 	--mage_aespam =
-	--class_config_create("mage_aespam", {}, {}, get_class_color("mage"), function() CastSpellByName("Arcane Explosion") end, {}, ROLES.caster),
+	--class_config_create("mage_aespam", {}, {}, get_class_color("mage"), function() L_CastSpellByName("Arcane Explosion") end, {}, ROLES.caster),
 };
 
 local mode_attribs = {
@@ -137,6 +137,9 @@ local function lole_followme()
 end
 
 local function lole_follow(name)
+
+if not name then return end
+
 	if not playermode() then
 		follow_unit(name)
 	end
@@ -263,14 +266,14 @@ local function lole_cooldowns()
 	local _, race = UnitRace("player");
 
 	if race == "Orc" then
-		CastSpellByName("Blood Fury")
+		L_CastSpellByName("Blood Fury")
 	elseif race == "Troll" then
-		CastSpellByName("Berserking")
+		L_CastSpellByName("Berserking")
 	end
 
 	for _, spell in pairs(get_current_config().cooldowns) do
 		SpellStopCasting()
-		CastSpellByName(spell);
+		L_CastSpellByName(spell);
 	end
 
 end
@@ -352,7 +355,7 @@ local function do_buffs(missing_buffs)
             return false;
         else
             local char, buff = next(SPAM_TABLE[1]);
-            CastSpellByName(buff, char);
+            L_CastSpellByName(buff, char);
             BUFF_TIME = GetTime();
             table.remove(SPAM_TABLE, 1);
         end
@@ -443,7 +446,7 @@ local function lole_disenchant_greeniez()
 									LOOT_OPENED_REASON = "DE_GREENIEZ"
 									lole_frame_register("LOOT_OPENED")
 									SpellStopCasting()
-									CastSpellByName("Disenchant")
+									L_CastSpellByName("Disenchant")
                   echo("disenchanting " .. n)
 									UseContainerItem(b,s)
                   return
@@ -463,13 +466,13 @@ end
 local function lole_pull(target_GUID)
 	target_unit_with_GUID(target_GUID)
 	caster_range_check(28)
-	CastSpellByName("Avenger's Shield")
+	L_CastSpellByName("Avenger's Shield")
 end
 
 function set_target(target_GUID)
 	BLAST_TARGET_GUID = target_GUID;
 	target_unit_with_GUID(target_GUID); -- this does a C SelectUnit call :P
-	FocusUnit("target")
+	--FocusUnit("target")
 	update_target_text(UnitName("target"), UnitGUID("target"));
 end
 
@@ -481,6 +484,17 @@ function clear_target()
 end
 
 local function lole_target_GUID(GUID)
+
+	if not GUID then
+		lole_error("lole_target_GUID: please specify a target GUID!")
+		return
+	end
+
+	if GUID:len() ~= 18 then
+		lole_error("lole_target_GUID: GUID str must be of length 18 (0x included)")
+		return
+	end
+
 	if GUID == NOTARGET then
 		clear_target()
 
@@ -570,7 +584,8 @@ local function lole_cast_gtaoe(spellname, x, y, z)
 end
 
 local function lole_getbiscuit()
-	get_biscuits()
+	L_CastSpellByName("Arcane Torrent")
+	--get_biscuits()
 end
 
 local function lole_sendscript(to, ...)
@@ -832,6 +847,18 @@ local function lole_noclip()
 	noclip()
 end
 
+local function lole_execute(...)
+
+	local arg_concatd = select(1, ...)
+
+	for i = 2, select('#', ...) do
+			local arg = select(i, ...);
+			arg_concatd = arg_concatd .. " " .. arg
+	end
+
+	execute_script(arg_concatd)
+end
+
 
 ----------------------------------------
 				----- BROADCASTS ------
@@ -842,8 +869,8 @@ local function lole_broadcast_target(GUID_str)
 	lole_subcommands.sendmacro("RAID", "/lole target", GUID_str);
 end
 
-local function lole_broadcast_follow(target_GUID)
-	lole_subcommands.sendmacro("RAID", "/lole follow", target_GUID);
+local function lole_broadcast_follow(name)
+	lole_subcommands.sendmacro("RAID", "/lole follow", name);
 end
 
 local function lole_broadcast_stopfollow()
@@ -932,6 +959,8 @@ lole_subcommands = {
 	set = lole_set,
 	setall = lole_setall,
 	get = lole_get,
+
+	execute = lole_execute,
 
 	broadcast = lole_broadcast,
 	ctm = lole_ctm,

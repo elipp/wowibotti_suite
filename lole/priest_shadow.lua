@@ -23,23 +23,23 @@ combat_priest_shadow = function()
 	if (UnitMana("player") < 4000 and UnitHealth("target") > 50000) then if cast_if_nocd("Shadowfiend") then return; end end
 
 	--if UnitMana("player") < 800 then
-	--	CastSpellByName("Shoot")
+	--	L_CastSpellByName("Shoot")
 	--	return
 	--end
 
 	if not has_debuff("target", "Vampiric Touch") then
-		CastSpellByName("Vampiric Touch");
+		L_CastSpellByName("Vampiric Touch");
 		return
 
 	elseif not has_debuff("target", "Shadow Word: Pain") then
-		CastSpellByName("Shadow Word: Pain");
+		L_CastSpellByName("Shadow Word: Pain");
 		return
 
 	elseif GetSpellCooldown("Mind Blast") == 0 then
-		CastSpellByName("Mind Blast");
-	--elseif GetSpellCooldown("Shadow Word: Death") == 0 then CastSpellByName("Shadow Word: Death");
+		L_CastSpellByName("Mind Blast");
+	--elseif GetSpellCooldown("Shadow Word: Death") == 0 then L_CastSpellByName("Shadow Word: Death");
 	elseif S ~= "Mind Flay" then
-		CastSpellByName("Mind Flay");
+		L_CastSpellByName("Mind Flay");
 	end
 
 

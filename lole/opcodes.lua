@@ -25,6 +25,7 @@ local LOP_GET_BISCUITS = 0x17
 local LOP_LOOT_BADGE = 0x18
 local LOP_LUA_UNLOCK = 0x19
 local LOP_LUA_LOCK = 0x1A
+local LOP_EXECUTE = 0x1B
 
 local LOP_EXT_NOP = 0x70
 local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x71
@@ -99,7 +100,7 @@ function avoid_spell_with_spellID(spellID, radius)
 end
 
 function pull_target()
-	CastSpellByName("Avenger's Shield")
+	L_CastSpellByName("Avenger's Shield")
 end
 
 function walk_to_pulling_range()
@@ -229,4 +230,20 @@ end
 
 function noclip()
 	lop_exec(LDOP_NOCLIP)
+end
+
+function execute_script(script)
+	lop_exec(LOP_EXECUTE, script)
+end
+
+function L_TargetUnit(name)
+	execute_script("TargetUnit(\"name\")")
+end
+
+function L_CastSpellByName(spellname)
+	execute_script("CastSpellByName(\"" .. spellname .. "\")")
+end
+
+function L_RunScript(script)
+	execute_script(script)
 end

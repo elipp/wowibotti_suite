@@ -1,7 +1,7 @@
 local function tap_if_need_to(threshold)
 	if UnitMana("player") < threshold then -- higher threshold for affli since it's being done only once all the dots are in place
 		if UnitHealth("player") > 1450 then
-			CastSpellByName("Life Tap");
+			L_CastSpellByName("Life Tap");
 			return true;
 		end
 	else
@@ -18,14 +18,14 @@ local function vexallus()
 	TargetUnit("Pure Energy")
 
 	if UnitExists("target") and UnitName("target") == "Pure Energy" and not UnitIsDead("target") then
-		CastSpellByName("Searing Pain(Rank 2)")
+		L_CastSpellByName("Searing Pain(Rank 2)")
 		return true;
 	else
 		if UnitCastingInfo("player") then return; end
 		if UnitChannelInfo("player") then return; end
 		TargetUnit("Vexallus")
 
-		CastSpellByName("Drain Life")
+		L_CastSpellByName("Drain Life")
 
 		return true;
 	end
@@ -59,7 +59,7 @@ local function drain_soul_if_needed()
 		end
 
 		if (UnitHealth("target") < HP_threshold) then
-			CastSpellByName("Drain Soul");
+			L_CastSpellByName("Drain Soul");
 			return true;
 		end
 	end
@@ -104,7 +104,7 @@ combat_warlock_affli = function()
 
 	if not UnitAffectingCombat("player") then
 		if (mana < 0.90*maxmana) then
-			CastSpellByName("Life Tap");
+			L_CastSpellByName("Life Tap");
 			return;
 		end
 	end
@@ -118,7 +118,7 @@ combat_warlock_affli = function()
 		for i=1,16,1 do
 			TargetNearestEnemy();
 			if (UnitExists("target") and not has_debuff_by_self("target", "Seed of Corruption")) then
-				CastSpellByName("Seed of Corruption");
+				L_CastSpellByName("Seed of Corruption");
 				return;
 			end
 		end
@@ -127,37 +127,37 @@ combat_warlock_affli = function()
 	if drain_soul_if_needed() then return end
 
 	if not has_debuff("target", "Curse of the Elements") then
-		CastSpellByName("Curse of the Elements");
+		L_CastSpellByName("Curse of the Elements");
 		return;
 
 	elseif not has_debuff_by_self("target", "Unstable Affliction") then
-		CastSpellByName("Unstable Affliction");
+		L_CastSpellByName("Unstable Affliction");
 		return;
 
 	elseif not has_debuff_by_self("target", "Siphon Life") then
-		CastSpellByName("Siphon Life")
+		L_CastSpellByName("Siphon Life")
 		return;
 
 	elseif not has_debuff_by_self("target", "Corruption") then
-		CastSpellByName("Corruption");
+		L_CastSpellByName("Corruption");
 		return;
 
 	elseif not has_debuff_by_self("target", "Immolate") then
-		CastSpellByName("Immolate");
+		L_CastSpellByName("Immolate");
 		return;
 
 	elseif has_buff("player", "Nightfall") then
-		CastSpellByName("Shadow Bolt")
+		L_CastSpellByName("Shadow Bolt")
 		return;
 
 	elseif tap_if_need_to(5000) then
 		return;
 
 	elseif UnitHealth("player") < 4000 then
-		CastSpellByName("Drain Life");
+		L_CastSpellByName("Drain Life");
 		return
 	else
-		CastSpellByName("Shadow Bolt");
+		L_CastSpellByName("Shadow Bolt");
 	end
 
 end

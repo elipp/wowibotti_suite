@@ -59,11 +59,11 @@ combat_warrior_arms = function()
 	RunMacroText("/cast [nostance:3] Berserker Stance"); -- overall, its probably better to be in zerg stance :D
 
 	if GetSpellCooldown("Bloodrage") == 0 then
-		CastSpellByName("Bloodrage")
+		L_CastSpellByName("Bloodrage")
 	end
 
 	if not has_buff("player", "Battle Shout") then
-		CastSpellByName("Battle Shout");
+		L_CastSpellByName("Battle Shout");
 		return;
 	end
 
@@ -82,7 +82,7 @@ combat_warrior_arms = function()
 	if lole_subcommands.get("aoemode") == 1 then
 		if cast_if_nocd("Whirlwind") then return; end
 		if UnitMana("player") > 65 then
-			CastSpellByName("Cleave")
+			L_CastSpellByName("Cleave")
 		end
 	else
 		if UnitMana("player") > 65 then
@@ -99,7 +99,7 @@ combat_warrior_arms = function()
 	end
 
 	if not has_debuff("target", "Demoralizing Shout") then
-		CastSpellByName("Demoralizing Shout");
+		L_CastSpellByName("Demoralizing Shout");
 		return;
 	end
 

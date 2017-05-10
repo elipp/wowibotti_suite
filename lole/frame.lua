@@ -320,7 +320,7 @@ local lbuffcheck_button =
 create_simple_button("lbuffcheck_button", lole_frame, 240, -160, "Buff", 62, 27, function() lole_subcommands.lbuffcheck() end);
 
 local reloadui_button =
-create_simple_button("reloadui_button", lole_frame, 310, -100, "Reload", 68, 27, function() RunMacroText("/console reloadui") end);
+create_simple_button("reloadui_button", lole_frame, 310, -100, "Reload", 68, 27, function() execute_script("RunMacroText(\"/console reloadui\")") end);
 
 local getbiscuit_button =
 create_simple_button("getbiscuit_button", lole_frame, 310, -130, "Biscuit", 68, 27, function() lole_subcommands.broadcast("getbiscuits") end);
@@ -532,7 +532,7 @@ function new_CC(char_name, marker, spellID)
 		return false
 	end
 
-	local spellname = get_CC_spellname(spellID); -- get the spellname in a CastSpellByName-able format
+	local spellname = get_CC_spellname(spellID); -- get the spellname in a L_CastSpellByName-able format
 
 	if not spellname then
 		lole_error("Unknown CC spell with ID " .. tostring(spellID));
@@ -748,8 +748,6 @@ lole_frame:SetScript("OnUpdate", function()
 
 	if query_injected() == 0 then return end
 
-	lua_unlock()
-
 	if every_4th_frame == 0 then
 
 		local r = get_current_config().general_role;
@@ -778,9 +776,6 @@ lole_frame:SetScript("OnUpdate", function()
 	every_4th_frame = every_4th_frame >= 4 and 0 or (every_4th_frame + 1)
 	every_30th_frame = every_30th_frame >= 30 and 0 or (every_30th_frame + 1)
 
-
-	lua_lock()
-
 end);
 
 lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
@@ -800,7 +795,7 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 		blast_check_settext(" BLAST off!")
 		heal_blast_check_settext( "HEALING off!")
 
-		--ClosePetStables()
+		ClosePetStables()
 		-- ^ this one's hooked too; sets lua_registered = 0 in the DLL, to re-register on reloadui
 
 		lole_frame:UnregisterEvent("ADDON_LOADED");

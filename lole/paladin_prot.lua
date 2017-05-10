@@ -13,14 +13,14 @@ combat_paladin_prot = function()
 
     --if not has_debuff("target", "Judgement of the Crusader") then
     --    if not has_buff("player", "Seal of the Crusader") then
-    --        CastSpellByName("Seal of the Crusader");
+    --        L_CastSpellByName("Seal of the Crusader");
     --    end
     --    cast_if_nocd("Judgement");
     --    return;
     --end
 
     if not has_buff("player", "Seal of Righteousness") then
-        CastSpellByName("Seal of Righteousness");
+        L_CastSpellByName("Seal of Righteousness");
         return;
     end
 

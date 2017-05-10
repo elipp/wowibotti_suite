@@ -28,7 +28,7 @@ combat_paladin_retri = function()
 	if cast_if_nocd("Crusader Strike") then return end
 
 	if not jud_on_cd then
-        CastSpellByName("Judgement");
+        L_CastSpellByName("Judgement");
     end
 
 end

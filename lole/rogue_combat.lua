@@ -27,7 +27,7 @@ combat_rogue_combat = function()
 	melee_attack_behind()
 
 	if (not UnitAffectingCombat("player")) then
-	    CastSpellByName("Stealth")
+	    L_CastSpellByName("Stealth")
 		return;
 	end
 
@@ -36,22 +36,22 @@ combat_rogue_combat = function()
     end
 
     if (GetComboPoints("player", "target") < 5) then
-        CastSpellByName("Sinister Strike")
+        L_CastSpellByName("Sinister Strike")
         return
     end
 
     local has, timeleft = has_buff("player", "Slice and Dice")
 
     if (not has or timeleft < 5) then
-        CastSpellByName("Slice and Dice")
+        L_CastSpellByName("Slice and Dice")
         return
     end
 
     if (not has_debuff("target", "Rupture")) then
-        CastSpellByName("Rupture")
+        L_CastSpellByName("Rupture")
         return
     end
 
-    CastSpellByName("Eviscerate")
+    L_CastSpellByName("Eviscerate")
 
 end

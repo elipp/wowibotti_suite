@@ -19,7 +19,7 @@ combat_shaman_elem = function()
 	if player_casting() then return end
 
 	if not has_buff("player", "Water Shield") then
-		CastSpellByName("Water Shield");
+		L_CastSpellByName("Water Shield");
 		return;
 	end
 
@@ -29,11 +29,11 @@ combat_shaman_elem = function()
 	caster_range_check(30);
 
 	if lole_subcommands.get("aoemode") == 1 then
-		CastSpellByName("Elemental Mastery")
+		L_CastSpellByName("Elemental Mastery")
 		if cast_if_nocd("Chain Lightning") then return end
 	end
 
 	if cast_if_nocd("Chain Lightning") then return end
-	CastSpellByName("Lightning Bolt");
+	L_CastSpellByName("Lightning Bolt");
 
 end

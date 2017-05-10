@@ -3,7 +3,7 @@ combat_druid_balance = function()
 	if player_casting() then return end
 
     if (not has_buff("player", "Moonkin Form")) then
-        CastSpellByName("Moonkin Form")
+        L_CastSpellByName("Moonkin Form")
         return
     end
 
@@ -15,7 +15,7 @@ combat_druid_balance = function()
         if not validate_target() then return end
         caster_range_check(30)
         if not has_debuff("target", "Insect Swarm") then
-            CastSpellByName("Insect Swarm");
+            L_CastSpellByName("Insect Swarm");
             return;
         end
     end
@@ -29,6 +29,6 @@ combat_druid_balance = function()
 	end
 
 
-    CastSpellByName("Starfire");
+    L_CastSpellByName("Starfire");
 
 end

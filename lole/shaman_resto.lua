@@ -82,7 +82,7 @@ combat_shaman_resto = function()
 	if casting_legit_heal() then return end
 
 	if not has_buff("player", "Water Shield") then
-		CastSpellByName("Water Shield");
+		L_CastSpellByName("Water Shield");
 		return;
 	end
 

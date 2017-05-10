@@ -56,11 +56,11 @@ combat_warrior_fury = function()
 	RunMacroText("/cast [nostance:3] Berserker Stance"); -- overall, its probably better to be in zerg stance :D
 
 	if GetSpellCooldown("Bloodrage") == 0 then
-		CastSpellByName("Bloodrage")
+		L_CastSpellByName("Bloodrage")
 	end
 
 	if not has_buff("player", "Battle Shout") then
-		CastSpellByName("Battle Shout");
+		L_CastSpellByName("Battle Shout");
 		return;
 	end
 
@@ -71,12 +71,12 @@ combat_warrior_fury = function()
 
 	local has, timeleft, stacks = has_buff("player", "Rampage")
   if not has_buff("player", "Rampage") or timeleft < 3 then
-    CastSpellByName("Rampage")
+    L_CastSpellByName("Rampage")
     return
   end
 
   if (UnitHealth("target")/UnitHealthMax("target") < 0.20) then
-    CastSpellByName("Execute")
+    L_CastSpellByName("Execute")
     return
   end
 
@@ -86,12 +86,12 @@ combat_warrior_fury = function()
 		cast_if_nocd("Sweeping Strikes");
 		if cast_if_nocd("Whirlwind") then return; end
 		if UnitMana("player") > 65 then
-			CastSpellByName("Cleave")
+			L_CastSpellByName("Cleave")
 		end
 	else
 		if UnitMana("player") > 65 then
 		--if GetTime() - swing_starttime < 1.5 then
-	     CastSpellByName("Heroic Strike")
+	     L_CastSpellByName("Heroic Strike")
 		--end
 		end
 	end
@@ -101,7 +101,7 @@ combat_warrior_fury = function()
 	end
 
 	if not has_debuff("target", "Demoralizing Shout") then
-		CastSpellByName("Demoralizing Shout");
+		L_CastSpellByName("Demoralizing Shout");
 		return;
 	end
 

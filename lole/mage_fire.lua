@@ -3,7 +3,7 @@ local function delrissa()
 	if has_buff("Priestess Delrissa", "Power Word: Shield") or
 	   has_buff("Priestess Delrissa", "Renew") then
 		TargetUnit("Priestess Delrissa")
-		CastSpellByName("Spellsteal")
+		L_CastSpellByName("Spellsteal")
 		return;
 	end
 
@@ -13,7 +13,7 @@ local function delrissa()
 	--caster_range_check(36);
 --	caster_face_target();
 
-	CastSpellByName("Fireball")
+	L_CastSpellByName("Fireball")
 
 
 
@@ -32,11 +32,11 @@ local function MAULGAR_KROSH()
 
 	if (has_buff("target", "Spell Shield")) then
 		SpellStopCasting()
-		CastSpellByName("Spellsteal")
+		L_CastSpellByName("Spellsteal")
 		return true;
 	end
 
-	CastSpellByName("Fireball")
+	L_CastSpellByName("Fireball")
 
 	return true;
 
@@ -49,7 +49,7 @@ combat_mage_fire = function()
 	if player_casting() then return end
 
 	if ((GetItemCount(22044) == 0) and (not UnitAffectingCombat("player"))) then
-		CastSpellByName("Conjure Mana Emerald");
+		L_CastSpellByName("Conjure Mana Emerald");
 		return;
 	end
 
@@ -65,7 +65,7 @@ combat_mage_fire = function()
 
 	if mana < 2500 then
 		if GetSpellCooldown("Evocation") == 0 then
-			CastSpellByName("Evocation");
+			L_CastSpellByName("Evocation");
 		end
 	end
 
@@ -88,18 +88,18 @@ combat_mage_fire = function()
 		local num_stacks = get_num_debuff_stacks("target", "Fire Vulnerability");
 
 		if num_stacks < 5 then
-			CastSpellByName("Scorch");
+			L_CastSpellByName("Scorch");
 			return;
 		end
 
 		local hasdebuff, timeleft = has_debuff("target", "Fire Vulnerability");
 
 		if (hasdebuff and timeleft < 8) then
-			CastSpellByName("Scorch");
+			L_CastSpellByName("Scorch");
 			return;
 		end
 	end
 
-	CastSpellByName("Fireball");
+	L_CastSpellByName("Fireball");
 
 end

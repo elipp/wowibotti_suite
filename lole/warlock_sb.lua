@@ -3,7 +3,7 @@
 local function tap_if_need_to()
 	if UnitMana("player") < 2500 then
 		if UnitHealth("player") > 3500 then
-			CastSpellByName("Life Tap");
+			L_CastSpellByName("Life Tap");
 			return true;
 		end
 	else
@@ -20,14 +20,14 @@ local function vexallus()
 	TargetUnit("Pure Energy")
 
 	if UnitExists("target") and UnitName("target") == "Pure Energy" and not UnitIsDead("target") then
-		CastSpellByName("Searing Pain(Rank 2)")
+		L_CastSpellByName("Searing Pain(Rank 2)")
 		return true;
 	else
 		if UnitCastingInfo("player") then return; end
 		if UnitChannelInfo("player") then return; end
 		TargetUnit("Vexallus")
 
-		CastSpellByName("Drain Life")
+		L_CastSpellByName("Drain Life")
 
 		return true;
 	end
@@ -83,7 +83,7 @@ local function drain_soul_if_needed()
 		end
 
 		if (UnitHealth("target") < HP_threshold) then
-			CastSpellByName("Drain Soul");
+			L_CastSpellByName("Drain Soul");
 			return true;
 		end
 	end
@@ -103,15 +103,15 @@ combat_warlock_sb = function()
 
 	if not UnitAffectingCombat("player") then
 		if (mana < 0.90*maxmana) then
-			CastSpellByName("Life Tap");
+			L_CastSpellByName("Life Tap");
 		end
 	end
 
 	if not has_buff("player", "Touch of Shadow") then
-		CastSpellByName("Demonic Sacrifice")
-		CastSpellByName("Fel Domination")
+		L_CastSpellByName("Demonic Sacrifice")
+		L_CastSpellByName("Fel Domination")
 		if GetTime() - time_from_succubus_summon > 16 then
-			CastSpellByName("Summon Succubus")
+			L_CastSpellByName("Summon Succubus")
 			time_from_succubus_summon = GetTime()
 		end
 	else
@@ -128,7 +128,7 @@ combat_warlock_sb = function()
 		for i=1,16,1 do
 			TargetNearestEnemy();
 			if (UnitExists("target") and not has_debuff_by_self("target", "Seed of Corruption")) then
-				CastSpellByName("Seed of Corruption");
+				L_CastSpellByName("Seed of Corruption");
 				return
 			end
 		end
@@ -137,7 +137,7 @@ combat_warlock_sb = function()
   if drain_soul_if_needed() then return end
 	if cast_assigned_curse() then return end
 
-	CastSpellByName("Shadow Bolt");
+	L_CastSpellByName("Shadow Bolt");
 
 
 end

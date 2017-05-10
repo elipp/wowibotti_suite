@@ -12,6 +12,9 @@ extern int const (*SelectUnit)(GUID_t);
 
 void DoString(const char* format, ...); 
 
+void set_taint_caller_zero();
+void reset_taint_caller();
+
 GUID_t get_raid_target_GUID(int index);
 GUID_t get_raid_target_GUID(const std::string &marker_name);
 

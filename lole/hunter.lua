@@ -34,14 +34,14 @@ local PET_NAME = "MUKOJ"
 combat_hunter = function()
 
     if not UnitExists(PET_NAME) then
-      CastSpellByName("Call Pet")
+      L_CastSpellByName("Call Pet")
     end
 
     PetPassiveMode()
 
     if not UnitAffectingCombat("player") then
       if UnitIsDead(PET_NAME) then
-        CastSpellByName("Revive Pet")
+        L_CastSpellByName("Revive Pet")
         return
       end
 
@@ -59,19 +59,19 @@ combat_hunter = function()
 
     if UnitMana("player") < 800 then
         if not has_buff("player", "Aspect of the Viper") then
-            CastSpellByName("Aspect of the Viper")
+            L_CastSpellByName("Aspect of the Viper")
             return;
         end
     elseif UnitMana("player") > 2500 then
         if not has_buff("player", "Aspect of the Hawk") then
-            CastSpellByName("Aspect of the Hawk")
+            L_CastSpellByName("Aspect of the Hawk")
             return
         end
     end
 
     if not has_buff("pet", "Mend Pet")
     and (UnitHealthMax("pet") - UnitHealth("pet")) > 1000 then
-        CastSpellByName("Mend Pet");
+        L_CastSpellByName("Mend Pet");
         return;
     end
 
@@ -85,9 +85,9 @@ combat_hunter = function()
 
     if GetSpellCooldown("Gore") == 0 then
         if GetSpellCooldown("Bite") == 0 then
-            CastSpellByName("Bite")
+            L_CastSpellByName("Bite")
         else
-            CastSpellByName("Gore")
+            L_CastSpellByName("Gore")
         end
     end
 
@@ -100,12 +100,12 @@ combat_hunter = function()
 
 
     if not has_debuff("target", "Hunter's Mark") then
-        CastSpellByName("Hunter's Mark");
+        L_CastSpellByName("Hunter's Mark");
         return
     end
 
     if not has_debuff("target", "Scorpid Sting") then
-        CastSpellByName("Scorpid Sting");
+        L_CastSpellByName("Scorpid Sting");
         return
     end
 
@@ -113,6 +113,6 @@ combat_hunter = function()
         if cast_if_nocd("Multi Shot") then return end
     end
 
-    CastSpellByName("Steady Shot");
+    L_CastSpellByName("Steady Shot");
 
 end

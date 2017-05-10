@@ -125,7 +125,7 @@ local CC_spells = {
 }
 
 
-local CC_spellnames = { -- in a CastSpellByName-able format
+local CC_spellnames = { -- in a L_CastSpellByName-able format
 	[118] = "Polymorph",
 	[33786] = "Cyclone",
 	[26989] = "Entangling Roots",
@@ -340,7 +340,7 @@ end
 
 function cast_if_nocd(spellname, rank)
 	if GetSpellCooldown(spellname) == 0 then
-		CastSpellByName(spellname);
+		L_CastSpellByName(spellname);
         if INSTANT_HEALS[spellname] or HEAL_ESTIMATES[spellname] or (rank and HEAL_ESTIMATES[spellname.."("..rank..")"]) then
             track_heal_attempts(UnitName("target"));
         end
@@ -518,8 +518,8 @@ function cleanse_party(debuffname)
         end
         if exists and has_debuff(name, debuffname) then
 			TargetUnit(name);
-            CastSpellByName("Cleanse");
-			CastSpellByName("Dispel Magic")
+            L_CastSpellByName("Cleanse");
+			L_CastSpellByName("Dispel Magic")
             return true;
 		end
 	end
@@ -539,8 +539,8 @@ function cleanse_raid(debuffname)
             end
             if exists and has_debuff(name, debuffname) then
                 TargetUnit(name);
-                CastSpellByName("Cleanse");
-                CastSpellByName("Dispel Magic")
+                L_CastSpellByName("Cleanse");
+                L_CastSpellByName("Dispel Magic")
                 return true;
             end
         end
@@ -550,8 +550,8 @@ function cleanse_raid(debuffname)
             local name = UnitName("raid" .. tonumber(i));
             if UnitExists(name) and has_debuff(name, debuffname) then
                 TargetUnit(name);
-                CastSpellByName("Cleanse");
-                CastSpellByName("Dispel Magic")
+                L_CastSpellByName("Cleanse");
+                L_CastSpellByName("Dispel Magic")
                 return true;
             end
         end
@@ -570,8 +570,8 @@ function decurse_party(debuffname)
         end
         if exists and has_debuff(name, debuffname) then
             TargetUnit(name);
-            CastSpellByName("Remove Curse");
-            CastSpellByName("Remove Lesser Curse")
+            L_CastSpellByName("Remove Curse");
+            L_CastSpellByName("Remove Lesser Curse")
             return true;
         end
     end
@@ -671,10 +671,10 @@ function do_CC_jobs()
       local spellname = get_CC_spellname(spellID)
 			a, d = has_debuff("target", spellname)
 			if not a then
-				CastSpellByName(spellname)
+				L_CastSpellByName(spellname)
 				return true;
 			elseif d < 3 then
-				CastSpellByName(spellname)
+				L_CastSpellByName(spellname)
 				return true;
 			end
 		end
@@ -1415,7 +1415,7 @@ function run_override()
                 passes = 0;
             end
         else
-            RunScript(OVERRIDE_COMMAND);
+            L_RunScript(OVERRIDE_COMMAND);
         end
         lole_subcommands.set("playermode", 0);
         OVERRIDE_COMMAND = nil;

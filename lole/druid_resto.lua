@@ -45,11 +45,11 @@ end
 local function raid_heal()
 
     if should_cast_tranquility() then
-        CastSpellByName("Barkskin");
+        L_CastSpellByName("Barkskin");
         do_tranquility = true;
         return true;
     elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
-        CastSpellByName("Barkskin");
+        L_CastSpellByName("Barkskin");
         TargetUnit("player");
         cast_heal("Swiftmend")
         cast_heal("Regrowth");
@@ -112,14 +112,14 @@ combat_druid_resto = function()
     if casting_legit_heal() then return end
 
     if (not has_buff("player", "Tree of Life")) then
-        CastSpellByName("Tree of Life")
+        L_CastSpellByName("Tree of Life")
         return
     end
 
 	local mana_left = UnitMana("player");
 
 	if mana_left < 3000 and GetSpellCooldown("Innervate") == 0 then
-		CastSpellByName("Innervate", "player");
+		L_CastSpellByName("Innervate", "player");
 		return;
 	end
 
@@ -152,7 +152,7 @@ combat_druid_resto = function()
     end
 
     if health_percentage("player") < 30 then
-        CastSpellByName("Barkskin");
+        L_CastSpellByName("Barkskin");
         TargetUnit("player");
         cast_heal("Swiftmend")
         cast_heal("Regrowth");
@@ -193,7 +193,7 @@ combat_druid_resto = function()
     if refresh_rejuvenation(get_assigned_hottargets(UnitName("player"))) then return; end
 
     if should_cast_tranquility() then
-        CastSpellByName("Barkskin");
+        L_CastSpellByName("Barkskin");
         do_tranquility = true;
         return;
     end

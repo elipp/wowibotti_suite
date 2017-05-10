@@ -17,6 +17,19 @@ void DoString(const char* format, ...) {
 	LUA_DoString(cmd, cmd, "");
 }
 
+static const char* taint_caller;
+static const char **taint_addr = (const char**)0xD4139C;
+
+void set_taint_caller_zero() {
+	//PRINT("setting taint target zero (was %s)\n", *taint_addr);
+	taint_caller = *taint_addr;
+	*taint_addr = 0;
+}
+
+void reset_taint_caller() {
+	*taint_addr = taint_caller;
+}
+
 // this __declspec(noinline) thing has got to do with the msvc optimizer.
 // seems like the inline assembly is discarded when this func is inlined, in which case were fucked
 //__declspec(noinline) static void set_facing(float x) {

@@ -48,27 +48,27 @@ if terestian() then return end
 	melee_attack_behind()
 
     if (not has_buff("player", "Omen of Clarity")) then
-        CastSpellByName("Omen of Clarity")
+        L_CastSpellByName("Omen of Clarity")
         return
     end
 
     if (not has_buff("player", "Cat Form")) then
-        CastSpellByName("Cat Form")
+        L_CastSpellByName("Cat Form")
         return
     end
 
     if (not has_debuff("target", "Faerie Fire")) then
-        CastSpellByName("Faerie Fire (Feral)(Rank 5)")
+        L_CastSpellByName("Faerie Fire (Feral)(Rank 5)")
         return
     end
 
     if (not has_debuff("target", "Mangle")) then
-        CastSpellByName("Mangle (Cat)(Rank 3)")
+        L_CastSpellByName("Mangle (Cat)(Rank 3)")
         return
     end
 
     if (GetComboPoints("player", "target") < 5) then
-        CastSpellByName("Shred")
+        L_CastSpellByName("Shred")
         return;
     end
 
@@ -76,7 +76,7 @@ if terestian() then return end
         return
     end
 
-    CastSpellByName("Rip")
+    L_CastSpellByName("Rip")
 
 
 

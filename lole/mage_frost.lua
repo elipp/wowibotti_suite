@@ -4,7 +4,7 @@ combat_mage_frost = function()
   if player_casting() then return end
 
     if ((GetItemCount(22044) == 0) and (not UnitAffectingCombat("player"))) then
-        CastSpellByName("Conjure Mana Emerald");
+        L_CastSpellByName("Conjure Mana Emerald");
         return;
     end
 
@@ -21,7 +21,7 @@ combat_mage_frost = function()
 
     if mana < 2500 then
         if GetSpellCooldown("Evocation") == 0 then
-            CastSpellByName("Evocation");
+            L_CastSpellByName("Evocation");
         end
     end
 
@@ -30,15 +30,15 @@ combat_mage_frost = function()
     caster_range_check(36);
 
     -- if has_buff("target", "Power Word: Shield") then
-    --  CastSpellByName("Spellsteal")
+    --  L_CastSpellByName("Spellsteal")
     --  return
     -- end
     --
     -- if has_buff("target", "Renew") then
-    --  CastSpellByName("Spellsteal")
+    --  L_CastSpellByName("Spellsteal")
     --  return
     -- end
 
-	CastSpellByName("Frostbolt");
+	L_CastSpellByName("Frostbolt");
 
 end

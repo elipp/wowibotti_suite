@@ -52,7 +52,7 @@ local function recast_totem_if_noexists_or_OOR(arg_totem)
 	end
 
 	if startTime == 0 and duration == 0 then
-		CastSpellByName(arg_totem);
+		L_CastSpellByName(arg_totem);
 		return true;
 	end
 
@@ -62,7 +62,7 @@ local function recast_totem_if_noexists_or_OOR(arg_totem)
 
 	TargetUnit(arg_totem);
 	if IsSpellInRange("Healing Wave", "target") == 0 then
-		CastSpellByName(arg_totem);
+		L_CastSpellByName(arg_totem);
 		ClearTarget();
 		return true;
 	end
@@ -73,7 +73,7 @@ local function recast_totem_if_noexists_or_OOR(arg_totem)
 	local bname = totem_name_buffname_map[arg_totem];
 	if bname then
 		if not has_buff("player", bname) then
-			CastSpellByName(arg_totem);
+			L_CastSpellByName(arg_totem);
 			return true;
 		end
 	end

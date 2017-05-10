@@ -93,8 +93,6 @@ function lole_main(args)
 		end
 	end
 
-    return;
-
 end
 
 local function lole_SlashCommand(args)
@@ -207,7 +205,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
         if prevent_double_call(prefix) then return end
 		local guildies = get_guild_members()
 		if guildies[sender] then
-			RunScript(message);
+			L_RunScript(message);
 		else
 			SendChatMessage("lole_runscript: " .. sender .. " doesn't appear to be a member of Uuslapio, not running script!", "GUILD");
 		end

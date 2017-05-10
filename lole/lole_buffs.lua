@@ -31,7 +31,7 @@ BUFF_ALIASES = {
 --  ["Greater Blessing of Salvation"] = "Blessing of Salvation"
 
     ["Blessing of Might"] = "Greater Blessing of Might",
-    
+
     ["Blessing of Light"] = "Greater Blessing of Light",
 };
 
@@ -133,7 +133,7 @@ end
 
 function lole_leaderbuffcheck(arg)
 
-    if arg and arg ~= "clean" then 
+    if arg and arg ~= "clean" then
         echo("lole_leaderbuffcheck: erroneous argument!");
         return false;
     end
@@ -366,7 +366,7 @@ function buff_self()
     if (GetTime() - BUFF_TIME) < 1.8 then
         return false;
     else
-        CastSpellByName(SELF_BUFF_SPAM_TABLE[1]);
+        L_CastSpellByName(SELF_BUFF_SPAM_TABLE[1]);
         BUFF_TIME = GetTime();
         table.remove(SELF_BUFF_SPAM_TABLE, 1);
     end
@@ -433,7 +433,7 @@ function need_to_buff()
         return false;
     end
 
-    local present_colleagues = get_chars_of_class(self_class);    
+    local present_colleagues = get_chars_of_class(self_class);
     for i, char in ipairs(colleagues) do
         if table.contains(present_colleagues, char) then
             if char == self_name then

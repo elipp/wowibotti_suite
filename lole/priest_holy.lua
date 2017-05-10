@@ -173,7 +173,7 @@ combat_priest_holy = function()
 	local mana_left = UnitMana("player");
 
 	if mana_left < 3000 and GetSpellCooldown("Shadowfiend") == 0 and validate_target() then
-		CastSpellByName("Shadowfiend");
+		L_CastSpellByName("Shadowfiend");
 		return;
 	end
 

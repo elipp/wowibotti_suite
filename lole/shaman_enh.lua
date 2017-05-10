@@ -16,7 +16,7 @@ function check_WF()
     --echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
 
     if (not has_mh or not has_oh) then
-        CastSpellByName("Windfury Weapon")
+        L_CastSpellByName("Windfury Weapon")
     end
 
 end
@@ -33,11 +33,11 @@ combat_shaman_enh = function()
 	   melee_attack_behind()
 
     if not has_buff("player", "Water Shield") then
-        CastSpellByName("Water Shield")
+        L_CastSpellByName("Water Shield")
         return
     end
 
-    CastSpellByName("Purge")
+    L_CastSpellByName("Purge")
 
     if cast_if_nocd("Stormstrike") then return end
 
@@ -51,6 +51,6 @@ combat_shaman_enh = function()
         if cast_if_nocd("Earth Shock") then return end;
     end
 
-    CastSpellByName("Purge")
+    L_CastSpellByName("Purge")
 
 end

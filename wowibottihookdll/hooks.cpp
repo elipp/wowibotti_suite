@@ -184,7 +184,7 @@ static BYTE DelIgnore_patch[] = {
 };
 
 static const BYTE ClosePetStables_original[] = {
-	0xE8, 0xBB, 0xFF, 0xFF, 0xFF // CALL 004FAC60. this wouldn't actually even need a trampoline lol
+	0xE8, 0x3B, 0x1E, 0xF3, 0xFF // CALL 004FAC60. this wouldn't actually even need a trampoline lol
 };
 
 static BYTE ClosePetStables_patch[] = {
@@ -330,7 +330,7 @@ static int prepare_ClosePetStables_patch(LPVOID hook_func_addr, hookable &h) {
 
 	static BYTE ClosePetStables_trampoline[] = {
 		// original opcodes from ClosePetStables
-		0xE8, 0x00, 0x00, 0x00, 0x00, // CALL 004FAC60. need to insert address relative to this trampoline 
+		0xE8, 0x00, 0x00, 0x00, 0x00, // CALL 004D3790. need to insert address relative to this trampoline 
 
 		0x68, 0x00, 0x00, 0x00, 0x00, // push return address (ClosePetStables + 5) onto stack for ret
 		0x60, // pushad
@@ -339,7 +339,7 @@ static int prepare_ClosePetStables_patch(LPVOID hook_func_addr, hookable &h) {
 		0xC3 //ret
 	};
 
-	DWORD orig_CALL_target = 0x4FAC60;
+	DWORD orig_CALL_target = 0x4D3790;
 	DWORD CALL_target_offset = ((DWORD)orig_CALL_target - ((DWORD)ClosePetStables_trampoline + 5));
 	memcpy(ClosePetStables_trampoline + 1, &CALL_target_offset, sizeof(CALL_target_offset));
 
@@ -579,14 +579,14 @@ int prepare_patches_and_pipe_data() {
 //	prepare_patch("CTM_update", CTM_finished_hookfunc);
 	prepare_patch("EndScene", EndScene_hook);
 //	prepare_patch("SpellErrMsg", SpellErrMsg_hook);
-//	prepare_patch("ClosePetStables", ClosePetStables_hook);
+	prepare_patch("ClosePetStables", ClosePetStables_hook);
 
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("LUA_prot")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_main")));
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("SpellErrMsg")));
-//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("ClosePetStables")));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("ClosePetStables")));
 
 	return 1;
 }

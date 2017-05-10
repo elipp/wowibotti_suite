@@ -39,14 +39,14 @@ combat_paladin_holy = function()
     if UnitHealth("player") < 2000 then
         if (GetSpellCooldown("Divine Shield") == 0) then
             SpellStopCasting();
-            CastSpellByName("Divine Shield");
+            L_CastSpellByName("Divine Shield");
         end
     end
 
     if casting_legit_heal() then return end
 
 	if mana_percentage("player") < 40 then
-		CastSpellByName("Divine Illumination");
+		L_CastSpellByName("Divine Illumination");
 	end
 
     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
@@ -62,8 +62,8 @@ combat_paladin_holy = function()
     local has, timeleft, stacks = has_buff("player", "Light's Grace");
 
     if target_HPP < 30 then
-        CastSpellByName("Divine Favor");
-        CastSpellByName("Divine Illumination");
+        L_CastSpellByName("Divine Favor");
+        L_CastSpellByName("Divine Illumination");
         cast_heal("Holy Light");
 
     elseif health_percentage("player") < 30 then

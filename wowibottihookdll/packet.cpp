@@ -7,12 +7,21 @@
 static DWORD get_sockobj() {
 	//[0xD4332C + 2198]
 
-	DWORD A = DEREFD(0xD4332C);
-	if (A == 0) {
-		return 0;
-	}
+	//DWORD A = DEREFD(0xD4332C);
+	//if (A == 0) {
+	//	return 0;
+	//}
 
-	return DEREFD(A + 0x2198);
+	//return DEREFD(A + 0x2198);
+
+	DWORD S1;
+	readAddr(0xC79CF4, &S1, sizeof(S1));
+	
+	DWORD sockobj;
+	readAddr(S1 + 0x2E38, &sockobj, sizeof(sockobj));
+
+	return sockobj;
+
 }
 
 SOCKET get_wow_socket_handle() {
@@ -21,17 +30,23 @@ SOCKET get_wow_socket_handle() {
 	DWORD sockobj = get_sockobj();
 	if (!sockobj) return NULL;
 
-	DWORD S = DEREFD(sockobj + 0x4);
+	PRINT("sockobj = 0x%X\n", sockobj);
+
+	SOCKET s;
+	readAddr(sockobj + 0x4, &s, sizeof(s));
 
 //	PRINT("socket = %X\n", S);
 
-	return (SOCKET)S;
+	return s;
 }
 
 int encrypt_packet_header(BYTE* packet) {
 	DWORD sockobj = get_sockobj();
 
 	//PRINT("sockobj = %X\n", sockobj);
+
+	// for WOTLK, the encryption happens at around 0x774FC3
+	// the increment byte is at [sockobj + 0x1C] + 0x100 and 0x101
 
 	for (int i = 0; i < 6; ++i) {
 	

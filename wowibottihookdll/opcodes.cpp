@@ -2,6 +2,7 @@
 
 #include <Windows.h>
 #include <Shlobj.h> // for the function that gets the desktop directory path for current user
+#include <WinSock2.h>
 
 #include "opcodes.h"
 #include "ctm.h"
@@ -64,8 +65,39 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_LOOT_BADGE, 1, 1, 0),
 	 LOPFUNC(LOP_LUA_UNLOCK, 0, 0, 0),
 	 LOPFUNC(LOP_LUA_LOCK, 0, 0, 0),
+	 LOPFUNC(LOP_EXECUTE, 1, 1, 0),
 
 };
+
+
+static int LOP_lua_unlock() {
+
+	static BYTE LUA_prot_patch[] = {
+		0xB8, 0x01, 0x00, 0x00, 0x00, // MOV EAX, 1
+		0xC3						  // RET
+	};
+
+	WriteProcessMemory(glhProcess, (LPVOID)LUA_prot, LUA_prot_patch, 6, NULL);
+
+	set_taint_caller_zero();
+
+	return 1;
+}
+
+static int LOP_lua_lock() {
+	static const BYTE LUA_prot_original[] = {
+		// we're just making an early exit, so nevermind opcode boundaries
+		0x55,
+		0x8B, 0xEC,
+		0x83, 0x3D, 0x9C // this one is cut in the middle
+	};
+
+	WriteProcessMemory(glhProcess, (LPVOID)LUA_prot, LUA_prot_original, 6, NULL);
+
+	reset_taint_caller();
+
+	return 1;
+}
 
 static struct follow_state_t {
 	int close_enough = 1;
@@ -209,7 +241,11 @@ static int LOP_melee_avoid_aoe_buff(long spellID) {
 
 static int LOP_target_GUID(const std::string &arg) {
 	GUID_t GUID = convert_str_to_GUID(arg);
+
+	//PRINT("taint addr: 0x%X, LOP_target_GUID addr: 0x%X\n", &set_taint_caller_zero, &LOP_target_GUID);
+	LOP_lua_unlock();
 	SelectUnit(GUID); // GUID 0 is also valid for this
+	LOP_lua_lock();
 	return 1;
 }
 
@@ -646,30 +682,6 @@ static int LOPEXT_maulgar_get_felhound() {
 	return 0;
 }
 
-static int LOP_lua_unlock() {
-
-	static BYTE LUA_prot_patch[] = {
-		0xB8, 0x01, 0x00, 0x00, 0x00, // MOV EAX, 1
-		0xC3						  // RET
-	};
-
-	WriteProcessMemory(glhProcess, (LPVOID)LUA_prot, LUA_prot_patch, 6, NULL);
-
-	return 1;
-}
-
-static int LOP_lua_lock() {
-	static const BYTE LUA_prot_original[] = {
-		// we're just making an early exit, so nevermind opcode boundaries
-		0x55,
-		0x8B, 0xEC,
-		0x83, 0x3D, 0x9C // this one is cut in the middle
-	};
-
-	WriteProcessMemory(glhProcess, (LPVOID)LUA_prot, LUA_prot_original, 6, NULL);
-
-	return 1;
-}
 
 static int LOP_tank_face() {
 	ObjectManager OM;
@@ -813,6 +825,10 @@ static int LOP_get_unit_position(const std::string &name, vec3 *pos_out, double 
 }
 
 static int LOPDBG_test() {
+
+	SOCKET s = get_wow_socket_handle();
+	PRINT("send address: %X, socket = %X\n", &send, s);
+
 	ObjectManager OM;
 
 	WowObject i = OM.get_first_object();
@@ -950,6 +966,14 @@ int LOP_loot_badge(const std::string &GUID_str) {
 
 }
 
+static int LOP_execute(const std::string &arg) {
+	LOP_lua_unlock();
+	DoString("%s", arg.c_str());
+	LOP_lua_lock();
+
+	return 1;
+}
+
 int lop_exec(lua_State *L) {
 
 	// NOTE: the return value of this function --> number of values returned to caller in LUA
@@ -995,6 +1019,10 @@ int lop_exec(lua_State *L) {
 		LOP_lua_lock();
 		break;
 	
+	case LOP_EXECUTE:
+		LOP_execute(lua_tolstring(L, 2, &len));
+		break;
+
 	case LOP_TARGET_GUID:
 		LOP_target_GUID(lua_tolstring(L, 2, &len));
 		break;
