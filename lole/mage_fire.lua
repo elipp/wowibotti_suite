@@ -76,22 +76,24 @@ combat_mage_fire = function()
 		--	return
 	--end
 
-	local talent_name, _, tier, column, talent_rank, _, _, _ = GetTalentInfo(2, 10); -- improved scorch
+--	local name, iconPath, tier, column, currentRank, maxRank = GetTalentInfo(2, 11); -- improved scorch
 
-	if talent_rank == 3 then
-		local num_stacks = get_num_debuff_stacks("target", "Fire Vulnerability");
+	local hs, ts = has_debuff("target", "Improved Scorch");
 
-		if num_stacks < 5 then
-			L_CastSpellByName("Scorch");
+	if ((not hs) or (hs and ts < 8)) then
+		L_CastSpellByName("Scorch");
+		return;
+	end
+
+	local hl, tl = has_debuff("target", "Living Bomb")
+
+	if not hl then
+			L_CastSpellByName("Living Bomb")
 			return;
-		end
+	end
 
-		local hasdebuff, timeleft = has_debuff("target", "Fire Vulnerability");
-
-		if (hasdebuff and timeleft < 8) then
-			L_CastSpellByName("Scorch");
-			return;
-		end
+	if has_buff("player", "Hot Streak") then
+		L_CastSpellByName("Pyroblast")
 	end
 
 	L_CastSpellByName("Frostfire Bolt");
