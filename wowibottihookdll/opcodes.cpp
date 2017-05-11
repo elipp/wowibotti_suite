@@ -99,6 +99,15 @@ static int LOP_lua_lock() {
 	return 1;
 }
 
+static int LOP_execute(const std::string &arg) {
+	LOP_lua_unlock();
+	DoString("%s", arg.c_str());
+	LOP_lua_lock();
+
+	return 1;
+}
+
+
 static struct follow_state_t {
 	int close_enough = 1;
 	Timer timer;
@@ -188,7 +197,7 @@ static int LOP_melee_behind() {
 		return 1;
 	}
 	else {
-		DoString("StartAttack()");
+		LOP_execute("StartAttack()");
 		float d = dot(prot_unit, trot_unit);
 
 		 if (d < 0.6) { 
@@ -243,9 +252,19 @@ static int LOP_target_GUID(const std::string &arg) {
 	GUID_t GUID = convert_str_to_GUID(arg);
 
 	//PRINT("taint addr: 0x%X, LOP_target_GUID addr: 0x%X\n", &set_taint_caller_zero, &LOP_target_GUID);
-	LOP_lua_unlock();
-	SelectUnit(GUID); // GUID 0 is also valid for this
-	LOP_lua_lock();
+	//LOP_lua_unlock(); // not very elegant, but there is no LUA handle for SelectUnit
+	//SelectUnit(GUID); // GUID 0 is also valid for this
+
+	GUID_t *GUID_addr1 = (GUID_t*)0xBD07B0;
+	GUID_t *GUID_addr2 = (GUID_t*)0xBD07C0;
+
+	*GUID_addr1 = GUID;
+	*GUID_addr2 = GUID;
+
+
+	// 0081B530 is the function that gives the taint error message
+	//LOP_lua_lock();
+
 	return 1;
 }
 
@@ -966,13 +985,6 @@ int LOP_loot_badge(const std::string &GUID_str) {
 
 }
 
-static int LOP_execute(const std::string &arg) {
-	LOP_lua_unlock();
-	DoString("%s", arg.c_str());
-	LOP_lua_lock();
-
-	return 1;
-}
 
 int lop_exec(lua_State *L) {
 
