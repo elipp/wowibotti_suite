@@ -66,6 +66,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_LUA_UNLOCK, 0, 0, 0),
 	 LOPFUNC(LOP_LUA_LOCK, 0, 0, 0),
 	 LOPFUNC(LOP_EXECUTE, 1, 1, 0),
+	 LOPFUNC(LOP_FOCUS, 1, 1, 0),
 
 };
 
@@ -251,21 +252,27 @@ static int LOP_melee_avoid_aoe_buff(long spellID) {
 static int LOP_target_GUID(const std::string &arg) {
 	GUID_t GUID = convert_str_to_GUID(arg);
 
-	//PRINT("taint addr: 0x%X, LOP_target_GUID addr: 0x%X\n", &set_taint_caller_zero, &LOP_target_GUID);
-	//LOP_lua_unlock(); // not very elegant, but there is no LUA handle for SelectUnit
-	//SelectUnit(GUID); // GUID 0 is also valid for this
-
-	GUID_t *GUID_addr1 = (GUID_t*)0xBD07B0;
-	GUID_t *GUID_addr2 = (GUID_t*)0xBD07C0;
+	static GUID_t * const GUID_addr1 = (GUID_t*)0xBD07B0;
+	static GUID_t * const GUID_addr2 = (GUID_t*)0xBD07C0;
 
 	*GUID_addr1 = GUID;
 	*GUID_addr2 = GUID;
 
 
 	// 0081B530 is the function that gives the taint error message
-	//LOP_lua_lock();
 
 	return 1;
+}
+
+static int LOP_focus(const std::string &arg) {
+	GUID_t GUID = convert_str_to_GUID(arg);
+
+	static GUID_t * const FOCUS_GUID = (GUID_t*)0xBD07D0;
+
+	*FOCUS_GUID = GUID;
+
+	return 1;
+
 }
 
 static int LOP_range_check(double minrange) {
@@ -1037,6 +1044,10 @@ int lop_exec(lua_State *L) {
 
 	case LOP_TARGET_GUID:
 		LOP_target_GUID(lua_tolstring(L, 2, &len));
+		break;
+
+	case LOP_FOCUS:
+		LOP_focus(lua_tolstring(L, 2, &len));
 		break;
 
 	case LOP_CASTER_RANGE_CHECK: {

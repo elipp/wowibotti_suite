@@ -15,7 +15,7 @@ local function vexallus()
 
 	caster_range_check(30);
 
-	TargetUnit("Pure Energy")
+	L_TargetUnit("Pure Energy")
 
 	if UnitExists("target") and UnitName("target") == "Pure Energy" and not UnitIsDead("target") then
 		L_CastSpellByName("Searing Pain(Rank 2)")
@@ -23,7 +23,7 @@ local function vexallus()
 	else
 		if UnitCastingInfo("player") then return; end
 		if UnitChannelInfo("player") then return; end
-		TargetUnit("Vexallus")
+		L_TargetUnit("Vexallus")
 
 		L_CastSpellByName("Drain Life")
 

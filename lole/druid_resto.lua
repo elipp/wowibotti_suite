@@ -50,7 +50,7 @@ local function raid_heal()
         return true;
     elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
         L_CastSpellByName("Barkskin");
-        TargetUnit("player");
+        L_TargetUnit("player");
         cast_heal("Swiftmend")
         cast_heal("Regrowth");
         return true;
@@ -153,7 +153,7 @@ combat_druid_resto = function()
 
     if health_percentage("player") < 30 then
         L_CastSpellByName("Barkskin");
-        TargetUnit("player");
+        L_TargetUnit("player");
         cast_heal("Swiftmend")
         cast_heal("Regrowth");
         return;
@@ -204,7 +204,7 @@ combat_druid_resto = function()
     end
 
     if health_percentage("player") < 50 then
-        TargetUnit("player");
+        L_TargetUnit("player");
         if (not has_buff("target", "Rejuvenation")) then
             cast_heal("Rejuvenation");
             return;

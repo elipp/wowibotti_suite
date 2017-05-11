@@ -358,7 +358,7 @@ end
 
 function cast_heal(spellname, target, range)
     if range == nil then range = 35; end
-    if target then TargetUnit(target); end
+    if target then L_TargetUnit(target); end
     if spellname ~= "Prayer of Healing" then
         caster_range_check(range);
     end
@@ -517,7 +517,7 @@ function cleanse_party(debuffname)
             exists = GetPartyMember(i)
         end
         if exists and has_debuff(name, debuffname) then
-			TargetUnit(name);
+			L_TargetUnit(name);
             L_CastSpellByName("Cleanse");
 			L_CastSpellByName("Dispel Magic")
             return true;
@@ -538,7 +538,7 @@ function cleanse_raid(debuffname)
                 exists = GetPartyMember(i)
             end
             if exists and has_debuff(name, debuffname) then
-                TargetUnit(name);
+                L_TargetUnit(name);
                 L_CastSpellByName("Cleanse");
                 L_CastSpellByName("Dispel Magic")
                 return true;
@@ -549,7 +549,7 @@ function cleanse_raid(debuffname)
             local exists = true;
             local name = UnitName("raid" .. tonumber(i));
             if UnitExists(name) and has_debuff(name, debuffname) then
-                TargetUnit(name);
+                L_TargetUnit(name);
                 L_CastSpellByName("Cleanse");
                 L_CastSpellByName("Dispel Magic")
                 return true;
@@ -569,7 +569,7 @@ function decurse_party(debuffname)
             exists = GetPartyMember(i)
         end
         if exists and has_debuff(name, debuffname) then
-            TargetUnit(name);
+            L_TargetUnit(name);
             L_CastSpellByName("Remove Curse");
             L_CastSpellByName("Remove Lesser Curse")
             return true;
@@ -686,20 +686,14 @@ end
 
 function validate_target()
 
+
 	if BLAST_TARGET_GUID ~= NOTARGET and UnitExists("focus") and BLAST_TARGET_GUID == UnitGUID("focus") then
 		if not UnitIsDead("focus") then
-			if get_current_config().general_role == "MELEE" then
-				if UnitName("focus") == "Krosh Firehand" then
-					AssistUnit("Gawk")
-					return true;
-				end
-			end
-
 			if has_debuff("focus", "Polymorph") or has_debuff("focus", "Shackle") then
 			 	return false;
 			end
 
-			TargetUnit("focus");
+			L_target_focus();
 			return true;
 		else
 			clear_target()

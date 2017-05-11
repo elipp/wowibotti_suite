@@ -59,7 +59,7 @@ function lole_main(args)
 
 		if not playermode() then
             if UnitExists("focus") and UnitIsDead("focus") then
-				ClearFocus()
+				L_clear_focus()
 			end
 
             if has_aggro() then

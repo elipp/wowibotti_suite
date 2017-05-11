@@ -2,7 +2,7 @@ local function delrissa()
 
 	if has_buff("Priestess Delrissa", "Power Word: Shield") or
 	   has_buff("Priestess Delrissa", "Renew") then
-		TargetUnit("Priestess Delrissa")
+		L_TargetUnit("Priestess Delrissa")
 		L_CastSpellByName("Spellsteal")
 		return;
 	end
@@ -24,7 +24,7 @@ local function MAULGAR_KROSH()
 		return false
 	end
 
-	TargetUnit("Krosh Firehand")
+	L_TargetUnit("Krosh Firehand")
 
 	if UnitIsDead("target") then return false end
 
@@ -45,23 +45,22 @@ end
 
 combat_mage_fire = function()
 
-	if MAULGAR_KROSH() then return end
 	if player_casting() then return end
 
-	if ((GetItemCount(22044) == 0) and (not UnitAffectingCombat("player"))) then
-		L_CastSpellByName("Conjure Mana Emerald");
+	if ((GetItemCount(33312) == 0) and (not UnitAffectingCombat("player"))) then
+		L_CastSpellByName("Conjure Mana Gem");
 		return;
 	end
 
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
 
-	if mana < (maxmana - 2500) then
-		if (GetItemCount(22044) > 0) and (GetItemCooldown(22044) == 0) then
-			UseItemByName("Mana Emerald");
-			return;
-		end
-	end
+	-- if mana < (maxmana - 2500) then
+	-- 	if (GetItemCount(33312) > 0) and (GetItemCooldown(33312) == 0) then
+	-- 		UseItemByName("Mana Sapphire");
+	-- 		return;
+	-- 	end
+	-- end
 
 	if mana < 2500 then
 		if GetSpellCooldown("Evocation") == 0 then
@@ -69,18 +68,13 @@ combat_mage_fire = function()
 		end
 	end
 
-
 	if not validate_target() then return end
 	caster_range_check(36);
 
-	--if UnitCastingInfo("target") or UnitChannelingInfo("target") then
-		--if cast_if_nocd("Counterspell") then return end
---	end
-
-	if lole_subcommands.get("aoemode") == 1 then
-			lole_subcommands.cast_gtaoe("Flamestrike", get_unit_position("target"))
-			return
-	end
+	--if lole_subcommands.get("aoemode") == 1 then
+		--	lole_subcommands.cast_gtaoe("Flamestrike", get_unit_position("target"))
+		--	return
+	--end
 
 	local talent_name, _, tier, column, talent_rank, _, _, _ = GetTalentInfo(2, 10); -- improved scorch
 
@@ -100,6 +94,6 @@ combat_mage_fire = function()
 		end
 	end
 
-	L_CastSpellByName("Fireball");
+	L_CastSpellByName("Frostfire Bolt");
 
 end

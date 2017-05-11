@@ -103,9 +103,9 @@ end
 local function raid_heal(has_single_targets)
     local target, urgencies = get_raid_heal_target(true);
     if target then
-        TargetUnit(target);
+        L_TargetUnit(target);
     else
-        TargetUnit("player");
+        L_TargetUnit("player");
     end
 
     local target_HPP = health_percentage("target");
@@ -118,7 +118,7 @@ local function raid_heal(has_single_targets)
     end
 
     if health_percentage("player") < 30 then
-        TargetUnit("player");
+        L_TargetUnit("player");
         cast_heal("Power Word: Shield");
         cast_heal("Flash Heal");
         return true
@@ -137,7 +137,7 @@ local function raid_heal(has_single_targets)
 
     local coh_target = get_CoH_target(urgencies);
     if coh_target then
-        TargetUnit(coh_target);
+        L_TargetUnit(coh_target);
         cast_heal("Circle of Healing");
     elseif refresh_healbuffs(get_assigned_hottargets(UnitName("player"))) then
     elseif target_HPP < 50 then
@@ -183,7 +183,7 @@ combat_priest_holy = function()
         return;
     end
 
-    TargetUnit(heal_targets[1]);
+    L_TargetUnit(heal_targets[1]);
 
 
   local target_HPP = health_percentage("target")
@@ -199,7 +199,7 @@ combat_priest_holy = function()
 		cast_heal("Greater Heal");
 
   elseif health_percentage("player") < 30 then
-        TargetUnit("player");
+        L_TargetUnit("player");
         cast_heal("Power Word: Shield");
         cast_heal("Flash Heal");
 

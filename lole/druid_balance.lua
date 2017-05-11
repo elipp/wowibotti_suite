@@ -9,7 +9,7 @@ combat_druid_balance = function()
 
 	--if decurse_party("Curse of the Shattered Hand") then return; end
 
-    TargetUnit("Kiggler the Crazed");
+    L_TargetUnit("Kiggler the Crazed");
     if UnitExists("target") and not UnitIsDead("target") then
     else
         if not validate_target() then return end

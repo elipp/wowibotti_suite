@@ -7,7 +7,7 @@ local function refresh_ES(hottargets)
     if not UnitExists(targetname) or not UnitIsConnected(targetname) or UnitIsDead(targetname) or has_buff(targetname, "Spirit of Redemption") or UNREACHABLE_TARGETS[targetname] > GetTime() then return false end
 
 	if not has_buff(targetname, "Earth Shield") then
-		TargetUnit(targetname)
+		L_TargetUnit(targetname)
 		cast_heal("Earth Shield");
 		return true;
 	end
@@ -48,14 +48,14 @@ end
 local function raid_heal()
 
     if (UnitHealth("player") < UnitHealthMax("player")*0.30) then
-        TargetUnit("player");
+        L_TargetUnit("player");
         cast_heal("Lesser Healing Wave");
     else
         local target, bounce1, bounce2 = get_CH_target_trio(get_serialized_heals());
         if not target then
             return false;
         else
-            TargetUnit(target);
+            L_TargetUnit(target);
             if not bounce1 then
                 local deficit = get_HP_deficits(false, true)[target];
                 if deficit < 2500 then
@@ -99,7 +99,7 @@ combat_shaman_resto = function()
         return;
     end
 
-    TargetUnit(heal_targets[1]);
+    L_TargetUnit(heal_targets[1]);
 
 		local target_HPP = health_percentage("target")
 
@@ -107,14 +107,14 @@ combat_shaman_resto = function()
         cast_heal("Lesser Healing Wave");
 
 		elseif health_percentage("player") < 30 then
-        TargetUnit("player");
+        L_TargetUnit("player");
         cast_heal("Lesser Healing Wave");
 
 	  elseif target_HPP < 70 then
         cast_heal("Healing Wave");
 
 	  elseif health_percentage("player") < 50 then
-        TargetUnit("player");
+        L_TargetUnit("player");
         cast_heal("Healing Wave");
 
 	  elseif table.contains(heal_targets, "raid") then

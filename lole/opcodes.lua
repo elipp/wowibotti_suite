@@ -26,6 +26,7 @@ local LOP_LOOT_BADGE = 0x18
 local LOP_LUA_UNLOCK = 0x19
 local LOP_LUA_LOCK = 0x1A
 local LOP_EXECUTE = 0x1B
+local LOP_FOCUS = 0x1C
 
 local LOP_EXT_NOP = 0x70
 local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x71
@@ -237,7 +238,11 @@ function execute_script(script)
 end
 
 function L_TargetUnit(name)
-	execute_script("TargetUnit(\"name\")")
+	execute_script("TargetUnit(\"" .. name .. "\")")
+end
+
+function L_ClearTarget()
+	lop_exec(LOP_TARGET_GUID, "0x0000000000000000")
 end
 
 function L_CastSpellByName(spellname)
@@ -246,4 +251,16 @@ end
 
 function L_RunScript(script)
 	execute_script(script)
+end
+
+function L_focus_target()
+	lop_exec(LOP_FOCUS, UnitGUID("target"))
+end
+
+function L_clear_focus()
+	lop_exec(LOP_FOCUS, "0x0000000000000000")
+end
+
+function L_target_focus()
+	lop_exec(LOP_TARGET_GUID, UnitGUID("focus"))
 end

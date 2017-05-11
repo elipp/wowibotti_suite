@@ -1,16 +1,16 @@
 local function raid_heal()
     local target = get_raid_heal_target();
     if target then
-        TargetUnit(target);
+        L_TargetUnit(target);
     else
-        TargetUnit("player");
+        L_TargetUnit("player");
     end
 
     local target_HPP = health_percentage("target")
     local has, timeleft, stacks = has_buff("player", "Light's Grace");
 
     if health_percentage("player") < 30 then
-        TargetUnit("player");
+        L_TargetUnit("player");
         cast_heal("Holy Light");
 
     elseif target_HPP < 50 then
@@ -55,7 +55,7 @@ combat_paladin_holy = function()
         return;
     end
 
-    TargetUnit(heal_targets[1]);
+    L_TargetUnit(heal_targets[1]);
 
     local target_HPP = health_percentage("target")
 
@@ -67,14 +67,14 @@ combat_paladin_holy = function()
         cast_heal("Holy Light");
 
     elseif health_percentage("player") < 30 then
-        TargetUnit("player");
+        L_TargetUnit("player");
         cast_heal("Holy Light");
 
     elseif target_HPP < 70 then
         cast_heal("Holy Light");
 
     elseif health_percentage("player") < 50 then
-        TargetUnit("player");
+        L_TargetUnit("player");
         cast_heal("Holy Light");
 
     elseif target_HPP < 90 then

@@ -60,15 +60,15 @@ local function recast_totem_if_noexists_or_OOR(arg_totem)
 
 	local cur_target = UnitName("target");
 
-	TargetUnit(arg_totem);
+	L_TargetUnit(arg_totem);
 	if IsSpellInRange("Healing Wave", "target") == 0 then
 		L_CastSpellByName(arg_totem);
-		ClearTarget();
+		L_ClearTarget();
 		return true;
 	end
  -- too bad shamans don't have a 30yd heal
 
-	ClearTarget()
+	L_ClearTarget()
 
 	local bname = totem_name_buffname_map[arg_totem];
 	if bname then

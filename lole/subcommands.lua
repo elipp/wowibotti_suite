@@ -137,9 +137,7 @@ local function lole_followme()
 end
 
 local function lole_follow(name)
-
-if not name then return end
-
+	if not name then return end
 	if not playermode() then
 		follow_unit(name)
 	end
@@ -472,14 +470,14 @@ end
 function set_target(target_GUID)
 	BLAST_TARGET_GUID = target_GUID;
 	target_unit_with_GUID(target_GUID); -- this does a C SelectUnit call :P
-	--FocusUnit("target")
+	L_focus_target()
 	update_target_text(UnitName("target"), UnitGUID("target"));
 end
 
 function clear_target()
 	BLAST_TARGET_GUID = NOTARGET;
-	ClearFocus();
-	ClearTarget();
+	L_clear_focus()
+	L_ClearTarget();
 	update_target_text("-none-", "");
 end
 
