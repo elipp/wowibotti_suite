@@ -73,8 +73,6 @@ static void __stdcall EndScene_hook() {
 		half_second.reset();
 	}
 
-	return;
-
 	ctm_handle_delayed_posthook();
 	ctm_update_prevpos();
 	ctm_abort_if_not_moving();
@@ -94,8 +92,6 @@ static void __stdcall EndScene_hook() {
 
 		fifty_ms.reset();
 	}
-
-
 
 
 }
