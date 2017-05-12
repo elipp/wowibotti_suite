@@ -253,6 +253,26 @@ function L_RunScript(script)
 	execute_script(script)
 end
 
+function L_PetAttack()
+	execute_script("PetAttack()")
+end
+
+function L_PetFollow()
+	execute_script("PetFollow()")
+end
+
+function L_PetPassiveMode()
+	execute_script("PetPassiveMode()")
+end
+
+function L_RunMacroText(text)
+	execute_script("RunMacroText(\"" .. text .. "\")")
+end
+
+function L_RunMacro(macroname)
+	execute_script("RunMacro(\"" .. macroname .. "\")")
+end
+
 function L_focus_target()
 	lop_exec(LOP_FOCUS, UnitGUID("target"))
 end

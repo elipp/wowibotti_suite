@@ -55,12 +55,12 @@ combat_mage_fire = function()
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
 
-	-- if mana < (maxmana - 2500) then
-	-- 	if (GetItemCount(33312) > 0) and (GetItemCooldown(33312) == 0) then
-	-- 		UseItemByName("Mana Sapphire");
-	-- 		return;
-	-- 	end
-	-- end
+	if mana < (maxmana - 2500) then
+		if (GetItemCount(33312) > 0) and (GetItemCooldown(33312) == 0) then
+			UseItemByName("Mana Sapphire");
+			return;
+		end
+	end
 
 	if mana < 2500 then
 		if GetSpellCooldown("Evocation") == 0 then

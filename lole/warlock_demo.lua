@@ -63,6 +63,15 @@ end
 local time_from_pet_summon = 0
 
 combat_warlock_demo = function()
+
+
+      if not GetWeaponEnchantInfo() then
+        if GetItemCount(41196) > 0 then
+          L_RunMacro("spellstone")
+        end
+      end
+
+
     if player_casting() then return end
 
     local mana = UnitMana("player");
@@ -72,7 +81,16 @@ combat_warlock_demo = function()
         if (mana < 0.90*maxmana) then
             L_CastSpellByName("Life Tap");
         end
+        L_PetPassiveMode()
+        L_PetFollow()
+
+        if (GetItemCount(41196) == 0) then
+          L_CastSpellByName("Create Spellstone");
+          return;
+        end
     end
+
+
 
     if not has_buff("player", "Master Demonologist") then
         L_CastSpellByName("Fel Domination")
@@ -85,6 +103,10 @@ combat_warlock_demo = function()
     end
 
     if not validate_target() then return end
+
+    if UnitAffectingCombat("player") then
+      L_PetAttack()
+    end
 
     caster_range_check(30);
 
