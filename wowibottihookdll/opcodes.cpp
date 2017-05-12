@@ -198,7 +198,7 @@ static int LOP_melee_behind() {
 		return 1;
 	}
 	else {
-		LOP_execute("StartAttack()");
+		LOP_execute("RunMacroText(\"/startattack\")");
 		float d = dot(prot_unit, trot_unit);
 
 		 if (d < 0.6) { 
