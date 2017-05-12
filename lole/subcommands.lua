@@ -55,6 +55,9 @@ local available_configs = {
 	warlock_affli =
 	class_config_create("warlock_affli", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_affli, {}, ROLES.caster, "RANGED", survive_warlock_affli),
 
+    warlock_demo =
+    class_config_create("warlock_demo", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_demo, {}, ROLES.caster, "RANGED", survive_warlock_demo),
+
 	warlock_sb =
 	class_config_create("warlock_sb", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_sb, {}, ROLES.caster, "RANGED", survive_warlock_sb),
 
