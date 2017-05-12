@@ -32,10 +32,10 @@ combat_death_knight_uh = function()
         L_CastSpellByName("Icy Touch");
     elseif not has_debuff_by_self("target", "Blood Plague") then 
         L_CastSpellByName("Plague Strike");
-    elseif blood_rdy == 1 then
-        L_CastSpellByName("Blood Strike");
-    elseif unholy_rdy == 1 and frost_rdy == 1 then
+    elseif unholy_rdy == true and frost_rdy == true then
         L_CastSpellByName("Scourge Strike");
+    elseif blood_rdy == true then
+        L_CastSpellByName("Blood Strike");
     else
         L_CastSpellByName("Death Coil");
     end
