@@ -70,6 +70,7 @@ ROLES = { healer = 1, caster = 2, warrior_tank = 3, paladin_tank = 4, melee = 5,
 -- http://wowwiki.wikia.com/wiki/Class_colors
 
 local CLASS_COLORS = {
+    death_knight = "C41F3B",
 	druid = "FF7D0A",
 	hunter = "ABD473",
 	mage = "69CCF0",
