@@ -65,13 +65,6 @@ local time_from_pet_summon = 0
 combat_warlock_demo = function()
 
 
-      if not GetWeaponEnchantInfo() then
-        if GetItemCount(41196) > 0 then
-          L_RunMacro("spellstone")
-        end
-      end
-
-
     if player_casting() then return end
 
     local mana = UnitMana("player");
@@ -88,6 +81,13 @@ combat_warlock_demo = function()
           L_CastSpellByName("Create Spellstone");
           return;
         end
+
+        if not GetWeaponEnchantInfo() then
+          if GetItemCount(41196) > 0 then
+            L_RunMacro("spellstone")
+          end
+        end
+
     end
 
 
