@@ -582,7 +582,7 @@ end
 function has_debuff(targetname, debuff_name)
 	local fnd = nil;
 	local timeleft = nil;
-	for i=1,16,1 do name, rank, icon, count, debuffType, duration, expirationTime = UnitDebuff(targetname,i)
+	for i=1,40,1 do name, rank, icon, count, debuffType, duration, expirationTime = UnitDebuff(targetname,i)
 		if (name ~= nil and string.find(name, debuff_name)) then
 			fnd=true;
       timeleft = expirationTime
@@ -594,7 +594,7 @@ end
 
 function has_debuff_by_self(targetname, debuff_name)
 
-	for i=1,16,1 do name, rank, icon, count, debuffType, duration, expirationTime = UnitDebuff(targetname,i)
+	for i=1,40,1 do name, rank, icon, count, debuffType, duration, expirationTime = UnitDebuff(targetname,i)
 		if (name ~= nil and string.find(name, debuff_name)) then
 			if duration then	-- in this version of the wow lua api, duration and timeleft == nil for debuffs cast by others
 				return true;
@@ -605,9 +605,22 @@ function has_debuff_by_self(targetname, debuff_name)
 	return false;
 end
 
+function get_self_debuff_expiration(targetname, debuff_name)
+
+    for i=1,40,1 do name, rank, icon, count, debuffType, duration, expirationTime = UnitDebuff(targetname,i)
+        if (name ~= nil and string.find(name, debuff_name)) then
+            if duration then    -- in this version of the wow lua api, duration and timeleft == nil for debuffs cast by others
+                return expirationTime;
+            end
+        end
+    end
+
+    return nil;
+end
+
 function get_num_debuff_stacks(targetname, debuff_name)
 
-	for i=1,16,1 do name, _, _, count, _, _, timeleft = UnitDebuff(targetname, i)
+	for i=1,40,1 do name, _, _, count, _, _, timeleft = UnitDebuff(targetname, i)
 		if (name ~= nil and string.find(name, debuff_name)) then
 			return count, timeleft;
 		end
@@ -622,7 +635,7 @@ function has_buff(targetname, buff_name)
 	local fnd = nil;
 	local timeleft = nil;
 	local stacks = nil;
-	for i=1,16,1 do name, rank, icon, count, debuffType, duration, expirationTime = UnitBuff(targetname, i)
+	for i=1,60,1 do name, rank, icon, count, debuffType, duration, expirationTime = UnitBuff(targetname, i)
 		if(name ~= nil and string.find(name, buff_name)) then
 			fnd=true;
       timeleft = expirationTime;
@@ -637,7 +650,7 @@ end
 function has_debuff_of_type(targetname, typename)
 	local fnd = false;
 
-	for i=1,16,1 do _, _, _, _, debuffType, timeleft = UnitDebuff(targetname,i)
+	for i=1,40,1 do _, _, _, _, debuffType, timeleft = UnitDebuff(targetname,i)
 		if(debuffType ~= nil and string.find(debuffType, typename)) then
 			fnd = true;
 			break;
