@@ -293,7 +293,7 @@ uint WowObject::unit_get_health_max() const {
 
 GUID_t WowObject::NPC_get_target_GUID() const {
 	GUID_t target_GUID;
-	readAddr(base + 0xF08, &target_GUID, sizeof(target_GUID));
+	readAddr(base + 0xA20, &target_GUID, sizeof(target_GUID));
 	return target_GUID;
 }
 

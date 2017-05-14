@@ -867,7 +867,7 @@ static int LOPDBG_test() {
 		}
 		else if (i.get_type() == OBJECT_TYPE_NPC) {
 			vec3 pos = i.get_pos();
-			PRINT("name: %s, (%f, %f, %f), %f\n", i.NPC_get_name().c_str(), pos.x, pos.y, pos.z, i.get_rot());
+			PRINT("name: %s, (%f, %f, %f), %f, 0x%llX\n", i.NPC_get_name().c_str(), pos.x, pos.y, pos.z, i.get_rot(), i.NPC_get_target_GUID());
 		}
 
 		i = i.next();
