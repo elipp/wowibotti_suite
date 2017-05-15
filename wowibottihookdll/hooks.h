@@ -32,4 +32,6 @@ struct pipe_data {
 	}
 };
 
+void esscript_add(const std::string &script);
+
 extern pipe_data PIPEDATA;

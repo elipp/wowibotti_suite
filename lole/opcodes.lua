@@ -27,6 +27,7 @@ local LOP_LUA_UNLOCK = 0x19
 local LOP_LUA_LOCK = 0x1A
 local LOP_EXECUTE = 0x1B
 local LOP_FOCUS = 0x1C
+local LOP_GET_COMBAT_TARGETS = 0x1D
 
 local LOP_EXT_NOP = 0x70
 local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x71
@@ -231,6 +232,10 @@ end
 
 function noclip()
 	lop_exec(LDOP_NOCLIP)
+end
+
+function get_combat_targets()
+	return lop_exec(LOP_GET_COMBAT_TARGETS)
 end
 
 function execute_script(script)

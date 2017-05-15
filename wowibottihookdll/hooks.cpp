@@ -1,3 +1,4 @@
+#include <queue>
 #include "hooks.h"
 #include "addrs.h"
 #include "defs.h"
@@ -11,6 +12,21 @@ static HRESULT(*EndScene)(void);
 pipe_data PIPEDATA;
 
 const UINT32 PIPE_PROTOCOL_MAGIC = 0xAB30DD13;
+
+static std::queue<std::string> esscripts;
+
+void esscript_add(const std::string &script) {
+	esscripts.push(script);
+}
+
+static void esscript_execute() {
+	while (!esscripts.empty()) {
+		const std::string &s = esscripts.front();
+		DoString(s.c_str());
+		esscripts.pop();
+	}
+}
+
 
 static void register_luafunc_if_not_registered() {
 	if (!lua_registered) {
@@ -61,6 +77,7 @@ static void update_debug_positions() {
 static void __stdcall EndScene_hook() {
 	register_luafunc_if_not_registered();
 
+	esscript_execute();
 
 	static timer_interval_t fifty_ms(50);
 	static timer_interval_t half_second(500);
@@ -125,6 +142,8 @@ static void __stdcall CTM_finished_hookfunc() {
 	CTM_t *c = ctm_get_current_action();
 	if (!c) { return; }
 	
+	PRINT("called CTM_finished with ID = %ld\n", c->ID);
+
 	c->handle_posthook();
 }
 
