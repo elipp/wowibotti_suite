@@ -1,3 +1,7 @@
+function survive_death_knight_uh()
+
+end
+
 combat_death_knight_uh = function()
 
     if not validate_target() then return; end

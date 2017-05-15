@@ -15,6 +15,7 @@ void DoString(const char* format, ...) {
 	va_end(args);
 
 	LUA_DoString(cmd, cmd, "");
+	PRINT("(DoString: executed script \"%s\")\n", cmd);
 }
 
 static const char* taint_caller;

@@ -337,7 +337,7 @@ static int LOP_follow_unit(const std::string& targetname) {
 
 	if ((t.get_pos() - p.get_pos()).length() < 10) {
 		PRINT("follow difference < 10! calling WOWAPI FollowUnit()\n");
-		DoString("FollowUnit(\"%s\")", t.unit_get_name().c_str());
+		LOP_execute("FollowUnit(\"" + t.unit_get_name() + "\")");
 		follow_state.clear();
 		ctm_queue_reset();
 		return 1;
