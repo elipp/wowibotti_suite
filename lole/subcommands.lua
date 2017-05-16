@@ -508,6 +508,10 @@ local function lole_target_GUID(GUID)
 
 end
 
+local function lole_target()
+    update_target();
+end
+
 local function lole_cc(state, marker, spellID)
 
 		if (state == "enable") then
@@ -989,6 +993,7 @@ lole_subcommands = {
 	follow = lole_follow,
 	stopfollow = lole_stopfollow,
 	target = lole_target_GUID,
+    tar = lole_target,
 	sendscript = lole_sendscript,
 	ss = lole_sendscript,
 	sendmacro = lole_sendmacro,
