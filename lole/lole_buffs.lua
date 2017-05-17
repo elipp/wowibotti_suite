@@ -148,9 +148,10 @@ function lole_buffcheck(arg, verbose)
 
     local buffname_timeleft_map = {}
 
-    for i=1,32 do local name, rank, icon, count, debuffType, duration, timeleft = UnitAura("player", i) -- |HARMFUL|PASSIVE"); -- not needed really
+    for i=1,60 do local name, rank, icon, count, debuffType, duration, expirationTime = UnitAura("player", i) -- |HARMFUL|PASSIVE"); -- not needed really
         if name then
-            if duration == 0 and timeleft == 0 then
+            local timeleft = expirationTime - GetTime();
+            if duration == 0 then
                 timeleft = 1000;
             end
             buffname_timeleft_map[name] = timeleft;
