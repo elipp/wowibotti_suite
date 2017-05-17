@@ -28,15 +28,18 @@ function get_desired_buffs(role)
         --"Shadow Protection",
     };
 
+    -- These must have exactly three blessings at indices 1-3. Yes. :D
     local caster_buffs = {
         "Blessing of Kings",
         "Blessing of Wisdom",
+        "Blessing of Sanctuary",
         "Arcane Intellect",
     };
 
     local healer_buffs = {
         "Blessing of Kings",
         "Blessing of Wisdom",
+        "Blessing of Sanctuary",
         "Arcane Intellect",
     };
 
@@ -58,6 +61,7 @@ function get_desired_buffs(role)
     local melee_buffs = {
         "Blessing of Kings",
         "Blessing of Might",
+        "Blessing of Sanctuary",
     }
 
     local mana_melee_buffs = {
