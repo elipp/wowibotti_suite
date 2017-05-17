@@ -6,14 +6,9 @@ BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 OVERRIDE_COMMAND = nil;
 
-HEALERS = {"Ceucho", "Kusip", "Kasio", "Mam", "Igop", "Pehmware"}; -- for keeping order mostly
+HEALERS = {"Printf"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
-    Ceucho = {heals = {"Adieux", "Noctur", "raid"}, hots = {}, ignores = {}},
-    Kusip = {heals = {"Adieux", "Noctur", "raid"}, hots = {}, ignores = {}},
-    Kasio = {heals = {"raid"}, hots = {"Adieux"}, ignores = {}},
-    Mam = {heals = {"raid"}, hots = {"Noctur"}, ignores = {}},
-    Igop = {heals = {"raid"}, hots = {"Adieux"}, ignores = {}},
-    Pehmware = {heals = {"raid"}, hots = {"Noctur"}, ignores = {}}
+    Printf = {heals = {"Rektorn", "raid",}, hots = {}, ignores = {}},
 }
 ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
 HEALS_IN_PROGRESS = {};
@@ -34,23 +29,18 @@ POH_TARGETS = {};
 POINT_DEFICITS_EQUAL = 0.5;
 
 HEAL_ESTIMATES = {
-    ["Flash of Light(Rank 7)"] = 1400,
-    ["Holy Light(Rank 11)"] = 4300,
-    ["Holy Light(Rank 5)"] = 1300,
-    ["Holy Light(Rank 1)"] = 200,
-    ["Lesser Healing Wave(Rank 7)"] = 2200,
-    ["Healing Wave(Rank 12)"] = 4600,
-    ["Healing Wave(Rank 9)"] = 3500,
-    ["Healing Wave(Rank 7)"] = 2300,
-    ["Chain Heal(Rank 5)"] = 3200,
-    ["Chain Heal(Rank 4)"] = 2700,
-    ["Regrowth(Rank 10)"] = 3200, -- a few ticks included
-    ["Healing Touch(Rank 13)"] = 5300,
-    ["Flash Heal(Rank 9)"] = 2300,
-    ["Greater Heal(Rank 7)"] = 5000,
-    ["Greater Heal(Rank 1)"] = 3000,
-    ["Prayer of Healing(Rank 6)"] = 2300,
-    ["Binding Heal(Rank 1)"] = 2000,
+    ["Flash of Light"] = 2800,
+    ["Holy Light"] = 8600,
+    ["Lesser Healing Wave"] = 4400,
+    ["Healing Wave"] = 9200,
+    ["Chain Heal"] = 4600,
+    ["Regrowth"] = 6400, -- a few ticks included
+    ["Healing Touch"] = 10600,
+    ["Nourish"] = 5000,
+    ["Flash Heal"] = 4600,
+    ["Greater Heal"] = 10000,
+    ["Prayer of Healing"] = 4600,
+    ["Binding Heal"] = 4000,
 }
 
 INSTANT_HEALS = {
@@ -63,6 +53,7 @@ INSTANT_HEALS = {
     ["Lifebloom"] = true,
     ["Rejuvenation"] = true,
     ["Swiftmend"] = true,
+    ["Wild Growth"] = true,
 }
 
 ROLES = { healer = 1, caster = 2, warrior_tank = 3, paladin_tank = 4, melee = 5, mana_melee = 6 }
