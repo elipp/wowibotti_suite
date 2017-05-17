@@ -243,7 +243,7 @@ function execute_script(script)
 end
 
 function L_TargetUnit(name)
-	execute_script("TargetUnit(\"" .. name .. "\")")
+    lop_exec(LOP_TARGET_GUID, UnitGUID(name))
 end
 
 function L_ClearTarget()

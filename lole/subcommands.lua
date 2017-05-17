@@ -293,12 +293,12 @@ local function do_buffs(missing_buffs)
     		    local paladins = get_chars_of_class("Paladin");
     		    if #paladins == 1 then
     		        buffs["Greater Blessing of Kings"] = missing_buffs["Blessing of Kings"];
-    	            buffs["Greater Blessing of Salvation"] = missing_buffs["Blessing of Salvation"];
+    	            buffs["Greater Blessing of Sanctuary"] = missing_buffs["Blessing of Sanctuary"];
     	            buffs["Greater Blessing of Wisdom"] = missing_buffs["Blessing of Wisdom"];
     	            buffs["Greater Blessing of Might"] = missing_buffs["Blessing of Might"];
                 elseif #paladins == 2 then
                     if config_name == "paladin_holy" or (config_name == "paladin_retri" and table.contains(paladins, "Adieux")) then
-                        buffs["Greater Blessing of Salvation"] = missing_buffs["Blessing of Salvation"];
+                        buffs["Greater Blessing of Sanctuary"] = missing_buffs["Blessing of Sanctuary"];
                         buffs["Greater Blessing of Wisdom"] = missing_buffs["Blessing of Wisdom"];
                         buffs["Greater Blessing of Might"] = missing_buffs["Blessing of Might"];
         	        else
@@ -306,10 +306,9 @@ local function do_buffs(missing_buffs)
         	        end
                 elseif #paladins == 3 then
                     if config_name == "paladin_prot" then
-                        buffs["Greater Blessing of Kings"] = missing_buffs["Blessing of Kings"];
+                        buffs["Greater Blessing of Sanctuary"] = missing_buffs["Blessing of Sanctuary"];
                     elseif config_name == "paladin_retri" then
-                        buffs["Greater Blessing of Salvation"] = missing_buffs["Blessing of Salvation"];
-                        buffs["Greater Blessing of Light"] = missing_buffs["Blessing of Light"];
+                        buffs["Greater Blessing of Kings"] = missing_buffs["Blessing of Kings"];
                     else
                         buffs["Greater Blessing of Wisdom"] = missing_buffs["Blessing of Wisdom"];
                         buffs["Greater Blessing of Might"] = missing_buffs["Blessing of Might"];
@@ -359,7 +358,8 @@ local function do_buffs(missing_buffs)
             return false;
         else
             local char, buff = next(SPAM_TABLE[1]);
-            L_CastSpellByName(buff, char);
+            L_TargetUnit(char);
+            L_CastSpellByName(buff);
             BUFF_TIME = GetTime();
             table.remove(SPAM_TABLE, 1);
         end
