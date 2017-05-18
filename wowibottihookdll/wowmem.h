@@ -15,6 +15,9 @@ void DoString(const char* format, ...);
 void set_taint_caller_zero();
 void reset_taint_caller();
 
+BYTE get_spellcast_counter();
+void increment_spellcast_counter();
+
 GUID_t get_raid_target_GUID(int index);
 GUID_t get_raid_target_GUID(const std::string &marker_name);
 

@@ -33,3 +33,13 @@ struct pipe_data {
 };
 
 extern pipe_data PIPEDATA;
+
+struct patchbuffer_t {
+	BYTE bytes[128];
+	size_t length;
+	void add_relative_offset(DWORD offset);
+	patchbuffer_t() {
+		DWORD oldprotect;
+		VirtualProtect((LPVOID)bytes, sizeof(bytes), PAGE_EXECUTE_READWRITE, &oldprotect);
+	}
+};

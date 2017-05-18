@@ -851,6 +851,10 @@ local function lole_noclip()
 	noclip()
 end
 
+local function lole_cast_spell(spellID_str)
+	cast_spell_packet(tonumber(spellID_str))
+end
+
 local function lole_execute(...)
 
 	local arg_concatd = select(1, ...)
@@ -1016,5 +1020,7 @@ lole_subcommands = {
 	noclip = lole_noclip,
 	getbiscuit = lole_getbiscuit,
 	loot_badge = lole_loot_badge,
+
+	cast_spell = lole_cast_spell;
 
 }

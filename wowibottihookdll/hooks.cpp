@@ -12,6 +12,37 @@ pipe_data PIPEDATA;
 
 const UINT32 PIPE_PROTOCOL_MAGIC = 0xAB30DD13;
 
+template <typename T> void operator+= (patchbuffer_t &p, const T& arg) {
+	int size = sizeof(arg);
+	BYTE buf[16];
+	memcpy(buf, &arg, size);
+
+	//for (int i = 0; i < 24; ++i) {
+	//	PRINT("%02X ", p.bytes[i]);
+	//}
+	//PRINT("\n(before)\n");
+
+	for (int i = 0; i < size; ++i) {
+		p.bytes[p.length] = buf[i];
+		++p.length;
+	}
+	
+	//for (int i = 0; i < 24; ++i) {
+	//	PRINT("%02X ", p.bytes[i]);
+	//}
+	//PRINT("\n(after)\n\n");
+
+}
+
+void patchbuffer_t::add_relative_offset(DWORD offset) {
+	
+	DWORD jump = offset - ((DWORD)bytes + length) - 4;
+	PRINT("offset: %X, length: %ld, jump: 0x%X\n", offset, length, jump);
+	(*this) += jump;
+
+}
+
+
 static void register_luafunc_if_not_registered() {
 	if (!lua_registered) {
 		register_lop_exec();
@@ -94,6 +125,41 @@ static void __stdcall EndScene_hook() {
 	}
 
 
+}
+
+static void __stdcall dump_packet(BYTE *packet) {
+
+	enum {
+		CMSG_CAST_SPELL = 0x12E,
+		CMSG_SET_SELECTION = 0x13D,
+	};
+
+	DWORD length = (DWORD)(packet[0]) << 8;
+	length += packet[1] + 2; // +2 for the length bytes themselves (not included apparently)
+
+	DWORD opcode;
+	memcpy(&opcode, &packet[2], 4);
+	//PRINT("packet length: total: %d (actual data size without header: %d), opcode: 0x%X\n", length, length - 6, opcode);
+
+
+	if (opcode == CMSG_CAST_SPELL) {
+
+		BYTE cast_count = packet[6];
+		DWORD spellID;
+		memcpy(&spellID, &packet[7], 4);
+		BYTE flags = packet[11];
+		PRINT("got CMSG_SPELL_CAST. packet length: %d, spellID = %d, cast_count = %d, flags = 0x%X\n raw dump:\n", length, spellID, cast_count, flags);
+		for (int i = 0; i < length; ++i) {
+			PRINT("%02X ", packet[i]);
+		}
+		PRINT("\n\n");
+	}
+	else {
+		//for (int i = 6; i < length; ++i) {
+		//	PRINT("%02X ", packet[i]);
+		//}
+		//PRINT("\n\n");
+	}
 }
 
 static void __stdcall ClosePetStables_hook() {
@@ -219,6 +285,14 @@ static const BYTE spell_errmsg_original[] = {
 
 static BYTE spell_errmsg_patch[] = {
 	0xE9, 0x00, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90
+};
+
+static const BYTE sendpacket_original[] = {
+	0xE8, 0x3D, 0xEE, 0xFF, 0xFF
+};
+
+static BYTE sendpacket_patch[] = {
+	0xE9, 0x00, 0x00, 0x00, 0x00
 };
 
 static int prepare_LUA_prot_patch(LPVOID hook_func_addr, hookable &h) {
@@ -532,15 +606,58 @@ static int prepare_spell_errmsg_patch(LPVOID hook_func_addr, hookable &h) {
 	return 1;
 }
 
+static int prepare_sendpacket_patch(LPVOID hook_func_addr, hookable &h) {
+	
+	static BYTE sendpacket_trampoline[] = {
+		0x68, 0x00, 0x00, 0x00, 0x00, // push return address (0x467773) onto stack for ret
+		0x60, // pushad
+		0xE8, 0x00, 0x00, 0x00, 0x00, // call own function
+		0x61, // popad
+		
+		0xE8, 0x00, 0x00, 0x00, 0x00, // CALL 0x4665B0. need to insert address relative to this trampoline 
+		0xC3 //ret
+	};
+
+	static patchbuffer_t tr;
+	
+	PRINT("dump_packet offset: 0x%X, trampoline: 0x%X\n", dump_packet, tr.bytes);
+
+	DWORD retaddr = 0x467773;
+	DWORD encrypt = 0x4665B0;
+
+	tr += (BYTE)0x60; // PUSHAD
+
+	tr += (BYTE)0x52; // push EDX (the packet address)
+
+	tr += (BYTE)0xE8; // call dump_packet
+	tr.add_relative_offset((DWORD)dump_packet);
+
+	tr += (BYTE)0x61; // POPAD
+
+	tr += (BYTE)0xE8; // CALL encrypt
+	tr.add_relative_offset(encrypt);
+	
+	tr += (BYTE)0x68; // push RET addr
+	tr += retaddr;
+	tr += (BYTE)0xC3;
+
+	DWORD trampoline_relative = (DWORD)tr.bytes - Packet_hookaddr - 5;
+	memcpy(sendpacket_patch+1, &trampoline_relative, 4);
+
+	return 1;
+
+}
+
 static hookable hookable_functions[] = {
-	{ "LUA_prot", (LPVOID)LUA_prot, LUA_prot_original, LUA_prot_patch, sizeof(LUA_prot_original), prepare_LUA_prot_patch},
-	{ "EndScene", 0x0, EndScene_original, EndScene_patch, sizeof(EndScene_original), prepare_EndScene_patch},
+	{ "LUA_prot", (LPVOID)LUA_prot, LUA_prot_original, LUA_prot_patch, sizeof(LUA_prot_original), prepare_LUA_prot_patch },
+	{ "EndScene", 0x0, EndScene_original, EndScene_patch, sizeof(EndScene_original), prepare_EndScene_patch },
 	{ "DelIgnore", (LPVOID)DelIgnore_hookaddr, DelIgnore_original, DelIgnore_patch, sizeof(DelIgnore_original), prepare_DelIgnore_patch },
 	{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, sizeof(ClosePetStables_original), prepare_ClosePetStables_patch },
-	{ "CTM_aux", (LPVOID)CTM_aux, CTM_aux_original, CTM_aux_patch, sizeof(CTM_aux_original), prepare_CTM_aux_patch},
-	{ "CTM_main", (LPVOID)CTM_main, CTM_main_original, CTM_main_patch, sizeof(CTM_main_original), prepare_CTM_main_patch},
-	{ "CTM_update", (LPVOID)CTM_update_hookaddr, CTM_finished_original, CTM_finished_patch, sizeof(CTM_finished_original), prepare_CTM_finished_patch},
-	{ "SpellErrMsg", (LPVOID)SpellErrMsg, spell_errmsg_original, spell_errmsg_patch, sizeof(spell_errmsg_original), prepare_spell_errmsg_patch}
+	{ "CTM_aux", (LPVOID)CTM_aux, CTM_aux_original, CTM_aux_patch, sizeof(CTM_aux_original), prepare_CTM_aux_patch },
+	{ "CTM_main", (LPVOID)CTM_main, CTM_main_original, CTM_main_patch, sizeof(CTM_main_original), prepare_CTM_main_patch },
+	{ "CTM_update", (LPVOID)CTM_update_hookaddr, CTM_finished_original, CTM_finished_patch, sizeof(CTM_finished_original), prepare_CTM_finished_patch },
+	{ "SpellErrMsg", (LPVOID)SpellErrMsg, spell_errmsg_original, spell_errmsg_patch, sizeof(spell_errmsg_original), prepare_spell_errmsg_patch },
+	{ "packet_encrypt", (LPVOID)Packet_hookaddr, sendpacket_original, sendpacket_patch, sizeof(sendpacket_original), prepare_sendpacket_patch },
 };
 
 static hookable *find_hookable(const std::string &funcname) {
@@ -576,6 +693,7 @@ int prepare_patches_and_pipe_data() {
 	prepare_patch("EndScene", EndScene_hook);
 //	prepare_patch("SpellErrMsg", SpellErrMsg_hook);
 	prepare_patch("ClosePetStables", ClosePetStables_hook);
+	prepare_patch("packet_encrypt", dump_packet);
 
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("LUA_prot")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
@@ -583,6 +701,7 @@ int prepare_patches_and_pipe_data() {
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("SpellErrMsg")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("ClosePetStables")));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("packet_encrypt")));
 
 	return 1;
 }

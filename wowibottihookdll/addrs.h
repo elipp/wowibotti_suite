@@ -6,6 +6,9 @@
 #define LUA_prot 0x5191C0
 #define DelIgnore 0x5BA4B0
 #define DelIgnore_hookaddr (DelIgnore + 0x11)
+#define Packet_hookaddr 0x46776E
+
+
 //#define ClosePetStables 0x4FACA0 // TBC
 #define ClosePetStables 0x005A1950 
 #define CTM_main 0x612A90

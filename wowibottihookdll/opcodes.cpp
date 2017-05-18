@@ -67,6 +67,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_LUA_LOCK, 0, 0, 0),
 	 LOPFUNC(LOP_EXECUTE, 1, 1, 0),
 	 LOPFUNC(LOP_FOCUS, 1, 1, 0),
+	 LOPFUNC(LOP_CAST_SPELL, 2, 2, 0),
 
 };
 
@@ -930,27 +931,96 @@ void disable_noclip() {
 	noclip_enabled = 0;
 }
 
-void LOP_cast_gtaoe(int spellID, const vec3 &coords) {
+static void dump_packet(BYTE *packet, size_t len) {
+	for (int i = 0; i < len; ++i) {
+		PRINT("%02X ", packet[i]);
+	}
+
+	PRINT("\n");
+}
+
+void LOP_cast_gtaoe(DWORD spellID, const vec3 &coords) {
 	
-	BYTE sockbuf[] = {
-		0x00, 0x19, 0x2E, 0x01, 0x00, 0x00, // HEADER
-		0xAA, 0xBB, 0xCC, 0xDD, 0x00, 0x40, 0x00, 0x00, 0x00,
-		// ^^^^^^^^^^^^^^^^^^^^^^ - SPELLID
+	BYTE sockbuf[29] = {
+		0x00, 0x1B, 0x2E, 0x01, 0x00, 0x00, // HEADER
+		0xFF, // CAST COUNT
+		0xAA, 0xBB, 0xCC, 0xDD, // SPELLID
+		0x00, 0x40, // FLAGS
+
+		0x00, 0x00, 0x00, 0x00,
+
 		0xA1, 0xA2, 0xA3, 0xA4, // x:float	
 		0xB1, 0xB2, 0xB3, 0xB4, // y:float
 		0xC1, 0xC2, 0xC3, 0xC4	// z:float
 	};
 
+	sockbuf[6] = get_spellcast_counter();
+	increment_spellcast_counter();
 
-	memcpy(sockbuf + 6, &spellID, sizeof(spellID));
-	memcpy(sockbuf + 15, &coords.x, sizeof(float));
-	memcpy(sockbuf + 19, &coords.y, sizeof(float));
-	memcpy(sockbuf + 23, &coords.z, sizeof(float));
+	memcpy(sockbuf + 7, &spellID, sizeof(spellID));
+	memcpy(sockbuf + 17, &coords.x, sizeof(float));
+	memcpy(sockbuf + 21, &coords.y, sizeof(float));
+	memcpy(sockbuf + 25, &coords.z, sizeof(float));
+
+	dump_packet(sockbuf, sizeof(sockbuf));
 
 	encrypt_packet_header(sockbuf);
 
+	dump_packet(sockbuf, sizeof(sockbuf));
+
+
 	SOCKET s = get_wow_socket_handle();
 	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+}
+
+static void LOP_cast_spell(DWORD spellID, GUID_t g) {
+	BYTE sockbuf[] = {
+		0x00, 0x00, // packet length
+		0x2E, 0x01, 0x00, 0x00, // opcode
+		0xFF, // CAST COUNT
+		0xAA, 0xBB, 0xCC, 0xDD, // SPELLID
+		0x00, 0x02,
+		0x00, 0x00, 0x00,
+		0xFF, // guid mask
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF // PACKED GUID of TARGET (max len 8 ofc)
+	};
+
+	sockbuf[6] = get_spellcast_counter();
+	increment_spellcast_counter();
+
+	BYTE gpack[8+1]; // the first byte is for the mask :P
+	memset(gpack, 0, 9);
+	
+	int gi = 0;
+	for (int i = 0; i < 8; ++i) {
+		if (g & 0xFF) {
+			gpack[0] |= BYTE(1 << i);
+			gpack[gi+1] = g & 0xFF;
+			++gi;
+		}
+		g >>= 8;
+	}
+	
+	PRINT("mask: %02X, target GUID (packed): ", gpack[0]);
+	for (int i = 1; i < gi+1; ++i) {
+		PRINT("%02X ", gpack[i]);
+	}
+
+	BYTE packet_len = 16 + (gi + 1) - 2; // -2 for the length bytes themselves O_O
+	sockbuf[1] = packet_len;
+
+	memcpy(sockbuf + 7, &spellID, 4);
+	memcpy(sockbuf + 16, gpack, gi + 1);
+
+	PRINT("\n");
+
+	dump_packet(sockbuf, packet_len + 2);
+	
+	encrypt_packet_header(sockbuf);
+	dump_packet(sockbuf, sizeof(sockbuf));
+
+	SOCKET s = get_wow_socket_handle();
+	send(s, (const char*)sockbuf, packet_len + 2, 0);
 }
 
 static void get_biscuits(void *noarg) {
@@ -1182,6 +1252,11 @@ int lop_exec(lua_State *L) {
 
 		break;
 	}
+
+	case LOP_CAST_SPELL: 
+		LOP_cast_spell(lua_tointeger(L, 2), convert_str_to_GUID(lua_tolstring(L, 3, &len)));
+		break;
+
 	case LOP_HAS_AGGRO: 
 		if (have_aggro()) {
 			lua_pushboolean(L, 1);

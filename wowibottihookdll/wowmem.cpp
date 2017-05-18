@@ -30,6 +30,16 @@ void reset_taint_caller() {
 	*taint_addr = taint_caller;
 }
 
+static BYTE *const spellcast_counter = (BYTE*)0xD397D5;
+
+BYTE get_spellcast_counter() {
+	return *spellcast_counter;
+}
+
+void increment_spellcast_counter() {
+	++*spellcast_counter;
+}
+
 // this __declspec(noinline) thing has got to do with the msvc optimizer.
 // seems like the inline assembly is discarded when this func is inlined, in which case were fucked
 //__declspec(noinline) static void set_facing(float x) {
