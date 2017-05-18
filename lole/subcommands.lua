@@ -378,16 +378,10 @@ local function lole_drink()
 	if UnitPowerType("player") == 0 then -- 0 for mana
 
 		if UnitMana("player")/UnitManaMax("player") < 0.90 or UnitHealth("player")/UnitHealthMax("player") < 0.75 then
-			if GetItemCount(34062) > 0 then
-				UseItemByName("Conjured Manna Biscuit");
-
-			elseif GetItemCount(27860) > 0 then
-				UseItemByName("Purified Draenic Water");
-
-			elseif GetItemCount(32453) > 0 then
-				UseItemByName("Star's Tears");
-			elseif GetItemCount(22018) > 0 then
-				UseItemByName("Conjured Glacier Water");
+            if GetItemCount(43523) > 0 then
+                UseItemByName("Conjured Mana Strudel");
+			elseif GetItemCount(33445) > 0 then
+				UseItemByName("Honeymint Tea");
 			else
 				SendChatMessage("I'm out of mana drinks! Giev plx.", "GUILD")
 			end
