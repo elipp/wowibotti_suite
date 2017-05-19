@@ -13,7 +13,7 @@ pipe_data PIPEDATA;
 
 const UINT32 PIPE_PROTOCOL_MAGIC = 0xAB30DD13;
 
-template <typename T> void operator+= (patchbuffer_t &p, const T& arg) {
+template <typename T> patchbuffer_t &patchbuffer_t::operator << (const T& arg) {
 	int size = sizeof(arg);
 	BYTE buf[16];
 	memcpy(buf, &arg, size);
@@ -24,22 +24,32 @@ template <typename T> void operator+= (patchbuffer_t &p, const T& arg) {
 	//PRINT("\n(before)\n");
 
 	for (int i = 0; i < size; ++i) {
-		p.bytes[p.length] = buf[i];
-		++p.length;
+		bytes[length] = buf[i];
+		++length;
 	}
-	
+
 	//for (int i = 0; i < 24; ++i) {
 	//	PRINT("%02X ", p.bytes[i]);
 	//}
 	//PRINT("\n(after)\n\n");
 
+	return (*this);
 }
 
-void patchbuffer_t::add_relative_offset(DWORD offset) {
-	
+
+void patchbuffer_t::append_relative_offset(DWORD offset) {
+
 	DWORD jump = offset - ((DWORD)bytes + length) - 4;
-	PRINT("offset: %X, length: %ld, jump: 0x%X\n", offset, length, jump);
-	(*this) += jump;
+	//PRINT("offset: %X, length: %ld, jump: 0x%X\n", offset, length, jump);
+	(*this) << jump;
+
+}
+
+void patchbuffer_t::append_CALL(DWORD funcaddr) {
+	(*this) << (BYTE)0xE8;
+	append_relative_offset(funcaddr);
+}
+
 
 static std::queue<std::string> esscripts;
 
@@ -639,21 +649,17 @@ static int prepare_sendpacket_patch(LPVOID hook_func_addr, hookable &h) {
 	DWORD retaddr = 0x467773;
 	DWORD encrypt = 0x4665B0;
 
-	tr += (BYTE)0x60; // PUSHAD
+	tr << (BYTE)0x60 // PUSHAD
+	   << (BYTE)0x52; // push EDX (the packet address)
 
-	tr += (BYTE)0x52; // push EDX (the packet address)
+	tr.append_CALL((DWORD)dump_packet);
+	tr << (BYTE)0x61; // POPAD
 
-	tr += (BYTE)0xE8; // call dump_packet
-	tr.add_relative_offset((DWORD)dump_packet);
-
-	tr += (BYTE)0x61; // POPAD
-
-	tr += (BYTE)0xE8; // CALL encrypt
-	tr.add_relative_offset(encrypt);
+	tr.append_CALL(encrypt);
 	
-	tr += (BYTE)0x68; // push RET addr
-	tr += retaddr;
-	tr += (BYTE)0xC3;
+	tr << (BYTE)0x68 << retaddr; // push RET addr
+	
+	tr << (BYTE)0xC3; // RET
 
 	DWORD trampoline_relative = (DWORD)tr.bytes - Packet_hookaddr - 5;
 	memcpy(sendpacket_patch+1, &trampoline_relative, 4);

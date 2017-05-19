@@ -37,12 +37,17 @@ extern pipe_data PIPEDATA;
 struct patchbuffer_t {
 	BYTE bytes[128];
 	size_t length;
-	void add_relative_offset(DWORD offset);
+	void append_relative_offset(DWORD offset);
+	void append_CALL(DWORD funcaddr);
 	patchbuffer_t() {
 		DWORD oldprotect;
 		VirtualProtect((LPVOID)bytes, sizeof(bytes), PAGE_EXECUTE_READWRITE, &oldprotect);
 	}
+
+	template <typename T> patchbuffer_t &operator << (const T& arg);
+
 };
+
 
 
 extern pipe_data PIPEDATA;
