@@ -8,31 +8,14 @@ LBUFFCHECK_ISSUED = false;
 
 BUFF_ALIASES = {
     ["Arcane Intellect"] = "Arcane Brilliance",
---  ["Arcane Brilliance"] = "Arcane Intellect",
-
     ["Mark of the Wild"] = "Gift of the Wild",
---  ["Gift of the Wild"] = "Mark of the Wild",
-
     ["Power Word: Fortitude"] = "Prayer of Fortitude",
---  ["Prayer of Fortitude"] = "Power Word: Fortitude",
-
     ["Divine Spirit"] = "Prayer of Spirit",
---  ["Prayer of Spirit"] = "Divine Spirit",
-
     ["Shadow Protection"] = "Prayer of Shadow Protection",
-
     ["Blessing of Kings"] = "Greater Blessing of Kings",
---  ["Greater Blessing of Kings"] = "Blessing of Kings",
-
     ["Blessing of Wisdom"] = "Greater Blessing of Wisdom",
---  ["Greater Blessing of Wisdom"] = "Blessing of Wisdom",
-
-    ["Blessing of Salvation"] = "Greater Blessing of Salvation",
---  ["Greater Blessing of Salvation"] = "Blessing of Salvation"
-
+    ["Blessing of Sanctuary"] = "Greater Blessing of Sanctuary",
     ["Blessing of Might"] = "Greater Blessing of Might",
-
-    ["Blessing of Light"] = "Greater Blessing of Light",
 };
 
 function get_desired_buffs(role)
@@ -45,45 +28,46 @@ function get_desired_buffs(role)
         --"Shadow Protection",
     };
 
+    -- These must have exactly three blessings at indices 1-3. Yes. :D
     local caster_buffs = {
-        "Blessing of Salvation",
         "Blessing of Kings",
         "Blessing of Wisdom",
+        "Blessing of Sanctuary",
         "Arcane Intellect",
     };
 
     local healer_buffs = {
         "Blessing of Kings",
         "Blessing of Wisdom",
-        "Blessing of Salvation",
+        "Blessing of Sanctuary",
         "Arcane Intellect",
     };
 
 	local warrior_tank_buffs = {
-		"Blessing of Kings",
+		"Blessing of Sanctuary",
+        "Blessing of Kings",
         "Blessing of Might",
-        "Blessing of Light",
         "Thorns"
 	}
 
     local paladin_tank_buffs = {
+        "Blessing of Sanctuary",
         "Blessing of Kings",
-        "Blessing of Wisdom",
-        "Blessing of Light",
+        "Blessing of Might",
         "Arcane Intellect",
         "Thorns"
     }
 
     local melee_buffs = {
-        "Blessing of Salvation",
         "Blessing of Kings",
         "Blessing of Might",
+        "Blessing of Sanctuary",
     }
 
     local mana_melee_buffs = {
-        "Blessing of Salvation",
         "Blessing of Kings",
         "Blessing of Might",
+        "Blessing of Wisdom",
         "Arcane Intellect"
     }
 
@@ -164,9 +148,10 @@ function lole_buffcheck(arg, verbose)
 
     local buffname_timeleft_map = {}
 
-    for i=1,32 do local name, rank, icon, count, debuffType, duration, timeleft = UnitAura("player", i) -- |HARMFUL|PASSIVE"); -- not needed really
+    for i=1,60 do local name, rank, icon, count, debuffType, duration, expirationTime = UnitAura("player", i) -- |HARMFUL|PASSIVE"); -- not needed really
         if name then
-            if duration == 0 and timeleft == 0 then
+            local timeleft = expirationTime - GetTime();
+            if duration == 0 then
                 timeleft = 1000;
             end
             buffname_timeleft_map[name] = timeleft;
@@ -308,11 +293,10 @@ end
 function get_paladin_spam_table(buffs, num_requests)
 
     local buff_order = {
-        [1] = "Greater Blessing of Salvation",
+        [1] = "Greater Blessing of Sanctuary",
         [2] = "Greater Blessing of Kings",
         [3] = "Greater Blessing of Wisdom",
         [4] = "Greater Blessing of Might",
-        [5] = "Greater Blessing of Light",
     };
 
     local spam_table = {};
@@ -422,11 +406,11 @@ function need_to_buff()
     if self_class == "Paladin" or get_current_config().name == "priest_holy_ds" then
         return true;
     elseif self_class == "Druid" then
-        colleagues = {"Kusip", "Gawk", "Teline"};
+        colleagues = {"Printf"};
     elseif self_class == "Mage" then
-        colleagues = {"Dissona", "Consona"};
+        colleagues = {"Eino"};
     elseif self_class == "Priest" then
-        colleagues = {"Kasio", "Bogomips", "Pussu", "Mam"}; -- The one with Divine Spirit should be last.
+        colleagues = {}; -- The one with Divine Spirit should be last.
     else
         return false;
     end

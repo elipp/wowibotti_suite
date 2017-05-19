@@ -119,7 +119,8 @@ combat_druid_resto = function()
 	local mana_left = UnitMana("player");
 
 	if mana_left < 3000 and GetSpellCooldown("Innervate") == 0 then
-		L_CastSpellByName("Innervate", "player");
+        L_TargetUnit("player");
+		L_CastSpellByName("Innervate");
 		return;
 	end
 

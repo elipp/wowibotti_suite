@@ -9,21 +9,20 @@ combat_paladin_prot = function()
         if cast_if_nocd("Holy Shield") then return; end
     end
 
-    if cast_if_nocd("Consecration") then return; end
+    if cast_if_nocd("Shield of Righteousness") then return; end
 
-    --if not has_debuff("target", "Judgement of the Crusader") then
-    --    if not has_buff("player", "Seal of the Crusader") then
-    --        L_CastSpellByName("Seal of the Crusader");
-    --    end
-    --    cast_if_nocd("Judgement");
-    --    return;
-    --end
+    if cast_if_nocd("Hammer of the Righteous") then return; end
 
-    if not has_buff("player", "Seal of Righteousness") then
-        L_CastSpellByName("Seal of Righteousness");
-        return;
+    if cast_if_nocd("Judgement of Light") then return; end
+
+    -- if cast_if_nocd("Consecration") then return; end
+
+    if not has_buff("player", "Divine Plea") then
+        if cast_if_nocd("Divine Plea") then return; end
     end
 
-    if cast_if_nocd("Judgement") then return; end
+    if not has_buff("player", "Sacred Shield") then
+        if cast_if_nocd("Sacred Shield") then return; end
+    end
 
 end

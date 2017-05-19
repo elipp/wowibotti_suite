@@ -26,7 +26,7 @@ local available_configs = {
 	class_config_create("mage_frost", {"Arcane Intellect", "Amplify Magic"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_frost, {"Icy Veins"}, ROLES.caster, "RANGED", survive_mage_frost),
 
 	paladin_prot =
-	class_config_create("paladin_prot", {}, {"Devotion Aura", "Righteous Fury"}, get_class_color("paladin"), combat_paladin_prot, {}, ROLES.paladin_tank, "TANK", survive_paladin_prot),
+	class_config_create("paladin_prot", {}, {"Devotion Aura", "Righteous Fury", "Seal of Command"}, get_class_color("paladin"), combat_paladin_prot, {}, ROLES.paladin_tank, "TANK", survive_paladin_prot),
 
 	paladin_holy =
 	class_config_create("paladin_holy", {}, {"Concentration Aura"}, get_class_color("paladin"), combat_paladin_holy, {"Divine Favor", "Divine Illumination"}, ROLES.healer, "HEALER", survive_paladin_holy),
@@ -293,12 +293,12 @@ local function do_buffs(missing_buffs)
     		    local paladins = get_chars_of_class("Paladin");
     		    if #paladins == 1 then
     		        buffs["Greater Blessing of Kings"] = missing_buffs["Blessing of Kings"];
-    	            buffs["Greater Blessing of Salvation"] = missing_buffs["Blessing of Salvation"];
+    	            buffs["Greater Blessing of Sanctuary"] = missing_buffs["Blessing of Sanctuary"];
     	            buffs["Greater Blessing of Wisdom"] = missing_buffs["Blessing of Wisdom"];
     	            buffs["Greater Blessing of Might"] = missing_buffs["Blessing of Might"];
                 elseif #paladins == 2 then
                     if config_name == "paladin_holy" or (config_name == "paladin_retri" and table.contains(paladins, "Adieux")) then
-                        buffs["Greater Blessing of Salvation"] = missing_buffs["Blessing of Salvation"];
+                        buffs["Greater Blessing of Sanctuary"] = missing_buffs["Blessing of Sanctuary"];
                         buffs["Greater Blessing of Wisdom"] = missing_buffs["Blessing of Wisdom"];
                         buffs["Greater Blessing of Might"] = missing_buffs["Blessing of Might"];
         	        else
@@ -306,10 +306,9 @@ local function do_buffs(missing_buffs)
         	        end
                 elseif #paladins == 3 then
                     if config_name == "paladin_prot" then
-                        buffs["Greater Blessing of Kings"] = missing_buffs["Blessing of Kings"];
+                        buffs["Greater Blessing of Sanctuary"] = missing_buffs["Blessing of Sanctuary"];
                     elseif config_name == "paladin_retri" then
-                        buffs["Greater Blessing of Salvation"] = missing_buffs["Blessing of Salvation"];
-                        buffs["Greater Blessing of Light"] = missing_buffs["Blessing of Light"];
+                        buffs["Greater Blessing of Kings"] = missing_buffs["Blessing of Kings"];
                     else
                         buffs["Greater Blessing of Wisdom"] = missing_buffs["Blessing of Wisdom"];
                         buffs["Greater Blessing of Might"] = missing_buffs["Blessing of Might"];
@@ -359,7 +358,8 @@ local function do_buffs(missing_buffs)
             return false;
         else
             local char, buff = next(SPAM_TABLE[1]);
-            L_CastSpellByName(buff, char);
+            L_TargetUnit(char);
+            L_CastSpellByName(buff);
             BUFF_TIME = GetTime();
             table.remove(SPAM_TABLE, 1);
         end
@@ -378,16 +378,10 @@ local function lole_drink()
 	if UnitPowerType("player") == 0 then -- 0 for mana
 
 		if UnitMana("player")/UnitManaMax("player") < 0.90 or UnitHealth("player")/UnitHealthMax("player") < 0.75 then
-			if GetItemCount(34062) > 0 then
-				UseItemByName("Conjured Manna Biscuit");
-
-			elseif GetItemCount(27860) > 0 then
-				UseItemByName("Purified Draenic Water");
-
-			elseif GetItemCount(32453) > 0 then
-				UseItemByName("Star's Tears");
-			elseif GetItemCount(22018) > 0 then
-				UseItemByName("Conjured Glacier Water");
+            if GetItemCount(43523) > 0 then
+                UseItemByName("Conjured Mana Strudel");
+			elseif GetItemCount(33445) > 0 then
+				UseItemByName("Honeymint Tea");
 			else
 				SendChatMessage("I'm out of mana drinks! Giev plx.", "GUILD")
 			end
@@ -506,6 +500,10 @@ local function lole_target_GUID(GUID)
 		set_target(GUID)
 	end
 
+end
+
+local function lole_target()
+    update_target();
 end
 
 local function lole_cc(state, marker, spellID)
@@ -993,6 +991,7 @@ lole_subcommands = {
 	follow = lole_follow,
 	stopfollow = lole_stopfollow,
 	target = lole_target_GUID,
+    tar = lole_target,
 	sendscript = lole_sendscript,
 	ss = lole_sendscript,
 	sendmacro = lole_sendmacro,
