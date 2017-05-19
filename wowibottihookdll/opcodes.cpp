@@ -68,6 +68,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_EXECUTE, 1, 1, 0),
 	 LOPFUNC(LOP_FOCUS, 1, 1, 0),
 	 LOPFUNC(LOP_CAST_SPELL, 2, 2, 0),
+	 LOPFUNC(LOP_GET_COMBAT_TARGETS, 0, 0, 0),
 
 };
 
@@ -272,6 +273,17 @@ static int LOP_focus(const std::string &arg) {
 
 	*FOCUS_GUID = GUID;
 
+	//ObjectManager OM;
+	//WowObject f;
+	//if (OM.get_object_by_GUID(GUID, &f)) return 0;
+	//const std::string name;
+
+	//if (f.get_type() == OBJECT_TYPE_NPC) {
+
+	//}
+
+	//esscript_add("FocusUnit(\"Printf\")");
+
 	return 1;
 
 }
@@ -338,7 +350,7 @@ static int LOP_follow_unit(const std::string& targetname) {
 
 	if ((t.get_pos() - p.get_pos()).length() < 10) {
 		PRINT("follow difference < 10! calling WOWAPI FollowUnit()\n");
-		DoString("FollowUnit(\"%s\")", t.unit_get_name().c_str());
+		LOP_execute("RunMacroText(\"/follow " + t.unit_get_name() + "\")");
 		follow_state.clear();
 		ctm_queue_reset();
 		return 1;
@@ -851,6 +863,25 @@ static int LOP_get_unit_position(const std::string &name, vec3 *pos_out, double 
 
 }
 
+static int LOP_get_combat_targets(std::vector <GUID_t> *out) {
+	ObjectManager OM;
+
+	WowObject i = OM.get_first_object();
+
+	while (i.valid()) {
+		if (i.get_type() == OBJECT_TYPE_NPC) {
+			if (i.NPC_get_target_GUID() != 0) {
+				out->push_back(i.get_GUID());
+			}
+		}
+
+		i = i.next();
+	}
+
+	return out->size();
+
+}
+
 static int LOPDBG_test() {
 
 	SOCKET s = get_wow_socket_handle();
@@ -1276,9 +1307,19 @@ int lop_exec(lua_State *L) {
 		LOP_loot_badge(lua_tolstring(L, 2, &len));
 		break;
 
-	case LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND:
-		LOPEXT_maulgar_get_felhound();
+	case LOP_GET_COMBAT_TARGETS: {
+		std::vector<GUID_t> targets;
+		LOP_get_combat_targets(&targets);
+		
+		for (int i = 0; i < targets.size(); ++i) {
+			PUSHSTRING(L, convert_GUID_to_str(targets[i]).c_str());
+		}
+
+		return targets.size();
+
 		break;
+	}
+
 
 	case LDOP_LUA_REGISTERED:
 		lua_registered = 1;

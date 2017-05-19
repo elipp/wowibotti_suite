@@ -144,6 +144,14 @@ inline GUID_t convert_str_to_GUID(const std::string &GUID_str) {
 	return GUID;
 }
 
+inline std::string convert_GUID_to_str(GUID_t g) {
+
+	char buf[32];
+	sprintf_s(buf, "0x%16llX", g);
+
+	return std::string(buf);
+}
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif 

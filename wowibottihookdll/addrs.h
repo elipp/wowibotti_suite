@@ -30,8 +30,12 @@
 #define CurrentTicks 0x00B1D618   
 
 
-#define CTM_update 0x612990 // this could be used to signal a completed CTM action
-#define CTM_update_hookaddr 0x612A71
+//#define CTM_update 0x612990 // this could be used to signal a completed CTM action
+//#define CTM_update_hookaddr 0x612A71
+
+#define CTM_update 0x7272C0
+#define CTM_update_hookaddr 0x7273E5
+
 
 //#define TicksSinceLastHWEvent 0xBE10FC // <-- tbc
 

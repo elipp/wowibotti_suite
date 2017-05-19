@@ -43,3 +43,6 @@ struct patchbuffer_t {
 		VirtualProtect((LPVOID)bytes, sizeof(bytes), PAGE_EXECUTE_READWRITE, &oldprotect);
 	}
 };
+
+
+extern pipe_data PIPEDATA;

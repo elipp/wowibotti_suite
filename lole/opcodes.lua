@@ -28,6 +28,7 @@ local LOP_LUA_LOCK = 0x1A
 local LOP_EXECUTE = 0x1B
 local LOP_FOCUS = 0x1C
 local LOP_CAST_SPELL = 0x1D
+local LOP_GET_COMBAT_TARGETS = 0x1E
 
 local LOP_EXT_NOP = 0x70
 local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x71
@@ -237,6 +238,10 @@ end
 function cast_spell_packet(spellID)
 	if not UnitGUID("target") then return end
 	lop_exec(LOP_CAST_SPELL, spellID, UnitGUID("target"))
+end
+
+function get_combat_targets()
+	return lop_exec(LOP_GET_COMBAT_TARGETS)
 end
 
 function execute_script(script)

@@ -1,3 +1,4 @@
+#include <queue>
 #include "hooks.h"
 #include "addrs.h"
 #include "defs.h"
@@ -40,6 +41,18 @@ void patchbuffer_t::add_relative_offset(DWORD offset) {
 	PRINT("offset: %X, length: %ld, jump: 0x%X\n", offset, length, jump);
 	(*this) += jump;
 
+static std::queue<std::string> esscripts;
+
+void esscript_add(const std::string &script) {
+	esscripts.push(script);
+}
+
+static void esscript_execute() {
+	while (!esscripts.empty()) {
+		const std::string &s = esscripts.front();
+		DoString(s.c_str());
+		esscripts.pop();
+	}
 }
 
 
@@ -91,7 +104,6 @@ static void update_debug_positions() {
 
 static void __stdcall EndScene_hook() {
 	register_luafunc_if_not_registered();
-
 
 	static timer_interval_t fifty_ms(50);
 	static timer_interval_t half_second(500);
@@ -191,6 +203,8 @@ static void __stdcall CTM_finished_hookfunc() {
 	CTM_t *c = ctm_get_current_action();
 	if (!c) { return; }
 	
+	PRINT("called CTM_finished with ID = %ld\n", c->ID);
+
 	c->handle_posthook();
 }
 
@@ -550,7 +564,7 @@ static int prepare_CTM_finished_patch(LPVOID hook_func_addr, hookable &h) {
 
 	static BYTE CTM_finished_trampoline[] = {
 		// original opcodes from ClosePetStables
-		0xC7, 0x05, 0xBC, 0x89, 0xD6, 0x00, 0x0D, 0x00, 0x00, 0x00, // MOV [to address] 0xD689BC, 0x0D 
+		0xC7, 0x05, 0xF4, 0x11, 0xCA, 0x00, 0x0D, 0x00, 0x00, 0x00, // MOV [to address] 0xD689BC, 0x0D 
 
 		0x68, 0x00, 0x00, 0x00, 0x00, // push return address onto stack for ret
 		0x60, // pushad
@@ -562,7 +576,7 @@ static int prepare_CTM_finished_patch(LPVOID hook_func_addr, hookable &h) {
 	DWORD tr_offset = (DWORD)CTM_finished_trampoline - CTM_update_hookaddr - 5;
 	memcpy(CTM_finished_patch + 1, &tr_offset, sizeof(tr_offset));
 
-	DWORD ret_addr = 0x612A7B;
+	DWORD ret_addr = 0x7273EF;
 	memcpy(CTM_finished_trampoline + 11, &ret_addr, sizeof(ret_addr));
 
 	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)CTM_finished_trampoline - 21;
@@ -689,7 +703,7 @@ int prepare_patches_and_pipe_data() {
 
 	//prepare_patch("LUA_prot", 0x0);
 //	prepare_patch("CTM_main", broadcast_CTM);
-//	prepare_patch("CTM_update", CTM_finished_hookfunc);
+	prepare_patch("CTM_update", CTM_finished_hookfunc);
 	prepare_patch("EndScene", EndScene_hook);
 //	prepare_patch("SpellErrMsg", SpellErrMsg_hook);
 	prepare_patch("ClosePetStables", ClosePetStables_hook);
@@ -698,7 +712,7 @@ int prepare_patches_and_pipe_data() {
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("LUA_prot")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_main")));
-//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("SpellErrMsg")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("ClosePetStables")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("packet_encrypt")));
