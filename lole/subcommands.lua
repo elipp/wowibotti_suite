@@ -5,7 +5,7 @@ local available_configs = {
 	class_config_create("default", {}, {}, "FFFFFF", function() end, {}, 0, "NONE", function() end),
 
     death_knight_uh =
-    class_config_create("death_knight_uh", {}, {"Blood Presence", "Bone Shield", "Horn of Winter"}, get_class_color("death_knight"), combat_death_knight_uh, {}, ROLES.mana_melee, "MELEE", survive_death_knight_uh),
+    class_config_create("death_knight_uh", {}, {"Blood Presence", "Bone Shield", "Horn of Winter"}, get_class_color("death_knight"), combat_death_knight_uh, {}, ROLES.melee, "MELEE", survive_death_knight_uh),
 
 	druid_feral =
 	class_config_create("druid_feral", {"Mark of the Wild", "Thorns"}, {"Omen of Clarity", "Cat Form"}, get_class_color("druid"), combat_druid_feral, {}, ROLES.mana_melee, "MELEE", survive_druid_feral),
