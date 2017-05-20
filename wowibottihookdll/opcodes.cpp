@@ -103,9 +103,11 @@ static int LOP_lua_lock() {
 }
 
 static int LOP_execute(const std::string &arg) {
-	LOP_lua_unlock();
+	// this actually seems unnecessary
+
+	//LOP_lua_unlock();
 	DoString("%s", arg.c_str());
-	LOP_lua_lock();
+	//LOP_lua_lock();
 
 	return 1;
 }
@@ -257,9 +259,12 @@ static int LOP_target_GUID(const std::string &arg) {
 	static GUID_t * const GUID_addr1 = (GUID_t*)0xBD07B0;
 	static GUID_t * const GUID_addr2 = (GUID_t*)0xBD07C0;
 
-	*GUID_addr1 = GUID;
-	*GUID_addr2 = GUID;
+	//*GUID_addr1 = GUID;
+	//*GUID_addr2 = GUID;
 
+	set_taint_caller_zero();
+	SelectUnit(GUID);
+	reset_taint_caller();
 
 	// 0081B530 is the function that gives the taint error message
 

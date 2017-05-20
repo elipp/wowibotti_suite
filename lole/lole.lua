@@ -204,7 +204,8 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 	elseif (prefix == "lole_runscript") then
         if prevent_double_call(prefix) then return end
 		local guildies = get_guild_members()
-		if guildies[sender] then
+		--if guildies[sender] then
+		if true then
 			L_RunScript(message);
 		else
 			SendChatMessage("lole_runscript: " .. sender .. " doesn't appear to be a member of Uuslapio, not running script!", "GUILD");
@@ -253,7 +254,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
         echo(message);
 
     elseif (prefix == "lole_mount") then
-        RunMacro("mount");
+        L_RunMacro("mount");
 
 	end
 end
