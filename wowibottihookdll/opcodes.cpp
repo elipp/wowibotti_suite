@@ -82,7 +82,7 @@ static int LOP_lua_unlock() {
 
 	WriteProcessMemory(glhProcess, (LPVOID)LUA_prot, LUA_prot_patch, 6, NULL);
 
-	set_taint_caller_zero();
+	//set_taint_caller_zero();
 
 	return 1;
 }
@@ -97,7 +97,7 @@ static int LOP_lua_lock() {
 
 	WriteProcessMemory(glhProcess, (LPVOID)LUA_prot, LUA_prot_original, 6, NULL);
 
-	reset_taint_caller();
+	//reset_taint_caller();
 
 	return 1;
 }
@@ -350,7 +350,7 @@ static int LOP_follow_unit(const std::string& targetname) {
 
 	if ((t.get_pos() - p.get_pos()).length() < 10) {
 		PRINT("follow difference < 10! calling WOWAPI FollowUnit()\n");
-		LOP_execute("RunMacroText(\"/follow " + t.unit_get_name() + "\")");
+		LOP_execute("FollowUnit(\"" + t.unit_get_name() + "\")"); // not even protected :)
 		follow_state.clear();
 		ctm_queue_reset();
 		return 1;

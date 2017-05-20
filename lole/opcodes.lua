@@ -284,6 +284,18 @@ function L_RunMacro(macroname)
 	execute_script("RunMacro(\"" .. macroname .. "\")")
 end
 
+function L_TargetUnit(unitname)
+	execute_script("TargetUnit(\"" .. unitname .. "\")")
+end
+
+function L_FocusUnit(unitname)
+	execute_script("FocusUnit(\"" .. unitname .. "\")")
+end
+
+function L_ClearFocus()
+	execute_script("ClearFocus()")
+end
+
 function L_focus_target()
 	lop_exec(LOP_FOCUS, UnitGUID("target"))
 end

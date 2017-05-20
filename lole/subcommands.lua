@@ -470,13 +470,13 @@ end
 function set_target(target_GUID)
 	BLAST_TARGET_GUID = target_GUID;
 	target_unit_with_GUID(target_GUID); -- this does a C SelectUnit call :P
-	L_focus_target()
+	L_FocusTarget("target")
 	update_target_text(UnitName("target"), UnitGUID("target"));
 end
 
 function clear_target()
 	BLAST_TARGET_GUID = NOTARGET;
-	L_clear_focus()
+	L_ClearFocus()
 	L_ClearTarget();
 	update_target_text("-none-", "");
 end

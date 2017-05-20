@@ -14,7 +14,7 @@ void DoString(const char* format, ...) {
 	vsprintf_s(cmd, format, args);
 	va_end(args);
 
-	LUA_DoString(cmd, cmd, "");
+	LUA_DoString(cmd, cmd, NULL); // the last argument actually MUST be null :D
 	PRINT("(DoString: executed script \"%s\")\n", cmd);
 }
 

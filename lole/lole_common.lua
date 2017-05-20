@@ -702,7 +702,7 @@ function validate_target()
 			 	return false;
 			end
 
-			L_target_focus();
+			L_TargetUnit("focus");
 			return true;
 		else
 			clear_target()
