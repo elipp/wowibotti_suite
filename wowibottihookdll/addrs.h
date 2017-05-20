@@ -6,7 +6,8 @@
 #define LUA_prot 0x5191C0
 #define DelIgnore 0x5BA4B0
 #define DelIgnore_hookaddr (DelIgnore + 0x11)
-#define Packet_hookaddr 0x46776E
+#define SendPacket_hookaddr 0x46776E
+#define RecvPacket_hookaddr 0x467EC7
 
 
 //#define ClosePetStables 0x4FACA0 // TBC

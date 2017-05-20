@@ -159,8 +159,11 @@ static void __stdcall dump_packet(BYTE *packet) {
 	DWORD length = (DWORD)(packet[0]) << 8;
 	length += packet[1] + 2; // +2 for the length bytes themselves (not included apparently)
 
-	DWORD opcode;
-	memcpy(&opcode, &packet[2], 4);
+	DWORD opcode = 0;
+	memcpy(&opcode, &packet[2], 2); 
+	// ^ interestingly, the client packets have 4 bytes for the opcode while the server packets only have 2.
+	// the largest opcode value in mangos/src/game/Opcodes.h is something like 0x500 so no worries
+
 	//PRINT("packet length: total: %d (actual data size without header: %d), opcode: 0x%X\n", length, length - 6, opcode);
 
 
@@ -177,10 +180,11 @@ static void __stdcall dump_packet(BYTE *packet) {
 		PRINT("\n\n");
 	}
 	else {
-		//for (int i = 6; i < length; ++i) {
-		//	PRINT("%02X ", packet[i]);
-		//}
-		//PRINT("\n\n");
+		PRINT("opcode: %X\n", opcode);
+		for (int i = 6; i < length; ++i) {
+			PRINT("%02X ", packet[i]);
+		}
+		PRINT("\n\n");
 	}
 }
 
@@ -317,6 +321,14 @@ static const BYTE sendpacket_original[] = {
 
 static BYTE sendpacket_patch[] = {
 	0xE9, 0x00, 0x00, 0x00, 0x00
+};
+
+static const BYTE recvpacket_original[] = {
+	0x01, 0x5E, 0x20, 0x8B, 0x4D, 0xF8,
+};
+
+static BYTE recvpacket_patch[] = {
+	0xE9, 0x00, 0x00, 0x00, 0x00, 0x90
 };
 
 static int prepare_LUA_prot_patch(LPVOID hook_func_addr, hookable &h) {
@@ -631,23 +643,13 @@ static int prepare_spell_errmsg_patch(LPVOID hook_func_addr, hookable &h) {
 }
 
 static int prepare_sendpacket_patch(LPVOID hook_func_addr, hookable &h) {
-	
-	static BYTE sendpacket_trampoline[] = {
-		0x68, 0x00, 0x00, 0x00, 0x00, // push return address (0x467773) onto stack for ret
-		0x60, // pushad
-		0xE8, 0x00, 0x00, 0x00, 0x00, // call own function
-		0x61, // popad
-		
-		0xE8, 0x00, 0x00, 0x00, 0x00, // CALL 0x4665B0. need to insert address relative to this trampoline 
-		0xC3 //ret
-	};
 
 	static patchbuffer_t tr;
 	
 	PRINT("dump_packet offset: 0x%X, trampoline: 0x%X\n", dump_packet, tr.bytes);
 
 	DWORD retaddr = 0x467773;
-	DWORD encrypt = 0x4665B0;
+	DWORD some_crypt_func = 0x4665B0;
 
 	tr << (BYTE)0x60 // PUSHAD
 	   << (BYTE)0x52; // push EDX (the packet address)
@@ -655,14 +657,45 @@ static int prepare_sendpacket_patch(LPVOID hook_func_addr, hookable &h) {
 	tr.append_CALL((DWORD)dump_packet);
 	tr << (BYTE)0x61; // POPAD
 
-	tr.append_CALL(encrypt);
+	tr.append_CALL(some_crypt_func); // from the original opcodes
 	
 	tr << (BYTE)0x68 << retaddr; // push RET addr
 	
 	tr << (BYTE)0xC3; // RET
 
-	DWORD trampoline_relative = (DWORD)tr.bytes - Packet_hookaddr - 5;
+	DWORD trampoline_relative = (DWORD)tr.bytes - SendPacket_hookaddr - 5;
 	memcpy(sendpacket_patch+1, &trampoline_relative, 4);
+
+	return 1;
+
+}
+
+static int prepare_recvpacket_patch(LPVOID hook_func_addr, hookable &h) {
+
+	static patchbuffer_t tr;
+
+	PRINT("dump_packet offset: 0x%X, trampoline: 0x%X\n", dump_packet, tr.bytes);
+
+	DWORD retaddr = 0x467ECD;
+
+	tr << (BYTE)0x60; // PUSHAD
+
+	tr << (BYTE)0x8B << (BYTE)0x46 << (BYTE)0x1C; // mov eax, dword ptr ds:[esi+1c] // decrypted packet address
+	tr << (BYTE)0x50; // push eax
+
+	tr.append_CALL((DWORD)dump_packet);
+	tr << (BYTE)0x61; // POPAD
+
+	// original stuff
+	tr << (BYTE)0x01 << (BYTE)0x5E << (BYTE)0x20;
+	tr << (BYTE)0x8B << (BYTE)0x4D << (BYTE)0xF8;
+
+	tr << (BYTE)0x68 << retaddr; // push RET addr
+
+	tr << (BYTE)0xC3; // RET
+
+	DWORD trampoline_relative = (DWORD)tr.bytes - RecvPacket_hookaddr - 5;
+	memcpy(recvpacket_patch + 1, &trampoline_relative, 4);
 
 	return 1;
 
@@ -677,7 +710,9 @@ static hookable hookable_functions[] = {
 	{ "CTM_main", (LPVOID)CTM_main, CTM_main_original, CTM_main_patch, sizeof(CTM_main_original), prepare_CTM_main_patch },
 	{ "CTM_update", (LPVOID)CTM_update_hookaddr, CTM_finished_original, CTM_finished_patch, sizeof(CTM_finished_original), prepare_CTM_finished_patch },
 	{ "SpellErrMsg", (LPVOID)SpellErrMsg, spell_errmsg_original, spell_errmsg_patch, sizeof(spell_errmsg_original), prepare_spell_errmsg_patch },
-	{ "packet_encrypt", (LPVOID)Packet_hookaddr, sendpacket_original, sendpacket_patch, sizeof(sendpacket_original), prepare_sendpacket_patch },
+	{ "SendPacket", (LPVOID)SendPacket_hookaddr, sendpacket_original, sendpacket_patch, sizeof(sendpacket_original), prepare_sendpacket_patch },
+	{ "RecvPacket", (LPVOID)RecvPacket_hookaddr, recvpacket_original, recvpacket_patch, sizeof(recvpacket_original), prepare_recvpacket_patch },
+
 };
 
 static hookable *find_hookable(const std::string &funcname) {
@@ -713,7 +748,8 @@ int prepare_patches_and_pipe_data() {
 	prepare_patch("EndScene", EndScene_hook);
 //	prepare_patch("SpellErrMsg", SpellErrMsg_hook);
 	prepare_patch("ClosePetStables", ClosePetStables_hook);
-	prepare_patch("packet_encrypt", dump_packet);
+//	prepare_patch("SendPacket", dump_packet);
+//	prepare_patch("RecvPacket", dump_packet);
 
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("LUA_prot")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
@@ -721,7 +757,9 @@ int prepare_patches_and_pipe_data() {
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("SpellErrMsg")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("ClosePetStables")));
-	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("packet_encrypt")));
+//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("SendPacket")));
+//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("RecvPacket")));
+
 
 	return 1;
 }
