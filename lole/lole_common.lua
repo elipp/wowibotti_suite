@@ -1391,6 +1391,7 @@ end
 
 function on_gcd()
     local gcd_spells = {
+        ["Death Knight"] = "Rune Strike",
         Druid = "Healing Touch",
         Hunter = "Aspect of the Hawk",
         Mage = "Fireball",
