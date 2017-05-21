@@ -129,10 +129,10 @@ local CC_spellnames = { -- in a L_CastSpellByName-able format
 }
 
 local AOE_spellIDs = {
-  ["Flamestrike"] = 27086,
-  ["Blizzard"] = 27085,
+  ["Flamestrike"] = 42926,
+  ["Blizzard"] = 42940,
   ["Volley"] = 27022,
-  ["Hurricane"] = 27012,
+  ["Hurricane"] = 48467,
   ["DND"] = 49938,
 }
 
