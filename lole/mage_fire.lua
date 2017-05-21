@@ -57,7 +57,7 @@ combat_mage_fire = function()
 
 	-- if mana < (maxmana - 2500) then
 	-- 	if (GetItemCount(33312) > 0) and (GetItemCooldown(33312) == 0) then
-	-- --		UseItemByName("Mana Sapphire");
+	-- --		L_UseItemByName("Mana Sapphire");
 	-- 	--	return;
 	-- 	end
 	-- end

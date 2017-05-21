@@ -292,6 +292,10 @@ function L_FocusUnit(unitname)
 	execute_script("FocusUnit(\"" .. unitname .. "\")")
 end
 
+function L_UseItemByName(itemname)
+	execute_script("L_UseItemByName(\"" .. itemname .. "\")")
+end
+
 function L_ClearFocus()
 	execute_script("ClearFocus()")
 end

@@ -214,6 +214,7 @@ static int LOP_melee_behind() {
 		}
 	}
 
+	return 1;
 
 }
 

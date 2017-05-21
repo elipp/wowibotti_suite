@@ -379,9 +379,9 @@ local function lole_drink()
 
 		if UnitMana("player")/UnitManaMax("player") < 0.90 or UnitHealth("player")/UnitHealthMax("player") < 0.75 then
             if GetItemCount(43523) > 0 then
-                UseItemByName("Conjured Mana Strudel");
+                L_UseItemByName("Conjured Mana Strudel");
 			elseif GetItemCount(33445) > 0 then
-				UseItemByName("Honeymint Tea");
+				L_UseItemByName("Honeymint Tea");
 			else
 				SendChatMessage("I'm out of mana drinks! Giev plx.", "GUILD")
 			end

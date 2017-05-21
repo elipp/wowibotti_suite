@@ -14,7 +14,7 @@ combat_mage_frost = function()
 
     if mana < (maxmana - 2500) then
         if (GetItemCount(22044) > 0) and (GetItemCooldown(22044) == 0) then
-            UseItemByName("Mana Emerald");
+            L_UseItemByName("Mana Emerald");
             return;
         end
     end
