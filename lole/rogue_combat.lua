@@ -11,8 +11,8 @@ function check_apply_OH_poison()
             return false;
         end
 
-        RunMacroText("/use Deadly Poison VII")
-        UseInventoryItem(17)
+        L_RunMacroText("/use Deadly Poison VII")
+        L_UseInventoryItem(17)
     end
 
 end

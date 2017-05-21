@@ -264,8 +264,8 @@ local function lole_gui()
 end
 
 local function lole_cooldowns()
-	UseInventoryItem(13);
-	UseInventoryItem(14);
+	L_UseInventoryItem(13);
+	L_UseInventoryItem(14);
 
 	local _, race = UnitRace("player");
 
@@ -276,7 +276,7 @@ local function lole_cooldowns()
 	end
 
 	for _, spell in pairs(get_current_config().cooldowns) do
-		SpellStopCasting()
+		L_SpellStopCasting()
 		L_CastSpellByName(spell);
 	end
 

@@ -300,6 +300,14 @@ function L_ClearFocus()
 	execute_script("ClearFocus()")
 end
 
+function L_UseInventoryItem(slotnumber)
+	execute_script("UseInventoryItem(" .. tostring(item) .. ")")
+end
+
+function L_SpellStopCasting()
+	execute_script("SpellStopCasting()")
+end
+
 function L_focus_target()
 	lop_exec(LOP_FOCUS, UnitGUID("target"))
 end
