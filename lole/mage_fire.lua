@@ -55,12 +55,12 @@ combat_mage_fire = function()
 	local mana = UnitMana("player");
 	local maxmana = UnitManaMax("player");
 
-	-- if mana < (maxmana - 2500) then
-	-- 	if (GetItemCount(33312) > 0) and (GetItemCooldown(33312) == 0) then
-	-- --		L_UseItemByName("Mana Sapphire");
-	-- 	--	return;
-	-- 	end
-	-- end
+	if mana < (maxmana - 2500) then
+		if (GetItemCount(33312) > 0) and (GetItemCooldown(33312) == 0) then
+			L_UseItemByName("Mana Sapphire");
+			return;
+		end
+	end
 
 	if mana < 2500 then
 		if GetSpellCooldown("Evocation") == 0 then
@@ -75,8 +75,6 @@ combat_mage_fire = function()
 		--	lole_subcommands.cast_gtaoe("Flamestrike", get_unit_position("target"))
 		--	return
 	--end
-
---	local name, iconPath, tier, column, currentRank, maxRank = GetTalentInfo(2, 11); -- improved scorch
 
 	local hs, ts = has_debuff("target", "Improved Scorch");
 
@@ -100,7 +98,7 @@ combat_mage_fire = function()
 			end
 		end
 
-	if not validate_target() then return end -- this is re-target the main nuke target
+	if not validate_target() then return end -- this is to re-target the main nuke target
 
 	L_CastSpellByName("Frostfire Bolt");
 

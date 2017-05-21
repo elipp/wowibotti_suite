@@ -5,7 +5,7 @@ local available_configs = {
 	class_config_create("default", {}, {}, "FFFFFF", function() end, {}, 0, "NONE", function() end),
 
     death_knight_uh =
-    class_config_create("death_knight_uh", {}, {"Blood Presence", "Bone Shield", "Horn of Winter"}, get_class_color("death_knight"), combat_death_knight_uh, {}, ROLES.melee, "MELEE", survive_death_knight_uh),
+    class_config_create("death_knight_uh", {}, {"Blood Presence", "Bone Shield", "Horn of Winter"}, get_class_color("death_knight"), combat_death_knight_uh, {"Summon Gargoyle", "Army of the Dead"}, ROLES.melee, "MELEE", survive_death_knight_uh),
 
 	druid_feral =
 	class_config_create("druid_feral", {"Mark of the Wild", "Thorns"}, {"Omen of Clarity", "Cat Form"}, get_class_color("druid"), combat_druid_feral, {}, ROLES.mana_melee, "MELEE", survive_druid_feral),
@@ -20,7 +20,7 @@ local available_configs = {
 	class_config_create("hunter", {}, {}, get_class_color("hunter"), combat_hunter, {"Bestial Wrath", "Rapid Fire"}, ROLES.mana_melee, "RANGED", survive_hunter),
 
 	mage_fire =
-	class_config_create("mage_fire", {"Arcane Intellect", "Amplify Magic"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_fire, {"Icy Veins", "Combustion"}, ROLES.caster, "RANGED", survive_mage_fire),
+	class_config_create("mage_fire", {"Arcane Intellect", "Amplify Magic"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_fire, {"Icy Veins", "Combustion", "Mirror Image"}, ROLES.caster, "RANGED", survive_mage_fire),
 
 	mage_frost =
 	class_config_create("mage_frost", {"Arcane Intellect", "Amplify Magic"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_frost, {"Icy Veins"}, ROLES.caster, "RANGED", survive_mage_frost),
@@ -59,7 +59,7 @@ local available_configs = {
 	class_config_create("warlock_affli", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_affli, {}, ROLES.caster, "RANGED", survive_warlock_affli),
 
     warlock_demo =
-    class_config_create("warlock_demo", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_demo, {}, ROLES.caster, "RANGED", survive_warlock_demo),
+    class_config_create("warlock_demo", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_demo, {"Metamorphosis"}, ROLES.caster, "RANGED", survive_warlock_demo),
 
 	warlock_sb =
 	class_config_create("warlock_sb", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_sb, {}, ROLES.caster, "RANGED", survive_warlock_sb),
