@@ -17,7 +17,7 @@ local function refresh_rejuvenation(hottargets)
 end
 
 local function should_cast_tranquility(min_deficit, min_healable_chars)
-    if min_deficit == nil then min_deficit = 5000; end
+    if min_deficit == nil then min_deficit = 8000; end
     if min_healable_chars == nil then min_healable_chars = 4; end
 
     if GetSpellCooldown("Tranquility") > 0 then
@@ -42,6 +42,34 @@ local function should_cast_tranquility(min_deficit, min_healable_chars)
     return r;
 end
 
+-- Wild Growth
+local function get_WG_target(urgencies, min_deficit, max_ineligible_chars)
+
+    local highest_total_urgency = 0;
+    local wg_target;
+
+    local eligible_groups = get_CoH_eligible_groups(get_raid_groups(), min_deficit, max_ineligible_chars);
+    if table.get_num_elements(eligible_groups) == 1 then
+        wg_target = next(eligible_groups);
+    else
+        for tar, group in pairs(eligible_groups) do
+            local total_urgency = 0;
+            for i, name in pairs(group) do
+                if urgencies[name] then
+                    total_urgency = total_urgency + urgencies[name];
+                end
+            end
+            if total_urgency > highest_total_urgency then
+                highest_total_urgency = total_urgency;
+                wg_target = tar;
+            end
+        end
+    end
+
+    return wg_target;
+
+end
+
 local function raid_heal()
 
     if should_cast_tranquility() then
@@ -56,8 +84,18 @@ local function raid_heal()
         return true;
     end
 
-    local heal_targets = get_raid_heal_targets(4);
+    local _, urgencies = get_raid_heal_target(true);
 
+    if GetSpellCooldown("Wild Growth") == 0 then
+        local wg_target = get_WG_target(urgencies);
+        if wg_target then
+            L_TargetUnit(wg_target);
+            cast_heal("Wild Growth");
+            return true;
+        end
+    end
+
+    local heal_targets = get_raid_heal_targets(urgencies, 4);
     local reju_checked = false;
     for i, target in ipairs(heal_targets) do
         local target_HPP = health_percentage(target)

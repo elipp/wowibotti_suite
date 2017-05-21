@@ -897,15 +897,16 @@ function get_raid_HP_deficits_grouped(groups)
 
 end
 
-function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars)
+function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars, max_distance)
 
     -- Gieves [target] - {group members} pairs for each group with a healable target that
     -- has at least 3 healable targets within 18 yards of itself. If there are
     -- multiple such targets in a group, the one with the most nearby targets and
-    -- and the shortest distance to the priest is chosen.
+    -- and the shortest distance to the caster is chosen.
 
-    if min_deficit == nil then min_deficit = 2000; end
+    if min_deficit == nil then min_deficit = 4000; end
     if max_ineligible_chars == nil or max_ineligible_chars > 1 then max_ineligible_chars = 1; end
+    if max_distance == nil then max_distance = 15; end
 
     local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);
     local coh_groups = {};
@@ -935,7 +936,7 @@ function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars)
                     for j=i-1,1,-1 do
                         if not ineligible_chars[tbl[j]] then
                             local distance = get_distance_between(name, tbl[j]);
-                            if distance and distance <= 18 then
+                            if distance and distance <= max_distance then
                                 table.insert(group_candidates[name], tbl[j]);
                                 table.insert(group_candidates[tbl[j]], name);
                             end
@@ -1015,15 +1016,12 @@ function get_raid_heal_target(with_urgencies)
     return get_heal_target(HP_table, maxmaxHP, with_urgencies);
 end
 
-function get_raid_heal_targets(num_targets)
+function get_raid_heal_targets(urgencies, num_targets)
 
     -- Returns a table of healable raid members sorted in descending order of urgency.
     -- Limit number of elements to num_targets when passed.
 
-    local HP_table, maxmaxHP = get_HP_table_and_maxmaxHP();
-
     local ordered_targets = {};
-    local _, urgencies = get_heal_target(HP_table, maxmaxHP, true);
     for name, urgency in pairs(urgencies) do
         local index = #ordered_targets + 1;
         for i, tar in ipairs(ordered_targets) do
