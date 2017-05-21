@@ -1281,11 +1281,15 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LOP_CAST_GTAOE: {
+		static timer_interval_t second(1000);
+
+		if (!second.passed()) break;
 
 		uint spellID = lua_tointeger(L, 2);
 		vec3 pos = vec3(lua_tonumber(L, 3), lua_tonumber(L, 4), lua_tonumber(L, 5));
 	
 		LOP_cast_gtaoe(spellID, pos);
+		second.reset();
 
 		break;
 	}

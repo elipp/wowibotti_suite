@@ -113,13 +113,14 @@ combat_warlock_demo = function()
     if tap_if_need_to() then return; end
 
     if lole_subcommands.get("aoemode") == 1 then
-        for i=1,16,1 do
-            TargetNearestEnemy();
-            if (UnitExists("target") and not has_debuff_by_self("target", "Seed of Corruption")) then
-                L_CastSpellByName("Seed of Corruption");
-                return
-            end
-        end
+      	for i,g in pairs({get_combat_targets()}) do
+      			target_unit_with_GUID(g)
+
+      			if UnitIsEnemy("target", "player") and not has_debuff("target", "Seed of Corruption") then
+      					L_CastSpellByName("Seed of Corruption")
+      					return;
+      			end
+      		end
     end
 
     if drain_soul_if_needed() then return end
