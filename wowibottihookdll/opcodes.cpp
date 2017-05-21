@@ -872,13 +872,21 @@ static int LOP_get_unit_position(const std::string &name, vec3 *pos_out, double 
 static int LOP_get_combat_targets(std::vector <GUID_t> *out) {
 	ObjectManager OM;
 
+	WowObject p;
+	if (!OM.get_local_object(&p)) return 0; 
+	vec3 ppos = p.get_pos();
 	WowObject i = OM.get_first_object();
 
 	while (i.valid()) {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
 			if (i.NPC_get_target_GUID() != 0) {
-				out->push_back(i.get_GUID());
+				float dist = (i.get_pos() - ppos).length();
+				if (dist < 30) {
+					out->push_back(i.get_GUID());
+				}
 			}
+			
+			
 		}
 
 		i = i.next();
