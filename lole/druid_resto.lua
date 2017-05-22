@@ -110,6 +110,9 @@ local function raid_heal()
             if not has_rg or timeleft_rg < 5 then
                 cast_heal("Regrowth", target);
                 return true;
+            else
+                cast_heal("Nourish", target);
+                return true;
             end
         end
 
@@ -195,8 +198,8 @@ combat_druid_resto = function()
         if not has_rg or timeleft_rg < 5 then
             cast_heal("Regrowth", heal_targets[1]);
             return;
-        elseif not has_rj then
-            cast_heal("Rejuvenation", heal_targets[1]);
+        else
+            cast_heal("Nourish", heal_targets[1]);
             return;
         end
     end
