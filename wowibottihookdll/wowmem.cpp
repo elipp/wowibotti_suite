@@ -15,7 +15,7 @@ void DoString(const char* format, ...) {
 	vsprintf_s(cmd, format, args);
 	va_end(args);
 
-	LUA_DoString(cmd, cmd, "");
+	LUA_DoString(cmd, cmd, nullptr);
 }
 
 // this __declspec(noinline) thing has got to do with the msvc optimizer.
