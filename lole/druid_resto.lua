@@ -87,7 +87,7 @@ local function raid_heal()
     local _, urgencies = get_raid_heal_target(true);
 
     if GetSpellCooldown("Wild Growth") == 0 then
-        local wg_target = get_WG_target(urgencies);
+        local wg_target = get_WG_target(urgencies, 8000, 1);
         if wg_target then
             L_TargetUnit(wg_target);
             cast_heal("Wild Growth");
@@ -97,6 +97,7 @@ local function raid_heal()
 
     local heal_targets = get_raid_heal_targets(urgencies, 4);
     local reju_checked = false;
+    local wg_checked = false;
     for i, target in ipairs(heal_targets) do
         local target_HPP = health_percentage(target)
 
@@ -108,6 +109,19 @@ local function raid_heal()
             cast_heal("Swiftmend", target);
             if not has_rg or timeleft_rg < 5 then
                 cast_heal("Regrowth", target);
+                return true;
+            else
+                cast_heal("Nourish", target);
+                return true;
+            end
+        end
+
+        if not wg_checked and GetSpellCooldown("Wild Growth") == 0 then
+            local wg_target = get_WG_target(urgencies, 3000, 2);
+            wg_checked = true;
+            if wg_target then
+                L_TargetUnit(wg_target);
+                cast_heal("Wild Growth");
                 return true;
             end
         end
@@ -184,8 +198,8 @@ combat_druid_resto = function()
         if not has_rg or timeleft_rg < 5 then
             cast_heal("Regrowth", heal_targets[1]);
             return;
-        elseif not has_rj then
-            cast_heal("Rejuvenation", heal_targets[1]);
+        else
+            cast_heal("Nourish", heal_targets[1]);
             return;
         end
     end

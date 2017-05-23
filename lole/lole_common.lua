@@ -8,7 +8,7 @@ OVERRIDE_COMMAND = nil;
 
 HEALERS = {"Printf"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
-    Printf = {heals = {"Rektorn", "raid",}, hots = {}, ignores = {}},
+    Printf = {heals = {"raid"}, hots = {}, ignores = {}},
 }
 ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
 HEALS_IN_PROGRESS = {};
@@ -905,7 +905,7 @@ function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars, max_
     -- and the shortest distance to the caster is chosen.
 
     if min_deficit == nil then min_deficit = 4000; end
-    if max_ineligible_chars == nil or max_ineligible_chars > 1 then max_ineligible_chars = 1; end
+    if max_ineligible_chars == nil then max_ineligible_chars = 1; end
     if max_distance == nil then max_distance = 15; end
 
     local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);

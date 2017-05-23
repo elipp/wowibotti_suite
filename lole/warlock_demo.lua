@@ -18,7 +18,7 @@ local curse_assignments = {
 }
 
 local function enough_shards()
-    if (GetItemCount(6265) < 20) then
+    if (GetItemCount(6265) < 32) then
         return false
     else
         return true
