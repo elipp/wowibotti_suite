@@ -443,7 +443,7 @@ local function lole_disenchant_greeniez()
                 if itemEquipLoc ~= "" then
 									LOOT_OPENED_REASON = "DE_GREENIEZ"
 									lole_frame_register("LOOT_OPENED")
-									SpellStopCasting()
+									L_SpellStopCasting()
 									L_CastSpellByName("Disenchant")
                   echo("disenchanting " .. n)
 									UseContainerItem(b,s)

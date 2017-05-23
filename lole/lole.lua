@@ -218,7 +218,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
             if not playermode() then
                 OVERRIDE_COMMAND = message;
                 lole_subcommands.set("playermode", 1);
-                SpellStopCasting();
+                L_SpellStopCasting();
             end
         else
             SendChatMessage("lole_runscript: " .. sender .. " doesn't appear to be a member of Uuslapio, not running script!", "GUILD");
