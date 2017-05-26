@@ -300,6 +300,10 @@ function L_ClearFocus()
 	execute_script("ClearFocus()")
 end
 
+function L_AcceptTrade()
+	execute_script("AcceptTrade()")
+end
+
 function L_UseInventoryItem(slotnumber)
 	execute_script("UseInventoryItem(" .. tostring(item) .. ")")
 end

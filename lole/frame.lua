@@ -12,6 +12,8 @@ lole_frame:RegisterEvent("CVAR_UPDATE")
 lole_frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 lole_frame:RegisterEvent("PLAYER_LOGOUT")
 lole_frame:RegisterEvent("TRADE_SHOW")
+lole_frame:RegisterEvent("LFG_PROPOSAL_SHOW")
+lole_frame:RegisterEvent("LFG_ROLE_CHECK_SHOW")
 
 
 function lole_frame_register(EVENTNAME)
@@ -876,9 +878,15 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 		if message == 1 then
 			-- prefix -> our answer, message -> theirs (accept:1, decline:0).
 			-- so this is that the trade partner has accepted, and we concur with AcceptTrade()
-			AcceptTrade()
+			L_AcceptTrade()
 			self:UnregisterEvent("TRADE_ACCEPT_UPDATE")
 		end
+
+	elseif event == "LFG_PROPOSAL_SHOW" then
+		execute_script("RunMacroText(\"/click LFDDungeonReadyDialogEnterDungeonButton\")")
+
+elseif event == "LFG_ROLE_CHECK_SHOW" then
+		execute_script("RunMacroText(\"/click LFDRoleCheckPopupAcceptButton\")")
 
 	elseif event == "PLAYER_ENTERING_WORLD" then
 
