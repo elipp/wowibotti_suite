@@ -60,6 +60,12 @@ void increment_spellcast_counter() {
 //
 //}
 
+void camera_stuff() {
+	// the camera struct lies at [[B7436C]+7E20]
+
+
+}
+
 GUID_t get_raid_target_GUID(int index) {
 	GUID_t GUID;
 	readAddr(0xC6F700 + index * 8, &GUID, sizeof(GUID)); // these are stored at the static address C6F700 until C6F764

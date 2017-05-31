@@ -13,6 +13,8 @@ pipe_data PIPEDATA;
 
 const UINT32 PIPE_PROTOCOL_MAGIC = 0xAB30DD13;
 
+static POINT cursor_pos;
+
 template <typename T> patchbuffer_t &patchbuffer_t::operator << (const T& arg) {
 	int size = sizeof(arg);
 	BYTE buf[16];
@@ -111,12 +113,96 @@ static void update_debug_positions() {
 	}
 }
 
+extern HWND wow_hWnd;
+static RECT window_rect;
+
+static void move_camera_if_cursor() {
+
+	DWORD camera = DEREF(0xB7436C);
+	if (!camera) return;
+	camera = DEREF(camera + 0x7E20);
+
+	//PRINT("camera: 0x%X\n", camera);
+
+
+	float *cx = (float*)(camera + 8);
+	float *cy = (float*)(camera + 12);
+	float *cz = (float*)(camera + 16);
+
+	float view[9] = {
+		0, 0, -1,
+		0, 1, 0,
+		1, 0, 0
+	};
+
+	memcpy((void*)(camera + 20), view, 9 * sizeof(float));
+
+	const float dd = 0.3;
+	const int margin = 30;
+
+	int ww = window_rect.right - window_rect.left;
+	int wh = window_rect.bottom - window_rect.top;
+
+	//PRINT("ww: %d, wh: %d\n", ww, wh);
+
+	if (cursor_pos.x < margin) {
+		*cy += dd;
+	}
+	else if (cursor_pos.x > ww - margin) {
+		*cy -= dd;
+	}
+
+	if (cursor_pos.y < margin) {
+		*cx += dd;
+	}
+	else if (cursor_pos.y > wh - margin) {
+		*cx -= dd;
+	}
+
+}
+
+static void RIP_camera() {
+	// [[B7436C] + 7E20]
+	DWORD nop = 0x90909090;
+	
+	DWORD *a1 = (DWORD*)0x6075AB;
+	WriteProcessMemory(glhProcess, a1, &nop, 2, NULL);
+
+	DWORD *a2 = (DWORD*)0x6075B2;
+	WriteProcessMemory(glhProcess, a2, &nop, 3, NULL);
+
+	DWORD *a3 = (DWORD*)0x6075C5;
+	WriteProcessMemory(glhProcess, a3, &nop, 3, NULL);
+
+	DWORD *aa1 = (DWORD*)0x6075D2;
+	WriteProcessMemory(glhProcess, aa1, &nop, 2, NULL);
+
+	DWORD *aa2 = (DWORD*)0x6075E3;
+	WriteProcessMemory(glhProcess, aa2, &nop, 3, NULL);
+
+	DWORD *aa3 = (DWORD*)0x6075E9;
+	WriteProcessMemory(glhProcess, aa3, &nop, 3, NULL);
+
+	DWORD *rot = (DWORD*)0x4C5810;
+	WriteProcessMemory(glhProcess, rot, &nop, 2, NULL);
+
+	GetClientRect(wow_hWnd, &window_rect);
+
+	move_camera_if_cursor();
+
+}
 
 static void __stdcall EndScene_hook() {
+
+	GetCursorPos(&cursor_pos);
+	ScreenToClient(wow_hWnd, &cursor_pos);
+
 	register_luafunc_if_not_registered();
 
 	static timer_interval_t fifty_ms(50);
 	static timer_interval_t half_second(500);
+
+	RIP_camera();
 	
 	if (half_second.passed()) {
 		update_hwevent_tick();

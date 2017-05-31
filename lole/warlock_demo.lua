@@ -61,6 +61,7 @@ local function drain_soul_if_needed()
 end
 
 local time_from_pet_summon = 0
+local last_soc_target = nil
 
 combat_warlock_demo = function()
 
@@ -117,11 +118,16 @@ combat_warlock_demo = function()
       			target_unit_with_GUID(g)
 
       			if UnitIsEnemy("target", "player") and not has_debuff("target", "Seed of Corruption") then
-      					L_CastSpellByName("Seed of Corruption")
-      					return;
+                if not last_soc_target or (last_soc_target and last_soc_target ~= g) then
+        					L_CastSpellByName("Seed of Corruption")
+                  last_soc_target = g
+        					return;
+                end
       			end
       		end
     end
+
+    last_soc_target = nil
 
     if drain_soul_if_needed() then return end
     if cast_assigned_curse() then return end

@@ -52,7 +52,7 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam) {
 		GetWindowThreadProcessId(hWnd, &this_pid);
 		if (pid == this_pid) {
 			wow_hWnd = hWnd;
-			PRINT("got window HWND! (pid = %d)\n", pid);
+			//PRINT("got window HWND! (pid = %d)\n", pid);
 		}
 	}
 
@@ -187,6 +187,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 
 		handle_pipe_stuff();
 		dscript_read_all();
+
+		EnumWindows(EnumWindowsProc, NULL);
 
 		break;
 	}
