@@ -141,3 +141,7 @@ combat_warlock_demo = function()
     end
 
 end
+
+function survive_warlock_demo()
+
+end

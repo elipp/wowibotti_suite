@@ -1,5 +1,13 @@
 combat_mage_fire = function()
 
+	L_TargetUnit("Ghostly Priest")
+	if UnitExists("target") then
+		if UnitCastingInfo("target") and string.find(UnitCastingInfo("target"), "Fear") and GetSpellCooldown("Counterspell") == 0 then
+			L_SpellStopCasting()
+			L_CastSpellByName("Counterspell")
+		end
+	end
+
 	if player_casting() then return end
 
 	if ((GetItemCount(33312) == 0) and (not UnitAffectingCombat("player"))) then
@@ -22,6 +30,8 @@ combat_mage_fire = function()
 			L_CastSpellByName("Evocation");
 		end
 	end
+
+
 
 	if not validate_target() then return end
 	caster_range_check(36);
