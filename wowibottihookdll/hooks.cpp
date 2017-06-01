@@ -1,4 +1,5 @@
 #include <queue>
+#include <D3D9.h>
 #include "hooks.h"
 #include "addrs.h"
 #include "defs.h"
@@ -14,6 +15,17 @@ pipe_data PIPEDATA;
 const UINT32 PIPE_PROTOCOL_MAGIC = 0xAB30DD13;
 
 static POINT cursor_pos;
+
+static DWORD get_wow_d3ddevice() {
+#define STATIC_335_DIRECT3DDEVICE 0xC5DF88 
+#define STATIC_335_D3DDEVICE_OFFSET 0x397C
+	DWORD wow_static_DX9 = DEREF(STATIC_335_DIRECT3DDEVICE);
+	DWORD tmp1 = DEREF(wow_static_DX9 + STATIC_335_D3DDEVICE_OFFSET);
+	DWORD d3ddevice = tmp1;
+
+	return d3ddevice;
+}
+
 
 template <typename T> patchbuffer_t &patchbuffer_t::operator << (const T& arg) {
 	int size = sizeof(arg);
@@ -116,6 +128,14 @@ static void update_debug_positions() {
 extern HWND wow_hWnd;
 static RECT window_rect;
 
+static int get_window_width() {
+	return window_rect.right - window_rect.left;
+}
+
+static int get_window_height() {
+	return window_rect.bottom - window_rect.top;
+}
+
 static void move_camera_if_cursor() {
 
 	DWORD camera = DEREF(0xB7436C);
@@ -140,8 +160,8 @@ static void move_camera_if_cursor() {
 	const float dd = 0.3;
 	const int margin = 30;
 
-	int ww = window_rect.right - window_rect.left;
-	int wh = window_rect.bottom - window_rect.top;
+	int ww = get_window_width();
+	int wh = get_window_height();
 
 	//PRINT("ww: %d, wh: %d\n", ww, wh);
 
@@ -161,9 +181,13 @@ static void move_camera_if_cursor() {
 
 }
 
+static int kb_hooked = 0;
+
 static void RIP_camera() {
 	// [[B7436C] + 7E20]
 	DWORD nop = 0x90909090;
+
+	// 
 	
 	DWORD *a1 = (DWORD*)0x6075AB;
 	WriteProcessMemory(glhProcess, a1, &nop, 2, NULL);
@@ -192,10 +216,150 @@ static void RIP_camera() {
 
 }
 
+static void mouse_stuff() {
+	// handler for WM_L/RBUTTONDOWN/UP is at 869870
+	
+}
+
+typedef struct CUSTOMVERTEX {
+	float x, y, z, a;
+	DWORD color;
+};
+
+#define CUSTOMFVF (D3DFVF_XYZRHW | D3DFVF_DIFFUSE)
+
+static IDirect3DDevice9 *wow_d3dDevice;
+static IDirect3DVertexBuffer9 *vBuffer;
+
+static int create_vertex_buffer_if() {
+	if (vBuffer != 0) return 1;
+
+	if (FAILED(wow_d3dDevice->CreateVertexBuffer(
+		4 * sizeof(CUSTOMVERTEX),
+		0,
+		CUSTOMFVF,
+		D3DPOOL_MANAGED,
+		&vBuffer,
+		NULL))) {
+		PRINT("RIP!\n");
+		return 0;
+	}
+
+
+
+	return 1;
+}
+
+static void MAKE_ORTHO_LH(D3DMATRIX *m, FLOAT w, FLOAT h, FLOAT zn, FLOAT zf) {
+
+	memset(m, 0x0, sizeof(D3DMATRIX));
+	m->_11 = 2.0 / w;
+	m->_22 = 2.0 / h;
+	m->_33 = 1.0 / (zf - zn);
+	m->_44 = 1.0;
+	m->_34 = zn / (zn - zf);
+
+}
+
+static D3DMATRIX MAKE_D3DMATRIX(float m11, float m21, float m31, float m41,
+	float m12, float m22, float m32, float m42,
+	float m13, float m23, float m33, float m43,
+	float m14, float m24, float m34, float m44) {
+	D3DMATRIX m;
+	memset(&m, 0x0, sizeof(m));
+	
+	m._11 = m11;
+	m._12 = m12;
+	m._13 = m13;
+	m._14 = m14;
+
+	m._21 = m21;
+	m._22 = m22;
+	m._23 = m23;
+	m._24 = m24;
+
+	m._31 = m31;
+	m._32 = m32;
+	m._33 = m33;
+	m._34 = m34;
+
+	m._41 = m41;
+	m._42 = m42;
+	m._43 = m43;
+	m._44 = m44;
+
+	return m;
+}
+
+static void MAKE_IDENTITY(D3DMATRIX *m) {
+
+	memset(m, 0x0, sizeof(D3DMATRIX));
+
+	m->_11 = 1;
+	m->_22 = 1;
+	m->_33 = 1;
+	m->_44 = 1;
+}
+
+
+static float dt = 0;
+static void draw_rectangle() {
+
+	dt += 0.01;
+
+	CUSTOMVERTEX OurVertices[] = {
+		{ 0, 0, 0, 1.0f, D3DCOLOR_XRGB(255, 0, 0) },
+		{ 400, 0, 0, 1.0f, D3DCOLOR_XRGB(127, 0, 0) },
+		{ 0, 300 + 100 * sin(dt), 0, 1.0f, D3DCOLOR_XRGB(0, 0, 0) },
+		{ 400, 300, 0, 1.0f, D3DCOLOR_XRGB(127, 0, 0) }
+	};
+
+	if (vBuffer == 0) return;
+
+	VOID* pVoid;    // the void* we were talking about
+
+	vBuffer->Lock(0, 0, (void**)&pVoid, 0);    // locks v_buffer, the buffer we made earlier
+	memcpy(pVoid, OurVertices, sizeof(OurVertices));    // copy vertices to the vertex buffer
+	vBuffer->Unlock();    // unlock v_buffer
+
+	wow_d3dDevice->SetRenderState(D3DRS_LIGHTING, FALSE);
+	wow_d3dDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
+	wow_d3dDevice->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+	wow_d3dDevice->SetRenderState(D3DRS_SRCBLENDALPHA, D3DRS_DESTBLENDALPHA);
+
+	D3DMATRIX orthographicMatrix;
+	D3DMATRIX identityMatrix;
+	D3DMATRIX viewMatrix = MAKE_D3DMATRIX(
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		((float)-(get_window_width()/2)), ((float)-(get_window_height()/ 2)), 0, 1
+	);
+
+	MAKE_ORTHO_LH(&orthographicMatrix, (FLOAT)get_window_width(), (FLOAT)get_window_height(), 0.0, 1.0);
+	MAKE_IDENTITY(&identityMatrix);
+
+	//D3DMatrixOrthoLH(&orthographicMatrix, (FLOAT)this->nScreenWidth, (FLOAT)-this->nScreenHeight, 0.0f, 1.0f);
+//	D3DMatrixIdentity(&identityMatrix);
+
+	wow_d3dDevice->SetTransform(D3DTS_PROJECTION, &orthographicMatrix);
+	wow_d3dDevice->SetTransform(D3DTS_WORLD, &identityMatrix);
+	wow_d3dDevice->SetTransform(D3DTS_VIEW, &viewMatrix);
+
+	wow_d3dDevice->SetFVF(CUSTOMFVF);
+	wow_d3dDevice->SetStreamSource(0, vBuffer, 0, sizeof(CUSTOMVERTEX));
+	wow_d3dDevice->DrawPrimitive(D3DPT_TRIANGLEFAN, 0, 2);
+}
+
 static void __stdcall EndScene_hook() {
+
+	wow_d3dDevice = (IDirect3DDevice9 *)get_wow_d3ddevice();
 
 	GetCursorPos(&cursor_pos);
 	ScreenToClient(wow_hWnd, &cursor_pos);
+
+	create_vertex_buffer_if();
+	draw_rectangle();
 
 	register_luafunc_if_not_registered();
 
@@ -421,24 +585,16 @@ static int prepare_LUA_prot_patch(LPVOID hook_func_addr, hookable &h) {
 	return 1;
 }
 
+
 static int prepare_EndScene_patch(LPVOID hook_func_addr, hookable &h) {
-
-	// this actually seems to work :)
-#define STATIC_243_DIRECT3DDEVICE 0xD2A15C
-#define STATIC_243_D3DDEVICE_OFFSET 0x3864
-
-	#define STATIC_335_DIRECT3DDEVICE 0xC5DF88 
-	#define STATIC_335_D3DDEVICE_OFFSET 0x397C
 
 	PRINT("Preparing EndScene patch...\n");
 
-	unsigned char *wow_static_DX9 = *(unsigned char**)STATIC_335_DIRECT3DDEVICE;
-	unsigned char *tmp1 = *(unsigned char**)(wow_static_DX9 + STATIC_335_D3DDEVICE_OFFSET);
-	unsigned char *tmp2 = *(unsigned char**)(tmp1);
+	DWORD d3ddevice = get_wow_d3ddevice();
+	EndScene = (HRESULT(*)(void)) DEREF(DEREF(d3ddevice) + 0xA8);
 
-	EndScene = (HRESULT(*)(void))*(unsigned char**)(tmp2 + 0xA8);
-	PRINT("Found EndScene at 0x%X\n(Details:\nwow_static_DX9 = 0x%X, tmp1 = 0x%X, tmp2 = 0x%X\n", EndScene, wow_static_DX9, tmp1, tmp2);
-	h.address = EndScene;
+	PRINT("Found EndScene at 0x%X\n", EndScene);
+	h.address = (LPVOID)EndScene;
 
 	static BYTE EndScene_trampoline[] = {
 		// original EndScene opcodes follow
