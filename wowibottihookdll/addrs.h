@@ -9,6 +9,10 @@
 #define SendPacket_hookaddr 0x46776E
 #define RecvPacket_hookaddr 0x467EC7
 
+#define mbuttondown_handler 0x869870
+#define mbuttonup_handler 0x8698C0
+#define mbuttonup_hookaddr 0x86A814
+
 
 //#define ClosePetStables 0x4FACA0 // TBC
 #define ClosePetStables 0x005A1950 

@@ -9,12 +9,13 @@
 #include "timer.h"
 #include "lua.h"
 
-static HRESULT(*EndScene)(void);
+//static HRESULT(*EndScene)(void);
 pipe_data PIPEDATA;
 
 const UINT32 PIPE_PROTOCOL_MAGIC = 0xAB30DD13;
 
 static POINT cursor_pos;
+static RECT client_area;
 
 static DWORD get_wow_d3ddevice() {
 #define STATIC_335_DIRECT3DDEVICE 0xC5DF88 
@@ -217,7 +218,9 @@ static void RIP_camera() {
 }
 
 static void mouse_stuff() {
-	// handler for WM_L/RBUTTONDOWN/UP is at 869870
+	// found using GetCursorPos breakpoints!!
+	// handler for WM_L/RBUTTONDOWN is at 869870
+	// WM_LBUTTONUP at 869C00 
 	
 }
 
@@ -301,31 +304,41 @@ static void MAKE_IDENTITY(D3DMATRIX *m) {
 	m->_44 = 1;
 }
 
-
-static float dt = 0;
 static void draw_rectangle() {
 
-	dt += 0.01;
+	LONG &cx = cursor_pos.x;
+	LONG &cy = cursor_pos.y;
 
-	CUSTOMVERTEX OurVertices[] = {
-		{ 0, 0, 0, 1.0f, D3DCOLOR_XRGB(255, 0, 0) },
-		{ 400, 0, 0, 1.0f, D3DCOLOR_XRGB(127, 0, 0) },
-		{ 0, 300 + 100 * sin(dt), 0, 1.0f, D3DCOLOR_XRGB(0, 0, 0) },
-		{ 400, 300, 0, 1.0f, D3DCOLOR_XRGB(127, 0, 0) }
+
+	CUSTOMVERTEX vertices[] = {
+		{ 0, 0, 0.5, 1.0f, D3DCOLOR_XRGB(0, 255, 0) },
+		{ 0, cy, 0.5, 1.0f, D3DCOLOR_XRGB(0, 255, 0) },
+		{ cx, cy, 0.5, 1.0f, D3DCOLOR_XRGB(0,255, 0) },
+		{ cx, 0, 0, 1.0f, D3DCOLOR_XRGB(0, 255, 0) },
+		{ 0, 0, 0.5, 1.0f, D3DCOLOR_XRGB(0, 255, 0) },
+
 	};
 
 	if (vBuffer == 0) return;
 
-	VOID* pVoid;    // the void* we were talking about
+	VOID* pVoid;
 
-	vBuffer->Lock(0, 0, (void**)&pVoid, 0);    // locks v_buffer, the buffer we made earlier
-	memcpy(pVoid, OurVertices, sizeof(OurVertices));    // copy vertices to the vertex buffer
-	vBuffer->Unlock();    // unlock v_buffer
+	vBuffer->Lock(0, 0, &pVoid, 0);
+	memcpy(pVoid, vertices, sizeof(vertices));
+	vBuffer->Unlock();
 
-	wow_d3dDevice->SetRenderState(D3DRS_LIGHTING, FALSE);
-	wow_d3dDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
-	wow_d3dDevice->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
-	wow_d3dDevice->SetRenderState(D3DRS_SRCBLENDALPHA, D3DRS_DESTBLENDALPHA);
+	IDirect3DStateBlock9 *state;
+
+	wow_d3dDevice->CreateStateBlock(D3DSBT_ALL, &state);
+
+
+	//	wow_d3dDevice->SetRenderState(D3DRS_STENCILENABLE, FALSE);
+
+
+	//	wow_d3dDevice->SetRenderState(D3DRS_LIGHTING, FALSE);
+	//wow_d3dDevice->SetRenderState(D3DRS_FILLMODE, 3);
+	//wow_d3dDevice->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
+	//wow_d3dDevice->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
 
 	D3DMATRIX orthographicMatrix;
 	D3DMATRIX identityMatrix;
@@ -333,33 +346,139 @@ static void draw_rectangle() {
 		1, 0, 0, 0,
 		0, 1, 0, 0,
 		0, 0, 1, 0,
-		((float)-(get_window_width()/2)), ((float)-(get_window_height()/ 2)), 0, 1
+		((float)-(get_window_width() / 2)), ((float)-(get_window_height() / 2)), 0, 1
 	);
 
 	MAKE_ORTHO_LH(&orthographicMatrix, (FLOAT)get_window_width(), (FLOAT)get_window_height(), 0.0, 1.0);
 	MAKE_IDENTITY(&identityMatrix);
 
 	//D3DMatrixOrthoLH(&orthographicMatrix, (FLOAT)this->nScreenWidth, (FLOAT)-this->nScreenHeight, 0.0f, 1.0f);
-//	D3DMatrixIdentity(&identityMatrix);
+	//	D3DMatrixIdentity(&identityMatrix);
+
+	wow_d3dDevice->SetVertexShader(NULL);
+	wow_d3dDevice->SetPixelShader(NULL);
 
 	wow_d3dDevice->SetTransform(D3DTS_PROJECTION, &orthographicMatrix);
 	wow_d3dDevice->SetTransform(D3DTS_WORLD, &identityMatrix);
 	wow_d3dDevice->SetTransform(D3DTS_VIEW, &viewMatrix);
 
+	wow_d3dDevice->SetRenderState(D3DRS_FOGENABLE, FALSE);
+	wow_d3dDevice->SetRenderState(D3DRS_ZFUNC, D3DCMP_ALWAYS);
+	wow_d3dDevice->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+	wow_d3dDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+
+	wow_d3dDevice->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
 	wow_d3dDevice->SetFVF(CUSTOMFVF);
 	wow_d3dDevice->SetStreamSource(0, vBuffer, 0, sizeof(CUSTOMVERTEX));
-	wow_d3dDevice->DrawPrimitive(D3DPT_TRIANGLEFAN, 0, 2);
+	wow_d3dDevice->DrawPrimitive(D3DPT_LINESTRIP, 0, 3);
+
+	state->Apply();
+	state->Release();
+
+	//wow_d3dDevice->SetRenderState(D3DRS_ZENABLE, TRUE);
+	//wow_d3dDevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0x00000000, 1.0f, 0);
 }
 
-static void __stdcall EndScene_hook() {
+static int rect_active = 0;
+static POINT rect_begin;
 
+static void draw_rect(RECT *r, D3DLOCKED_RECT *dr, DWORD XRGB) {
+
+	BYTE *b = (BYTE*)dr->pBits;
+
+	for (int i = r->left; i < r->right; ++i) {
+		memcpy(&b[r->top*dr->Pitch + i*4], &XRGB, sizeof(XRGB)); // top horizontal
+		memcpy(&b[r->bottom*dr->Pitch + i*4], &XRGB, sizeof(XRGB)); // bottom horizontal
+	}
+
+	for (int i = r->top; i < r->bottom; ++i) {
+		memcpy(&b[r->left*4 + i*dr->Pitch], &XRGB, sizeof(XRGB)); // left vertical
+		memcpy(&b[r->right*4 + i*dr->Pitch], &XRGB, sizeof(XRGB)); // right vertical
+	}
+
+}
+
+template <typename T> T CLAMP(const T& value, const T& low, const T& high) {
+	return value < low ? low : (value > high ? high : value);
+}
+
+static void fix_mouse_rect(RECT *r) {
+
+	r->left = CLAMP(r->left, (LONG)0, client_area.right - 1);
+	r->right = CLAMP(r->right, (LONG)0, client_area.right - 1);
+	r->top = CLAMP(r->top, (LONG)0, client_area.bottom - 1);
+	r->bottom = CLAMP(r->bottom, (LONG)0, client_area.bottom - 1);
+
+	if (r->left > r->right) {
+		int temp = r->left;
+		r->left = r->right;
+		r->right = temp;
+	}
+	if (r->top > r->bottom) {
+		int temp = r->top;
+		r->top = r->bottom;
+		r->bottom = temp;
+	}
+
+}
+
+static void draw_rect_brute() {
+	IDirect3DSwapChain9 *sc;
+	if (FAILED(wow_d3dDevice->GetSwapChain(0, &sc))) {
+		PRINT("GetSwapChain failed\n");
+		return;
+	}
+	IDirect3DSurface9 *s;
+
+	if (FAILED(sc->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &s))) {
+		PRINT("GetBackBuffer failed\n");
+		return;
+	}
+	
+	D3DLOCKED_RECT r;
+	RECT mr;
+	
+	mr.bottom = rect_begin.y;
+	mr.right = rect_begin.x;
+
+	mr.top = cursor_pos.y;
+	mr.left = cursor_pos.x;
+
+	fix_mouse_rect(&mr);
+
+	//PRINT("b: %d, t: %d, l: %d, r: %d\n", mr.bottom, mr.top, mr.left, mr.right);
+
+	if (FAILED(s->LockRect(&r, NULL, D3DLOCK_DONOTWAIT))) {
+		PRINT("%d LockRect failed\n", GetTickCount());
+		return;
+	}
+
+	draw_rect(&mr, &r, D3DCOLOR_XRGB(0, 255, 0));
+
+	D3DSURFACE_DESC d;
+	s->GetDesc(&d);
+
+	s->UnlockRect();
+
+	s->Release();
+	sc->Release();
+
+}
+
+
+static void __stdcall present_hook() {
 	wow_d3dDevice = (IDirect3DDevice9 *)get_wow_d3ddevice();
 
 	GetCursorPos(&cursor_pos);
 	ScreenToClient(wow_hWnd, &cursor_pos);
+	GetClientRect(wow_hWnd, &client_area);
 
 	create_vertex_buffer_if();
-	draw_rectangle();
+	//draw_rectangle();
+	
+	if (rect_active) {
+		draw_rect_brute();
+	}
 
 	register_luafunc_if_not_registered();
 
@@ -367,7 +486,8 @@ static void __stdcall EndScene_hook() {
 	static timer_interval_t half_second(500);
 
 	RIP_camera();
-	
+
+
 	if (half_second.passed()) {
 		update_hwevent_tick();
 
@@ -385,7 +505,7 @@ static void __stdcall EndScene_hook() {
 			disable_noclip();
 		}
 	}
-	
+
 
 	if (fifty_ms.passed()) {
 		ctm_purge_old();
@@ -395,6 +515,10 @@ static void __stdcall EndScene_hook() {
 
 		fifty_ms.reset();
 	}
+}
+
+static void __stdcall EndScene_hook() {
+
 
 
 }
@@ -581,6 +705,31 @@ static BYTE recvpacket_patch[] = {
 	0xE9, 0x00, 0x00, 0x00, 0x00, 0x90
 };
 
+static const BYTE present_original[] = {
+	0x8B, 0xFF, 0x55, 0x8B, 0xEC
+};
+
+static BYTE present_patch[] = {
+	0xE9, 0x00, 0x00, 0x00, 0x00
+};
+
+static const BYTE mbuttondown_original[] = {
+	0x55, 0x8B, 0xEC, 0x51, 0x56
+};
+
+static BYTE mbuttondown_patch[] = {
+	0xE9, 0x90, 0x90, 0x90, 0x90,
+};
+
+static const BYTE mbuttonup_original[] = {
+	0x55, 0x8B, 0xEC, 0x51, 0x56,
+
+};
+
+static BYTE mbuttonup_patch[] = {
+	0xE9, 0x90, 0x90, 0x90, 0x90,
+};
+
 static int prepare_LUA_prot_patch(LPVOID hook_func_addr, hookable &h) {
 	return 1;
 }
@@ -591,7 +740,7 @@ static int prepare_EndScene_patch(LPVOID hook_func_addr, hookable &h) {
 	PRINT("Preparing EndScene patch...\n");
 
 	DWORD d3ddevice = get_wow_d3ddevice();
-	EndScene = (HRESULT(*)(void)) DEREF(DEREF(d3ddevice) + 0xA8);
+	auto EndScene = (HRESULT(*)(void)) DEREF(DEREF(d3ddevice) + 0xA8);
 
 	PRINT("Found EndScene at 0x%X\n", EndScene);
 	h.address = (LPVOID)EndScene;
@@ -943,6 +1092,91 @@ static int prepare_recvpacket_patch(LPVOID hook_func_addr, hookable &h) {
 
 }
 
+
+
+static int prepare_present_patch(LPVOID hook_func_addr, hookable &h) {
+
+	static patchbuffer_t tr;
+
+	PRINT("Preparing Present patch...\n");
+
+	DWORD d3ddevice = get_wow_d3ddevice();
+	DWORD Present = DEREF(DEREF(d3ddevice) + 0x44);
+
+	PRINT("Found Present at 0x%X\n", Present);
+	h.address = (LPVOID)Present;
+
+	tr << (BYTE)0x60; // PUSHAD
+
+	tr.append_CALL((DWORD)present_hook);
+	tr << (BYTE)0x61; // POPAD
+
+					  // original stuff
+	tr << (BYTE)0x8B << (BYTE)0xFF << (BYTE)0x55;
+	tr << (BYTE)0x8B << (BYTE)0xEC;
+
+	tr << (BYTE)0x68 << (DWORD)(Present+5); // push RET addr
+
+	tr << (BYTE)0xC3; // RET
+
+	DWORD trampoline_relative = ((DWORD)tr.bytes - (DWORD)Present - 5);
+
+	memcpy(present_patch + 1, &trampoline_relative, 4);
+
+	return 1;
+		
+}
+
+static void __stdcall mbuttondown_hook() {
+	GetCursorPos(&rect_begin);
+	ScreenToClient(wow_hWnd, &rect_begin);
+	//PRINT("mbd_hook: %d, %d", rect_begin.x, rect_begin.y);
+	rect_active = 1;
+}
+
+static int prepare_mbuttondown_patch(LPVOID hook_func_addr, hookable &h) {
+	static patchbuffer_t tr;
+
+	PRINT("Preparing mbuttondown patch...\n");
+
+	tr << (BYTE)0x60; // PUSHAD
+
+	tr.append_CALL((DWORD)mbuttondown_hook);
+	tr << (BYTE)0x61; // POPAD
+
+	tr << (BYTE)0xC3; // just ret ^^
+
+	DWORD trampoline_relative = ((DWORD)tr.bytes - (DWORD)mbuttondown_handler - 5);
+	memcpy(mbuttondown_patch + 1, &trampoline_relative, 4);
+
+	return 1;
+
+}
+
+static void __stdcall mbuttonup_hook() {
+	rect_active = 0;
+	PRINT("olen homo\n");
+}
+
+static int prepare_mbuttonup_patch(LPVOID hook_func_addr, hookable &h) {
+	static patchbuffer_t tr;
+
+	PRINT("Preparing mbuttonup patch...\n");
+
+	tr << (BYTE)0x60; // PUSHAD
+
+	tr.append_CALL((DWORD)mbuttonup_hook);
+	tr << (BYTE)0x61; // POPAD
+
+	//tr << (BYTE)0x68 << (DWORD)(mbuttonup_handler + 7); // push RET addr
+	tr << (BYTE)0xC3; // just ret ^^
+
+	DWORD trampoline_relative = ((DWORD)tr.bytes - (DWORD)mbuttonup_handler - 5);
+	memcpy(mbuttonup_patch + 1, &trampoline_relative, 4);
+
+	return 1;
+}
+
 static hookable hookable_functions[] = {
 	{ "LUA_prot", (LPVOID)LUA_prot, LUA_prot_original, LUA_prot_patch, sizeof(LUA_prot_original), prepare_LUA_prot_patch },
 	{ "EndScene", 0x0, EndScene_original, EndScene_patch, sizeof(EndScene_original), prepare_EndScene_patch },
@@ -954,6 +1188,9 @@ static hookable hookable_functions[] = {
 	{ "SpellErrMsg", (LPVOID)SpellErrMsg, spell_errmsg_original, spell_errmsg_patch, sizeof(spell_errmsg_original), prepare_spell_errmsg_patch },
 	{ "SendPacket", (LPVOID)SendPacket_hookaddr, sendpacket_original, sendpacket_patch, sizeof(sendpacket_original), prepare_sendpacket_patch },
 	{ "RecvPacket", (LPVOID)RecvPacket_hookaddr, recvpacket_original, recvpacket_patch, sizeof(recvpacket_original), prepare_recvpacket_patch },
+	{ "Present", (LPVOID)0x0, present_original, present_patch, sizeof(present_original), prepare_present_patch },
+	{ "mbuttondown_handler", (LPVOID)mbuttondown_handler, mbuttondown_original, mbuttondown_patch, sizeof(mbuttondown_patch), prepare_mbuttondown_patch },
+	{ "mbuttonup_handler", (LPVOID)mbuttonup_handler, mbuttonup_original, mbuttonup_patch, sizeof(mbuttonup_patch), prepare_mbuttonup_patch },
 
 };
 
@@ -992,6 +1229,9 @@ int prepare_patches_and_pipe_data() {
 	prepare_patch("ClosePetStables", ClosePetStables_hook);
 //	prepare_patch("SendPacket", dump_packet);
 //	prepare_patch("RecvPacket", dump_packet);
+	prepare_patch("Present", present_hook);
+	prepare_patch("mbuttondown_handler", mbuttondown_hook);
+	prepare_patch("mbuttonup_handler", mbuttondown_hook);
 
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("LUA_prot")));
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
@@ -1001,6 +1241,9 @@ int prepare_patches_and_pipe_data() {
 	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("ClosePetStables")));
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("SendPacket")));
 //	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("RecvPacket")));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("Present")));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("mbuttondown_handler")));
+	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("mbuttonup_handler")));
 
 
 	return 1;
