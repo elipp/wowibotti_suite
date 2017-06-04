@@ -38,6 +38,7 @@ opcodes.lua
 subcommands.lua
 
 frame.lua
+unitselectionframe.lua
 
 lole.xml
 lole.lua

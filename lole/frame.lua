@@ -79,7 +79,6 @@ local backdrop = {
 }
 
 lole_frame:SetBackdrop(backdrop)
-lole_frame:SetMovable(true)
 
 lole_frame:EnableMouse(true)
 lole_frame:SetMovable(true)
