@@ -172,7 +172,7 @@ public:
 
 	int valid() const;
 
-	WowObject get_first_object() const;
+	int get_first_object(WowObject *o) const;
 
 	ObjectManager();
 

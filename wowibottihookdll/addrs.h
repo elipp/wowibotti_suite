@@ -41,6 +41,8 @@
 #define CTM_update 0x7272C0
 #define CTM_update_hookaddr 0x7273E5
 
+#define Camera_static 0xB7436C
+
 
 //#define TicksSinceLastHWEvent 0xBE10FC // <-- tbc
 

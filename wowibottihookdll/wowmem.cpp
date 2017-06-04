@@ -535,10 +535,14 @@ void ObjectManager::LoadAddresses() {
 }
 
 
-WowObject ObjectManager::get_first_object() const {
+int ObjectManager::get_first_object(WowObject *o) const {
 	unsigned int object_base_addr;
 	readAddr(this->base_addr + firstObjectOffset, &object_base_addr, sizeof(object_base_addr));
-	return WowObject(object_base_addr);
+
+	if (!object_base_addr) return 0;
+
+	*o = WowObject(object_base_addr);
+	return 1;
 }
 
 ObjectManager::ObjectManager() {
@@ -546,7 +550,8 @@ ObjectManager::ObjectManager() {
 }
 
 int ObjectManager::get_object_by_GUID(GUID_t GUID, WowObject *o) const {
-	WowObject next = get_first_object();
+	WowObject next;
+	if (!get_first_object(&next)) return 0;
 
 	while (next.valid()) {
 		if (next.get_GUID() == GUID) {
@@ -559,7 +564,8 @@ int ObjectManager::get_object_by_GUID(GUID_t GUID, WowObject *o) const {
 }
 
 int ObjectManager::get_unit_by_name(const std::string &name, WowObject *o) const {
-	WowObject next = get_first_object();
+	WowObject next;
+	if (!get_first_object(&next)) return 0;
 
 	while (next.valid()) {
 		if (next.get_type() == OBJECT_TYPE_UNIT) {
@@ -580,7 +586,8 @@ int ObjectManager::get_unit_by_name(const std::string &name, WowObject *o) const
 }
 
 int ObjectManager::get_GO_by_name(const std::string &name, WowObject *o) const {
-	WowObject n = get_first_object();
+	WowObject n;
+	if (!get_first_object(&n)) return 0;
 
 	while (n.valid()) {
 		if (n.get_type() == OBJECT_TYPE_GAMEOBJECT) {
@@ -611,7 +618,8 @@ int ObjectManager::get_local_object(WowObject *o) const {
 std::vector<WowObject> ObjectManager::get_spell_objects_with_spellID(long spellID) {
 	std::vector<WowObject> matches;
 	
-	WowObject next = get_first_object();
+	WowObject next;
+	if (!get_first_object(&next)) return matches;
 
 	while (next.valid()) {
 		if (next.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
@@ -628,7 +636,8 @@ std::vector<WowObject> ObjectManager::get_spell_objects_with_spellID(long spellI
 std::vector<WowObject> ObjectManager::find_all_NPCs_at(const vec3 &pos, float radius) {
 	std::vector<WowObject> NPCs;
 
-	WowObject o = get_first_object();
+	WowObject o;
+	if (!get_first_object(&o)) return NPCs;
 
 	while (o.valid()) {
 		if (o.get_type() == OBJECT_TYPE_NPC) {

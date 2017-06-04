@@ -8,9 +8,12 @@
 #include "creds.h"
 #include "timer.h"
 #include "lua.h"
+#include "linalg.h"
 
 //static HRESULT(*EndScene)(void);
 pipe_data PIPEDATA;
+
+extern HWND wow_hWnd;
 
 const UINT32 PIPE_PROTOCOL_MAGIC = 0xAB30DD13;
 
@@ -96,37 +99,6 @@ static void update_hwevent_tick() {
 	// this should make us immune to AFK ^^
 }
 
-static void update_debug_positions() {
-
-	ObjectManager OM;
-
-	WowObject p;
-	if (!OM.get_local_object(&p)) { 
-		PRINT("local GUID = %llX, but get_local_object returned an invalid object!\n", OM.get_local_GUID());
-		return; 
-	}
-
-	vec3 ppos = p.get_pos();
-	char buf[128];
-
-	sprintf_s(buf, "(%.1f, %.1f, %.1f)", ppos.x, ppos.y, ppos.z);
-
-	DoString("SetCVar(\"movieSubtitle\", \"%s\", \"player_pos\")", buf);
-
-	if (get_target_GUID() != (GUID_t)0) {
-		WowObject t;
-		if (!OM.get_object_by_GUID(get_target_GUID(), &t)) return;
-		vec3 tpos = t.get_pos();
-		sprintf_s(buf, "(%.1f, %.1f, %.1f)", tpos.x, tpos.y, tpos.z);
-
-		DoString("SetCVar(\"movieSubtitle\", \"%s\", \"target_pos\")", buf);
-	}
-	else {
-		DoString("SetCVar(\"movieSubtitle\", \"-\", \"target_pos\")");
-	}
-}
-
-extern HWND wow_hWnd;
 static RECT window_rect;
 
 static int get_window_width() {
@@ -138,6 +110,12 @@ static int get_window_height() {
 }
 
 static void move_camera_if_cursor() {
+
+	if (GetActiveWindow() != wow_hWnd) return;
+
+	if (cursor_pos.x < 0 || cursor_pos.x > get_window_width()) return;
+	if (cursor_pos.y < 0 || cursor_pos.y > get_window_height()) return;
+
 
 	DWORD camera = DEREF(0xB7436C);
 	if (!camera) return;
@@ -184,12 +162,13 @@ static void move_camera_if_cursor() {
 
 static int kb_hooked = 0;
 
+
 static void RIP_camera() {
 	// [[B7436C] + 7E20]
+	// FOV is at camera + 0x40
+	// zNear is at 0x38, zFar is 0x3C
 	DWORD nop = 0x90909090;
 
-	// 
-	
 	DWORD *a1 = (DWORD*)0x6075AB;
 	WriteProcessMemory(glhProcess, a1, &nop, 2, NULL);
 
@@ -224,6 +203,7 @@ static void mouse_stuff() {
 	
 }
 
+
 typedef struct CUSTOMVERTEX {
 	float x, y, z, a;
 	DWORD color;
@@ -253,56 +233,6 @@ static int create_vertex_buffer_if() {
 	return 1;
 }
 
-static void MAKE_ORTHO_LH(D3DMATRIX *m, FLOAT w, FLOAT h, FLOAT zn, FLOAT zf) {
-
-	memset(m, 0x0, sizeof(D3DMATRIX));
-	m->_11 = 2.0 / w;
-	m->_22 = 2.0 / h;
-	m->_33 = 1.0 / (zf - zn);
-	m->_44 = 1.0;
-	m->_34 = zn / (zn - zf);
-
-}
-
-static D3DMATRIX MAKE_D3DMATRIX(float m11, float m21, float m31, float m41,
-	float m12, float m22, float m32, float m42,
-	float m13, float m23, float m33, float m43,
-	float m14, float m24, float m34, float m44) {
-	D3DMATRIX m;
-	memset(&m, 0x0, sizeof(m));
-	
-	m._11 = m11;
-	m._12 = m12;
-	m._13 = m13;
-	m._14 = m14;
-
-	m._21 = m21;
-	m._22 = m22;
-	m._23 = m23;
-	m._24 = m24;
-
-	m._31 = m31;
-	m._32 = m32;
-	m._33 = m33;
-	m._34 = m34;
-
-	m._41 = m41;
-	m._42 = m42;
-	m._43 = m43;
-	m._44 = m44;
-
-	return m;
-}
-
-static void MAKE_IDENTITY(D3DMATRIX *m) {
-
-	memset(m, 0x0, sizeof(D3DMATRIX));
-
-	m->_11 = 1;
-	m->_22 = 1;
-	m->_33 = 1;
-	m->_44 = 1;
-}
 
 static void draw_rectangle() {
 
@@ -342,15 +272,15 @@ static void draw_rectangle() {
 
 	D3DMATRIX orthographicMatrix;
 	D3DMATRIX identityMatrix;
-	D3DMATRIX viewMatrix = MAKE_D3DMATRIX(
+	D3DMATRIX viewMatrix = mat4_construct(
 		1, 0, 0, 0,
 		0, 1, 0, 0,
 		0, 0, 1, 0,
 		((float)-(get_window_width() / 2)), ((float)-(get_window_height() / 2)), 0, 1
 	);
 
-	MAKE_ORTHO_LH(&orthographicMatrix, (FLOAT)get_window_width(), (FLOAT)get_window_height(), 0.0, 1.0);
-	MAKE_IDENTITY(&identityMatrix);
+	mat4_ortho_lh(&orthographicMatrix, (FLOAT)get_window_width(), (FLOAT)get_window_height(), 0.0, 1.0);
+	mat4_identity(&identityMatrix);
 
 	//D3DMatrixOrthoLH(&orthographicMatrix, (FLOAT)this->nScreenWidth, (FLOAT)-this->nScreenHeight, 0.0f, 1.0f);
 	//	D3DMatrixIdentity(&identityMatrix);
@@ -422,6 +352,52 @@ static void fix_mouse_rect(RECT *r) {
 
 }
 
+static void draw_pixel(int x, int y) {
+	IDirect3DSwapChain9 *sc;
+	if (FAILED(wow_d3dDevice->GetSwapChain(0, &sc))) {
+		PRINT("GetSwapChain failed\n");
+		return;
+	}
+	IDirect3DSurface9 *s;
+
+	if (FAILED(sc->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &s))) {
+		PRINT("GetBackBuffer failed\n");
+		return;
+	}
+
+	D3DLOCKED_RECT r;
+
+	if (FAILED(s->LockRect(&r, NULL, D3DLOCK_DONOTWAIT))) {
+		PRINT("%d LockRect failed\n", GetTickCount());
+		return;
+	}
+
+	BYTE *b = (BYTE*)r.pBits;
+
+	
+	memset(&b[r.Pitch * y + 4*x], 0xFF, 4);
+
+
+	s->UnlockRect();
+
+	s->Release();
+	sc->Release();
+}
+
+static RECT get_selection_rect() {
+	RECT mr;
+
+	mr.bottom = rect_begin.y;
+	mr.right = rect_begin.x;
+
+	mr.top = cursor_pos.y;
+	mr.left = cursor_pos.x;
+	
+	fix_mouse_rect(&mr);
+
+	return mr;
+}
+
 static void draw_rect_brute() {
 	IDirect3DSwapChain9 *sc;
 	if (FAILED(wow_d3dDevice->GetSwapChain(0, &sc))) {
@@ -436,15 +412,8 @@ static void draw_rect_brute() {
 	}
 	
 	D3DLOCKED_RECT r;
-	RECT mr;
-	
-	mr.bottom = rect_begin.y;
-	mr.right = rect_begin.x;
 
-	mr.top = cursor_pos.y;
-	mr.left = cursor_pos.x;
-
-	fix_mouse_rect(&mr);
+	RECT mr = get_selection_rect();
 
 	//PRINT("b: %d, t: %d, l: %d, r: %d\n", mr.bottom, mr.top, mr.left, mr.right);
 
@@ -455,8 +424,8 @@ static void draw_rect_brute() {
 
 	draw_rect(&mr, &r, D3DCOLOR_XRGB(0, 255, 0));
 
-	D3DSURFACE_DESC d;
-	s->GetDesc(&d);
+	//D3DSURFACE_DESC d;
+	//s->GetDesc(&d);
 
 	s->UnlockRect();
 
@@ -465,6 +434,71 @@ static void draw_rect_brute() {
 
 }
 
+static POINT map_clip_to_screen(glm::vec4 &const c) {
+	float cx = -c.x + 0.5;
+	float cy = -c.y + 0.5;
+
+	int px = cx * get_window_width();
+	int py = cy * get_window_height();
+
+	return POINT{ px, py };
+}
+
+static int get_screen_coords(GUID_t GUID, POINT *coords) {
+	wow_camera_t *c = (wow_camera_t*)get_wow_camera();
+	if (!c) return 0;
+
+	ObjectManager OM;
+	WowObject o;
+	if (!OM.get_object_by_GUID(GUID, &o)) return 0;
+
+	vec3 unitpos = o.get_pos();
+
+	// NOTE: EVERY OCCURRENCE OF X AND Y COORDINATES ARE INTENTIONALLY SWAPPED (WOW WORKS THIS WAY O_O)
+	glm::mat4 proj = glm::perspective(c->fov, c->aspect, c->zNear, c->zFar);
+	glm::mat4 view = glm::translate(glm::mat4(1.0), -glm::vec3(c->y, c->x, c->z));
+	glm::mat4 viewroty = glm::rotate(view, (float)-1.57, glm::vec3(1.0, 0, 0));
+	glm::mat4 MVP = proj*view;
+
+	glm::vec4 clip = MVP*glm::vec4(unitpos.y, unitpos.x, unitpos.z, 1);
+	clip /= clip.w;
+
+	*coords = map_clip_to_screen(clip);
+
+	return 1;
+}
+
+static int get_units_in_selection_rect(RECT sel, std::vector<GUID_t> *units) {
+	
+	ObjectManager OM;
+	WowObject iter;
+	
+	if (!OM.get_first_object(&iter)) return 0;
+
+	while (iter.valid()) {
+		if (iter.get_type() == OBJECT_TYPE_UNIT) {
+			POINT coords;
+			memset(&coords, 0, sizeof(coords));
+			GUID_t unitguid = iter.get_GUID();
+			get_screen_coords(unitguid, &coords);
+
+			//PRINT("checking unit 0x%016llX (screen coords: %d, %d), selection rect data: (t: %ld, b: %ld, l: %ld, r: %ld)\n", 
+			//	unitguid, coords.x, coords.y, sel.top, sel.bottom, sel.left, sel.right);
+
+			if (coords.x > sel.left && coords.x < sel.right
+				&& coords.y < sel.bottom && coords.y > sel.top) {
+				units->push_back(unitguid);
+				//PRINT("^UNIT IN RECT!\n");
+			}
+
+		}
+		iter = iter.next();
+
+	}
+
+	return units->size();
+
+}
 
 static void __stdcall present_hook() {
 	wow_d3dDevice = (IDirect3DDevice9 *)get_wow_d3ddevice();
@@ -515,6 +549,38 @@ static void __stdcall present_hook() {
 
 		fifty_ms.reset();
 	}
+
+	//mat4 view, proj;
+	//get_wow_view_matrix(&view);
+	//get_wow_proj_matrix(&proj);
+
+	ObjectManager OM;
+	WowObject p;
+	if (!OM.get_local_object(&p)) return;
+
+	vec3 ppos = p.get_pos();
+	vec4 pos = vec4(ppos.x, ppos.y, ppos.z, 1);
+
+
+
+	//glm::mat4 rottest = glm::rotate(glm::mat4(1.0), (float)-1.57, glm::vec3(1.0, 0, 0));
+
+	//for (int c = 0; c < 4; ++c) {
+	//	for (int r = 0; r < 4; ++r) {
+	//		PRINT("%.3f ", rottest[c][r]);
+	//	}
+	//	PRINT("\n");
+	//}
+	//PRINT("\n");
+
+
+
+	//PRINT("CLIP POS (divided by w): (%.3f, %.3f, %.3f, %.3f)\naka (%.3f, %.3f) -> (%d, %d)\n",
+	//	clip.x, clip.y, clip.z, clip.w,
+	//	cx, cy, px, py
+	//);
+
+
 }
 
 static void __stdcall EndScene_hook() {
@@ -1155,7 +1221,19 @@ static int prepare_mbuttondown_patch(LPVOID hook_func_addr, hookable &h) {
 
 static void __stdcall mbuttonup_hook() {
 	rect_active = 0;
-	PRINT("olen homo\n");
+
+	std::vector<GUID_t> units;
+	if (!get_units_in_selection_rect(get_selection_rect(), &units)) return;
+
+	if (units.size() < 1) {
+		return;
+	}
+
+	PRINT("Units within rectselect bounds:\n");
+	for (auto &u : units) {
+		PRINT("0x%016llX\n", u);
+	}
+
 }
 
 static int prepare_mbuttonup_patch(LPVOID hook_func_addr, hookable &h) {

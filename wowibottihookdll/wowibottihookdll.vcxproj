@@ -71,12 +71,14 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(VC_SourcePath);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(VC_SourcePath);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -150,6 +152,7 @@
     <ClInclude Include="defs.h" />
     <ClInclude Include="dungeon_script.h" />
     <ClInclude Include="hooks.h" />
+    <ClInclude Include="linalg.h" />
     <ClInclude Include="lua.h" />
     <ClInclude Include="packet.h" />
     <ClInclude Include="wowmem.h" />
@@ -164,6 +167,7 @@
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="dungeon_script.cpp" />
     <ClCompile Include="hooks.cpp" />
+    <ClCompile Include="linalg.cpp" />
     <ClCompile Include="lua.cpp" />
     <ClCompile Include="packet.cpp" />
     <ClCompile Include="wowmem.cpp" />

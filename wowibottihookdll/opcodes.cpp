@@ -222,7 +222,8 @@ static int LOP_melee_avoid_aoe_buff(long spellID) {
 	
 	ObjectManager OM;
 
-	WowObject o = OM.get_first_object();
+	WowObject o;
+	if (!OM.get_first_object(&o)) return 0;
 
 	while (o.valid()) {
 
@@ -602,7 +603,8 @@ static std::vector<std::string> LOP_chain_heal_target(const std::string &arg) {
 
 	ObjectManager OM;
 	
-	WowObject next = OM.get_first_object();
+	WowObject next;
+	if (!OM.get_first_object(&next)) return std::vector<std::string>();
 
 	// cache units for easier access
 
@@ -699,34 +701,6 @@ static int mob_has_debuff(const WowObject &mob, uint debuff_spellID) {
 	}
 	return 0;
 }
-
-static int LOPEXT_maulgar_get_felhound() {
-
-	// TODO: ONLY RETURN TARGET GUID, DON'T CAST BANISH HERE ETC
-	ObjectManager OM;
-
-	WowObject next = OM.get_first_object();
-
-	while (next.valid()) {
-
-		if (next.get_type() == OBJECT_TYPE_NPC) {
-			if (next.NPC_get_name() == "Wild Fel Stalker") {
-				if (!mob_has_debuff(next, 18647)) { // this is Banish (Rank 2)
-					SelectUnit(next.get_GUID());
-					DoString("CastSpellByName(\"Banish\")");
-					return 1;
-				}
-			}
-		}
-
-		next = next.next();
-	}
-
-	SelectUnit(0);
-
-	return 0;
-}
-
 
 static int LOP_tank_face() {
 	ObjectManager OM;
@@ -875,7 +849,9 @@ static int LOP_get_combat_targets(std::vector <GUID_t> *out) {
 	WowObject p;
 	if (!OM.get_local_object(&p)) return 0; 
 	vec3 ppos = p.get_pos();
-	WowObject i = OM.get_first_object();
+
+	WowObject i;
+	if (!OM.get_first_object(&i)) return 0;
 
 	while (i.valid()) {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
@@ -903,7 +879,8 @@ static int LOPDBG_test() {
 
 	ObjectManager OM;
 
-	WowObject i = OM.get_first_object();
+	WowObject i;
+	if (!OM.get_first_object(&i)) return 0;
 	while (i.valid()) {
 		PRINT("address: %X, GUID: %llX, type: %d\n", i.get_base(), i.get_GUID(), i.get_type());
 
@@ -930,7 +907,8 @@ static int have_aggro() {
 
 	GUID_t pGUID = p.get_GUID();
 
-	WowObject o = OM.get_first_object();
+	WowObject o;
+	if (!OM.get_first_object(&o)) return -1;
 
 	while (o.valid()) {
 		if (o.get_type() == OBJECT_TYPE_NPC) {
@@ -1395,8 +1373,10 @@ static int dump_wowobjects_to_log() {
 	GUID_t target_GUID = get_target_GUID();
 
 	fprintf(fp, "Basic info: ObjectManager base: %X, local GUID = 0x%016llX, player target: 0x%016llX\n\n", OM.get_base_address(), OM.get_local_GUID(), target_GUID);
+	WowObject o;
+	if (!OM.get_first_object(&o)) return 0;
 
-	for (WowObject o = OM.get_first_object(); o.valid(); o = o.next()) {
+	for (; o.valid(); o = o.next()) {
 		uint type = o.get_type();
 		if (type == OBJECT_TYPE_ITEM || type == OBJECT_TYPE_CONTAINER) { continue; }  
 		
