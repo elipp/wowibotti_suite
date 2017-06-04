@@ -31,7 +31,7 @@ local LOP_CAST_SPELL = 0x1D
 local LOP_GET_COMBAT_TARGETS = 0x1E
 
 local LOP_EXT_NOP = 0x70
-local LOP_EXT_MAULGAR_GET_UNBANISHED_FELHOUND = 0x71
+local LOPSL_RESETCAMERA = 0x71
 
 local LDOP_NOP = 0xE0
 local LDOP_DUMP = 0xE1
@@ -322,4 +322,8 @@ end
 
 function L_target_focus()
 	lop_exec(LOP_TARGET_GUID, UnitGUID("focus"))
+end
+
+function reset_camera()
+	lop_exec(LOPSL_RESETCAMERA)
 end

@@ -48,6 +48,6 @@ struct patchbuffer_t {
 
 };
 
-
-
 extern pipe_data PIPEDATA;
+
+void reset_camera();

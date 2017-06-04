@@ -1085,6 +1085,13 @@ int LOP_loot_badge(const std::string &GUID_str) {
 
 }
 
+static int LOPSL_reset_camera() {
+	PRINT("resetting camera\n");
+	reset_camera();
+
+	return 1;
+}
+
 
 int lop_exec(lua_State *L) {
 
@@ -1316,6 +1323,9 @@ int lop_exec(lua_State *L) {
 		break;
 	}
 
+	case LOP_SL_RESETCAMERA:
+		LOPSL_reset_camera();
+		break;
 
 	case LDOP_LUA_REGISTERED:
 		lua_registered = 1;

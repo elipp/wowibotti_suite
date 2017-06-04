@@ -109,6 +109,17 @@ static int get_window_height() {
 	return window_rect.bottom - window_rect.top;
 }
 
+static void reset_camera_rotation(wow_camera_t *camera) {
+
+	float view[9] = {
+		0, 0, -1,
+		0, 1, 0,
+		1, 0, 0
+	};
+
+	memcpy(camera->rot, view, 9 * sizeof(float));
+}
+
 static void move_camera_if_cursor() {
 
 	if (GetActiveWindow() != wow_hWnd) return;
@@ -117,27 +128,15 @@ static void move_camera_if_cursor() {
 	if (cursor_pos.y < 0 || cursor_pos.y > get_window_height()) return;
 
 
-	DWORD camera = DEREF(0xB7436C);
+	wow_camera_t *camera = (wow_camera_t*)get_wow_camera();
 	if (!camera) return;
-	camera = DEREF(camera + 0x7E20);
 
 	//PRINT("camera: 0x%X\n", camera);
 
+	reset_camera_rotation(camera);
 
-	float *cx = (float*)(camera + 8);
-	float *cy = (float*)(camera + 12);
-	float *cz = (float*)(camera + 16);
-
-	float view[9] = {
-		0, 0, -1,
-		0, 1, 0,
-		1, 0, 0
-	};
-
-	memcpy((void*)(camera + 20), view, 9 * sizeof(float));
-
-	const float dd = 0.3;
-	const int margin = 30;
+	const float dd = 0.1;
+	const int margin = 100;
 
 	int ww = get_window_width();
 	int wh = get_window_height();
@@ -145,17 +144,17 @@ static void move_camera_if_cursor() {
 	//PRINT("ww: %d, wh: %d\n", ww, wh);
 
 	if (cursor_pos.x < margin) {
-		*cy += dd;
+		camera->y += dd;
 	}
 	else if (cursor_pos.x > ww - margin) {
-		*cy -= dd;
+		camera->y -= dd;
 	}
 
 	if (cursor_pos.y < margin) {
-		*cx += dd;
+		camera->x += dd;
 	}
 	else if (cursor_pos.y > wh - margin) {
-		*cx -= dd;
+		camera->x -= dd;
 	}
 
 }
@@ -193,6 +192,27 @@ static void RIP_camera() {
 	GetClientRect(wow_hWnd, &window_rect);
 
 	move_camera_if_cursor();
+
+}
+
+void reset_camera() {
+
+	ObjectManager OM;
+	WowObject o;
+	if (!OM.get_local_object(&o)) {
+		return;
+	}
+
+	vec3 pos = o.get_pos();
+
+	wow_camera_t *camera = (wow_camera_t*)get_wow_camera();
+	if (!camera) return;
+
+	camera->x = pos.x;
+	camera->y = pos.y;
+	camera->z = pos.z + 20;
+
+	reset_camera_rotation(camera);
 
 }
 
@@ -468,7 +488,7 @@ static int get_screen_coords(GUID_t GUID, POINT *coords) {
 	return 1;
 }
 
-static int get_units_in_selection_rect(RECT sel, std::vector<GUID_t> *units) {
+static int get_units_in_selection_rect(RECT sel, std::vector<std::string> *units) {
 	
 	ObjectManager OM;
 	WowObject iter;
@@ -487,7 +507,7 @@ static int get_units_in_selection_rect(RECT sel, std::vector<GUID_t> *units) {
 
 			if (coords.x > sel.left && coords.x < sel.right
 				&& coords.y < sel.bottom && coords.y > sel.top) {
-				units->push_back(unitguid);
+				units->push_back(iter.unit_get_name());
 				//PRINT("^UNIT IN RECT!\n");
 			}
 
@@ -1222,18 +1242,23 @@ static int prepare_mbuttondown_patch(LPVOID hook_func_addr, hookable &h) {
 static void __stdcall mbuttonup_hook() {
 	rect_active = 0;
 
-	std::vector<GUID_t> units;
-	if (!get_units_in_selection_rect(get_selection_rect(), &units)) return;
+	std::vector<std::string> units;
+	get_units_in_selection_rect(get_selection_rect(), &units);
 
 	if (units.size() < 1) {
+		DoString("RunMacroText(\"/lole clearselection\")");
 		return;
 	}
 
 	PRINT("Units within rectselect bounds:\n");
-	for (auto &u : units) {
-		PRINT("0x%016llX\n", u);
+	std::string units_concatd;
+
+	for (int i = 0; i < units.size(); ++i) {
+		units_concatd += units[i] + ((i == units.size() - 1) ? "" : "," );
+		PRINT("%s\n", units[i].c_str());
 	}
 
+	DoString("RunMacroText(\"/lole setselection %s\")", units_concatd.c_str());
 }
 
 static int prepare_mbuttonup_patch(LPVOID hook_func_addr, hookable &h) {

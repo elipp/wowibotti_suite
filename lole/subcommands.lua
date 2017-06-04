@@ -585,6 +585,19 @@ local function lole_cast_gtaoe(spellname, x, y, z)
 	end
 end
 
+local function lole_setselection(targets)
+	local target_table = tokenize_string(targets, ",")
+	update_selection(target_table)
+end
+
+local function lole_clearselection()
+	clear_selection()
+end
+
+local function lole_resetcamera()
+	reset_camera()
+end
+
 local function lole_getbiscuit()
 	L_CastSpellByName("Arcane Torrent")
 	--get_biscuits()
@@ -1021,5 +1034,10 @@ lole_subcommands = {
 	loot_badge = lole_loot_badge,
 
 	cast_spell = lole_cast_spell;
+
+	setselection = lole_setselection;
+	clearselection = lole_clearselection;
+
+	resetcamera = lole_resetcamera;
 
 }
