@@ -70,7 +70,7 @@ int handle_pipe_stuff() {
 
 	DWORD pid = GetCurrentProcessId();
 
-	prepare_patches_and_pipe_data();
+	prepare_pipe_data();
 
 	std::string pipe_name = "\\\\.\\pipe\\" + std::to_string(pid);
 

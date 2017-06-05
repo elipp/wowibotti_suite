@@ -633,7 +633,7 @@ static std::vector<std::string> LOP_chain_heal_target(const std::string &arg) {
 	for (auto &u : units) {
 		u.heal_urgency = pow((((u.health_max - (u.health + u.inc_heals)) / float(u.health_max)) / 0.5), (maxmaxHP / float(u.health_max)));
 		deficit_candidates.push_back(u);
-		PRINT("candidate %s with %u/%u hp (heal urgency: %f) added\n", u.name.c_str(), u.health, u.health_max, u.heal_urgency, u.deficit);
+		PRINT("candidate %s with %u/%u hp (heal urgency: %f) added\n", u.name.c_str(), u.health, u.health_max, u.heal_urgency);
 	}
 
 
@@ -897,6 +897,10 @@ static int LOPDBG_test() {
 	}
 
 	return 1;
+}
+
+static int LOPDBG_capture_frame_render_stages() {
+
 }
 
 static int have_aggro() {
@@ -1325,6 +1329,10 @@ int lop_exec(lua_State *L) {
 
 	case LOP_SL_RESETCAMERA:
 		LOPSL_reset_camera();
+		break;
+
+	case LDOP_CAPTURE_FRAME_RENDER_STAGES:
+		enable_capture_render();
 		break;
 
 	case LDOP_LUA_REGISTERED:

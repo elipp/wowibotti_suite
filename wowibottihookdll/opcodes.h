@@ -65,6 +65,7 @@ enum LDOP_OPCODES {
  LDOP_LOS_TEST,
  LDOP_NOCLIP,
  LDOP_TEST,
+ LDOP_CAPTURE_FRAME_RENDER_STAGES,
 
  LDOP_DUMMY_LAST,
  LDOP_NUM_OPCODES = (LDOP_DUMMY_LAST - LDOP_NOP)
@@ -75,10 +76,12 @@ void stopfollow();
 
 int lop_exec(lua_State *s);
 
-extern struct cast_msg_t {
+typedef struct cast_msg_t {
 	int msg;
 	LONG timestamp;
-} previous_cast_msg;
+} cast_msg_t;
+
+extern struct cast_msg_t previous_cast_msg;
 
 extern Timer since_noclip;
 extern int noclip_enabled;

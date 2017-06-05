@@ -16,6 +16,7 @@
 
 //#define ClosePetStables 0x4FACA0 // TBC
 #define ClosePetStables 0x005A1950 
+#define ClosePetStables_patchaddr (ClosePetStables + 0x5)
 #define CTM_main 0x612A90
 #define CTM_aux 0x7B8940
 
@@ -38,8 +39,8 @@
 //#define CTM_update 0x612990 // this could be used to signal a completed CTM action
 //#define CTM_update_hookaddr 0x612A71
 
-#define CTM_update 0x7272C0
-#define CTM_update_hookaddr 0x7273E5
+#define CTM_finished 0x7272C0
+#define CTM_finished_patchaddr 0x7273E5
 
 #define Camera_static 0xB7436C
 

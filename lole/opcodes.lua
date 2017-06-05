@@ -41,6 +41,8 @@ local LDOP_LUA_REGISTERED = 0xE4
 local LDOP_LOS_TEST = 0xE5
 local LDOP_NOCLIP = 0xE6
 local LDOP_TEST = 0xE7
+local LDOP_CAPTURE_FRAME_RENDER_STAGES = 0xE8
+
 
 
 ----------------------------
@@ -326,4 +328,8 @@ end
 
 function reset_camera()
 	lop_exec(LOPSL_RESETCAMERA)
+end
+
+function capture_render_stages()
+	lop_exec(LDOP_CAPTURE_FRAME_RENDER_STAGES)
 end

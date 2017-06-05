@@ -427,6 +427,10 @@ static int parse_pipe_response(const BYTE *resp, size_t resp_length, std::vector
 	return 1;
 }
 
+static void dump_patch(const patch_t &p) {
+	printf("patch_addr: 0x%X, p.patch_size = %d\n", p.patch_addr, p.patch_size);
+}
+
 static int suspend_and_apply_patches(DWORD pid, const std::vector<patch_t> patches) {
 	printf("Suspending Wow.exe with PID %d for patching...\n", pid);
 	DebugActiveProcess(pid);
@@ -439,6 +443,9 @@ static int suspend_and_apply_patches(DWORD pid, const std::vector<patch_t> patch
 	}
 
 	for (const auto &p : patches) {
+
+		dump_patch(p);
+
 		SIZE_T num_bytes;
 		BOOL r = WriteProcessMemory(hProcess, (LPVOID)p.patch_addr, p.patch_opcodes, p.patch_size, &num_bytes);
 

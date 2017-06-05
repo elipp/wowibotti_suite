@@ -598,6 +598,11 @@ local function lole_resetcamera()
 	reset_camera()
 end
 
+local function lole_capturerender()
+	print("Capturing all render stages of a frame, this could take a while...")
+	capture_render_stages()
+end
+
 local function lole_getbiscuit()
 	L_CastSpellByName("Arcane Torrent")
 	--get_biscuits()
@@ -1039,5 +1044,6 @@ lole_subcommands = {
 	clearselection = lole_clearselection;
 
 	resetcamera = lole_resetcamera;
+	capturerender = lole_capturerender;
 
 }

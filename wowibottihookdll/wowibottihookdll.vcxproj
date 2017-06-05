@@ -155,6 +155,7 @@
     <ClInclude Include="linalg.h" />
     <ClInclude Include="lua.h" />
     <ClInclude Include="packet.h" />
+    <ClInclude Include="patch.h" />
     <ClInclude Include="wowmem.h" />
     <ClInclude Include="opcodes.h" />
     <ClInclude Include="stdafx.h" />
@@ -170,6 +171,7 @@
     <ClCompile Include="linalg.cpp" />
     <ClCompile Include="lua.cpp" />
     <ClCompile Include="packet.cpp" />
+    <ClCompile Include="patch.cpp" />
     <ClCompile Include="wowmem.cpp" />
     <ClCompile Include="opcodes.cpp" />
     <ClCompile Include="timer.cpp" />

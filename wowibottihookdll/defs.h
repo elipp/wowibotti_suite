@@ -26,6 +26,13 @@ inline LPARAM get_KEYUP_LPARAM(int vk) {
 
 #ifdef _DEBUG
 #define PRINT(...) printf(__VA_ARGS__)
+//#define PRINT(...) do{\
+//FILE *fp;\
+//fopen_s(&fp, "log.txt", "a");\
+//fprintf(fp, "[%d] ", GetTickCount());\
+//fprintf(fp, __VA_ARGS__);\
+//fclose(fp); }\
+//while(0)
 #else
 #define PRINT(...) 0
 #endif

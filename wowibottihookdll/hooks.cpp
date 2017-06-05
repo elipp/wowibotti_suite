@@ -1,5 +1,6 @@
 #include <queue>
-#include <D3D9.h>
+#include <cassert>
+#include <d3d9.h>
 #include "hooks.h"
 #include "addrs.h"
 #include "defs.h"
@@ -9,9 +10,12 @@
 #include "timer.h"
 #include "lua.h"
 #include "linalg.h"
+#include "patch.h"
 
 //static HRESULT(*EndScene)(void);
 pipe_data PIPEDATA;
+
+static hookable_t *find_hookable(const std::string &funcname);
 
 extern HWND wow_hWnd;
 
@@ -24,14 +28,42 @@ static DWORD get_wow_d3ddevice() {
 #define STATIC_335_DIRECT3DDEVICE 0xC5DF88 
 #define STATIC_335_D3DDEVICE_OFFSET 0x397C
 	DWORD wow_static_DX9 = DEREF(STATIC_335_DIRECT3DDEVICE);
+
+	if (!wow_static_DX9) return 0;
+
 	DWORD tmp1 = DEREF(wow_static_DX9 + STATIC_335_D3DDEVICE_OFFSET);
 	DWORD d3ddevice = tmp1;
 
 	return d3ddevice;
 }
 
+static DWORD get_EndScene() {
+	DWORD wowd3d = get_wow_d3ddevice();
+	if (!wowd3d) return 0;
 
-template <typename T> patchbuffer_t &patchbuffer_t::operator << (const T& arg) {
+	DWORD EndScene = DEREF(DEREF(wowd3d) + 0xA8);
+
+	return EndScene;
+}
+
+static DWORD get_Present() {
+
+	DWORD wowd3d = get_wow_d3ddevice();
+	if (!wowd3d) return 0;
+
+	DWORD Present = DEREF(DEREF(wowd3d) + 0x44);
+	return Present;
+}
+
+static DWORD get_DrawIndexedPrimitive() {
+	DWORD wowd3d = get_wow_d3ddevice();
+	if (!wowd3d) return 0;
+
+	DWORD DrawIndexedPrimitive = DEREF(DEREF(wowd3d) + 0x148);
+	return DrawIndexedPrimitive;
+}
+
+template <typename T> trampoline_t &trampoline_t::operator << (const T& arg) {
 	int size = sizeof(arg);
 	BYTE buf[16];
 	memcpy(buf, &arg, size);
@@ -42,8 +74,8 @@ template <typename T> patchbuffer_t &patchbuffer_t::operator << (const T& arg) {
 	//PRINT("\n(before)\n");
 
 	for (int i = 0; i < size; ++i) {
-		bytes[length] = buf[i];
-		++length;
+		bytes[this->length] = buf[i];
+		++this->length;
 	}
 
 	//for (int i = 0; i < 24; ++i) {
@@ -55,7 +87,7 @@ template <typename T> patchbuffer_t &patchbuffer_t::operator << (const T& arg) {
 }
 
 
-void patchbuffer_t::append_relative_offset(DWORD offset) {
+void trampoline_t::append_relative_offset(DWORD offset) {
 
 	DWORD jump = offset - ((DWORD)bytes + length) - 4;
 	//PRINT("offset: %X, length: %ld, jump: 0x%X\n", offset, length, jump);
@@ -63,9 +95,15 @@ void patchbuffer_t::append_relative_offset(DWORD offset) {
 
 }
 
-void patchbuffer_t::append_CALL(DWORD funcaddr) {
+void trampoline_t::append_CALL(DWORD funcaddr) {
 	(*this) << (BYTE)0xE8;
 	append_relative_offset(funcaddr);
+}
+
+void trampoline_t::append_bytes(const BYTE* b, int size) {
+	for (int i = 0; i < size; ++i) {
+		(*this) << b[i];
+	}
 }
 
 
@@ -231,13 +269,14 @@ typedef struct CUSTOMVERTEX {
 
 #define CUSTOMFVF (D3DFVF_XYZRHW | D3DFVF_DIFFUSE)
 
-static IDirect3DDevice9 *wow_d3dDevice;
 static IDirect3DVertexBuffer9 *vBuffer;
 
 static int create_vertex_buffer_if() {
+	IDirect3DDevice9 *d3dd = (IDirect3DDevice9*)get_wow_d3ddevice();
+
 	if (vBuffer != 0) return 1;
 
-	if (FAILED(wow_d3dDevice->CreateVertexBuffer(
+	if (FAILED(d3dd->CreateVertexBuffer(
 		4 * sizeof(CUSTOMVERTEX),
 		0,
 		CUSTOMFVF,
@@ -259,7 +298,6 @@ static void draw_rectangle() {
 	LONG &cx = cursor_pos.x;
 	LONG &cy = cursor_pos.y;
 
-
 	CUSTOMVERTEX vertices[] = {
 		{ 0, 0, 0.5, 1.0f, D3DCOLOR_XRGB(0, 255, 0) },
 		{ 0, cy, 0.5, 1.0f, D3DCOLOR_XRGB(0, 255, 0) },
@@ -268,6 +306,8 @@ static void draw_rectangle() {
 		{ 0, 0, 0.5, 1.0f, D3DCOLOR_XRGB(0, 255, 0) },
 
 	};
+
+	IDirect3DDevice9 *d3dd = (IDirect3DDevice9*)get_wow_d3ddevice();
 
 	if (vBuffer == 0) return;
 
@@ -279,16 +319,16 @@ static void draw_rectangle() {
 
 	IDirect3DStateBlock9 *state;
 
-	wow_d3dDevice->CreateStateBlock(D3DSBT_ALL, &state);
+	d3dd->CreateStateBlock(D3DSBT_ALL, &state);
 
 
-	//	wow_d3dDevice->SetRenderState(D3DRS_STENCILENABLE, FALSE);
+	//	d3dd->SetRenderState(D3DRS_STENCILENABLE, FALSE);
 
 
-	//	wow_d3dDevice->SetRenderState(D3DRS_LIGHTING, FALSE);
-	//wow_d3dDevice->SetRenderState(D3DRS_FILLMODE, 3);
-	//wow_d3dDevice->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
-	//wow_d3dDevice->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+	//	d3dd->SetRenderState(D3DRS_LIGHTING, FALSE);
+	//d3dd->SetRenderState(D3DRS_FILLMODE, 3);
+	//d3dd->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
+	//d3dd->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
 
 	D3DMATRIX orthographicMatrix;
 	D3DMATRIX identityMatrix;
@@ -305,28 +345,28 @@ static void draw_rectangle() {
 	//D3DMatrixOrthoLH(&orthographicMatrix, (FLOAT)this->nScreenWidth, (FLOAT)-this->nScreenHeight, 0.0f, 1.0f);
 	//	D3DMatrixIdentity(&identityMatrix);
 
-	wow_d3dDevice->SetVertexShader(NULL);
-	wow_d3dDevice->SetPixelShader(NULL);
+	d3dd->SetVertexShader(NULL);
+	d3dd->SetPixelShader(NULL);
 
-	wow_d3dDevice->SetTransform(D3DTS_PROJECTION, &orthographicMatrix);
-	wow_d3dDevice->SetTransform(D3DTS_WORLD, &identityMatrix);
-	wow_d3dDevice->SetTransform(D3DTS_VIEW, &viewMatrix);
+	d3dd->SetTransform(D3DTS_PROJECTION, &orthographicMatrix);
+	d3dd->SetTransform(D3DTS_WORLD, &identityMatrix);
+	d3dd->SetTransform(D3DTS_VIEW, &viewMatrix);
 
-	wow_d3dDevice->SetRenderState(D3DRS_FOGENABLE, FALSE);
-	wow_d3dDevice->SetRenderState(D3DRS_ZFUNC, D3DCMP_ALWAYS);
-	wow_d3dDevice->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
-	wow_d3dDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+	d3dd->SetRenderState(D3DRS_FOGENABLE, FALSE);
+	d3dd->SetRenderState(D3DRS_ZFUNC, D3DCMP_ALWAYS);
+	d3dd->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+	d3dd->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 
-	wow_d3dDevice->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
-	wow_d3dDevice->SetFVF(CUSTOMFVF);
-	wow_d3dDevice->SetStreamSource(0, vBuffer, 0, sizeof(CUSTOMVERTEX));
-	wow_d3dDevice->DrawPrimitive(D3DPT_LINESTRIP, 0, 3);
+	d3dd->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
+	d3dd->SetFVF(CUSTOMFVF);
+	d3dd->SetStreamSource(0, vBuffer, 0, sizeof(CUSTOMVERTEX));
+	d3dd->DrawPrimitive(D3DPT_LINESTRIP, 0, 3);
 
 	state->Apply();
 	state->Release();
 
-	//wow_d3dDevice->SetRenderState(D3DRS_ZENABLE, TRUE);
-	//wow_d3dDevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0x00000000, 1.0f, 0);
+	//d3dd->SetRenderState(D3DRS_ZENABLE, TRUE);
+	//d3dd->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0x00000000, 1.0f, 0);
 }
 
 static int rect_active = 0;
@@ -373,8 +413,11 @@ static void fix_mouse_rect(RECT *r) {
 }
 
 static void draw_pixel(int x, int y) {
+
+	IDirect3DDevice9 *d3dd = (IDirect3DDevice9*)get_wow_d3ddevice();
+
 	IDirect3DSwapChain9 *sc;
-	if (FAILED(wow_d3dDevice->GetSwapChain(0, &sc))) {
+	if (FAILED(d3dd->GetSwapChain(0, &sc))) {
 		PRINT("GetSwapChain failed\n");
 		return;
 	}
@@ -419,8 +462,12 @@ static RECT get_selection_rect() {
 }
 
 static void draw_rect_brute() {
+
+	IDirect3DDevice9 *d3dd = (IDirect3DDevice9*)get_wow_d3ddevice();
+	if (!d3dd) return;
+
 	IDirect3DSwapChain9 *sc;
-	if (FAILED(wow_d3dDevice->GetSwapChain(0, &sc))) {
+	if (FAILED(d3dd->GetSwapChain(0, &sc))) {
 		PRINT("GetSwapChain failed\n");
 		return;
 	}
@@ -454,7 +501,7 @@ static void draw_rect_brute() {
 
 }
 
-static POINT map_clip_to_screen(glm::vec4 &const c) {
+static POINT map_clip_to_screen(const glm::vec4& c) {
 	float cx = -c.x + 0.5;
 	float cy = -c.y + 0.5;
 
@@ -520,8 +567,52 @@ static int get_units_in_selection_rect(RECT sel, std::vector<std::string> *units
 
 }
 
-static void __stdcall present_hook() {
-	wow_d3dDevice = (IDirect3DDevice9 *)get_wow_d3ddevice();
+static void hook_DrawIndexedPrimitive() {
+	hookable_t *h = find_hookable("DrawIndexedPrimitive");
+	h->patch.enable();
+}
+
+static void unhook_DrawIndexedPrimitive() {
+	hookable_t *h = find_hookable("DrawIndexedPrimitive");
+	h->patch.disable();
+}
+
+static int capture_render = 0;
+static FILE *capture_outfile;
+
+static int open_dumpfile() {
+
+	SYSTEMTIME t;
+	GetLocalTime(&t);
+
+	char name[128];
+	sprintf_s(name, "D:\\wowframe\\%02d%02d_%02d%02d%02d.rdmp", t.wDay, t.wMonth, t.wHour, t.wMinute, t.wSecond);
+
+	fopen_s(&capture_outfile, name, "wb");
+	if (!capture_outfile) {
+		PRINT("Couldn't open frame dump file %s!\n", name);
+		return 0;
+	}
+
+	PRINT("Opened frame dump file \"%s\"!\n", name);
+
+	return 1;
+
+}
+
+static void close_dumpfile() {
+	if (capture_outfile) {
+		fclose(capture_outfile);
+		capture_outfile = NULL;
+		PRINT("Frame dump complete!\n");
+	}
+}
+
+void enable_capture_render() {
+	capture_render = 1;
+}
+
+static void __stdcall Present_hook() {
 
 	GetCursorPos(&cursor_pos);
 	ScreenToClient(wow_hWnd, &cursor_pos);
@@ -574,14 +665,16 @@ static void __stdcall present_hook() {
 	//get_wow_view_matrix(&view);
 	//get_wow_proj_matrix(&proj);
 
-	ObjectManager OM;
-	WowObject p;
-	if (!OM.get_local_object(&p)) return;
-
-	vec3 ppos = p.get_pos();
-	vec4 pos = vec4(ppos.x, ppos.y, ppos.z, 1);
-
-
+	if (capture_render) {
+		if (open_dumpfile()) {
+			hook_DrawIndexedPrimitive();
+			capture_render = 0;
+		}
+	}
+	else {
+		unhook_DrawIndexedPrimitive();
+		close_dumpfile();
+	}
 
 	//glm::mat4 rottest = glm::rotate(glm::mat4(1.0), (float)-1.57, glm::vec3(1.0, 0, 0));
 
@@ -604,9 +697,7 @@ static void __stdcall present_hook() {
 }
 
 static void __stdcall EndScene_hook() {
-
-
-
+	
 }
 
 static void __stdcall dump_packet(BYTE *packet) {
@@ -682,446 +773,135 @@ static void __stdcall CTM_finished_hookfunc() {
 	c->handle_posthook();
 }
 
-static void __stdcall SpellErrMsg_hook(int msg) {
-	typedef int tick_count_t(void);
-	//int ticks = ((tick_count_t*)GetOSTickCount)();
+static const trampoline_t *prepare_EndScene_patch(patch_t *p) {
 
-	previous_cast_msg.msg = msg;
-	//previous_cast_msg.timestamp = ticks;
-}
-
-struct hookable {
-	std::string funcname;
-	LPVOID address;
-	const BYTE *original_opcodes;
-	BYTE *patch;
-	size_t patch_size;
-	int(*prepare_patch)(LPVOID, hookable&);
-};
-
-static const BYTE LUA_prot_original[] = {
-	// we're just making an early exit, so nevermind opcode boundaries
-	0x55,
-	0x8B, 0xEC,
-	0x83, 0x3D, 0x40 // this one is cut in the middle
-};
-
-static BYTE LUA_prot_patch[] = {
-	0xB8, 0x01, 0x00, 0x00, 0x00, // MOV EAX, 1
-	0xC3						  // RET
-};
-
-
-static const BYTE EndScene_original[] = {
-	0x6A, 0x20, // push 20
-	0xB8, 0xD8, 0xB9, 0x08, 0x6C // MOV EAX, 6C08B9D8 after this should be mu genitals :D
-};
-
-static BYTE EndScene_patch[] = {
-	0xE9, 0x00, 0x00, 0x00, 0x00, // jmp address to be inserted to bytes 1-5
-	0x90, 0x90
-};
-
-static const BYTE DelIgnore_original[] = {
-	0x6A, 0x01, // push 1
-	0x6A, 0x01, // push 1
-	0x8D, 0x4D, 0xFC, // LEA ECX, [LOCAL.1]
-};
-
-static BYTE DelIgnore_patch[] = {
-	0xE9, 0x00, 0x00, 0x00, 0x00, // jmp address to be inserted to bytes 1-5
-	0x90, 0x90
-};
-
-static const BYTE ClosePetStables_original[] = {
-	0xE8, 0x3B, 0x1E, 0xF3, 0xFF // CALL 004FAC60. this wouldn't actually even need a trampoline lol
-};
-
-static BYTE ClosePetStables_patch[] = {
-	0xE9, 0x00, 0x00, 0x00, 0x00
-};
-
-static const BYTE CTM_main_original[] = {
-	0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x18
-};
-
-static BYTE CTM_main_patch[] = {
-	0xE9, 0x00, 0x00, 0x00, 0x00, 0x90
-};
-
-static const BYTE CTM_aux_original[] = {
-	0x55, 0x8B, 0xEC, 0x8B, 0x41, 0x38
-};
-
-// this is a patch for func 0x7B8940
-static BYTE CTM_aux_patch[] = {
-	0xE9, 0x00, 0x00, 0x00, 0x00, 0x90
-};
-// NOP for padding is a lot better, since the disassembler gets fucked up with 0x00s
-
-static const BYTE CTM_finished_original[] = {
-	0xC7, 0x05, 0xBC, 0x89, 0xD6, 0x00, 0x0D, 0x00, 0x00, 0x00
-};
-
-static BYTE CTM_finished_patch[] = {
-	0xE9, 0x00, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90, 0x90
-};
-
-static const BYTE spell_errmsg_original[] = {
-	0x0F, 0xB6, 0xC0, 0x3D, 0xA8, 0x00, 0x00, 0x00
-};
-
-static BYTE spell_errmsg_patch[] = {
-	0xE9, 0x00, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90
-};
-
-static const BYTE sendpacket_original[] = {
-	0xE8, 0x3D, 0xEE, 0xFF, 0xFF
-};
-
-static BYTE sendpacket_patch[] = {
-	0xE9, 0x00, 0x00, 0x00, 0x00
-};
-
-static const BYTE recvpacket_original[] = {
-	0x01, 0x5E, 0x20, 0x8B, 0x4D, 0xF8,
-};
-
-static BYTE recvpacket_patch[] = {
-	0xE9, 0x00, 0x00, 0x00, 0x00, 0x90
-};
-
-static const BYTE present_original[] = {
-	0x8B, 0xFF, 0x55, 0x8B, 0xEC
-};
-
-static BYTE present_patch[] = {
-	0xE9, 0x00, 0x00, 0x00, 0x00
-};
-
-static const BYTE mbuttondown_original[] = {
-	0x55, 0x8B, 0xEC, 0x51, 0x56
-};
-
-static BYTE mbuttondown_patch[] = {
-	0xE9, 0x90, 0x90, 0x90, 0x90,
-};
-
-static const BYTE mbuttonup_original[] = {
-	0x55, 0x8B, 0xEC, 0x51, 0x56,
-
-};
-
-static BYTE mbuttonup_patch[] = {
-	0xE9, 0x90, 0x90, 0x90, 0x90,
-};
-
-static int prepare_LUA_prot_patch(LPVOID hook_func_addr, hookable &h) {
-	return 1;
-}
-
-
-static int prepare_EndScene_patch(LPVOID hook_func_addr, hookable &h) {
+	static trampoline_t tr;
 
 	PRINT("Preparing EndScene patch...\n");
 
-	DWORD d3ddevice = get_wow_d3ddevice();
-	auto EndScene = (HRESULT(*)(void)) DEREF(DEREF(d3ddevice) + 0xA8);
-
+	DWORD EndScene = get_EndScene();
 	PRINT("Found EndScene at 0x%X\n", EndScene);
-	h.address = (LPVOID)EndScene;
-
-	static BYTE EndScene_trampoline[] = {
-		// original EndScene opcodes follow
-		0x6A, 0x20, // push 20
-		0xB8, 0x47, 0x7F, 0xD8, 0x6F,
-		0x68, 0x00, 0x00, 0x00, 0x00, // push return address (endscene + 7) onto stack for ret
-		0x60, // pushad
-		0xE8, 0x00, 0x00, 0x00, 0x00, // call hook_func
-		0x61, // popad
-		0xC3 //ret
-	};
-
-	DWORD tr_offset = ((DWORD)EndScene_trampoline - (DWORD)EndScene - 5);
-	memcpy(EndScene_patch + 1, &tr_offset, sizeof(tr_offset));
-
-	DWORD ret_addr = (DWORD)EndScene + 7;
-	memcpy(EndScene_trampoline + 8, &ret_addr, sizeof(ret_addr)); // add return address
-
-	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)EndScene_trampoline - 18;
-	memcpy(EndScene_trampoline + 14, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
-
-	DWORD oldprotect;
-	VirtualProtect((LPVOID)EndScene_trampoline, sizeof(EndScene_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
-
-	PRINT("OK. EndScene trampoline: %p, hookfunc addr: %p\n", &EndScene_trampoline, hook_func_addr);
-
-	return 1;
-
-}
-
-
-
-static int prepare_DelIgnore_patch(LPVOID hook_func_addr, hookable &h) {
-
-	// DelIgnore == 5BA4B0, 
-	// but the string appears in EAX after a call to 72DFF0 (called at 5BA4BC)
-	// so hook func at 7BA4C1!
-
-	PRINT("Preparing DelIgnore patch...\n");
-
-	//uint PATCH_ADDR = 0x7BA4C1;
-
-	static BYTE DelIgnore_trampoline[] = {
-		// from the original DelIgnore func
-		0x6A, 0x01, // push 1
-		0x6A, 0x01, // push 1
-		0x8D, 0x4D, 0xFC, // LEA ECX, [LOCAL.1]
-
-		0x68, 0x00, 0x00, 0x00, 0x00, // push return address (5BA4C1 + 7 = 5BA4C8)
-		0x60, // pushad
-		0x50, // push EAX, we know that eax contains string address at this point
-		0xE8, 0x00, 0x00, 0x00, 0x00, // hookfunc addr
-		0x61, // popad
-		0xC3 //ret
-	};
-
-
-	DWORD tr_offset = ((DWORD)DelIgnore_trampoline - (DWORD)DelIgnore_hookaddr - 5);
-	memcpy(DelIgnore_patch + 1, &tr_offset, sizeof(tr_offset));
-
-	DWORD ret_addr = (DWORD)DelIgnore_hookaddr + 0x2B; // jump straight to the end, so we skip the "Player not found."
-	memcpy(DelIgnore_trampoline + 8, &ret_addr, sizeof(ret_addr)); // add return address
-
-	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)DelIgnore_trampoline - 19;
-	memcpy(DelIgnore_trampoline + 15, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
-
-	DWORD oldprotect;
-	VirtualProtect((LPVOID)DelIgnore_trampoline, sizeof(DelIgnore_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
-
-	PRINT("OK.\nDelIgnore trampoline: %p, hookfunc addr: %p\n", &DelIgnore_trampoline, hook_func_addr);
-
-
-	return 1;
-}
-
-static int prepare_ClosePetStables_patch(LPVOID hook_func_addr, hookable &h) {
-
-	PRINT("Preparing ClosePetStables patch...\n");
-
-	// ClosePetStables = 0x4FACA0
-
-	static BYTE ClosePetStables_trampoline[] = {
-		// original opcodes from ClosePetStables
-		0xE8, 0x00, 0x00, 0x00, 0x00, // CALL 004D3790. need to insert address relative to this trampoline 
-
-		0x68, 0x00, 0x00, 0x00, 0x00, // push return address (ClosePetStables + 5) onto stack for ret
-		0x60, // pushad
-		0xE8, 0x00, 0x00, 0x00, 0x00, // call own function
-		0x61, // popad
-		0xC3 //ret
-	};
-
-	DWORD orig_CALL_target = 0x4D3790;
-	DWORD CALL_target_offset = ((DWORD)orig_CALL_target - ((DWORD)ClosePetStables_trampoline + 5));
-	memcpy(ClosePetStables_trampoline + 1, &CALL_target_offset, sizeof(CALL_target_offset));
-
-	DWORD tr_offset = ((DWORD)ClosePetStables_trampoline - (DWORD)ClosePetStables - 5);
-	memcpy(ClosePetStables_patch + 1, &tr_offset, sizeof(tr_offset));
-
-
-	DWORD ret_addr = (DWORD)ClosePetStables + 5;
-	memcpy(ClosePetStables_trampoline + 6, &ret_addr, sizeof(ret_addr)); // add return address
-
-	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)ClosePetStables_trampoline - 16;
-	memcpy(ClosePetStables_trampoline + 12, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
-
-	DWORD oldprotect;
-	VirtualProtect((LPVOID)ClosePetStables_trampoline, sizeof(ClosePetStables_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
-
-	PRINT("OK.\nClosePetStables trampoline: %p, hook_func_addr: %p\n", &ClosePetStables_trampoline, hook_func_addr);
-
-	return 1;
-
-}
-
-
-static int prepare_CTM_aux_patch(LPVOID hook_func_addr, hookable &h) {
-	PRINT("Preparing CTM_aux patch...\n");
-
-	static BYTE CTM_aux_trampoline[] = {
-		// original opcodes from 0x7B8940 "CTM_aux"
-		0x55, // PUSH EBP
-		0x8B, 0xEC, // MOV EBP, ESP
-		0x8B, 0x41, 0x38, // MOV EAX, DWORD PTR DS:[ECX+38]
-
-		0x68, 0x00, 0x00, 0x00, 0x00, // push return address (7B8940 + 6 = 7B8946)
-		0x60,					// pushad
-		0x8B, 0x4D, 0x0C,		// MOV ECX, DWORD PTR SS:[ARG.2]
-		0x51,					// PUSH ECX, this is our argument (pointer to CTM coords on stack =))
-		0xE8, 0x00, 0x00, 0x00, 0x00, // call CTM_broadcast function :D loloz
-		0x61, // popad
-		0xC3 //ret
-	};
+	p->patch_addr = EndScene;
 	
-	DWORD tr_offset = ((DWORD)CTM_aux_trampoline - (DWORD)CTM_aux - 5);
-	memcpy(CTM_aux_patch + 1, &tr_offset, sizeof(tr_offset));
+	tr << (BYTE)0x60; // PUSHAD
 
-	DWORD ret_addr = (DWORD)CTM_aux + 6;
-	memcpy(CTM_aux_trampoline + 7, &ret_addr, sizeof(ret_addr)); // add return address
-
-	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)CTM_aux_trampoline - 21; // first byte is at offset 19
-	memcpy(CTM_aux_trampoline + 17, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
-
-	DWORD oldprotect;
-	VirtualProtect((LPVOID)CTM_aux_trampoline, sizeof(CTM_aux_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
-
-	PRINT("OK.\nCTM_aux trampoline: %p, hook_func_addr: %p\n", &CTM_aux_trampoline, hook_func_addr);
-
-	return 1;
-}
-
-static int __stdcall get_CTM_retaddr(int action) {
-	static const uint ret_early = 0, ret_late = 1;
-	
-	PRINT("get_CTM_retaddr: action = %X\n", action);
-
-	switch (action) {
-	case CTM_MOVE: 
-		return ret_late;
-		break;
-
-	default:
-		return ret_early;
-		break;
-
-	}
-
-}
-
-static int prepare_CTM_main_patch(LPVOID hook_func_addr, hookable &h) {
-	PRINT("Preparing CTM_main patch...\n");
-
-	static BYTE CTM_main_trampoline[] = {
-		// original opcodes from 0x612A90 "CTM_main"
-
-		0x55, // PUSH EBP
-		0x8B, 0xEC, // MOV EBP, ESP
-		0x83, 0xEC, 0x18, // SUB ESP, 18
-
-		0x68, 0x00, 0x00, 0x00, 0x00, // push early return address (performs the 612A90 function normally)
-		0x60,						// pushad
-
-		0x8B, 0x75, 0x8, // MOV ESI, DWORD PTR SS:[ARG.2] CTM_"push" or "action"
-		0x56,			// PUSH ESI
-
-		0xE8, 0x00, 0x00, 0x00, 0x00, // call to get_CTM_retaddr. eax now has 1 or 0, depending on the env
-		0x85, 0xC0,	// test EAX EAX
-		0x74, 0x0F, // jz, hopefully to the second popad part
-		0x8B, 0x75, 0x8, // MOV ESI, DWORD PTR SS:[ARG.2] CTM_"push" or "action"
-		0x56,
-		0x8B, 0x75, 0x10, // MOV ESI, DWORD PTR SS:[ARG.3] (contains the 3 floatz ^^)
-		0x56,			  // PUSH ESI (arg to CTM_broadcast)
-		0xE8, 0x00, 0x00, 0x00, 0x00, // call CTM_broadcast function :D loloz
-		0x61, // popad
-		0xC3, // ret
+	tr.append_CALL((DWORD)EndScene_hook);
+	tr << (BYTE)0x61; // POPAD
 		
-		// branch #2
+	memcpy(p->original, (LPVOID)EndScene, p->size);
+	tr.append_bytes(p->original, p->size);
 
-		0x61, // popad
-		0x83, 0xC4, 0x04, // add esp, 4, to "pop" without screwing up reg values
-		0x68, 0x00, 0x00, 0x00, 0x00, // push return late late
-		0xC3 //ret
-	};
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
 
-	static const uint retaddr_early = CTM_main + 0x6, retaddr_late = CTM_main + 0x12E;
-
-	DWORD tr_offset = ((DWORD)CTM_main_trampoline - (DWORD)CTM_main - 5);
-	memcpy(CTM_main_patch + 1, &tr_offset, sizeof(tr_offset));
-
-	memcpy(CTM_main_trampoline + 7, &retaddr_late, sizeof(retaddr_late));
-
-	DWORD get_CTM_retaddr_offset = (DWORD)get_CTM_retaddr - (DWORD)CTM_main_trampoline - 21;
-	memcpy(CTM_main_trampoline + 17, &get_CTM_retaddr_offset, sizeof(get_CTM_retaddr_offset));
-
-	memcpy(CTM_main_trampoline + 45, &retaddr_early, sizeof(retaddr_early));
-
-	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)CTM_main_trampoline - 38;
-	memcpy(CTM_main_trampoline + 34, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
-
-	DWORD oldprotect;
-	VirtualProtect((LPVOID)CTM_main_trampoline, sizeof(CTM_main_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
-
-	PRINT("OK.\nCTM_main trampoline: %p, hook_func_addr: %p\n", &CTM_main_trampoline, hook_func_addr);
-
-	return 1;
-}
-
-static int prepare_CTM_finished_patch(LPVOID hook_func_addr, hookable &h) {
-
-	PRINT("Preparing CTM_finished patch...\n");
-
-	static BYTE CTM_finished_trampoline[] = {
-		// original opcodes from ClosePetStables
-		0xC7, 0x05, 0xF4, 0x11, 0xCA, 0x00, 0x0D, 0x00, 0x00, 0x00, // MOV [to address] 0xD689BC, 0x0D 
-
-		0x68, 0x00, 0x00, 0x00, 0x00, // push return address onto stack for ret
-		0x60, // pushad
-		0xE8, 0x00, 0x00, 0x00, 0x00, // call own function
-		0x61, // popad
-		0xC3 //ret
-	};
-
-	DWORD tr_offset = (DWORD)CTM_finished_trampoline - CTM_update_hookaddr - 5;
-	memcpy(CTM_finished_patch + 1, &tr_offset, sizeof(tr_offset));
-
-	DWORD ret_addr = 0x7273EF;
-	memcpy(CTM_finished_trampoline + 11, &ret_addr, sizeof(ret_addr));
-
-	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)CTM_finished_trampoline - 21;
-	memcpy(CTM_finished_trampoline + 17, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
-
-	DWORD oldprotect;
-	VirtualProtect((LPVOID)CTM_finished_trampoline, sizeof(CTM_finished_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
-
-	PRINT("OK.\nCTM_finished trampoline: %p, hook_func_addr: %p\n", &CTM_finished_trampoline, hook_func_addr);
-
-	return 1;
+	tr << (BYTE)0xC3; // RET
+	
+	return &tr;
 
 }
 
-static int prepare_spell_errmsg_patch(LPVOID hook_func_addr, hookable &h) {
-	static BYTE spell_errmsg_trampoline[] = {
-		0x0F, 0xB6, 0xC0, // MOVZX, EAX, AL
-		0x3D, 0xA8, 0x00, 0x00, 0x00, // CMP EAX, 0A8
-		0x68, 0x00, 0x00, 0x00 ,0x00, // push return address
-		0x60, // pushad
-		0x50, // push eax (contains err msg)
-		0xE8, 0x00, 0x00, 0x00, 0x00, // call hookfunc
-		0x61, // popad
-		0xC3 // ret
-	};
 
-	DWORD tr_offset = (DWORD)spell_errmsg_trampoline - SpellErrMsg - 5;
-	memcpy(spell_errmsg_patch + 1, &tr_offset, sizeof(tr_offset));
 
-	DWORD ret_addr = 0x6F0B78;
-	memcpy(spell_errmsg_trampoline + 9, &ret_addr, sizeof(ret_addr));
 
-	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)spell_errmsg_trampoline - 20;
-	memcpy(spell_errmsg_trampoline + 16, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
+static const trampoline_t *prepare_ClosePetStables_patch(patch_t *p) {
 
-	DWORD oldprotect;
-	VirtualProtect((LPVOID)spell_errmsg_trampoline, sizeof(spell_errmsg_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
+	static trampoline_t tr;
 
-	PRINT("OK.\nCTM_finished trampoline: %p, hook_func_addr: %p\n", &spell_errmsg_trampoline, hook_func_addr);
+	tr << (BYTE)0x60; // PUSHAD
 
-	return 1;
+	tr.append_CALL((DWORD)ClosePetStables_hook);
+	tr << (BYTE)0x61; // POPAD
+
+	tr.append_bytes(p->original, p->size);
+
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
+
+	tr << (BYTE)0xC3; // RET
+	
+	return &tr;
+
 }
 
-static int prepare_sendpacket_patch(LPVOID hook_func_addr, hookable &h) {
 
-	static patchbuffer_t tr;
+//static trampoline_t prepare_CTM_main_patch(LPVOID hook_func_addr) {
+//	PRINT("Preparing CTM_main patch...\n");
+//
+//	static BYTE CTM_main_trampoline[] = {
+//		// original opcodes from 0x612A90 "CTM_main"
+//
+//		0x55, // PUSH EBP
+//		0x8B, 0xEC, // MOV EBP, ESP
+//		0x83, 0xEC, 0x18, // SUB ESP, 18
+//
+//		0x68, 0x00, 0x00, 0x00, 0x00, // push early return address (performs the 612A90 function normally)
+//		0x60,						// pushad
+//
+//		0x8B, 0x75, 0x8, // MOV ESI, DWORD PTR SS:[ARG.2] CTM_"push" or "action"
+//		0x56,			// PUSH ESI
+//
+//		0xE8, 0x00, 0x00, 0x00, 0x00, // call to get_CTM_retaddr. eax now has 1 or 0, depending on the env
+//		0x85, 0xC0,	// test EAX EAX
+//		0x74, 0x0F, // jz, hopefully to the second popad part
+//		0x8B, 0x75, 0x8, // MOV ESI, DWORD PTR SS:[ARG.2] CTM_"push" or "action"
+//		0x56,
+//		0x8B, 0x75, 0x10, // MOV ESI, DWORD PTR SS:[ARG.3] (contains the 3 floatz ^^)
+//		0x56,			  // PUSH ESI (arg to CTM_broadcast)
+//		0xE8, 0x00, 0x00, 0x00, 0x00, // call CTM_broadcast function :D loloz
+//		0x61, // popad
+//		0xC3, // ret
+//		
+//		// branch #2
+//
+//		0x61, // popad
+//		0x83, 0xC4, 0x04, // add esp, 4, to "pop" without screwing up reg values
+//		0x68, 0x00, 0x00, 0x00, 0x00, // push return late late
+//		0xC3 //ret
+//	};
+//
+//	static const uint retaddr_early = CTM_main + 0x6, retaddr_late = CTM_main + 0x12E;
+//
+//	DWORD tr_offset = ((DWORD)CTM_main_trampoline - (DWORD)CTM_main - 5);
+//	memcpy(CTM_main_patch + 1, &tr_offset, sizeof(tr_offset));
+//
+//	memcpy(CTM_main_trampoline + 7, &retaddr_late, sizeof(retaddr_late));
+//
+//	DWORD get_CTM_retaddr_offset = (DWORD)get_CTM_retaddr - (DWORD)CTM_main_trampoline - 21;
+//	memcpy(CTM_main_trampoline + 17, &get_CTM_retaddr_offset, sizeof(get_CTM_retaddr_offset));
+//
+//	memcpy(CTM_main_trampoline + 45, &retaddr_early, sizeof(retaddr_early));
+//
+//	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)CTM_main_trampoline - 38;
+//	memcpy(CTM_main_trampoline + 34, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
+//
+//	DWORD oldprotect;
+//	VirtualProtect((LPVOID)CTM_main_trampoline, sizeof(CTM_main_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
+//
+//	PRINT("OK.\nCTM_main trampoline: %p, hook_func_addr: %p\n", &CTM_main_trampoline, hook_func_addr);
+//
+//	return 1;
+//}
+
+static const trampoline_t *prepare_CTM_finished_patch(patch_t *p) {
+	static trampoline_t tr;
+
+	tr << (BYTE)0x60; // PUSHAD
+
+	tr.append_CALL((DWORD)CTM_finished_hookfunc);
+	tr << (BYTE)0x61; // POPAD
+
+	tr.append_bytes(p->original, p->size);
+
+// NOTE: COULD BE THIS INSTEAD OF (p->patch_addr + p->size): DWORD ret_addr = 0x7273EF;
+
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
+
+	tr << (BYTE)0xC3; // RET
+
+	return &tr;
+}
+
+static const trampoline_t *prepare_sendpacket_patch(patch_t *p) {
+
+	static trampoline_t tr;
 	
 	PRINT("dump_packet offset: 0x%X, trampoline: 0x%X\n", dump_packet, tr.bytes);
 
@@ -1140,16 +920,13 @@ static int prepare_sendpacket_patch(LPVOID hook_func_addr, hookable &h) {
 	
 	tr << (BYTE)0xC3; // RET
 
-	DWORD trampoline_relative = (DWORD)tr.bytes - SendPacket_hookaddr - 5;
-	memcpy(sendpacket_patch+1, &trampoline_relative, 4);
-
-	return 1;
+	return &tr;
 
 }
 
-static int prepare_recvpacket_patch(LPVOID hook_func_addr, hookable &h) {
+static const trampoline_t *prepare_recvpacket_patch(patch_t *p) {
 
-	static patchbuffer_t tr;
+	static trampoline_t tr;
 
 	PRINT("dump_packet offset: 0x%X, trampoline: 0x%X\n", dump_packet, tr.bytes);
 
@@ -1171,46 +948,119 @@ static int prepare_recvpacket_patch(LPVOID hook_func_addr, hookable &h) {
 
 	tr << (BYTE)0xC3; // RET
 
-	DWORD trampoline_relative = (DWORD)tr.bytes - RecvPacket_hookaddr - 5;
-	memcpy(recvpacket_patch + 1, &trampoline_relative, 4);
-
-	return 1;
+	return &tr;
 
 }
 
 
 
-static int prepare_present_patch(LPVOID hook_func_addr, hookable &h) {
+static const trampoline_t *prepare_Present_patch(patch_t *p) {
 
-	static patchbuffer_t tr;
+	static trampoline_t tr;
 
 	PRINT("Preparing Present patch...\n");
 
-	DWORD d3ddevice = get_wow_d3ddevice();
-	DWORD Present = DEREF(DEREF(d3ddevice) + 0x44);
-
+	DWORD Present = get_Present();
 	PRINT("Found Present at 0x%X\n", Present);
-	h.address = (LPVOID)Present;
+	p->patch_addr = Present;
 
 	tr << (BYTE)0x60; // PUSHAD
 
-	tr.append_CALL((DWORD)present_hook);
+	tr.append_CALL((DWORD)Present_hook);
 	tr << (BYTE)0x61; // POPAD
+	
+	memcpy(p->original, (LPVOID)Present, p->size);
+	tr.append_bytes(p->original, p->size);
 
-					  // original stuff
-	tr << (BYTE)0x8B << (BYTE)0xFF << (BYTE)0x55;
-	tr << (BYTE)0x8B << (BYTE)0xEC;
-
-	tr << (BYTE)0x68 << (DWORD)(Present+5); // push RET addr
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
 
 	tr << (BYTE)0xC3; // RET
 
-	DWORD trampoline_relative = ((DWORD)tr.bytes - (DWORD)Present - 5);
 
-	memcpy(present_patch + 1, &trampoline_relative, 4);
-
-	return 1;
+	return &tr;
 		
+}
+
+static void __stdcall DrawIndexedPrimitive_hook() {
+
+	typedef struct rdmpheader_t {
+		DWORD pitch;
+		DWORD width;
+		DWORD height;
+		DWORD callstack[5];
+	};
+
+
+	IDirect3DDevice9 *d3dd = (IDirect3DDevice9*)get_wow_d3ddevice();
+
+	IDirect3DSwapChain9 *sc;
+	if (FAILED(d3dd->GetSwapChain(0, &sc))) {
+		PRINT("GetSwapChain failed\n");
+		return;
+	}
+	IDirect3DSurface9 *s;
+
+	if (FAILED(sc->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &s))) {
+		PRINT("GetBackBuffer failed\n");
+		return;
+	}
+
+	D3DLOCKED_RECT r;
+
+	if (FAILED(s->LockRect(&r, NULL, D3DLOCK_DONOTWAIT))) {
+		PRINT("%d LockRect failed\n", GetTickCount());
+		return;
+	}
+
+	BYTE *b = (BYTE*)r.pBits;
+
+
+	D3DSURFACE_DESC d;
+	s->GetDesc(&d);
+
+	rdmpheader_t hdr;
+	memset(&hdr, 0, sizeof(hdr));
+
+	hdr.pitch = r.Pitch;
+	hdr.width = d.Width;
+	hdr.height = d.Height;
+
+	CaptureStackBackTrace(0, 5, (PVOID*)&hdr.callstack[0], NULL);
+
+	fwrite(&hdr, sizeof(hdr), 1, capture_outfile);
+	fwrite(r.pBits, 1, r.Pitch * d.Height, capture_outfile); 
+
+	s->UnlockRect();
+
+	s->Release();
+	sc->Release();
+
+}
+
+static const trampoline_t *prepare_DrawIndexedPrimitive_patch(patch_t *p) {
+
+	static trampoline_t tr;
+
+	PRINT("Preparing DrawIndexedPrimitive patch...\n");
+
+	DWORD DrawIndexedPrimitive = get_DrawIndexedPrimitive();
+	PRINT("Found DrawIndexedPrimitive at 0x%X\n", DrawIndexedPrimitive);
+
+	p->patch_addr = DrawIndexedPrimitive;
+	tr << (BYTE)0x60; // PUSHAD
+
+	tr.append_CALL((DWORD)DrawIndexedPrimitive_hook);
+	tr << (BYTE)0x61; // POPAD
+
+	memcpy(p->original, (LPVOID)DrawIndexedPrimitive, p->size);
+	tr.append_bytes(p->original, p->size);
+
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
+
+	tr << (BYTE)0xC3; // RET
+
+	return &tr;
+
 }
 
 static void __stdcall mbuttondown_hook() {
@@ -1220,8 +1070,8 @@ static void __stdcall mbuttondown_hook() {
 	rect_active = 1;
 }
 
-static int prepare_mbuttondown_patch(LPVOID hook_func_addr, hookable &h) {
-	static patchbuffer_t tr;
+static const trampoline_t *prepare_mbuttondown_patch(patch_t *p) {
+	static trampoline_t tr;
 
 	PRINT("Preparing mbuttondown patch...\n");
 
@@ -1232,10 +1082,7 @@ static int prepare_mbuttondown_patch(LPVOID hook_func_addr, hookable &h) {
 
 	tr << (BYTE)0xC3; // just ret ^^
 
-	DWORD trampoline_relative = ((DWORD)tr.bytes - (DWORD)mbuttondown_handler - 5);
-	memcpy(mbuttondown_patch + 1, &trampoline_relative, 4);
-
-	return 1;
+	return &tr;
 
 }
 
@@ -1261,8 +1108,8 @@ static void __stdcall mbuttonup_hook() {
 	DoString("RunMacroText(\"/lole setselection %s\")", units_concatd.c_str());
 }
 
-static int prepare_mbuttonup_patch(LPVOID hook_func_addr, hookable &h) {
-	static patchbuffer_t tr;
+static const trampoline_t *prepare_mbuttonup_patch(patch_t *p) {
+	static trampoline_t tr;
 
 	PRINT("Preparing mbuttonup patch...\n");
 
@@ -1271,33 +1118,34 @@ static int prepare_mbuttonup_patch(LPVOID hook_func_addr, hookable &h) {
 	tr.append_CALL((DWORD)mbuttonup_hook);
 	tr << (BYTE)0x61; // POPAD
 
-	//tr << (BYTE)0x68 << (DWORD)(mbuttonup_handler + 7); // push RET addr
 	tr << (BYTE)0xC3; // just ret ^^
 
-	DWORD trampoline_relative = ((DWORD)tr.bytes - (DWORD)mbuttonup_handler - 5);
-	memcpy(mbuttonup_patch + 1, &trampoline_relative, 4);
-
-	return 1;
+	return &tr;
 }
 
-static hookable hookable_functions[] = {
-	{ "LUA_prot", (LPVOID)LUA_prot, LUA_prot_original, LUA_prot_patch, sizeof(LUA_prot_original), prepare_LUA_prot_patch },
-	{ "EndScene", 0x0, EndScene_original, EndScene_patch, sizeof(EndScene_original), prepare_EndScene_patch },
-	{ "DelIgnore", (LPVOID)DelIgnore_hookaddr, DelIgnore_original, DelIgnore_patch, sizeof(DelIgnore_original), prepare_DelIgnore_patch },
-	{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, sizeof(ClosePetStables_original), prepare_ClosePetStables_patch },
-	{ "CTM_aux", (LPVOID)CTM_aux, CTM_aux_original, CTM_aux_patch, sizeof(CTM_aux_original), prepare_CTM_aux_patch },
-	{ "CTM_main", (LPVOID)CTM_main, CTM_main_original, CTM_main_patch, sizeof(CTM_main_original), prepare_CTM_main_patch },
-	{ "CTM_update", (LPVOID)CTM_update_hookaddr, CTM_finished_original, CTM_finished_patch, sizeof(CTM_finished_original), prepare_CTM_finished_patch },
-	{ "SpellErrMsg", (LPVOID)SpellErrMsg, spell_errmsg_original, spell_errmsg_patch, sizeof(spell_errmsg_original), prepare_spell_errmsg_patch },
-	{ "SendPacket", (LPVOID)SendPacket_hookaddr, sendpacket_original, sendpacket_patch, sizeof(sendpacket_original), prepare_sendpacket_patch },
-	{ "RecvPacket", (LPVOID)RecvPacket_hookaddr, recvpacket_original, recvpacket_patch, sizeof(recvpacket_original), prepare_recvpacket_patch },
-	{ "Present", (LPVOID)0x0, present_original, present_patch, sizeof(present_original), prepare_present_patch },
-	{ "mbuttondown_handler", (LPVOID)mbuttondown_handler, mbuttondown_original, mbuttondown_patch, sizeof(mbuttondown_patch), prepare_mbuttondown_patch },
-	{ "mbuttonup_handler", (LPVOID)mbuttonup_handler, mbuttonup_original, mbuttonup_patch, sizeof(mbuttonup_patch), prepare_mbuttonup_patch },
+static hookable_t hookable_functions[] = {
+	//{ "EndScene", 0x0, EndScene_original, EndScene_patch, EndScene_original, prepare_EndScene_patch },
+	//{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, ClosePetStables_original, prepare_ClosePetStables_patch },
+	//{ "CTM_update", (LPVOID)CTM_update_hookaddr, CTM_finished_original, CTM_finished_patch, CTM_finished_original, prepare_CTM_finished_patch },
+	//{ "SpellErrMsg", (LPVOID)SpellErrMsg, spell_errmsg_original, spell_errmsg_patch, spell_errmsg_original, prepare_spell_errmsg_patch },
+	//{ "SendPacket", (LPVOID)SendPacket_hookaddr, sendpacket_original, sendpacket_patch, sendpacket_original, prepare_sendpacket_patch },
+	//{ "RecvPacket", (LPVOID)RecvPacket_hookaddr, recvpacket_original, recvpacket_patch, recvpacket_original, prepare_recvpacket_patch },
+	//{ "Present", (LPVOID)0x0, present_original, present_patch, present_original, prepare_present_patch },
+	//{ "mbuttondown_handler", (LPVOID)mbuttondown_handler, mbuttondown_original, mbuttondown_patch, mbuttondown_patch, prepare_mbuttondown_patch },
+	//{ "mbuttonup_handler", (LPVOID)mbuttonup_handler, mbuttonup_original, mbuttonup_patch, mbuttonup_patch, prepare_mbuttonup_patch },
+	//{ "DrawIndexedPrimitive", 0x0, drawindexedprimitive_original, drawindexedprimitive_patch, drawindexedprimitive_patch, prepare_drawindexedprimitive_patch },
+
+	{ "EndScene", patch_t(PATCHADDR_LATER, 7, prepare_EndScene_patch) },
+	{ "Present", patch_t(PATCHADDR_LATER, 5, prepare_Present_patch) },
+	{ "CTM_finished", patch_t(CTM_finished_patchaddr, 5, prepare_CTM_finished_patch) },
+	{ "ClosePetStables", patch_t(ClosePetStables_patchaddr, 5, prepare_ClosePetStables_patch) },
+	{ "mbuttondown_handler", patch_t(mbuttondown_handler, 5, prepare_mbuttondown_patch) },
+	{ "mbuttonup_handler", patch_t(mbuttonup_handler, 5, prepare_mbuttonup_patch) },
+	{ "DrawIndexedPrimitive", patch_t(PATCHADDR_LATER, 5, prepare_DrawIndexedPrimitive_patch) },
 
 };
 
-static hookable *find_hookable(const std::string &funcname) {
+static hookable_t *find_hookable(const std::string &funcname) {
 	for (auto &h : hookable_functions) {
 		if (h.funcname == funcname) {
 			return &h;
@@ -1306,86 +1154,42 @@ static hookable *find_hookable(const std::string &funcname) {
 	return NULL;
 }
 
-static patch_serialized get_patch_from_hookable(const hookable *hook) {
-	return patch_serialized((DWORD)hook->address, hook->patch_size, hook->original_opcodes, hook->patch);
-}
-
-static int prepare_patch(const std::string &funcname, LPVOID hook_func_addr) {
-	for (auto &h : hookable_functions) {
-		if (funcname == h.funcname) {
-			h.prepare_patch(hook_func_addr, h);
-			PRINT("prepare_patch successful for function %s!\n", funcname.c_str());
-			return 1;
-		}
+static int get_patch_from_hookable(const std::string &funcname, patch_serialized *p) {
+	hookable_t *hook = find_hookable(funcname);
+	if (!hook) {
+		PRINT("get_patch_from_hookable: find_hookable for %s failed, expecting a disaster.\n", funcname.c_str());
+		return 0;
 	}
 
-	return 0;
-}
-
-int prepare_patches_and_pipe_data() {
-
-	//prepare_patch("LUA_prot", 0x0);
-//	prepare_patch("CTM_main", broadcast_CTM);
-	prepare_patch("CTM_update", CTM_finished_hookfunc);
-	prepare_patch("EndScene", EndScene_hook);
-//	prepare_patch("SpellErrMsg", SpellErrMsg_hook);
-	prepare_patch("ClosePetStables", ClosePetStables_hook);
-//	prepare_patch("SendPacket", dump_packet);
-//	prepare_patch("RecvPacket", dump_packet);
-	prepare_patch("Present", present_hook);
-	prepare_patch("mbuttondown_handler", mbuttondown_hook);
-	prepare_patch("mbuttonup_handler", mbuttondown_hook);
-
-//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("LUA_prot")));
-	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("EndScene")));
-//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_main")));
-	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_update")));
-//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("SpellErrMsg")));
-	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("ClosePetStables")));
-//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("SendPacket")));
-//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("RecvPacket")));
-	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("Present")));
-	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("mbuttondown_handler")));
-	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("mbuttonup_handler")));
-
-
+	*p = patch_serialized(hook->patch.patch_addr, hook->patch.size, hook->patch.original, hook->patch.patch);
 	return 1;
 }
 
-static int install_hook(const std::string &funcname, LPVOID hook_func_addr) {
+int prepare_pipe_data() {
+	
+	patch_serialized p;
 
-	for (auto &h : hookable_functions) {
-		if (funcname == h.funcname) {
-			h.prepare_patch(hook_func_addr, h);
-			SIZE_T bytes;
-			PRINT("Patching func \"%s\" at %X...", funcname.c_str(), (DWORD)h.address);
-			WriteProcessMemory(glhProcess, h.address, h.patch, h.patch_size, &bytes);
-			PRINT("OK!\n");
-			return bytes;
-		}
-	}
+#define ADD_PATCH_SAFE(patchname) do { assert(get_patch_from_hookable(patchname, &p)); PIPEDATA.add_patch(p); } while(0)
 
-	PRINT("install_hook: error: \"%s\": no such function!\n", funcname.c_str());
+	ADD_PATCH_SAFE("EndScene");
+	ADD_PATCH_SAFE("Present");
+	ADD_PATCH_SAFE("CTM_finished");
+	ADD_PATCH_SAFE("ClosePetStables");
+	ADD_PATCH_SAFE("mbuttondown_handler");
+	ADD_PATCH_SAFE("mbuttonup_handler");
+	
+	// don't add DrawIndexedPrimitive to this list, it will be patched manually later by a /lole subcommand
+	//ADD_PATCH_SAFE("DrawIndexedPrimitive");
 
-	return 0;
-}
 
-static int uninstall_hook(const std::string &funcname) {
-	//for (int i = 0; i < sizeof(hookable_functions) / sizeof(hookable_functions[0]); ++i) {
-	for (auto &h : hookable_functions) {
-		//	const hookable &h = hookable_functions[i];
-		if (funcname == h.funcname) {
-			SIZE_T bytes;
-			PRINT("Unpatching func \"%s\" at %X...", funcname.c_str(), (DWORD)h.address);
-			WriteProcessMemory(glhProcess, h.address, h.original_opcodes, h.patch_size, &bytes);
-			PRINT("OK!\n");
-			return bytes;
-		}
-	}
+	//PIPEDATA.add_patch(get_patch_from_hookable("mbuttondown_handler"));
+	//PIPEDATA.add_patch(get_patch_from_hookable("mbuttonup_handler"));
+	//PIPEDATA.add_patch(get_patch_from_hookable("DrawIndexedPrimitive"));
+	//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_main"));
 
-	PRINT("uninstall_hook: error: \"%s\": no such function!\n", funcname.c_str());
-
-	return 0;
+	//	PIPEDATA.add_patch(get_patch_from_hookable("SendPacket"));
+	//	PIPEDATA.add_patch(get_patch_from_hookable("RecvPacket"));
+	return 1;
 }
 
 
