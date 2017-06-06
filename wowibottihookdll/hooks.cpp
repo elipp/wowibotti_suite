@@ -777,17 +777,7 @@ static void __stdcall Present_hook() {
 	}
 
 
-	// THE SELECTION RING DRAWING HAPPENS AT 7E41FB!!
-	// 4F6F90 could be of interest :>
 
-	// some geometry-related func is at 0x7E32F0. Arguments passed at ring selection time appear to be -1, some stack address and 0
-	// eax is expected to have a meaningful value?
-	//typedef void (__cdecl *somefunc)(int, teststruct_t*, int);
-	//somefunc functest = (somefunc)0x7E32F0;
-	//functest(-1, &test, 0);
-
-	// A BREAKPOINT AT 0x4F6FAB is the unique code path for pylpyr (fires only if an unit is selected)
-	// 725980 is some member function probably to draw a pylpyr
 
 	//__asm {
 	//	int 3;
@@ -819,7 +809,6 @@ static void __stdcall Present_hook() {
 
 
 static void __stdcall EndScene_hook() {
-	
 }
 
 static void __stdcall dump_packet(BYTE *packet) {
@@ -1238,6 +1227,14 @@ static const trampoline_t *prepare_mbuttonup_patch(patch_t *p) {
 }
 
 static const trampoline_t *prepare_pylpyr_patch(patch_t *p) {
+
+ // THE SELECTION RING DRAWING HAPPENS AT 7E41FB!!
+ // 4F6F90 could be of interest :>
+
+ // A BREAKPOINT AT 0x4F6FAB is the unique code path for pylpyr (fires ONLY if an unit is selected)
+ // 725980 is some member function probably to draw a pylpyr under an unit / npc :D
+
+
 	static trampoline_t tr;
 
 	PRINT("Preparing pylpyr patch...\n");
