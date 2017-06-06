@@ -259,8 +259,12 @@ local function lole_ctm(x, y, z, prio)
 	end
 end
 
-local function lole_gui()
+local function lole_show()
 	main_frame_show()
+end
+
+local function lole_hide()
+	main_frame_hide()
 end
 
 local function lole_cooldowns()
@@ -991,7 +995,8 @@ lole_subcommands = {
 
 	cooldowns = lole_cooldowns,
 	buffs = do_buffs,
-	gui = lole_gui,
+	show = lole_show,
+	hide = lole_hide,
 	drink = lole_drink,
 	raid = lole_raid,
 	party = lole_party,

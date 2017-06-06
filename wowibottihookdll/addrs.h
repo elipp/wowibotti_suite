@@ -24,6 +24,8 @@
 
 #define PLAYER_TARGET_ADDR 0xBD07B0
 
+#define pylpyr_patchaddr 0x4F6F90
+
 //#define LUA_DoString_addr 0x706C80 // <-- tbc
 #define LUA_DoString_addr 0x00819210
 //#define SelectUnit_addr 0x4A6690 // <-- tbc

@@ -180,6 +180,9 @@ function main_frame_show()
 	lole_frame:Show();
 end
 
+function main_frame_hide()
+	lole_frame:Hide();
+end
 
 
 local config_dropdown = CreateFrame("Frame", "config_dropdown", lole_frame, "UIDropDownMenuTemplate")

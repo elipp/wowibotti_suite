@@ -1,5 +1,6 @@
 #include <queue>
 #include <cassert>
+#include <unordered_map>
 #include <d3d9.h>
 #include "hooks.h"
 #include "addrs.h"
@@ -23,6 +24,8 @@ const UINT32 PIPE_PROTOCOL_MAGIC = 0xAB30DD13;
 
 static POINT cursor_pos;
 static RECT client_area;
+
+static std::unordered_map<GUID_t, std::string> selected_units;
 
 static DWORD get_wow_d3ddevice() {
 #define STATIC_335_DIRECT3DDEVICE 0xC5DF88 
@@ -535,8 +538,10 @@ static int get_screen_coords(GUID_t GUID, POINT *coords) {
 	return 1;
 }
 
-static int get_units_in_selection_rect(RECT sel, std::vector<std::string> *units) {
+static int get_units_in_selection_rect(RECT sel) {
 	
+	selected_units.clear();
+
 	ObjectManager OM;
 	WowObject iter;
 	
@@ -554,7 +559,7 @@ static int get_units_in_selection_rect(RECT sel, std::vector<std::string> *units
 
 			if (coords.x > sel.left && coords.x < sel.right
 				&& coords.y < sel.bottom && coords.y > sel.top) {
-				units->push_back(iter.unit_get_name());
+				selected_units[unitguid] = iter.unit_get_name();
 				//PRINT("^UNIT IN RECT!\n");
 			}
 
@@ -563,13 +568,13 @@ static int get_units_in_selection_rect(RECT sel, std::vector<std::string> *units
 
 	}
 
-	return units->size();
+	return selected_units.size();
 
 }
 
 static void hook_DrawIndexedPrimitive() {
 	hookable_t *h = find_hookable("DrawIndexedPrimitive");
-	h->patch.enable();
+h->patch.enable();
 }
 
 static void unhook_DrawIndexedPrimitive() {
@@ -577,39 +582,137 @@ static void unhook_DrawIndexedPrimitive() {
 	h->patch.disable();
 }
 
-static int capture_render = 0;
-static FILE *capture_outfile;
+typedef struct rdmpheader_t {
+	DWORD MAGIC;
+	DWORD pitch;
+	DWORD width;
+	DWORD height;
+	DWORD stagenum;
+	DWORD callstack[8];
+} rmpheader_t;
 
-static int open_dumpfile() {
 
-	SYSTEMTIME t;
-	GetLocalTime(&t);
+static struct {
+	int active;
+	int need_to_stop;
+	int drawcall_count;
+	FILE *capture_outfile;
+	std::string name_base;
+	int file_index;
 
-	char name[128];
-	sprintf_s(name, "D:\\wowframe\\%02d%02d_%02d%02d%02d.rdmp", t.wDay, t.wMonth, t.wHour, t.wMinute, t.wSecond);
+	int open_dumpfile(const std::string &name) {
 
-	fopen_s(&capture_outfile, name, "wb");
-	if (!capture_outfile) {
-		PRINT("Couldn't open frame dump file %s!\n", name);
-		return 0;
+		fopen_s(&capture_outfile, name.c_str(), "wb");
+		if (!capture_outfile) {
+			PRINT("Couldn't open frame dump file %s!\n", name.c_str());
+			return 0;
+		}
+
+		PRINT("Opened frame dump file \"%s\"!\n", name.c_str());
+
+		return 1;
+
 	}
 
-	PRINT("Opened frame dump file \"%s\"!\n", name);
+	void reset() {
+		active = 0;
+		need_to_stop = 0;
+		drawcall_count = 0;
+		if (capture_outfile) {
+			fclose(capture_outfile);
+			capture_outfile = NULL;
+		}
+		name_base = "";
+		file_index = 1;
 
-	return 1;
+	}
 
-}
+	inline std::string get_chunkpostfix(int index) {
+		char buf[128];
+		sprintf_s(buf, "_chunk%02d", file_index);
 
-static void close_dumpfile() {
-	if (capture_outfile) {
+		return std::string(buf);
+	}
+
+	inline std::string get_basename() {
+		SYSTEMTIME t;
+		GetLocalTime(&t);
+
+		char buf[128];
+		sprintf_s(buf, "D:\\wowframe\\%02d%02d_%02d%02d%02d.rdmp", t.wDay, t.wMonth, t.wHour, t.wMinute, t.wSecond);
+
+		return std::string(buf);
+	}
+
+	void start() {
+
+		reset();
+
+		name_base = get_basename();
+
+		if (open_dumpfile(name_base + get_chunkpostfix(file_index))) {
+			hook_DrawIndexedPrimitive();
+			need_to_stop = 1; // this is to signal Present to unhook shit
+			active = 1;
+		}
+	}
+
+	void finish() {
+		PRINT("Frame dump %s complete! (%d stages in %d chunks)\n", name_base.c_str(), drawcall_count, file_index);
+		unhook_DrawIndexedPrimitive();
+		reset();
+	}
+
+	int new_chunk() {
+		++file_index;
 		fclose(capture_outfile);
-		capture_outfile = NULL;
-		PRINT("Frame dump complete!\n");
+		if (!open_dumpfile(name_base + get_chunkpostfix(file_index))) {
+			PRINT("new_chunk failed!\n");
+			capture_outfile = NULL;
+			return 0;
+		}
+		return 1;
 	}
-}
+
+	int append_to_file(const rdmpheader_t *hdr, const LPVOID data, size_t data_size_bytes) {
+#define MAX_CHUNKSIZE (1 << 31)
+		if (!capture_outfile) return 0;
+
+		if (ftell(capture_outfile) + data_size_bytes > MAX_CHUNKSIZE) {
+			if (!new_chunk()) return 0;
+		}
+		
+		fwrite(hdr, sizeof(rdmpheader_t), 1, capture_outfile);
+		fwrite(data, 1, data_size_bytes, capture_outfile);
+
+		return 1;
+	}
+
+} capture;
 
 void enable_capture_render() {
-	capture_render = 1;
+	capture.active = 1;
+}
+
+static void __stdcall call_pylpyr() {
+	ObjectManager OM;
+	WowObject o;
+
+	for (auto &u : selected_units) {
+		if (!OM.get_object_by_GUID(u.first, &o)) continue;
+		DWORD objectbase = o.get_base();
+		DWORD vt = DEREF(objectbase);
+		DWORD funcaddr = DEREF(vt + 0x6C);
+
+		__asm {
+			mov ecx, objectbase;
+			call funcaddr;
+		}
+
+	}
+
+	//PRINT("called pylpyr for %llX\n", GUID);
+
 }
 
 static void __stdcall Present_hook() {
@@ -665,36 +768,55 @@ static void __stdcall Present_hook() {
 	//get_wow_view_matrix(&view);
 	//get_wow_proj_matrix(&proj);
 
-	if (capture_render) {
-		if (open_dumpfile()) {
-			hook_DrawIndexedPrimitive();
-			capture_render = 0;
-		}
+	if (capture.active) {
+		capture.start();
+		capture.active = 0;
 	}
-	else {
-		unhook_DrawIndexedPrimitive();
-		close_dumpfile();
+	else if (capture.need_to_stop) {
+		capture.finish();
 	}
 
-	//glm::mat4 rottest = glm::rotate(glm::mat4(1.0), (float)-1.57, glm::vec3(1.0, 0, 0));
 
-	//for (int c = 0; c < 4; ++c) {
-	//	for (int r = 0; r < 4; ++r) {
-	//		PRINT("%.3f ", rottest[c][r]);
-	//	}
-	//	PRINT("\n");
+	// THE SELECTION RING DRAWING HAPPENS AT 7E41FB!!
+	// 4F6F90 could be of interest :>
+
+	// some geometry-related func is at 0x7E32F0. Arguments passed at ring selection time appear to be -1, some stack address and 0
+	// eax is expected to have a meaningful value?
+	//typedef void (__cdecl *somefunc)(int, teststruct_t*, int);
+	//somefunc functest = (somefunc)0x7E32F0;
+	//functest(-1, &test, 0);
+
+	// A BREAKPOINT AT 0x4F6FAB is the unique code path for pylpyr (fires only if an unit is selected)
+	// 725980 is some member function probably to draw a pylpyr
+
+	//__asm {
+	//	int 3;
+	//	pushad;
+	//	push 0x0C76;
+	//	push 0x9F9880;
+	//	push 1;
+	//	//push 0;
+	//	//push 8;
+	//	push 0xF1300012;
+	//	push 0x3C024E24;
+	//	mov edi, 0x4D4DB0;
+	//	call edi;
+	//	add esp, 0x14;
+	//	cmp eax, 0;
+
+	//	jz invalid_guid;
+	//	mov edx, dword ptr ds:[eax];
+	//	mov ecx, eax;
+	//	mov eax, dword ptr ds : [edx];
+	//	call eax;
+
+	//invalid_guid:
+	//	popad;
+
 	//}
-	//PRINT("\n");
-
-
-
-	//PRINT("CLIP POS (divided by w): (%.3f, %.3f, %.3f, %.3f)\naka (%.3f, %.3f) -> (%d, %d)\n",
-	//	clip.x, clip.y, clip.z, clip.w,
-	//	cx, cy, px, py
-	//);
-
 
 }
+
 
 static void __stdcall EndScene_hook() {
 	
@@ -983,14 +1105,6 @@ static const trampoline_t *prepare_Present_patch(patch_t *p) {
 
 static void __stdcall DrawIndexedPrimitive_hook() {
 
-	typedef struct rdmpheader_t {
-		DWORD pitch;
-		DWORD width;
-		DWORD height;
-		DWORD callstack[5];
-	};
-
-
 	IDirect3DDevice9 *d3dd = (IDirect3DDevice9*)get_wow_d3ddevice();
 
 	IDirect3DSwapChain9 *sc;
@@ -1012,28 +1126,29 @@ static void __stdcall DrawIndexedPrimitive_hook() {
 		return;
 	}
 
-	BYTE *b = (BYTE*)r.pBits;
-
-
 	D3DSURFACE_DESC d;
 	s->GetDesc(&d);
 
 	rdmpheader_t hdr;
 	memset(&hdr, 0, sizeof(hdr));
-
+	hdr.MAGIC = 0x700FF000;
 	hdr.pitch = r.Pitch;
 	hdr.width = d.Width;
 	hdr.height = d.Height;
+	hdr.stagenum = capture.drawcall_count;
 
-	CaptureStackBackTrace(0, 5, (PVOID*)&hdr.callstack[0], NULL);
+	PRINT("stagenum: %d, pitch: %d\n", hdr.stagenum, hdr.pitch);
 
-	fwrite(&hdr, sizeof(hdr), 1, capture_outfile);
-	fwrite(r.pBits, 1, r.Pitch * d.Height, capture_outfile); 
+	CaptureStackBackTrace(0, 8, (PVOID*)&hdr.callstack[0], NULL); 
+
+	capture.append_to_file(&hdr, r.pBits, r.Pitch * d.Height);
 
 	s->UnlockRect();
 
 	s->Release();
 	sc->Release();
+
+	++capture.drawcall_count;
 
 }
 
@@ -1089,10 +1204,9 @@ static const trampoline_t *prepare_mbuttondown_patch(patch_t *p) {
 static void __stdcall mbuttonup_hook() {
 	rect_active = 0;
 
-	std::vector<std::string> units;
-	get_units_in_selection_rect(get_selection_rect(), &units);
+	get_units_in_selection_rect(get_selection_rect());
 
-	if (units.size() < 1) {
+	if (selected_units.size() < 1) {
 		DoString("RunMacroText(\"/lole clearselection\")");
 		return;
 	}
@@ -1100,10 +1214,10 @@ static void __stdcall mbuttonup_hook() {
 	PRINT("Units within rectselect bounds:\n");
 	std::string units_concatd;
 
-	for (int i = 0; i < units.size(); ++i) {
-		units_concatd += units[i] + ((i == units.size() - 1) ? "" : "," );
-		PRINT("%s\n", units[i].c_str());
+	for (auto &u : selected_units) {
+		units_concatd = units_concatd + u.second + ",";
 	}
+	units_concatd.pop_back();
 
 	DoString("RunMacroText(\"/lole setselection %s\")", units_concatd.c_str());
 }
@@ -1121,6 +1235,23 @@ static const trampoline_t *prepare_mbuttonup_patch(patch_t *p) {
 	tr << (BYTE)0xC3; // just ret ^^
 
 	return &tr;
+}
+
+static const trampoline_t *prepare_pylpyr_patch(patch_t *p) {
+	static trampoline_t tr;
+
+	PRINT("Preparing pylpyr patch...\n");
+
+	tr << (BYTE)0x60;
+	tr.append_CALL((DWORD)call_pylpyr);
+
+	tr << (BYTE)0x61; // POPAD
+	tr.append_bytes(p->original, p->size);
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
+	tr << (BYTE)0xC3;
+
+	return &tr;
+
 }
 
 static hookable_t hookable_functions[] = {
@@ -1142,6 +1273,7 @@ static hookable_t hookable_functions[] = {
 	{ "mbuttondown_handler", patch_t(mbuttondown_handler, 5, prepare_mbuttondown_patch) },
 	{ "mbuttonup_handler", patch_t(mbuttonup_handler, 5, prepare_mbuttonup_patch) },
 	{ "DrawIndexedPrimitive", patch_t(PATCHADDR_LATER, 5, prepare_DrawIndexedPrimitive_patch) },
+	{ "pylpyr", patch_t(pylpyr_patchaddr, 9, prepare_pylpyr_patch) },
 
 };
 
@@ -1177,6 +1309,7 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("ClosePetStables");
 	ADD_PATCH_SAFE("mbuttondown_handler");
 	ADD_PATCH_SAFE("mbuttonup_handler");
+	ADD_PATCH_SAFE("pylpyr");
 	
 	// don't add DrawIndexedPrimitive to this list, it will be patched manually later by a /lole subcommand
 	//ADD_PATCH_SAFE("DrawIndexedPrimitive");
