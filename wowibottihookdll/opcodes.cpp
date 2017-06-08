@@ -12,6 +12,7 @@
 #include "dungeon_script.h"
 #include "lua.h"
 #include "packet.h"
+#include "linalg.h"
 
 extern HWND wow_hWnd;
 Timer since_noclip;
@@ -1343,10 +1344,22 @@ int lop_exec(lua_State *L) {
 		dump_wowobjects_to_log();
 		break;
 
-	case LDOP_TEST:
-		LOPDBG_test();
-		break;
+	case LDOP_TEST: {
+		//LOPDBG_test();
+		glm::mat4 rot = glm::rotate(glm::mat4(1), (float)-1.2, glm::vec3(0, 1, 0));
+		dump_glm_mat4(rot);
+		dump_glm_mat4_raw(rot);
 
+		float wrot[9];
+		get_wow_rot_raw(wrot);
+
+		for (int i = 0; i < 9; ++i) {
+			PRINT("%.3f ", wrot[i]);
+			if (i % 3 == 2) PRINT("\n");
+		}
+
+		break;
+	}
 	case LDOP_NOCLIP:
 		enable_noclip();
 		break;

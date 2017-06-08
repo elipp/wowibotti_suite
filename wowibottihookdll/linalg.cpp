@@ -129,6 +129,51 @@ int get_wow_proj_matrix(mat4 *m) {
 
 }
 
+void get_wow_rot_raw(float *out) {
+	wow_camera_t *c = (wow_camera_t*)get_wow_camera();
+	if (!c) return;
+
+	memcpy(out, c->rot, 9 * sizeof(float));
+}
+
+float get_wow_rot_angle() {
+	wow_camera_t *c = (wow_camera_t*)get_wow_camera();
+	if (!c) return 0;
+
+	return acos(c->rot[0][0]);
+}
+
+glm::mat4 get_corresponding_RH_rot() {
+	float a = get_wow_rot_angle();
+	a = -a;
+	PRINT("rot angle %f\n", a);
+
+	return glm::mat4(glm::vec4(1, 0, 0, 0),
+		glm::vec4(0, cos(a), sin(a), 0),
+		glm::vec4(0, -sin(a), cos(a), 0),
+		glm::vec4(0, 0, 0, 1));
+}
+
+void set_wow_rot(const glm::mat4 &rot) {
+	glm::fmat3 rot3 = glm::mat3(glm::transpose(rot)); // the wow matrix is row major
+	wow_camera_t *c = (wow_camera_t*)get_wow_camera();
+	if (!c) return;
+	memcpy(c->rot, &rot3[0][0], 9*sizeof(float));
+}
+
+glm::mat4 get_wow_rot() {
+	wow_camera_t *c = (wow_camera_t*)get_wow_camera();
+	if (!c) return glm::mat4(1);
+
+	glm::mat4 rf = glm::mat4(
+		c->rot[0][0], c->rot[1][0], c->rot[2][0], 0,
+		c->rot[0][1], c->rot[1][1], c->rot[2][1], 0,
+		c->rot[0][2], c->rot[1][2], c->rot[2][2], 0,
+		0, 0, 0, 1);
+
+	return rf;
+}
+
 int get_wow_view_matrix(mat4 *m) {
 
 	wow_camera_t *c = (wow_camera_t*)get_wow_camera();
@@ -210,4 +255,39 @@ mat4 operator*(const mat4 &m1, const mat4 &m2) {
 
 	return m;
 
+}
+
+void dump_glm_mat4(const glm::mat4 &m) {
+	for (int r = 0; r < 4; ++r) {
+		PRINT("(%.3f, %.3f, %.3f, %.3f)\n", m[0][r], m[1][r], m[2][r], m[3][r]);
+	}
+
+	PRINT("\n");
+
+}
+
+void dump_glm_mat4_raw(const glm::mat4 &m) {
+	for (int i = 0; i < 16; ++i) {
+		PRINT("%.3f ", *(&m[0][0] + i));
+		if (i % 4 == 3) PRINT("\n");
+	}
+
+	PRINT("\n");
+
+}
+
+void dump_glm_vec4(const glm::vec4 &v) {
+	PRINT("(%.3f, %.3f, %.3f, %.3f)\n", v[0], v[1], v[2], v[3]);
+}
+
+glm::vec4 convert_to_glm_coordinates(const glm::vec4 v) {
+	return glm::vec4(-v.y, v.z, -v.x, v.w);
+}
+
+glm::vec3 convert_to_glm_coordinates(const glm::vec3 v) {
+	return glm::vec3(-v.y, v.z, -v.x);
+}
+
+vec3 convert_to_glm_coordinates(const vec3& v) {
+	return vec3(-v.y, v.z, -v.x);
 }

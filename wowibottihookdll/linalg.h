@@ -5,6 +5,7 @@
 #include "addrs.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/type_ptr.hpp"
 
 typedef D3DMATRIX mat4;
 
@@ -61,3 +62,18 @@ typedef struct wow_camera_t {
 DWORD get_wow_camera();
 int get_wow_proj_matrix(mat4 *m);
 int get_wow_view_matrix(mat4 *m);
+
+void dump_glm_mat4(const glm::mat4 &m);
+void dump_glm_mat4_raw(const glm::mat4 &m);
+void dump_glm_vec4(const glm::vec4 &v);
+
+void get_wow_rot_raw(float *out);
+glm::mat4 get_wow_rot();
+float get_wow_rot_angle();
+glm::mat4 get_corresponding_RH_rot();
+
+glm::vec4 convert_to_glm_coordinates(const glm::vec4 v);
+glm::vec3 convert_to_glm_coordinates(const glm::vec3 v);
+vec3 convert_to_glm_coordinates(const vec3& v);
+
+void set_wow_rot(const glm::mat4 &rot);

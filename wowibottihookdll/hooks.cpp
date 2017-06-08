@@ -150,15 +150,12 @@ static int get_window_height() {
 	return window_rect.bottom - window_rect.top;
 }
 
+#define TEST_ANGLE 0.7f
+
 static void reset_camera_rotation(wow_camera_t *camera) {
 
-	float view[9] = {
-		0, 0, -1,
-		0, 1, 0,
-		1, 0, 0
-	};
-
-	memcpy(camera->rot, view, 9 * sizeof(float));
+	glm::mat4 rot = glm::rotate(glm::mat4(1.0), -TEST_ANGLE, glm::vec3(0, 1.0, 0));
+	set_wow_rot(rot);
 }
 
 static void move_camera_if_cursor() {
@@ -255,6 +252,7 @@ void reset_camera() {
 
 	reset_camera_rotation(camera);
 
+
 }
 
 static void mouse_stuff() {
@@ -262,114 +260,6 @@ static void mouse_stuff() {
 	// handler for WM_L/RBUTTONDOWN is at 869870
 	// WM_LBUTTONUP at 869C00 
 	
-}
-
-
-typedef struct CUSTOMVERTEX {
-	float x, y, z, a;
-	DWORD color;
-};
-
-#define CUSTOMFVF (D3DFVF_XYZRHW | D3DFVF_DIFFUSE)
-
-static IDirect3DVertexBuffer9 *vBuffer;
-
-static int create_vertex_buffer_if() {
-	IDirect3DDevice9 *d3dd = (IDirect3DDevice9*)get_wow_d3ddevice();
-
-	if (vBuffer != 0) return 1;
-
-	if (FAILED(d3dd->CreateVertexBuffer(
-		4 * sizeof(CUSTOMVERTEX),
-		0,
-		CUSTOMFVF,
-		D3DPOOL_MANAGED,
-		&vBuffer,
-		NULL))) {
-		PRINT("RIP!\n");
-		return 0;
-	}
-
-
-
-	return 1;
-}
-
-
-static void draw_rectangle() {
-
-	LONG &cx = cursor_pos.x;
-	LONG &cy = cursor_pos.y;
-
-	CUSTOMVERTEX vertices[] = {
-		{ 0, 0, 0.5, 1.0f, D3DCOLOR_XRGB(0, 255, 0) },
-		{ 0, cy, 0.5, 1.0f, D3DCOLOR_XRGB(0, 255, 0) },
-		{ cx, cy, 0.5, 1.0f, D3DCOLOR_XRGB(0,255, 0) },
-		{ cx, 0, 0, 1.0f, D3DCOLOR_XRGB(0, 255, 0) },
-		{ 0, 0, 0.5, 1.0f, D3DCOLOR_XRGB(0, 255, 0) },
-
-	};
-
-	IDirect3DDevice9 *d3dd = (IDirect3DDevice9*)get_wow_d3ddevice();
-
-	if (vBuffer == 0) return;
-
-	VOID* pVoid;
-
-	vBuffer->Lock(0, 0, &pVoid, 0);
-	memcpy(pVoid, vertices, sizeof(vertices));
-	vBuffer->Unlock();
-
-	IDirect3DStateBlock9 *state;
-
-	d3dd->CreateStateBlock(D3DSBT_ALL, &state);
-
-
-	//	d3dd->SetRenderState(D3DRS_STENCILENABLE, FALSE);
-
-
-	//	d3dd->SetRenderState(D3DRS_LIGHTING, FALSE);
-	//d3dd->SetRenderState(D3DRS_FILLMODE, 3);
-	//d3dd->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
-	//d3dd->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
-
-	D3DMATRIX orthographicMatrix;
-	D3DMATRIX identityMatrix;
-	D3DMATRIX viewMatrix = mat4_construct(
-		1, 0, 0, 0,
-		0, 1, 0, 0,
-		0, 0, 1, 0,
-		((float)-(get_window_width() / 2)), ((float)-(get_window_height() / 2)), 0, 1
-	);
-
-	mat4_ortho_lh(&orthographicMatrix, (FLOAT)get_window_width(), (FLOAT)get_window_height(), 0.0, 1.0);
-	mat4_identity(&identityMatrix);
-
-	//D3DMatrixOrthoLH(&orthographicMatrix, (FLOAT)this->nScreenWidth, (FLOAT)-this->nScreenHeight, 0.0f, 1.0f);
-	//	D3DMatrixIdentity(&identityMatrix);
-
-	d3dd->SetVertexShader(NULL);
-	d3dd->SetPixelShader(NULL);
-
-	d3dd->SetTransform(D3DTS_PROJECTION, &orthographicMatrix);
-	d3dd->SetTransform(D3DTS_WORLD, &identityMatrix);
-	d3dd->SetTransform(D3DTS_VIEW, &viewMatrix);
-
-	d3dd->SetRenderState(D3DRS_FOGENABLE, FALSE);
-	d3dd->SetRenderState(D3DRS_ZFUNC, D3DCMP_ALWAYS);
-	d3dd->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
-	d3dd->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-
-	d3dd->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
-	d3dd->SetFVF(CUSTOMFVF);
-	d3dd->SetStreamSource(0, vBuffer, 0, sizeof(CUSTOMVERTEX));
-	d3dd->DrawPrimitive(D3DPT_LINESTRIP, 0, 3);
-
-	state->Apply();
-	state->Release();
-
-	//d3dd->SetRenderState(D3DRS_ZENABLE, TRUE);
-	//d3dd->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0x00000000, 1.0f, 0);
 }
 
 static int rect_active = 0;
@@ -505,8 +395,8 @@ static void draw_rect_brute() {
 }
 
 static POINT map_clip_to_screen(const glm::vec4& c) {
-	float cx = -c.x + 0.5;
-	float cy = -c.y + 0.5;
+	float cx = c.x + 0.5;
+	float cy = (-c.y) + 0.5;
 
 	int px = cx * get_window_width();
 	int py = cy * get_window_height();
@@ -521,19 +411,30 @@ static int get_screen_coords(GUID_t GUID, POINT *coords) {
 	ObjectManager OM;
 	WowObject o;
 	if (!OM.get_object_by_GUID(GUID, &o)) return 0;
+	//if (!OM.get_local_object(&o)) return 0;
 
 	vec3 unitpos = o.get_pos();
+	//glm::vec4 up(-unitpos.y, unitpos.x, unitpos.z, 1);
+	glm::vec4 up = convert_to_glm_coordinates(glm::vec4(unitpos.x, unitpos.y, unitpos.z, 1.0));
 
 	// NOTE: EVERY OCCURRENCE OF X AND Y COORDINATES ARE INTENTIONALLY SWAPPED (WOW WORKS THIS WAY O_O)
+	glm::vec3 cpos = convert_to_glm_coordinates(glm::vec3(c->x, c->y, c->z));
+
 	glm::mat4 proj = glm::perspective(c->fov, c->aspect, c->zNear, c->zFar);
-	glm::mat4 view = glm::translate(glm::mat4(1.0), -glm::vec3(c->y, c->x, c->z));
-	glm::mat4 viewroty = glm::rotate(view, (float)-1.57, glm::vec3(1.0, 0, 0));
-	glm::mat4 MVP = proj*view;
+	glm::mat4 view = glm::translate(glm::mat4(1.0), -cpos);
 
-	glm::vec4 clip = MVP*glm::vec4(unitpos.y, unitpos.x, unitpos.z, 1);
-	clip /= clip.w;
+	glm::mat4 rot = glm::rotate(glm::mat4(1.0), TEST_ANGLE, glm::vec3(1.0, 0, 0));
+	glm::mat4 nMVP = proj*(rot*view);
 
-	*coords = map_clip_to_screen(clip);
+	glm::vec4 nclip = nMVP*up;
+	nclip /= nclip.w;
+
+	dump_glm_vec4((rot*view)*up);
+	dump_glm_vec4(nclip);
+
+	PRINT("\n------------------\n");
+
+	*coords = map_clip_to_screen(nclip);
 
 	return 1;
 }
@@ -721,9 +622,6 @@ static void __stdcall Present_hook() {
 	ScreenToClient(wow_hWnd, &cursor_pos);
 	GetClientRect(wow_hWnd, &client_area);
 
-	create_vertex_buffer_if();
-	//draw_rectangle();
-	
 	if (rect_active) {
 		draw_rect_brute();
 	}
@@ -734,7 +632,6 @@ static void __stdcall Present_hook() {
 	static timer_interval_t half_second(500);
 
 	RIP_camera();
-
 
 	if (half_second.passed()) {
 		update_hwevent_tick();
