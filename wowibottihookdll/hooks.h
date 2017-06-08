@@ -5,9 +5,6 @@
 #include <string>
 #include <vector>
 
-int hook_all();
-int unhook_all();
-
 int prepare_pipe_data();
 
 struct patch_serialized {

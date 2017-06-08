@@ -150,11 +150,37 @@ static int get_window_height() {
 	return window_rect.bottom - window_rect.top;
 }
 
-#define TEST_ANGLE 0.7f
+#define SMAX 0.7
+#define SMIN 0.4
 
-static void reset_camera_rotation(wow_camera_t *camera) {
+static struct {
+	float s;
+	float maxdistance;
 
-	glm::mat4 rot = glm::rotate(glm::mat4(1.0), -TEST_ANGLE, glm::vec3(0, 1.0, 0));
+	glm::vec4 pos;
+
+	glm::vec4 get_cameraoffset() {
+		// y = z^2
+		return maxdistance*glm::vec4(0, 2*s*s, s, 1.0);
+	}
+	float get_angle() {
+		//derivative dy/dz: y = 2z
+		return s*1.57;
+	}
+	void increment() {
+		s += 0.01;
+		s = s > SMAX ? SMAX : s;
+	}
+	void decrement() {
+		s -= 0.01;
+		s = s < SMIN ? SMIN : s;
+	}
+
+} customcamera = { 0.5, 30, glm::vec4(0, 0, 0, 1) };
+
+static void update_camera_rotation(wow_camera_t *camera) {
+
+	glm::mat4 rot = glm::rotate(glm::mat4(1.0), -customcamera.get_angle(), glm::vec3(0, 1.0, 0));
 	set_wow_rot(rot);
 }
 
@@ -165,16 +191,10 @@ static void move_camera_if_cursor() {
 	if (cursor_pos.x < 0 || cursor_pos.x > get_window_width()) return;
 	if (cursor_pos.y < 0 || cursor_pos.y > get_window_height()) return;
 
-
-	wow_camera_t *camera = (wow_camera_t*)get_wow_camera();
-	if (!camera) return;
-
 	//PRINT("camera: 0x%X\n", camera);
 
-	reset_camera_rotation(camera);
-
 	const float dd = 0.1;
-	const int margin = 100;
+	const int margin = 150;
 
 	int ww = get_window_width();
 	int wh = get_window_height();
@@ -182,23 +202,39 @@ static void move_camera_if_cursor() {
 	//PRINT("ww: %d, wh: %d\n", ww, wh);
 
 	if (cursor_pos.x < margin) {
-		camera->y += dd;
+		customcamera.pos.x -= dd;
 	}
 	else if (cursor_pos.x > ww - margin) {
-		camera->y -= dd;
+		customcamera.pos.x += dd;
 	}
 
 	if (cursor_pos.y < margin) {
-		camera->x += dd;
+		customcamera.pos.z -= dd;
 	}
 	else if (cursor_pos.y > wh - margin) {
-		camera->x -= dd;
+		customcamera.pos.z += dd;
 	}
 
 }
 
-static int kb_hooked = 0;
+static void update_wowcamera() {
 
+	wow_camera_t *camera = (wow_camera_t*)get_wow_camera();
+	if (!camera) return;
+
+	move_camera_if_cursor();
+
+	glm::vec4 newpos = customcamera.pos + customcamera.get_cameraoffset() + glm::vec4(0, 3, -6, 1);
+
+	glm::vec4 nw = glm2wow(newpos);
+
+	camera->x = nw.x;
+	camera->y = nw.y;
+	camera->z = nw.z;
+
+	update_camera_rotation(camera);
+
+}
 
 static void RIP_camera() {
 	// [[B7436C] + 7E20]
@@ -229,7 +265,9 @@ static void RIP_camera() {
 
 	GetClientRect(wow_hWnd, &window_rect);
 
-	move_camera_if_cursor();
+	update_wowcamera();
+	//move_camera_if_cursor();
+
 
 }
 
@@ -246,14 +284,20 @@ void reset_camera() {
 	wow_camera_t *camera = (wow_camera_t*)get_wow_camera();
 	if (!camera) return;
 
-	camera->x = pos.x;
-	camera->y = pos.y;
-	camera->z = pos.z + 20;
+	customcamera.pos = wow2glm(glm::vec4(pos.x, pos.y, pos.z, 1.0));
+	
+	glm::vec4 newpos = customcamera.pos+customcamera.get_cameraoffset() + glm::vec4(0, 3, -6, 1);
 
-	reset_camera_rotation(camera);
+	glm::vec4 nw = glm2wow(newpos);
 
+	camera->x = nw.x;
+	camera->y = nw.y;
+	camera->z = nw.z;
+
+	//update_camera_rotation(camera);
 
 }
+
 
 static void mouse_stuff() {
 	// found using GetCursorPos breakpoints!!
@@ -415,15 +459,15 @@ static int get_screen_coords(GUID_t GUID, POINT *coords) {
 
 	vec3 unitpos = o.get_pos();
 	//glm::vec4 up(-unitpos.y, unitpos.x, unitpos.z, 1);
-	glm::vec4 up = convert_to_glm_coordinates(glm::vec4(unitpos.x, unitpos.y, unitpos.z, 1.0));
+	glm::vec4 up = wow2glm(glm::vec4(unitpos.x, unitpos.y, unitpos.z, 1.0));
 
 	// NOTE: EVERY OCCURRENCE OF X AND Y COORDINATES ARE INTENTIONALLY SWAPPED (WOW WORKS THIS WAY O_O)
-	glm::vec3 cpos = convert_to_glm_coordinates(glm::vec3(c->x, c->y, c->z));
+	glm::vec3 cpos = wow2glm(glm::vec3(c->x, c->y, c->z));
 
 	glm::mat4 proj = glm::perspective(c->fov, c->aspect, c->zNear, c->zFar);
 	glm::mat4 view = glm::translate(glm::mat4(1.0), -cpos);
 
-	glm::mat4 rot = glm::rotate(glm::mat4(1.0), TEST_ANGLE, glm::vec3(1.0, 0, 0));
+	glm::mat4 rot = glm::rotate(glm::mat4(1.0), customcamera.get_angle(), glm::vec3(1.0, 0, 0));
 	glm::mat4 nMVP = proj*(rot*view);
 
 	glm::vec4 nclip = nMVP*up;
@@ -1148,6 +1192,30 @@ static const trampoline_t *prepare_pylpyr_patch(patch_t *p) {
 
 }
 
+static void __stdcall mwheel_hook(DWORD wParam) {
+	int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+	if (zDelta < 0) customcamera.increment();
+	if (zDelta > 0) customcamera.decrement();
+}
+
+static const trampoline_t *prepare_mwheel_patch(patch_t *p) {
+	static trampoline_t tr;
+
+	PRINT("Preparing mwheel patch...\n");
+
+	tr << (BYTE)0x60;
+	tr << (BYTE)0x8B << (BYTE)0x45 << (BYTE)0x10; // move wParam to EAX
+	tr << (BYTE)0x50; // push eax
+	tr.append_CALL((DWORD)mwheel_hook);
+
+	tr << (BYTE)0x61; // POPAD
+	tr << (BYTE)0x68 << (DWORD)0x86A8D1; // skip right to return
+	tr << (BYTE)0xC3;
+
+	return &tr;
+
+}
+
 static hookable_t hookable_functions[] = {
 	//{ "EndScene", 0x0, EndScene_original, EndScene_patch, EndScene_original, prepare_EndScene_patch },
 	//{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, ClosePetStables_original, prepare_ClosePetStables_patch },
@@ -1168,6 +1236,7 @@ static hookable_t hookable_functions[] = {
 	{ "mbuttonup_handler", patch_t(mbuttonup_handler, 5, prepare_mbuttonup_patch) },
 	{ "DrawIndexedPrimitive", patch_t(PATCHADDR_LATER, 5, prepare_DrawIndexedPrimitive_patch) },
 	{ "pylpyr", patch_t(pylpyr_patchaddr, 9, prepare_pylpyr_patch) },
+	{ "mwheel_handler", patch_t(mwheel_hookaddr, 6, prepare_mwheel_patch) },
 
 };
 
@@ -1204,6 +1273,7 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("mbuttondown_handler");
 	ADD_PATCH_SAFE("mbuttonup_handler");
 	ADD_PATCH_SAFE("pylpyr");
+	ADD_PATCH_SAFE("mwheel_handler");
 	
 	// don't add DrawIndexedPrimitive to this list, it will be patched manually later by a /lole subcommand
 	//ADD_PATCH_SAFE("DrawIndexedPrimitive");

@@ -72,8 +72,12 @@ glm::mat4 get_wow_rot();
 float get_wow_rot_angle();
 glm::mat4 get_corresponding_RH_rot();
 
-glm::vec4 convert_to_glm_coordinates(const glm::vec4 v);
-glm::vec3 convert_to_glm_coordinates(const glm::vec3 v);
-vec3 convert_to_glm_coordinates(const vec3& v);
+glm::vec4 wow2glm(const glm::vec4 v);
+glm::vec3 wow2glm(const glm::vec3 v);
+vec3 wow2glm(const vec3& v);
+
+glm::vec4 glm2wow(const glm::vec4 v);
+glm::vec3 glm2wow(const glm::vec3 v);
+vec3 glm2wow(const vec3& v);
 
 void set_wow_rot(const glm::mat4 &rot);

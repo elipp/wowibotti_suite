@@ -280,14 +280,27 @@ void dump_glm_vec4(const glm::vec4 &v) {
 	PRINT("(%.3f, %.3f, %.3f, %.3f)\n", v[0], v[1], v[2], v[3]);
 }
 
-glm::vec4 convert_to_glm_coordinates(const glm::vec4 v) {
+glm::vec4 wow2glm(const glm::vec4 v) {
 	return glm::vec4(-v.y, v.z, -v.x, v.w);
 }
 
-glm::vec3 convert_to_glm_coordinates(const glm::vec3 v) {
+glm::vec3 wow2glm(const glm::vec3 v) {
 	return glm::vec3(-v.y, v.z, -v.x);
 }
 
-vec3 convert_to_glm_coordinates(const vec3& v) {
+vec3 wow2glm(const vec3& v) {
 	return vec3(-v.y, v.z, -v.x);
 }
+
+glm::vec4 glm2wow(const glm::vec4 v) {
+	return glm::vec4(-v.z, -v.x, v.y, v.w);
+}
+
+glm::vec3 glm2wow(const glm::vec3 v) {
+	return glm::vec3(-v.z, -v.x, v.y);
+}
+
+vec3 glm2wow(const vec3& v) {
+	return vec3(-v.z, -v.x, v.y);
+}
+

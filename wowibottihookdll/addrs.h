@@ -12,6 +12,7 @@
 #define mbuttondown_handler 0x869870
 #define mbuttonup_handler 0x8698C0
 #define mbuttonup_hookaddr 0x86A814
+#define mwheel_hookaddr 0x86A8B3
 
 
 //#define ClosePetStables 0x4FACA0 // TBC
