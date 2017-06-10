@@ -27,6 +27,10 @@ static RECT client_area;
 
 static std::unordered_map<GUID_t, std::string> selected_units;
 
+#define PUSHAD (BYTE)0x60
+#define POPAD (BYTE)0x61
+#define RET (BYTE)0xC3
+
 static DWORD get_wow_d3ddevice() {
 #define STATIC_335_DIRECT3DDEVICE 0xC5DF88 
 #define STATIC_335_D3DDEVICE_OFFSET 0x397C
@@ -71,42 +75,59 @@ template <typename T> trampoline_t &trampoline_t::operator << (const T& arg) {
 	BYTE buf[16];
 	memcpy(buf, &arg, size);
 
-	//for (int i = 0; i < 24; ++i) {
-	//	PRINT("%02X ", p.bytes[i]);
-	//}
-	//PRINT("\n(before)\n");
-
 	for (int i = 0; i < size; ++i) {
 		bytes[this->length] = buf[i];
 		++this->length;
 	}
 
-	//for (int i = 0; i < 24; ++i) {
-	//	PRINT("%02X ", p.bytes[i]);
-	//}
-	//PRINT("\n(after)\n\n");
+	return (*this);
+}
+
+trampoline_t & trampoline_t::append_hexstring(const char *hexstr) {
+
+	// this expects the string to be in the format FFEEDDAA3355 etc.
+
+	int length = strlen(hexstr);
+
+	assert((length & 1) == 0);
+
+	int i = 0;
+	while (i < length) {
+		BYTE r;
+		sscanf(hexstr + i, "%2hhX", &r);
+		bytes[this->length] = r;
+		++this->length;
+		i += 2;
+	}
 
 	return (*this);
 }
 
 
-void trampoline_t::append_relative_offset(DWORD offset) {
+
+trampoline_t &trampoline_t::append_relative_offset(DWORD offset) {
 
 	DWORD jump = offset - ((DWORD)bytes + length) - 4;
 	//PRINT("offset: %X, length: %ld, jump: 0x%X\n", offset, length, jump);
 	(*this) << jump;
 
+	return (*this);
+
 }
 
-void trampoline_t::append_CALL(DWORD funcaddr) {
+trampoline_t &trampoline_t::append_CALL(DWORD funcaddr) {
 	(*this) << (BYTE)0xE8;
 	append_relative_offset(funcaddr);
+	return (*this);
+
 }
 
-void trampoline_t::append_bytes(const BYTE* b, int size) {
+trampoline_t &trampoline_t::append_bytes(const BYTE* b, int size) {
 	for (int i = 0; i < size; ++i) {
 		(*this) << b[i];
 	}
+	return (*this);
+
 }
 
 
@@ -840,17 +861,17 @@ static const trampoline_t *prepare_EndScene_patch(patch_t *p) {
 	PRINT("Found EndScene at 0x%X\n", EndScene);
 	p->patch_addr = EndScene;
 	
-	tr << (BYTE)0x60; // PUSHAD
+	tr << PUSHAD;
 
 	tr.append_CALL((DWORD)EndScene_hook);
-	tr << (BYTE)0x61; // POPAD
+	tr << POPAD;
 		
 	memcpy(p->original, (LPVOID)EndScene, p->size);
 	tr.append_bytes(p->original, p->size);
 
 	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
 
-	tr << (BYTE)0xC3; // RET
+	tr << RET; 
 	
 	return &tr;
 
@@ -863,16 +884,16 @@ static const trampoline_t *prepare_ClosePetStables_patch(patch_t *p) {
 
 	static trampoline_t tr;
 
-	tr << (BYTE)0x60; // PUSHAD
+	tr << PUSHAD; 
 
 	tr.append_CALL((DWORD)ClosePetStables_hook);
-	tr << (BYTE)0x61; // POPAD
+	tr << POPAD;
 
 	tr.append_bytes(p->original, p->size);
 
 	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
 
-	tr << (BYTE)0xC3; // RET
+	tr << RET; 
 	
 	return &tr;
 
@@ -940,10 +961,10 @@ static const trampoline_t *prepare_ClosePetStables_patch(patch_t *p) {
 static const trampoline_t *prepare_CTM_finished_patch(patch_t *p) {
 	static trampoline_t tr;
 
-	tr << (BYTE)0x60; // PUSHAD
+	tr << PUSHAD; // PUSHAD
 
 	tr.append_CALL((DWORD)CTM_finished_hookfunc);
-	tr << (BYTE)0x61; // POPAD
+	tr << POPAD; // POPAD
 
 	tr.append_bytes(p->original, p->size);
 
@@ -951,7 +972,7 @@ static const trampoline_t *prepare_CTM_finished_patch(patch_t *p) {
 
 	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
 
-	tr << (BYTE)0xC3; // RET
+	tr << RET; // RET
 
 	return &tr;
 }
@@ -965,17 +986,17 @@ static const trampoline_t *prepare_sendpacket_patch(patch_t *p) {
 	DWORD retaddr = 0x467773;
 	DWORD some_crypt_func = 0x4665B0;
 
-	tr << (BYTE)0x60 // PUSHAD
+	tr << PUSHAD // PUSHAD
 	   << (BYTE)0x52; // push EDX (the packet address)
 
 	tr.append_CALL((DWORD)dump_packet);
-	tr << (BYTE)0x61; // POPAD
+	tr << POPAD; // POPAD
 
 	tr.append_CALL(some_crypt_func); // from the original opcodes
 	
 	tr << (BYTE)0x68 << retaddr; // push RET addr
 	
-	tr << (BYTE)0xC3; // RET
+	tr << RET; // RET
 
 	return &tr;
 
@@ -989,13 +1010,13 @@ static const trampoline_t *prepare_recvpacket_patch(patch_t *p) {
 
 	DWORD retaddr = 0x467ECD;
 
-	tr << (BYTE)0x60; // PUSHAD
+	tr << PUSHAD; // PUSHAD
 
 	tr << (BYTE)0x8B << (BYTE)0x46 << (BYTE)0x1C; // mov eax, dword ptr ds:[esi+1c] // decrypted packet address
 	tr << (BYTE)0x50; // push eax
 
 	tr.append_CALL((DWORD)dump_packet);
-	tr << (BYTE)0x61; // POPAD
+	tr << POPAD; // POPAD
 
 	// original stuff
 	tr << (BYTE)0x01 << (BYTE)0x5E << (BYTE)0x20;
@@ -1003,7 +1024,7 @@ static const trampoline_t *prepare_recvpacket_patch(patch_t *p) {
 
 	tr << (BYTE)0x68 << retaddr; // push RET addr
 
-	tr << (BYTE)0xC3; // RET
+	tr << RET; // RET
 
 	return &tr;
 
@@ -1021,17 +1042,17 @@ static const trampoline_t *prepare_Present_patch(patch_t *p) {
 	PRINT("Found Present at 0x%X\n", Present);
 	p->patch_addr = Present;
 
-	tr << (BYTE)0x60; // PUSHAD
+	tr << PUSHAD; // PUSHAD
 
 	tr.append_CALL((DWORD)Present_hook);
-	tr << (BYTE)0x61; // POPAD
+	tr << POPAD; // POPAD
 	
 	memcpy(p->original, (LPVOID)Present, p->size);
 	tr.append_bytes(p->original, p->size);
 
 	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
 
-	tr << (BYTE)0xC3; // RET
+	tr << RET; // RET
 
 
 	return &tr;
@@ -1097,17 +1118,17 @@ static const trampoline_t *prepare_DrawIndexedPrimitive_patch(patch_t *p) {
 	PRINT("Found DrawIndexedPrimitive at 0x%X\n", DrawIndexedPrimitive);
 
 	p->patch_addr = DrawIndexedPrimitive;
-	tr << (BYTE)0x60; // PUSHAD
+	tr << PUSHAD; // PUSHAD
 
 	tr.append_CALL((DWORD)DrawIndexedPrimitive_hook);
-	tr << (BYTE)0x61; // POPAD
+	tr << POPAD; // POPAD
 
 	memcpy(p->original, (LPVOID)DrawIndexedPrimitive, p->size);
 	tr.append_bytes(p->original, p->size);
 
 	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
 
-	tr << (BYTE)0xC3; // RET
+	tr << RET; // RET
 
 	return &tr;
 
@@ -1126,25 +1147,27 @@ static int __stdcall mbuttondown_hook(DWORD wParam) {
 	return 1;
 }
 
+// there's a mouse button (r/l) down handler at 8697E0
+
 static const trampoline_t *prepare_mbuttondown_patch(patch_t *p) {
 	static trampoline_t tr;
 
 	PRINT("Preparing mbuttondown patch...\n");
 
-	tr << (BYTE)0x60; // PUSHAD
+	tr << PUSHAD; // PUSHAD
 	tr << (BYTE)0x56; // push esi (contains WndProc/wParam)
 	tr.append_CALL((DWORD)mbuttondown_hook);
-	tr << (BYTE)0x83 << (BYTE)0xF8 << (BYTE)0x00; // cmp eax, 0
-	tr << (BYTE)0x0F << (BYTE)0x84 << (BYTE)0x0D << (BYTE)0x00 << (BYTE)0x00 << (BYTE)0x00; // jz
-	tr << (BYTE)0x61; // POPAD
+	tr.append_hexstring("83F800"); // cmp eax, 0
+	tr.append_hexstring("0F840D000000"); // jz branch 2
+	tr << POPAD; // POPAD
 	tr.append_bytes(p->original, p->size);
 	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
-	tr << (BYTE)0xC3; // ret
+	tr << RET; // ret
 	
 	// branch 2
-	tr << (BYTE)0x61; // POPAD
+	tr << POPAD; // POPAD
 	tr << (BYTE)0x68 << (DWORD)0x86A80A;
-	tr << (BYTE)0xC3; // ret
+	tr << RET; // ret
 
 	return &tr;
 
@@ -1178,14 +1201,14 @@ static const trampoline_t *prepare_mbuttonup_patch(patch_t *p) {
 
 	PRINT("Preparing mbuttonup patch...\n");
 
-	tr << (BYTE)0x60; // PUSHAD
+	tr << PUSHAD; // PUSHAD
 	tr << (BYTE)0x56; // push esi (contains WndProc/wParam)
 	tr.append_CALL((DWORD)mbuttonup_hook);
-	tr << (BYTE)0x61; // POPAD
+	tr << POPAD; // POPAD
 	tr.append_bytes(p->original, p->size);
 
 	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
-	tr << (BYTE)0xC3; // just ret ^^
+	tr << RET; // just ret ^^
 
 	return &tr;
 }
@@ -1203,13 +1226,13 @@ static const trampoline_t *prepare_pylpyr_patch(patch_t *p) {
 
 	PRINT("Preparing pylpyr patch...\n");
 
-	tr << (BYTE)0x60;
+	tr << PUSHAD;
 	tr.append_CALL((DWORD)call_pylpyr);
 
-	tr << (BYTE)0x61; // POPAD
+	tr << POPAD; // POPAD
 	tr.append_bytes(p->original, p->size);
 	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
-	tr << (BYTE)0xC3;
+	tr << RET;
 
 	return &tr;
 
@@ -1226,14 +1249,14 @@ static const trampoline_t *prepare_mwheel_patch(patch_t *p) {
 
 	PRINT("Preparing mwheel patch...\n");
 
-	tr << (BYTE)0x60;
+	tr << PUSHAD;
 	tr << (BYTE)0x8B << (BYTE)0x45 << (BYTE)0x10; // move wParam to EAX
 	tr << (BYTE)0x50; // push eax
 	tr.append_CALL((DWORD)mwheel_hook);
 
-	tr << (BYTE)0x61; // POPAD
+	tr << POPAD; // POPAD
 	tr << (BYTE)0x68 << (DWORD)0x86A8D1; // skip right to return
-	tr << (BYTE)0xC3;
+	tr << RET;
 
 	return &tr;
 
@@ -1246,14 +1269,67 @@ void __stdcall CTM_main_hook(const float *c) {
 static const trampoline_t *prepare_CTM_main_patch(patch_t *p) {
 	static trampoline_t tr;
 	
-	tr << (BYTE)0x60;
+	tr << PUSHAD;
 	tr << (BYTE)0x8b << (BYTE)0x44 << (BYTE)0x24 << (BYTE)0x14; // mov eax, dword ptr ds:[esp+10] should contain the ctm coords
 	tr << (BYTE)0x50; // push eax
 	tr.append_CALL((DWORD)CTM_main_hook);
-	tr << (BYTE)0x61;
+	tr << POPAD;
+//	tr.append_bytes(p->original, p->size);
+//	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size);
+	tr << RET;
+
+
+	return &tr;
+}
+
+struct inpevent_t {
+	DWORD action;
+	DWORD s1;
+	int x;
+	int y;
+	DWORD tickcount;
+};
+
+static int __stdcall filter_rightclickdrag(DWORD tickcount, int y, int x, DWORD s1, DWORD action) {
+
+	inpevent_t t{ action, s1, x, y, tickcount };
+	
+	if (t.action != 0xA) {
+		PRINT("[%d] vars: %X, %X, %d, %d, %X\n", t.tickcount - GetTickCount(), t.action, t.s1, t.x, t.y, t.tickcount);
+	}
+
+	if (t.action == 0xC) {
+		return 0;
+	}
+	return 1;
+}
+
+static const trampoline_t *prepare_mousetest_patch(patch_t *p) {
+
+	static trampoline_t tr;
+
+	tr << (BYTE)0xCC; // int 3 B)
+	tr << PUSHAD;
+	tr.append_hexstring("FF742404"); // push dword ptr ss:[esp + 4]
+	tr.append_hexstring("FF742408"); // push dword ptr ss:[esp + 4]
+	tr.append_hexstring("FF742404"); // push dword ptr ss:[esp + 4]
+	tr.append_hexstring("FF742404"); // push dword ptr ss:[esp + 4]
+	tr.append_hexstring("FF742404"); // push dword ptr ss:[esp + 4]
+
+	tr.append_CALL((DWORD)filter_rightclickdrag);
+	tr.append_hexstring("83F800"); // cmp eax, 0
+	tr.append_hexstring("0F840F000000"); // jz branch 2
+
+	tr << POPAD;
 	tr.append_bytes(p->original, p->size);
 	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size);
-	tr << (BYTE)0xC3;
+	tr << RET;
+
+	// branch 2
+
+	tr << POPAD;
+	tr << RET; // straight ret if we want to filter this shit B)
+
 
 
 	return &tr;
@@ -1280,7 +1356,8 @@ static hookable_t hookable_functions[] = {
 	{ "DrawIndexedPrimitive", patch_t(PATCHADDR_LATER, 5, prepare_DrawIndexedPrimitive_patch) },
 	{ "pylpyr", patch_t(pylpyr_patchaddr, 9, prepare_pylpyr_patch) },
 	{ "mwheel_handler", patch_t(mwheel_hookaddr, 6, prepare_mwheel_patch) },
-	{ "CTM_main", patch_t(CTM_main_hookaddr, 6, prepare_CTM_main_patch)}
+	{ "CTM_main", patch_t(CTM_main_hookaddr, 6, prepare_CTM_main_patch)},
+	{ "mousetest", patch_t(mousetest_hookaddr, 8, prepare_mousetest_patch) },
 
 };
 
@@ -1314,11 +1391,12 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("Present");
 	ADD_PATCH_SAFE("CTM_finished");
 	ADD_PATCH_SAFE("ClosePetStables");
-	ADD_PATCH_SAFE("mbuttondown_handler");
-	ADD_PATCH_SAFE("mbuttonup_handler");
+	//ADD_PATCH_SAFE("mbuttondown_handler");
+//	ADD_PATCH_SAFE("mbuttonup_handler");
 	ADD_PATCH_SAFE("pylpyr");
 	ADD_PATCH_SAFE("mwheel_handler");
 	ADD_PATCH_SAFE("CTM_main");
+	ADD_PATCH_SAFE("mousetest");
 	
 	// don't add DrawIndexedPrimitive to this list, it will be patched manually later by a /lole subcommand
 	//ADD_PATCH_SAFE("DrawIndexedPrimitive");

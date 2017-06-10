@@ -35,17 +35,19 @@ extern pipe_data PIPEDATA;
 struct trampoline_t {
 	BYTE bytes[128];
 	size_t length;
-	void append_relative_offset(DWORD offset);
-	void append_CALL(DWORD funcaddr);
+	trampoline_t &append_relative_offset(DWORD offset);
+	trampoline_t &append_CALL(DWORD funcaddr);
+
+	trampoline_t &append_bytes(const BYTE* b, int size);
+	trampoline_t &append_hexstring(const char *hexstr);
+	
 	trampoline_t() : length(0) {
 		memset(bytes, 0x0, sizeof(bytes));
 		DWORD oldprotect;
 		VirtualProtect((LPVOID)bytes, sizeof(bytes), PAGE_EXECUTE_READWRITE, &oldprotect);
 	}
-	void append_bytes(const BYTE* b, int size);
 
 	template <typename T> trampoline_t &operator << (const T& arg);
-
 };
 
 extern pipe_data PIPEDATA;
