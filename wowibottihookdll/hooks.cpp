@@ -150,6 +150,9 @@ static int get_window_height() {
 	return window_rect.bottom - window_rect.top;
 }
 
+static int rect_active = 0;
+static POINT rect_begin;
+
 #define SMAX 0.7
 #define SMIN 0.4
 
@@ -187,6 +190,8 @@ static void update_camera_rotation(wow_camera_t *camera) {
 static void move_camera_if_cursor() {
 
 	if (GetActiveWindow() != wow_hWnd) return;
+
+	if (rect_active) return;
 
 	if (cursor_pos.x < 0 || cursor_pos.x > get_window_width()) return;
 	if (cursor_pos.y < 0 || cursor_pos.y > get_window_height()) return;
@@ -306,8 +311,7 @@ static void mouse_stuff() {
 	
 }
 
-static int rect_active = 0;
-static POINT rect_begin;
+
 
 static void draw_rect(RECT *r, D3DLOCKED_RECT *dr, DWORD XRGB) {
 
@@ -461,7 +465,9 @@ static int get_screen_coords(GUID_t GUID, POINT *coords) {
 	//glm::vec4 up(-unitpos.y, unitpos.x, unitpos.z, 1);
 	glm::vec4 up = wow2glm(glm::vec4(unitpos.x, unitpos.y, unitpos.z, 1.0));
 
-	// NOTE: EVERY OCCURRENCE OF X AND Y COORDINATES ARE INTENTIONALLY SWAPPED (WOW WORKS THIS WAY O_O)
+	// increasing up.y just slightly will make the selection more intuitive
+	up.y += 0.5;
+
 	glm::vec3 cpos = wow2glm(glm::vec3(c->x, c->y, c->z));
 
 	glm::mat4 proj = glm::perspective(c->fov, c->aspect, c->zNear, c->zFar);
@@ -716,8 +722,7 @@ static void __stdcall Present_hook() {
 	else if (capture.need_to_stop) {
 		capture.finish();
 	}
-
-
+	
 
 
 	//__asm {
@@ -1108,11 +1113,17 @@ static const trampoline_t *prepare_DrawIndexedPrimitive_patch(patch_t *p) {
 
 }
 
-static void __stdcall mbuttondown_hook() {
-	GetCursorPos(&rect_begin);
-	ScreenToClient(wow_hWnd, &rect_begin);
-	//PRINT("mbd_hook: %d, %d", rect_begin.x, rect_begin.y);
-	rect_active = 1;
+static int __stdcall mbuttondown_hook(DWORD wParam) {
+
+	if (wParam == WM_LBUTTONDOWN) {
+		GetCursorPos(&rect_begin);
+		ScreenToClient(wow_hWnd, &rect_begin);
+		//PRINT("mbd_hook: %d, %d", rect_begin.x, rect_begin.y);
+		rect_active = 1;
+		return 0;
+	}
+
+	return 1;
 }
 
 static const trampoline_t *prepare_mbuttondown_patch(patch_t *p) {
@@ -1121,19 +1132,29 @@ static const trampoline_t *prepare_mbuttondown_patch(patch_t *p) {
 	PRINT("Preparing mbuttondown patch...\n");
 
 	tr << (BYTE)0x60; // PUSHAD
-
+	tr << (BYTE)0x56; // push esi (contains WndProc/wParam)
 	tr.append_CALL((DWORD)mbuttondown_hook);
+	tr << (BYTE)0x83 << (BYTE)0xF8 << (BYTE)0x00; // cmp eax, 0
+	tr << (BYTE)0x0F << (BYTE)0x84 << (BYTE)0x0D << (BYTE)0x00 << (BYTE)0x00 << (BYTE)0x00; // jz
 	tr << (BYTE)0x61; // POPAD
-
-	tr << (BYTE)0xC3; // just ret ^^
+	tr.append_bytes(p->original, p->size);
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
+	tr << (BYTE)0xC3; // ret
+	
+	// branch 2
+	tr << (BYTE)0x61; // POPAD
+	tr << (BYTE)0x68 << (DWORD)0x86A80A;
+	tr << (BYTE)0xC3; // ret
 
 	return &tr;
 
 }
 
-static void __stdcall mbuttonup_hook() {
-	rect_active = 0;
+static void __stdcall mbuttonup_hook(DWORD wParam) {
+	
+	if (wParam != WM_LBUTTONUP) return;
 
+	rect_active = 0;
 	get_units_in_selection_rect(get_selection_rect());
 
 	if (selected_units.size() < 1) {
@@ -1158,10 +1179,12 @@ static const trampoline_t *prepare_mbuttonup_patch(patch_t *p) {
 	PRINT("Preparing mbuttonup patch...\n");
 
 	tr << (BYTE)0x60; // PUSHAD
-
+	tr << (BYTE)0x56; // push esi (contains WndProc/wParam)
 	tr.append_CALL((DWORD)mbuttonup_hook);
 	tr << (BYTE)0x61; // POPAD
+	tr.append_bytes(p->original, p->size);
 
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
 	tr << (BYTE)0xC3; // just ret ^^
 
 	return &tr;
@@ -1216,6 +1239,26 @@ static const trampoline_t *prepare_mwheel_patch(patch_t *p) {
 
 }
 
+void __stdcall CTM_main_hook(const float *c) {
+	DoString("RunMacroText(\"/lole broadcast ctm %.3f %.3f %.3f\")", c[0], c[1], c[2]);
+}
+
+static const trampoline_t *prepare_CTM_main_patch(patch_t *p) {
+	static trampoline_t tr;
+	
+	tr << (BYTE)0x60;
+	tr << (BYTE)0x8b << (BYTE)0x44 << (BYTE)0x24 << (BYTE)0x14; // mov eax, dword ptr ds:[esp+10] should contain the ctm coords
+	tr << (BYTE)0x50; // push eax
+	tr.append_CALL((DWORD)CTM_main_hook);
+	tr << (BYTE)0x61;
+	tr.append_bytes(p->original, p->size);
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size);
+	tr << (BYTE)0xC3;
+
+
+	return &tr;
+}
+
 static hookable_t hookable_functions[] = {
 	//{ "EndScene", 0x0, EndScene_original, EndScene_patch, EndScene_original, prepare_EndScene_patch },
 	//{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, ClosePetStables_original, prepare_ClosePetStables_patch },
@@ -1230,13 +1273,14 @@ static hookable_t hookable_functions[] = {
 
 	{ "EndScene", patch_t(PATCHADDR_LATER, 7, prepare_EndScene_patch) },
 	{ "Present", patch_t(PATCHADDR_LATER, 5, prepare_Present_patch) },
-	{ "CTM_finished", patch_t(CTM_finished_patchaddr, 5, prepare_CTM_finished_patch) },
+	{ "CTM_finished", patch_t(CTM_finished_patchaddr, 10, prepare_CTM_finished_patch) },
 	{ "ClosePetStables", patch_t(ClosePetStables_patchaddr, 5, prepare_ClosePetStables_patch) },
-	{ "mbuttondown_handler", patch_t(mbuttondown_handler, 5, prepare_mbuttondown_patch) },
-	{ "mbuttonup_handler", patch_t(mbuttonup_handler, 5, prepare_mbuttonup_patch) },
+	{ "mbuttondown_handler", patch_t(mbuttondown_handler, 6, prepare_mbuttondown_patch) },
+	{ "mbuttonup_handler", patch_t(mbuttonup_handler, 7, prepare_mbuttonup_patch) },
 	{ "DrawIndexedPrimitive", patch_t(PATCHADDR_LATER, 5, prepare_DrawIndexedPrimitive_patch) },
 	{ "pylpyr", patch_t(pylpyr_patchaddr, 9, prepare_pylpyr_patch) },
 	{ "mwheel_handler", patch_t(mwheel_hookaddr, 6, prepare_mwheel_patch) },
+	{ "CTM_main", patch_t(CTM_main_hookaddr, 6, prepare_CTM_main_patch)}
 
 };
 
@@ -1274,18 +1318,11 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("mbuttonup_handler");
 	ADD_PATCH_SAFE("pylpyr");
 	ADD_PATCH_SAFE("mwheel_handler");
+	ADD_PATCH_SAFE("CTM_main");
 	
 	// don't add DrawIndexedPrimitive to this list, it will be patched manually later by a /lole subcommand
 	//ADD_PATCH_SAFE("DrawIndexedPrimitive");
 
-
-	//PIPEDATA.add_patch(get_patch_from_hookable("mbuttondown_handler"));
-	//PIPEDATA.add_patch(get_patch_from_hookable("mbuttonup_handler"));
-	//PIPEDATA.add_patch(get_patch_from_hookable("DrawIndexedPrimitive"));
-	//	PIPEDATA.add_patch(get_patch_from_hookable(find_hookable("CTM_main"));
-
-	//	PIPEDATA.add_patch(get_patch_from_hookable("SendPacket"));
-	//	PIPEDATA.add_patch(get_patch_from_hookable("RecvPacket"));
 	return 1;
 }
 

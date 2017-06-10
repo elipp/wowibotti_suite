@@ -28,6 +28,21 @@ us_frame:SetBackdrop(backdrop)
 us_frame:EnableMouse(true)
 us_frame:SetMovable(false)
 
+local close_button = CreateFrame("Button", "close_button", us_frame, "UIPanelCloseButton");
+close_button:SetPoint("TOPRIGHT", 0, 0);
+
+close_button:SetScript("OnClick", function()
+	us_frame:Hide();
+end)
+
+function selection_frame_show()
+	us_frame:Show()
+end
+
+function selection_frame_hide()
+	us_frame:Hide()
+end
+
 local sex_strings = {
 [1] = 'UNKNOWN',
 [2] = 'MALE',
@@ -91,10 +106,10 @@ function clear_selection()
 	num_units = 0
 end
 
-local stride_pixels = 44
+local stride_pixels = 48
 
-local function add_unitframe(unitframe)
-	selected_units[#selected_units + 1] = unitframe
+local function add_unitframe(unitname, unitframe)
+	selected_units[unitname] = unitframe
 	num_units = num_units + 1
 end
 
@@ -134,8 +149,17 @@ end
 function update_selection(selected_units_table)
 	clear_selection()
 	for i, unitname in pairs(selected_units_table) do
-		add_unitframe(create_unit_frame(unitname))
+		add_unitframe(unitname, create_unit_frame(unitname))
 	end
+end
+
+function get_selected_units()
+	local u = {}
+	for n,f in pairs(selected_units) do
+		u[#u + 1] = n
+	end
+
+	return u
 end
 
 --us_frame:SetScript("OnUpdate", update_selected)

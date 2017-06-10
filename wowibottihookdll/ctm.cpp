@@ -270,13 +270,9 @@ void ctm_purge_old() {
 //	CTM_mystery_A90 = 0xD68A90,
 //	CTM_mystery_A94 = 0xD68A94;
 
-// WOTLK:
-// action 0xCA11F4: action
-// CTM_X: 0xCA1264,
-// CTM_Y: 0xCA1268,
-// CTM_Z: 0xCA126C,
+// the lowest-level unique function to setting CTM is 0x5FC680
+// maybe some interesting static at 0xD3F78C
 
-//
 
 static const uint
 	CTM_X = 0xCA1264,

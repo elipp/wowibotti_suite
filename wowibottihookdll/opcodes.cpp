@@ -1098,6 +1098,47 @@ static int LOPSL_reset_camera() {
 }
 
 
+static void try_wowctm() {
+	// 0xD3F78C
+
+	// the [C24954] + 4 is set to 1 in function 5FA170 (it's actually 00200001 if you click a new one before the next)
+	// [C24954] + 14 is set to (some value, tick count??) in at 5FA261
+	// 5F9600 returning != 0 is the next problem B) (called at 5FA668)
+
+	// 8697E0 is for right click
+	// [D41404] is some value that's being incremented up to F and then back to 0
+
+	// 4F4500 is where the coordinates are set to the struct to be passed to CTM_FINAL
+	// 527360 is some 
+
+
+	DWORD something = DEREF(0xD3F78C);
+	DWORD something2 = DEREF(0xC24954);
+
+	DWORD ticks = DEREF(0xB499A4) + 1;
+
+	BYTE skiphax[] = {
+		0xB8, 0x01, 0x00, 0x00, 0x00
+	};
+
+	WriteProcessMemory(glhProcess, (LPVOID)0x5FC689, skiphax, 5, NULL); // skip the lua validity check B)
+
+	int one = 1;
+	if (something) {
+		DWORD func = 0x5FC680;
+		memcpy((LPVOID)(something2 + 4), &one, 4);
+		memcpy((LPVOID)(something2 + 0x14), &ticks, 4);
+		memcpy((LPVOID)(something2 + 0x18), &one, 4);
+		__asm {
+			//	int 3;
+			push something;
+			call func;
+			add esp, 4;
+		}
+
+	}
+}
+
 int lop_exec(lua_State *L) {
 
 	// NOTE: the return value of this function --> number of values returned to caller in LUA
@@ -1346,18 +1387,8 @@ int lop_exec(lua_State *L) {
 
 	case LDOP_TEST: {
 		//LOPDBG_test();
-		glm::mat4 rot = glm::rotate(glm::mat4(1), (float)-1.2, glm::vec3(0, 1, 0));
-		dump_glm_mat4(rot);
-		dump_glm_mat4_raw(rot);
 
-		float wrot[9];
-		get_wow_rot_raw(wrot);
-
-		for (int i = 0; i < 9; ++i) {
-			PRINT("%.3f ", wrot[i]);
-			if (i % 3 == 2) PRINT("\n");
-		}
-
+		try_wowctm();
 		break;
 	}
 	case LDOP_NOCLIP:

@@ -230,27 +230,11 @@ local CTM_PRIO_CLEAR_HOLD = 6
 
 local function lole_broadcast_ctm(x, y, z)
 
-	local mode = get_CTM_mode();
-	if mode == CTM_MODES.LOCAL then
-		lole_subcommands.ctm(x, y, z, CTM_PRIO_LOW);
+	local units = get_selected_units()
 
-	elseif mode == CTM_MODES.TARGET then
-		local tname = UnitName("target")
-		if not tname then return end
-
-		echo("sending CTM to target " .. tname)
-		lole_subcommands.sendmacro_to(tname, "/lole ctm", x, y, z, CTM_PRIO_LOW); -- last arg == priority level
-
-		-- kinda redundant.
-	elseif mode == CTM_MODES.EVERYONE then
-		lole_subcommands.sendmacro("RAID", "/lole ctm", x, y, z, CTM_PRIO_LOW);
-
-	else
-		lole_error("lole_ctm: invalid mode: " .. tostring(mode));
-		return false;
+	for i,n in pairs(units) do
+		lole_subcommands.sendmacro_to(n, "/lole ctm", x, y, z, CTM_PRIO_FOLLOW); -- last arg == priority level
 	end
-
-	return true;
 end
 
 local function lole_ctm(x, y, z, prio)
@@ -266,6 +250,15 @@ end
 local function lole_hide()
 	main_frame_hide()
 end
+
+local function lole_sfshow()
+	selection_frame_show()
+end
+
+local function lole_sfhide()
+	selection_frame_hide()
+end
+
 
 local function lole_cooldowns()
 	L_UseInventoryItem(13);
@@ -863,6 +856,7 @@ local function lole_debug_test_blast_target()
 		update_target()
 end
 
+
 local function lole_distance_to_target()
     echo(get_distance_between("player", "target"));
 end
@@ -997,6 +991,10 @@ lole_subcommands = {
 	buffs = do_buffs,
 	show = lole_show,
 	hide = lole_hide,
+
+	sfshow = lole_sfshow;
+	sfhide = lole_sfhide;
+
 	drink = lole_drink,
 	raid = lole_raid,
 	party = lole_party,

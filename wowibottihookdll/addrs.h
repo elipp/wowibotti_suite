@@ -9,8 +9,10 @@
 #define SendPacket_hookaddr 0x46776E
 #define RecvPacket_hookaddr 0x467EC7
 
-#define mbuttondown_handler 0x869870
-#define mbuttonup_handler 0x8698C0
+//#define mbuttondown_handler 0x869870
+#define mbuttondown_handler 0x86A7F5
+//#define mbuttonup_handler 0x8698C0
+#define mbuttonup_handler 0x86A85D
 #define mbuttonup_hookaddr 0x86A814
 #define mwheel_hookaddr 0x86A8B3
 
@@ -44,6 +46,8 @@
 
 #define CTM_finished 0x7272C0
 #define CTM_finished_patchaddr 0x7273E5
+
+#define CTM_main_hookaddr 0x727400
 
 #define Camera_static 0xB7436C
 
