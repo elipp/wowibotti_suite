@@ -713,7 +713,6 @@ static void __stdcall Present_hook() {
 	}
 
 	ctm_handle_delayed_posthook();
-	ctm_update_prevpos();
 	ctm_abort_if_not_moving();
 
 	if (noclip_enabled) {
@@ -774,8 +773,27 @@ static void __stdcall Present_hook() {
 
 }
 
-
 static void __stdcall EndScene_hook() {
+
+	//static vec3 prevpos;
+	//static Timer timer;
+
+	//ObjectManager OM;
+	//WowObject p;
+	//if (!OM.get_local_object(&p)) return;
+
+	//vec3 nowpos = p.get_pos();
+	//vec3 diff = nowpos - prevpos;
+
+	//float t = timer.get_s();
+	//vec3 vt = vec3(diff.x / t, diff.y / t, diff.z / t);
+	//float dv = vt.length();
+
+	////PRINT("vt: (%.3f, %.3f, %.3f) (t = %f, dv = %.3f)\n", vt.x, vt.y, vt.z, t, dv);
+
+	//prevpos = nowpos;
+	//timer.start();
+
 }
 
 static void __stdcall dump_packet(BYTE *packet) {
@@ -1208,7 +1226,7 @@ static const trampoline_t *prepare_mbuttonup_patch(patch_t *p) {
 	tr.append_bytes(p->original, p->size);
 
 	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
-	tr << RET; // just ret ^^
+	tr << RET; 
 
 	return &tr;
 }
@@ -1284,39 +1302,113 @@ static const trampoline_t *prepare_CTM_main_patch(patch_t *p) {
 
 struct inpevent_t {
 	DWORD action;
-	DWORD s1;
+	DWORD event;
 	int x;
 	int y;
-	DWORD tickcount;
+	DWORD unk1;
 };
 
-static int __stdcall filter_rightclickdrag(DWORD tickcount, int y, int x, DWORD s1, DWORD action) {
+// 480130 handler for all these opcodes B)
+// B41834 contains a mask of which mouse buttons are being held down
 
-	inpevent_t t{ action, s1, x, y, tickcount };
-	
-	if (t.action != 0xA) {
-		PRINT("[%d] vars: %X, %X, %d, %d, %X\n", t.tickcount - GetTickCount(), t.action, t.s1, t.x, t.y, t.tickcount);
+static int fake_input = 0;
+
+static void mouselup() {
+	rect_active = 0;
+	get_units_in_selection_rect(get_selection_rect());
+
+	if (selected_units.size() < 1) {
+		DoString("RunMacroText(\"/lole clearselection\")");
+		return;
 	}
 
-	if (t.action == 0xC) {
+	PRINT("Units within rectselect bounds:\n");
+	std::string units_concatd;
+
+	for (auto &u : selected_units) {
+		units_concatd = units_concatd + u.second + ",";
+	}
+	units_concatd.pop_back();
+
+	DoString("RunMacroText(\"/lole setselection %s\")", units_concatd.c_str());
+}
+
+static int handle_inputmousedown(struct inpevent_t *t) {
+	
+	static const auto ADD_INPUT_EVENT = (void(*)(DWORD, DWORD, DWORD, DWORD, DWORD))(AddInputEvent);
+
+	if (t->event == 0x1) { // 
+		GetCursorPos(&rect_begin);
+		ScreenToClient(wow_hWnd, &rect_begin);
+		rect_active = 1;
+
 		return 0;
 	}
+	else if (t->event == 0x4) {
+		//t->action = 0xD; // HEHE clever try, but apparently 0xD requires a valid 0x9 to work.
+		return 1;
+	}
+	return 0;
+
+}
+
+static int handle_inputmouseup(struct inpevent_t *t) {
+
+	if (t->event == 0x1) {
+		mouselup();
+		return 0;
+	}	
+	
+	if (t->event == 0x4) {
+		return 1;
+	}
+
 	return 1;
 }
 
-static const trampoline_t *prepare_mousetest_patch(patch_t *p) {
+static int __stdcall AddInputEvent_hook(struct inpevent_t *t) {
+	
+	DWORD ai = DEREF(0xD41400);
+	DWORD ai2 = DEREF(0xD41404);
+
+#define INPUT_MOUSEDOWN 0x9
+#define INPUT_MOUSEMOVE 0xA
+#define INPUT_MOUSEDRAG 0xC
+#define INPUT_MOUSEUP 0xD
+
+	int r = 1;
+
+	switch (t->action) {
+	case INPUT_MOUSEDOWN:
+		r = handle_inputmousedown(t);
+		break;
+
+	case INPUT_MOUSEUP:
+		r = handle_inputmouseup(t);
+		break;
+
+	case INPUT_MOUSEDRAG:
+		r = 0;
+		break;
+
+	default:
+		r = 1;
+	}
+
+	//if (t->action != INPUT_MOUSEMOVE) {
+	//	PRINT("[%d] [%s] (%d/%d) vars: %X, %X, %d, %d, %X\n",
+	//		GetTickCount(), r == 1 ? "VALID" : "FILTERED", ai, ai2, t->action, t->event, t->x, t->y, t->unk1);
+	//}
+
+	return r;
+}
+
+static const trampoline_t *prepare_AddInputEvent_patch(patch_t *p) {
 
 	static trampoline_t tr;
 
-	tr << (BYTE)0xCC; // int 3 B)
-	tr << PUSHAD;
-	tr.append_hexstring("FF742404"); // push dword ptr ss:[esp + 4]
-	tr.append_hexstring("FF742408"); // push dword ptr ss:[esp + 4]
-	tr.append_hexstring("FF742404"); // push dword ptr ss:[esp + 4]
-	tr.append_hexstring("FF742404"); // push dword ptr ss:[esp + 4]
-	tr.append_hexstring("FF742404"); // push dword ptr ss:[esp + 4]
-
-	tr.append_CALL((DWORD)filter_rightclickdrag);
+	tr.append_hexstring("608D5C242453"); // pushad; lea ebx, [esp + 0x24]; push ebx
+	tr.append_CALL((DWORD)AddInputEvent_hook);
 	tr.append_hexstring("83F800"); // cmp eax, 0
 	tr.append_hexstring("0F840F000000"); // jz branch 2
 
@@ -1330,7 +1422,20 @@ static const trampoline_t *prepare_mousetest_patch(patch_t *p) {
 	tr << POPAD;
 	tr << RET; // straight ret if we want to filter this shit B)
 
+	return &tr;
+}
+static void __stdcall AIE_post() {
 
+}
+
+static const trampoline_t *prepare_AddInputEvent_post_patch(patch_t *p) {
+
+	static trampoline_t tr;
+
+	tr << PUSHAD;
+	tr.append_CALL((DWORD)AIE_post);
+	tr << POPAD;
+	tr << RET;
 
 	return &tr;
 }
@@ -1357,7 +1462,9 @@ static hookable_t hookable_functions[] = {
 	{ "pylpyr", patch_t(pylpyr_patchaddr, 9, prepare_pylpyr_patch) },
 	{ "mwheel_handler", patch_t(mwheel_hookaddr, 6, prepare_mwheel_patch) },
 	{ "CTM_main", patch_t(CTM_main_hookaddr, 6, prepare_CTM_main_patch)},
-	{ "mousetest", patch_t(mousetest_hookaddr, 8, prepare_mousetest_patch) },
+	{ "AddInputEvent", patch_t(AddInputEvent, 8, prepare_AddInputEvent_patch) },
+//	{ "AddInputEvent_post", patch_t(AddInputEvent_post, 6, prepare_AddInputEvent_patch) },
+
 
 };
 
@@ -1391,12 +1498,14 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("Present");
 	ADD_PATCH_SAFE("CTM_finished");
 	ADD_PATCH_SAFE("ClosePetStables");
-	//ADD_PATCH_SAFE("mbuttondown_handler");
+//	ADD_PATCH_SAFE("mbuttondown_handler");
 //	ADD_PATCH_SAFE("mbuttonup_handler");
 	ADD_PATCH_SAFE("pylpyr");
 	ADD_PATCH_SAFE("mwheel_handler");
 	ADD_PATCH_SAFE("CTM_main");
-	ADD_PATCH_SAFE("mousetest");
+	ADD_PATCH_SAFE("AddInputEvent");
+//	ADD_PATCH_SAFE("AddInputEvent_post");
+
 	
 	// don't add DrawIndexedPrimitive to this list, it will be patched manually later by a /lole subcommand
 	//ADD_PATCH_SAFE("DrawIndexedPrimitive");

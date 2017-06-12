@@ -17,7 +17,8 @@
 #define mwheel_hookaddr 0x86A8B3
 
 //#define mousetest_hookaddr 0x868D8F
-#define mousetest_hookaddr 0x868D40
+#define AddInputEvent 0x868D40
+#define AddInputEvent_post 0x868DA9 
 
 //#define ClosePetStables 0x4FACA0 // TBC
 #define ClosePetStables 0x005A1950 

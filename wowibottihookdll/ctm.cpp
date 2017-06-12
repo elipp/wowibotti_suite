@@ -7,72 +7,40 @@
 static std::queue<CTM_t> ctm_queue;
 static int ctm_locked = 0;
 
-static const int num_prevpos = 4;
-static Timer pos_timer;
-static vec3 prev_pos;
-
-static struct {
-	vec3 pos;
-	float dist;
-	float dt;
-} previous_positions[num_prevpos]; 
-
-void clear_prevpos_array() {
-	memset(previous_positions, 0x0, sizeof(previous_positions));
-}
 
 void ctm_queue_reset() {
 	ctm_queue = std::queue<CTM_t>();
 	ctm_unlock();
 }
 
-void ctm_update_prevpos() {
-	ObjectManager OM;
-	if (!OM.valid()) return;
-
-	WowObject p;
-	if (!OM.get_local_object(&p)) return;
-
-	for (int i = 0; i < num_prevpos - 1; ++i) {
-		previous_positions[i] = previous_positions[i + 1];
-	}
-	vec3 ppos = p.get_pos();
-	previous_positions[3].dist = (ppos - prev_pos).length();
-	previous_positions[3].dt = pos_timer.get_s();
-	previous_positions[3].pos = ppos;
-	prev_pos = p.get_pos();
-
-	pos_timer.start();
-}
-
 static vec3 CTM_direction;
 
-int char_is_moving() {
-	vec3 average;
-	float dd = 0;
-	static float num_prevpos_coef = 1.0 / (float)num_prevpos;
-
-	for (int i = 0; i < num_prevpos - 1; ++i) {
-		float dt = 0.5/(previous_positions[i].dt + previous_positions[i + 1].dt);
-		dd += dt * previous_positions[i].dist;
-		average = dt * (previous_positions[i + 1].pos - previous_positions[i].pos);
+static struct {
+	vec3 startpos;
+	Timer timer;
+	vec3 get_estimate() {
+		// assume a minimum of 3 units / sec. normal walking speed would be roughly 6.5-7.5 units/s
+		return 4.0 * timer.get_s() * CTM_direction + startpos;
 	}
+	bool is_moving(const vec3 &curpos) {
+		vec3 diff = get_estimate() - curpos;
+		float d = dot(diff, CTM_direction);
 	
-	dd = num_prevpos_coef * dd;
-	average = num_prevpos_coef * average;
+		if (d < 0) {
+			// then we're basically ahead of the estimate so all is good :D
+			timer.start();
+			startpos = curpos;
+			return true;
+		}
+		else if (diff.length() > 3) {
+			return false;
+		}
 
-	if (average.length() > 0.05) {
-		average = average.unit();
+		return true;
 	}
 
+} CTM_START;
 
-	float dp = dot(CTM_direction, average);
-
-	PRINT("dd = %f, dp = %f\n", dd, dp);
-
-
-	return (dd > 0.7) && (dp > 0.8) ? 1 : 0;
-}
 
 static int ctm_posthook_delay_active() {
 	if (ctm_queue.empty()) { return 0; }
@@ -142,6 +110,8 @@ void ctm_act() {
 	if (CTM_direction.length() > 0.01) {
 		CTM_direction = CTM_direction.unit();
 	}
+	CTM_START.startpos = p.get_pos();
+	CTM_START.timer.start();
 
 	PRINT("CTM_direction: (%.3f, %.3f, %.3f)\n", CTM_direction.x, CTM_direction.y, CTM_direction.z);
 
@@ -150,20 +120,20 @@ void ctm_act() {
 	ctm_lock();
 }
 
-static uint movemask = 0;
 void ctm_abort_if_not_moving() {
 
-	if (!ctm_job_in_progress()) { movemask = 0; return; }
+	if (!ctm_job_in_progress()) { return; }
 
-	if (movemask > 10) {
+	ObjectManager OM;
+	WowObject p;
+	if (!OM.get_local_object(&p)) return;
+
+	if (!CTM_START.is_moving(p.get_pos())) {
 		PRINT("ctm_next(): determined that we have not been moving, aborting CTM task!\n");
 	//	DoString("SendChatMessage(\"I'm stuck, halp plx!\", \"GUILD\")");
 		ctm_queue_reset();
 		stopfollow();
-		movemask = 0;
 	}
-
-	movemask += !char_is_moving();
 	
 }
 
@@ -189,7 +159,6 @@ void ctm_next() {
 		PRINT("called ctm_next(), ctm_queue.size() = %u\n", ctm_queue.size());
 		ctm_unlock();
 		ctm_pop();
-		movemask = 0;
 	}
 
 
