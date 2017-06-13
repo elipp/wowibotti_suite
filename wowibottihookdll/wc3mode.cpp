@@ -310,8 +310,8 @@ static void draw_rect_brute() {
 	RECT mr = get_selection_rect();
 
 	//PRINT("b: %d, t: %d, l: %d, r: %d\n", mr.bottom, mr.top, mr.left, mr.right);
-	HRESULT hr;
-	if (FAILED(hr = s->LockRect(&r, NULL, D3DLOCK_DONOTWAIT))) {
+	HRESULT hr = s->LockRect(&r, NULL, D3DLOCK_DONOTWAIT);
+	if (FAILED(hr)) {
 		PRINT("%d LockRect failed, %X\n", GetTickCount(), hr);
 		return;
 	}
