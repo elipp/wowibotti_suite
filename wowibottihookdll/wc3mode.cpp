@@ -60,8 +60,8 @@ static void move_camera_if_cursor() {
 
 	if (rect_active) return;
 
-	if (cursor_pos.x < 0 || cursor_pos.x > get_window_width()) return;
-	if (cursor_pos.y < 0 || cursor_pos.y > get_window_height()) return;
+	//if (cursor_pos.x < 0 || cursor_pos.x > get_window_width()) return;
+	//if (cursor_pos.y < 0 || cursor_pos.y > get_window_height()) return;
 
 	//PRINT("camera: 0x%X\n", camera);
 
