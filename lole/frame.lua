@@ -332,65 +332,6 @@ create_simple_button("getbiscuit_button", lole_frame, 310, -130, "Biscuit", 68, 
 local loot_badge_button =
 create_simple_button("loot_badge_button", lole_frame, 310, -160, "Badge", 68, 27, function() lole_subcommands.broadcast("loot_badge", UnitGUID("target")) end);
 
-local ctm_host = { title = "CTM mode:", title_fontstr = nil, buttons = {}, num_buttons = 0, first_pos_x = 223, first_pos_y = -205, increment = 18 }
-
-CTM_MODES = {
-	LOCAL = 1, TARGET = 2, EVERYONE = 3, HEALERS = 4, CASTERS = 5, MELEE = 6
-}
-
-
-function get_CTM_mode()
-	return ctm_host.checkedID;
-end
-
--- TODO: look into whether this really needs to be exclusive (!!)
-
-
-ctm_host.exclusive_onclick = function(self, button, down)
-
-	for k, b in pairs(ctm_host.buttons) do
-		if (b:GetID() ~= self:GetID()) then
-			b:SetChecked(nil);
-		else
-			b:SetChecked(true);
-			ctm_host.checkedID = b:GetID();
-		end
-	end
-
-end
-
-function ctm_host:add_button(button_text)
-	self.num_buttons = self.num_buttons + 1;
-	self.buttons[self.num_buttons] = CreateFrame("CheckButton", "ctm_radio" .. tostring(self.num_buttons), lole_frame, "UIRadioButtonTemplate")
-
-	local button = self.buttons[self.num_buttons];
-
-	getglobal(button:GetName() .. "Text"):SetText(button_text);
-	button:SetID(self.num_buttons);
-	button:SetPoint("TOPLEFT", self.first_pos_x, self.first_pos_y - self.increment*self.num_buttons);
-	button:SetScript("OnClick", ctm_host.exclusive_onclick)
-	button:SetScale(0.75);
-
-	-- this is really bad..
-	if self.num_buttons == 1 then
-		button:SetChecked(true)
-		self.checkedID = 1
-	end
-
-end
-
-ctm_host.title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
-ctm_host.title_fontstr:SetPoint("TOPLEFT", 162, -152);
-ctm_host.title_fontstr:SetText(ctm_host.title)
-
--- first one is default :P
-
-ctm_host:add_button("Local");
-ctm_host:add_button("Target");
-ctm_host:add_button("Everyone");
---ctm_host:add_button("Healers");
---ctm_host:add_button("Casters");
---ctm_host:add_button("Melee");
 
 local mode_attrib_title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
 mode_attrib_title_fontstr:SetPoint("BOTTOMRIGHT", -25, 80);

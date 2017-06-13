@@ -112,6 +112,15 @@ void unhook_DrawIndexedPrimitive() {
 	h->patch.disable();
 }
 
+void hook_input_func() {
+	hookable_t *h = find_hookable("AddInputEvent");
+	h->patch.enable();
+}
+
+void unhook_input_func() {
+	hookable_t *h = find_hookable("AddInputEvent");
+	h->patch.disable();
+}
 
 static void __stdcall call_pylpyr() {
 	wc3_draw_pylpyrs();
@@ -152,10 +161,6 @@ static void __stdcall Present_hook() {
 
 		fifty_ms.reset();
 	}
-
-	//mat4 view, proj;
-	//get_wow_view_matrix(&view);
-	//get_wow_proj_matrix(&proj);
 
 	if (capture.active) {
 		capture.start();
@@ -232,6 +237,7 @@ static void __stdcall dump_packet(BYTE *packet) {
 
 static void __stdcall ClosePetStables_hook() {
 	lua_registered = 0;
+	enable_wc3mode(0);
 }
 
 static void __stdcall broadcast_CTM(float *coords, int action) {
@@ -570,6 +576,8 @@ static void __stdcall mwheel_hook(DWORD wParam) {
 	if (zDelta > 0) customcamera.decrement_s();
 }
 
+
+
 static const trampoline_t *prepare_mwheel_patch(patch_t *p) {
 	static trampoline_t tr;
 
@@ -610,7 +618,7 @@ static const trampoline_t *prepare_CTM_main_patch(patch_t *p) {
 
 struct inpevent_t {
 	DWORD action;
-	DWORD event;
+	int event;
 	int x;
 	int y;
 	DWORD unk1;
@@ -652,6 +660,11 @@ static int handle_inputmouseup(struct inpevent_t *t) {
 	return 1;
 }
 
+static void handle_mwheel(int delta) {
+	if (delta < 0) customcamera.increment_s();
+	if (delta > 0) customcamera.decrement_s();
+}
+
 static int __stdcall AddInputEvent_hook(struct inpevent_t *t) {
 	
 	DWORD ai = DEREF(0xD41400);
@@ -659,6 +672,7 @@ static int __stdcall AddInputEvent_hook(struct inpevent_t *t) {
 
 #define INPUT_MOUSEDOWN 0x9
 #define INPUT_MOUSEMOVE 0xA
+#define INPUT_MOUSEWHEEL 0xB
 #define INPUT_MOUSEDRAG 0xC
 #define INPUT_MOUSEUP 0xD
 
@@ -673,6 +687,11 @@ static int __stdcall AddInputEvent_hook(struct inpevent_t *t) {
 		r = handle_inputmouseup(t);
 		break;
 
+	case INPUT_MOUSEWHEEL:
+		handle_mwheel(t->event);
+		r = 0;
+		break;
+
 	case INPUT_MOUSEDRAG:
 		r = 0;
 		break;
@@ -681,10 +700,10 @@ static int __stdcall AddInputEvent_hook(struct inpevent_t *t) {
 		r = 1;
 	}
 
-	if (t->action != INPUT_MOUSEMOVE) {
-		PRINT("[%d] [%s] (%d/%d) vars: %X, %X, %d, %d, %X\n",
-			GetTickCount(), r == 1 ? "VALID" : "FILTERED", ai, ai2, t->action, t->event, t->x, t->y, t->unk1);
-	}
+	//if (t->action != INPUT_MOUSEMOVE) {
+	//	PRINT("[%d] [%s] (%d/%d) vars: %X, %X, %d, %d, %X\n",
+	//		GetTickCount(), r == 1 ? "VALID" : "FILTERED", ai, ai2, t->action, t->event, t->x, t->y, t->unk1);
+	//}
 
 	return r;
 }
@@ -784,12 +803,10 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("Present");
 	ADD_PATCH_SAFE("CTM_finished");
 	ADD_PATCH_SAFE("ClosePetStables");
-//	ADD_PATCH_SAFE("mbuttondown_handler");
-//	ADD_PATCH_SAFE("mbuttonup_handler");
 	ADD_PATCH_SAFE("pylpyr");
-	ADD_PATCH_SAFE("mwheel_handler");
+//	ADD_PATCH_SAFE("mwheel_handler");
 	ADD_PATCH_SAFE("CTM_main");
-	ADD_PATCH_SAFE("AddInputEvent");
+//	ADD_PATCH_SAFE("AddInputEvent");
 //	ADD_PATCH_SAFE("AddInputEvent_post");
 
 	

@@ -5,6 +5,7 @@
 #include "wc3mode.h"
 #include "wowmem.h"
 #include "linalg.h"
+#include "hooks.h"
 
 static POINT cursor_pos;
 static RECT client_area;
@@ -451,12 +452,13 @@ void enable_wc3mode(int b) {
 		patch_camera();
 		reset_camera();
 		DoString("RunMacroText(\"/lole sfshow\")");
+		hook_input_func();
 	}
 
 	else {
 		unpatch_camera();
 		DoString("RunMacroText(\"/lole sfhide\")");
-
+		unhook_input_func();
 	}
 }
 

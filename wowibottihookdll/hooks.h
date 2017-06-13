@@ -54,3 +54,6 @@ extern pipe_data PIPEDATA;
 
 void hook_DrawIndexedPrimitive();
 void unhook_DrawIndexedPrimitive();
+
+void hook_input_func();
+void unhook_input_func();

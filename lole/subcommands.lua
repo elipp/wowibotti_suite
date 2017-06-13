@@ -238,7 +238,6 @@ local function lole_broadcast_ctm(x, y, z)
 end
 
 local function lole_ctm(x, y, z, prio)
-	print('olen hmo')
 	if not playermode() then
 		walk_to(tonumber(x), tonumber(y), tonumber(z), prio)
 	end
@@ -676,6 +675,7 @@ local function lole_sendmacro(to, ...)
         script_text = "RunMacroText(\"" .. table.concat(atab, " ") .. "\")";
         SendAddonMessage("lole_runscript", script_text, "RAID");
     end
+
 end
 
 local function lole_sendmacro_to(to, ...)
