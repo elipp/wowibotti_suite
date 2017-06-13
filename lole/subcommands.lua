@@ -896,6 +896,15 @@ local function lole_broadcast_target(GUID_str)
 	lole_subcommands.sendmacro("RAID", "/lole target", GUID_str);
 end
 
+local function lole_broadcast_attack(GUID_str)
+		local units = get_selected_units()
+		for i,n in pairs(units) do
+			lole_subcommands.sendmacro_to(n, "/lole target", GUID_str); -- last arg == priority level
+			lole_subcommands.sendmacro_to(n, "/lole set blast 1")
+		end
+
+end
+
 local function lole_broadcast_follow(name)
 	lole_subcommands.sendmacro("RAID", "/lole follow", name);
 end
@@ -950,6 +959,7 @@ local lole_broadcast_commands = {
 	follow = lole_broadcast_follow;
 	stopfollow = lole_broadcast_stopfollow;
 	target = lole_broadcast_target;
+	attack = lole_broadcast_attack;
 	leavegroup = lole_broadcast_leavegroup;
 	getbiscuits = lole_broadcast_getbiscuits;
 	loot_badge = lole_broadcast_loot_badge;

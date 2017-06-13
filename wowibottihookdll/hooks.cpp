@@ -596,21 +596,37 @@ static const trampoline_t *prepare_mwheel_patch(patch_t *p) {
 
 }
 
-void __stdcall CTM_main_hook(const float *c) {
-	DoString("RunMacroText(\"/lole broadcast ctm %.3f %.3f %.3f\")", c[0], c[1], c[2]);
+typedef struct {
+	DWORD action;
+	GUID_t *GUID;
+	float *coords;
+	DWORD s2;
+} CTM_final_args_t;
+
+void __stdcall CTM_main_hook(CTM_final_args_t *a) {
+	PRINT("CTM: action %X, s1: %X, coords: %X, s2: %X\n", a->action, a->GUID, (DWORD)a->coords, a->s2);
+
+	// segfault at 6DD06A with action 0xA
+
+	if (a->action == 0x4) {
+		float *c = a->coords;
+		DoString("RunMacroText(\"/lole broadcast ctm %.3f %.3f %.3f\")", c[0], c[1], c[2]);
+	}
+	else if (a->action == 0xA) {
+		DoString("RunMacroText(\"/lole broadcast attack 0x%16llX\")", *a->GUID);
+	}
 }
 
 static const trampoline_t *prepare_CTM_main_patch(patch_t *p) {
 	static trampoline_t tr;
 	
 	tr << PUSHAD;
-	tr << (BYTE)0x8b << (BYTE)0x44 << (BYTE)0x24 << (BYTE)0x14; // mov eax, dword ptr ds:[esp+10] should contain the ctm coords
-	tr << (BYTE)0x50; // push eax
+	tr.append_hexstring("8D54242452"); // lea edx, [esp + 24]; push edx; because LOLZ
 	tr.append_CALL((DWORD)CTM_main_hook);
 	tr << POPAD;
 //	tr.append_bytes(p->original, p->size);
 //	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size);
-	tr << RET;
+	tr.append_hexstring("C21000"); // retn 10
 
 
 	return &tr;
