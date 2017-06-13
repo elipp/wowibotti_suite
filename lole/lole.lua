@@ -202,7 +202,6 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 		end
 
 	elseif (prefix == "lole_runscript") then
-		print(message)
     if prevent_double_call(prefix) then return end
 		--local guildies = get_guild_members()
 		--if guildies[sender] then

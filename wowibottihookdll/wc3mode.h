@@ -21,6 +21,7 @@ extern customcamera_t customcamera;
 
 void wc3mode_mouseup_hook();
 
+int wc3mode_enabled();
 void enable_wc3mode(int b);
 void reset_camera();
 

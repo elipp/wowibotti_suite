@@ -20,7 +20,7 @@ local backdrop = {
 
 us_frame:SetHeight(150)
 us_frame:SetWidth(700)
-us_frame:SetPoint("BOTTOM", 0, 100)
+us_frame:SetPoint("BOTTOM", 0, 20)
 
 us_frame:SetBackdrop(backdrop)
 us_frame:Hide()
@@ -37,10 +37,12 @@ end)
 
 function selection_frame_show()
 	us_frame:Show()
+	UIParent:Hide()
 end
 
 function selection_frame_hide()
 	us_frame:Hide()
+	UIParent:Show()
 end
 
 local sex_strings = {

@@ -633,8 +633,8 @@ static const trampoline_t *prepare_CTM_main_patch(patch_t *p) {
 }
 
 struct inpevent_t {
-	DWORD action;
-	int event;
+	DWORD event;
+	int param;
 	int x;
 	int y;
 	DWORD unk1;
@@ -649,12 +649,12 @@ static int handle_inputmousedown(struct inpevent_t *t) {
 	
 	static const auto ADD_INPUT_EVENT = (void(*)(DWORD, DWORD, DWORD, DWORD, DWORD))(AddInputEvent);
 
-	if (t->event == 0x1) { // 
+	if (t->param == 0x1) { // 
 		wc3_start_rect();
 
 		return 0;
 	}
-	else if (t->event == 0x4) {
+	else if (t->param == 0x4) {
 		//t->action = 0xD; // HEHE clever try, but apparently 0xD requires a valid 0x9 to work.
 		return 1;
 	}
@@ -664,12 +664,12 @@ static int handle_inputmousedown(struct inpevent_t *t) {
 
 static int handle_inputmouseup(struct inpevent_t *t) {
 
-	if (t->event == 0x1) {
+	if (t->param == 0x1) {
 		wc3mode_mouseup_hook();
 		return 0;
 	}	
 	
-	if (t->event == 0x4) {
+	if (t->param == 0x4) {
 		return 1;
 	}
 
@@ -686,15 +686,39 @@ static int __stdcall AddInputEvent_hook(struct inpevent_t *t) {
 	DWORD ai = DEREF(0xD41400);
 	DWORD ai2 = DEREF(0xD41404);
 
+	static int ALT_pressed = 0;
+
+#define INPUT_KEYDOWN 0x7
+#define INPUT_KEYUP 0x8
 #define INPUT_MOUSEDOWN 0x9
 #define INPUT_MOUSEMOVE 0xA
 #define INPUT_MOUSEWHEEL 0xB
 #define INPUT_MOUSEDRAG 0xC
 #define INPUT_MOUSEUP 0xD
 
+	if (t->event == INPUT_KEYDOWN && t->param == 0x4) { // ALT
+		enable_wc3mode(1);
+		ALT_pressed = 1;
+		return 0;
+	}
+	
+	if (t->event == INPUT_KEYUP && t->param == 0x4) { // ALT
+		enable_wc3mode(0);
+		ALT_pressed = 0;
+		return 0;
+	}
+
+	if (ALT_pressed && t->event == INPUT_KEYDOWN && t->param == 0x52) {
+		// ALT+R reset camera
+		reset_camera();
+		return 0;
+	}
+
+	if (!wc3mode_enabled()) return 1;
+
 	int r = 1;
 
-	switch (t->action) {
+	switch (t->event) {
 	case INPUT_MOUSEDOWN:
 		r = handle_inputmousedown(t);
 		break;
@@ -704,7 +728,7 @@ static int __stdcall AddInputEvent_hook(struct inpevent_t *t) {
 		break;
 
 	case INPUT_MOUSEWHEEL:
-		handle_mwheel(t->event);
+		handle_mwheel(t->param);
 		r = 0;
 		break;
 
@@ -716,10 +740,10 @@ static int __stdcall AddInputEvent_hook(struct inpevent_t *t) {
 		r = 1;
 	}
 
-	//if (t->action != INPUT_MOUSEMOVE) {
-	//	PRINT("[%d] [%s] (%d/%d) vars: %X, %X, %d, %d, %X\n",
-	//		GetTickCount(), r == 1 ? "VALID" : "FILTERED", ai, ai2, t->action, t->event, t->x, t->y, t->unk1);
-	//}
+	if (t->event != INPUT_MOUSEMOVE) {
+		PRINT("[%d] [%s] (%d/%d) vars: %X, %X, %d, %d, %X\n",
+			GetTickCount(), r == 1 ? "VALID" : "FILTERED", ai, ai2, t->event, t->param, t->x, t->y, t->unk1);
+	}
 
 	return r;
 }
@@ -822,7 +846,7 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("pylpyr");
 //	ADD_PATCH_SAFE("mwheel_handler");
 	ADD_PATCH_SAFE("CTM_main");
-//	ADD_PATCH_SAFE("AddInputEvent");
+	ADD_PATCH_SAFE("AddInputEvent");
 //	ADD_PATCH_SAFE("AddInputEvent_post");
 
 	

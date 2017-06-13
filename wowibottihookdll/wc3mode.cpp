@@ -36,11 +36,11 @@ float customcamera_t::get_angle() {
 	return s*1.57;
 }
 void customcamera_t::increment_s() {
-	s += 0.01;
+	s += 0.018;
 	s = s > SMAX ? SMAX : s;
 }
 void customcamera_t::decrement_s() {
-	s -= 0.01;
+	s -= 0.018;
 	s = s < SMIN ? SMIN : s;
 }
 
@@ -353,7 +353,7 @@ static int get_screen_coords(GUID_t GUID, POINT *coords) {
 	glm::vec4 up = wow2glm(glm::vec4(unitpos.x, unitpos.y, unitpos.z, 1.0));
 
 	// increasing up.y just slightly will make the selection more intuitive
-	up.y += 0.5;
+	up.y += 0.8;
 
 	glm::vec3 cpos = wow2glm(glm::vec3(c->x, c->y, c->z));
 
@@ -446,19 +446,25 @@ void wc3mode_mouseup_hook() {
 	DoString("RunMacroText(\"/lole setselection %s\")", units_concatd.c_str());
 }
 
+static int wc3_enabled = 0;
+
+int wc3mode_enabled() {
+	return wc3_enabled;
+}
+
 void enable_wc3mode(int b) {
 	PRINT("enable_wc3mode: b = %d\n", b);
 	if (b) {
+		wc3_enabled = 1;
 		patch_camera();
-		reset_camera();
+	//	reset_camera();
 		DoString("RunMacroText(\"/lole sfshow\")");
-		hook_input_func();
 	}
 
 	else {
+		wc3_enabled = 0;
 		unpatch_camera();
 		DoString("RunMacroText(\"/lole sfhide\")");
-		unhook_input_func();
 	}
 }
 
