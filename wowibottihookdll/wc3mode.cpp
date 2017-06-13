@@ -36,14 +36,15 @@ float customcamera_t::get_angle() {
 	return s*1.57;
 }
 void customcamera_t::increment_s() {
-	s += 0.018;
+	s += 0.010;
 	s = s > SMAX ? SMAX : s;
 }
 void customcamera_t::decrement_s() {
-	s -= 0.018;
+	s -= 0.010;
 	s = s < SMIN ? SMIN : s;
 }
 
+float customcamera_t::get_s() { return s;  }
 
 customcamera_t customcamera = { 0.5, 30, glm::vec4(0, 0, 0, 1) };
 
@@ -64,7 +65,7 @@ static void move_camera_if_cursor() {
 
 	//PRINT("camera: 0x%X\n", camera);
 
-	const float dd = 0.1;
+	const float dd = 0.1*((1.0-SMIN) + customcamera.get_s());
 	const int margin = 150;
 
 	int ww = get_window_width();
@@ -265,9 +266,7 @@ static void draw_pixel(int x, int y) {
 
 	BYTE *b = (BYTE*)r.pBits;
 
-
 	memset(&b[r.Pitch * y + 4 * x], 0xFF, 4);
-
 
 	s->UnlockRect();
 
@@ -457,7 +456,6 @@ void enable_wc3mode(int b) {
 	if (b) {
 		wc3_enabled = 1;
 		patch_camera();
-	//	reset_camera();
 		DoString("RunMacroText(\"/lole sfshow\")");
 	}
 
@@ -465,6 +463,7 @@ void enable_wc3mode(int b) {
 		wc3_enabled = 0;
 		unpatch_camera();
 		DoString("RunMacroText(\"/lole sfhide\")");
+		rect_active = 0;
 	}
 }
 
@@ -491,4 +490,3 @@ void wc3_draw_pylpyrs() {
 
 	}
 }
-

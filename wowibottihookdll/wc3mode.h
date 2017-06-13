@@ -2,7 +2,7 @@
 
 #include "linalg.h"
 
-typedef struct {
+typedef struct customcamera_t {
 	float s;
 	float maxdistance;
 
@@ -12,6 +12,7 @@ typedef struct {
 	float get_angle();
 	void increment_s();
 	void decrement_s();
+	float get_s();
 
 } customcamera_t;
 
