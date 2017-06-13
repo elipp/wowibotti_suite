@@ -12,63 +12,19 @@
 #include "lua.h"
 #include "linalg.h"
 #include "patch.h"
+#include "dipcapture.h"
+#include "wc3mode.h"
 
 //static HRESULT(*EndScene)(void);
 pipe_data PIPEDATA;
 
 static hookable_t *find_hookable(const std::string &funcname);
 
-extern HWND wow_hWnd;
-
 const UINT32 PIPE_PROTOCOL_MAGIC = 0xAB30DD13;
-
-static POINT cursor_pos;
-static RECT client_area;
-
-static std::unordered_map<GUID_t, std::string> selected_units;
 
 #define PUSHAD (BYTE)0x60
 #define POPAD (BYTE)0x61
 #define RET (BYTE)0xC3
-
-static DWORD get_wow_d3ddevice() {
-#define STATIC_335_DIRECT3DDEVICE 0xC5DF88 
-#define STATIC_335_D3DDEVICE_OFFSET 0x397C
-	DWORD wow_static_DX9 = DEREF(STATIC_335_DIRECT3DDEVICE);
-
-	if (!wow_static_DX9) return 0;
-
-	DWORD tmp1 = DEREF(wow_static_DX9 + STATIC_335_D3DDEVICE_OFFSET);
-	DWORD d3ddevice = tmp1;
-
-	return d3ddevice;
-}
-
-static DWORD get_EndScene() {
-	DWORD wowd3d = get_wow_d3ddevice();
-	if (!wowd3d) return 0;
-
-	DWORD EndScene = DEREF(DEREF(wowd3d) + 0xA8);
-
-	return EndScene;
-}
-
-static DWORD get_Present() {
-
-	DWORD wowd3d = get_wow_d3ddevice();
-	if (!wowd3d) return 0;
-
-	DWORD Present = DEREF(DEREF(wowd3d) + 0x44);
-	return Present;
-}
-
-static DWORD get_DrawIndexedPrimitive() {
-	DWORD wowd3d = get_wow_d3ddevice();
-	if (!wowd3d) return 0;
-
-	DWORD DrawIndexedPrimitive = DEREF(DEREF(wowd3d) + 0x148);
-	return DrawIndexedPrimitive;
-}
 
 template <typename T> trampoline_t &trampoline_t::operator << (const T& arg) {
 	int size = sizeof(arg);
@@ -131,21 +87,6 @@ trampoline_t &trampoline_t::append_bytes(const BYTE* b, int size) {
 }
 
 
-static std::queue<std::string> esscripts;
-
-void esscript_add(const std::string &script) {
-	esscripts.push(script);
-}
-
-static void esscript_execute() {
-	while (!esscripts.empty()) {
-		const std::string &s = esscripts.front();
-		DoString(s.c_str());
-		esscripts.pop();
-	}
-}
-
-
 static void register_luafunc_if_not_registered() {
 	if (!lua_registered) {
 		register_lop_exec();
@@ -161,548 +102,29 @@ static void update_hwevent_tick() {
 	// this should make us immune to AFK ^^
 }
 
-static RECT window_rect;
-
-static int get_window_width() {
-	return window_rect.right - window_rect.left;
-}
-
-static int get_window_height() {
-	return window_rect.bottom - window_rect.top;
-}
-
-static int rect_active = 0;
-static POINT rect_begin;
-
-#define SMAX 0.7
-#define SMIN 0.4
-
-static struct {
-	float s;
-	float maxdistance;
-
-	glm::vec4 pos;
-
-	glm::vec4 get_cameraoffset() {
-		// y = z^2
-		return maxdistance*glm::vec4(0, 2*s*s, s, 1.0);
-	}
-	float get_angle() {
-		//derivative dy/dz: y = 2z
-		return s*1.57;
-	}
-	void increment() {
-		s += 0.01;
-		s = s > SMAX ? SMAX : s;
-	}
-	void decrement() {
-		s -= 0.01;
-		s = s < SMIN ? SMIN : s;
-	}
-
-} customcamera = { 0.5, 30, glm::vec4(0, 0, 0, 1) };
-
-static void update_camera_rotation(wow_camera_t *camera) {
-
-	glm::mat4 rot = glm::rotate(glm::mat4(1.0), -customcamera.get_angle(), glm::vec3(0, 1.0, 0));
-	set_wow_rot(rot);
-}
-
-static void move_camera_if_cursor() {
-
-	if (GetActiveWindow() != wow_hWnd) return;
-
-	if (rect_active) return;
-
-	if (cursor_pos.x < 0 || cursor_pos.x > get_window_width()) return;
-	if (cursor_pos.y < 0 || cursor_pos.y > get_window_height()) return;
-
-	//PRINT("camera: 0x%X\n", camera);
-
-	const float dd = 0.1;
-	const int margin = 150;
-
-	int ww = get_window_width();
-	int wh = get_window_height();
-
-	//PRINT("ww: %d, wh: %d\n", ww, wh);
-
-	if (cursor_pos.x < margin) {
-		customcamera.pos.x -= dd;
-	}
-	else if (cursor_pos.x > ww - margin) {
-		customcamera.pos.x += dd;
-	}
-
-	if (cursor_pos.y < margin) {
-		customcamera.pos.z -= dd;
-	}
-	else if (cursor_pos.y > wh - margin) {
-		customcamera.pos.z += dd;
-	}
-
-}
-
-static void update_wowcamera() {
-
-	wow_camera_t *camera = (wow_camera_t*)get_wow_camera();
-	if (!camera) return;
-
-	move_camera_if_cursor();
-
-	glm::vec4 newpos = customcamera.pos + customcamera.get_cameraoffset() + glm::vec4(0, 3, -6, 1);
-
-	glm::vec4 nw = glm2wow(newpos);
-
-	camera->x = nw.x;
-	camera->y = nw.y;
-	camera->z = nw.z;
-
-	update_camera_rotation(camera);
-
-}
-
-static void RIP_camera() {
-	// [[B7436C] + 7E20]
-	// FOV is at camera + 0x40
-	// zNear is at 0x38, zFar is 0x3C
-	DWORD nop = 0x90909090;
-
-	DWORD *a1 = (DWORD*)0x6075AB;
-	WriteProcessMemory(glhProcess, a1, &nop, 2, NULL);
-
-	DWORD *a2 = (DWORD*)0x6075B2;
-	WriteProcessMemory(glhProcess, a2, &nop, 3, NULL);
-
-	DWORD *a3 = (DWORD*)0x6075C5;
-	WriteProcessMemory(glhProcess, a3, &nop, 3, NULL);
-
-	DWORD *aa1 = (DWORD*)0x6075D2;
-	WriteProcessMemory(glhProcess, aa1, &nop, 2, NULL);
-
-	DWORD *aa2 = (DWORD*)0x6075E3;
-	WriteProcessMemory(glhProcess, aa2, &nop, 3, NULL);
-
-	DWORD *aa3 = (DWORD*)0x6075E9;
-	WriteProcessMemory(glhProcess, aa3, &nop, 3, NULL);
-
-	DWORD *rot = (DWORD*)0x4C5810;
-	WriteProcessMemory(glhProcess, rot, &nop, 2, NULL);
-
-	GetClientRect(wow_hWnd, &window_rect);
-
-	update_wowcamera();
-	//move_camera_if_cursor();
-
-
-}
-
-void reset_camera() {
-
-	ObjectManager OM;
-	WowObject o;
-	if (!OM.get_local_object(&o)) {
-		return;
-	}
-
-	vec3 pos = o.get_pos();
-
-	wow_camera_t *camera = (wow_camera_t*)get_wow_camera();
-	if (!camera) return;
-
-	customcamera.pos = wow2glm(glm::vec4(pos.x, pos.y, pos.z, 1.0));
-	
-	glm::vec4 newpos = customcamera.pos+customcamera.get_cameraoffset() + glm::vec4(0, 3, -6, 1);
-
-	glm::vec4 nw = glm2wow(newpos);
-
-	camera->x = nw.x;
-	camera->y = nw.y;
-	camera->z = nw.z;
-
-	//update_camera_rotation(camera);
-
-}
-
-
-static void mouse_stuff() {
-	// found using GetCursorPos breakpoints!!
-	// handler for WM_L/RBUTTONDOWN is at 869870
-	// WM_LBUTTONUP at 869C00 
-	
-}
-
-
-
-static void draw_rect(RECT *r, D3DLOCKED_RECT *dr, DWORD XRGB) {
-
-	BYTE *b = (BYTE*)dr->pBits;
-
-	for (int i = r->left; i < r->right; ++i) {
-		memcpy(&b[r->top*dr->Pitch + i*4], &XRGB, sizeof(XRGB)); // top horizontal
-		memcpy(&b[r->bottom*dr->Pitch + i*4], &XRGB, sizeof(XRGB)); // bottom horizontal
-	}
-
-	for (int i = r->top; i < r->bottom; ++i) {
-		memcpy(&b[r->left*4 + i*dr->Pitch], &XRGB, sizeof(XRGB)); // left vertical
-		memcpy(&b[r->right*4 + i*dr->Pitch], &XRGB, sizeof(XRGB)); // right vertical
-	}
-
-}
-
-template <typename T> T CLAMP(const T& value, const T& low, const T& high) {
-	return value < low ? low : (value > high ? high : value);
-}
-
-static void fix_mouse_rect(RECT *r) {
-
-	r->left = CLAMP(r->left, (LONG)0, client_area.right - 1);
-	r->right = CLAMP(r->right, (LONG)0, client_area.right - 1);
-	r->top = CLAMP(r->top, (LONG)0, client_area.bottom - 1);
-	r->bottom = CLAMP(r->bottom, (LONG)0, client_area.bottom - 1);
-
-	if (r->left > r->right) {
-		int temp = r->left;
-		r->left = r->right;
-		r->right = temp;
-	}
-	if (r->top > r->bottom) {
-		int temp = r->top;
-		r->top = r->bottom;
-		r->bottom = temp;
-	}
-
-}
-
-static void draw_pixel(int x, int y) {
-
-	IDirect3DDevice9 *d3dd = (IDirect3DDevice9*)get_wow_d3ddevice();
-
-	IDirect3DSwapChain9 *sc;
-	if (FAILED(d3dd->GetSwapChain(0, &sc))) {
-		PRINT("GetSwapChain failed\n");
-		return;
-	}
-	IDirect3DSurface9 *s;
-
-	if (FAILED(sc->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &s))) {
-		PRINT("GetBackBuffer failed\n");
-		return;
-	}
-
-	D3DLOCKED_RECT r;
-
-	if (FAILED(s->LockRect(&r, NULL, D3DLOCK_DONOTWAIT))) {
-		PRINT("%d LockRect failed\n", GetTickCount());
-		return;
-	}
-
-	BYTE *b = (BYTE*)r.pBits;
-
-	
-	memset(&b[r.Pitch * y + 4*x], 0xFF, 4);
-
-
-	s->UnlockRect();
-
-	s->Release();
-	sc->Release();
-}
-
-static RECT get_selection_rect() {
-	RECT mr;
-
-	mr.bottom = rect_begin.y;
-	mr.right = rect_begin.x;
-
-	mr.top = cursor_pos.y;
-	mr.left = cursor_pos.x;
-	
-	fix_mouse_rect(&mr);
-
-	return mr;
-}
-
-static void draw_rect_brute() {
-
-	IDirect3DDevice9 *d3dd = (IDirect3DDevice9*)get_wow_d3ddevice();
-	if (!d3dd) return;
-
-	IDirect3DSwapChain9 *sc;
-	if (FAILED(d3dd->GetSwapChain(0, &sc))) {
-		PRINT("GetSwapChain failed\n");
-		return;
-	}
-	IDirect3DSurface9 *s;
-
-	if (FAILED(sc->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &s))) {
-		PRINT("GetBackBuffer failed\n");
-		return;
-	}
-	
-	D3DLOCKED_RECT r;
-
-	RECT mr = get_selection_rect();
-
-	//PRINT("b: %d, t: %d, l: %d, r: %d\n", mr.bottom, mr.top, mr.left, mr.right);
-
-	if (FAILED(s->LockRect(&r, NULL, D3DLOCK_DONOTWAIT))) {
-		PRINT("%d LockRect failed\n", GetTickCount());
-		return;
-	}
-
-	draw_rect(&mr, &r, D3DCOLOR_XRGB(0, 255, 0));
-
-	//D3DSURFACE_DESC d;
-	//s->GetDesc(&d);
-
-	s->UnlockRect();
-
-	s->Release();
-	sc->Release();
-
-}
-
-static POINT map_clip_to_screen(const glm::vec4& c) {
-	float cx = c.x + 0.5;
-	float cy = (-c.y) + 0.5;
-
-	int px = cx * get_window_width();
-	int py = cy * get_window_height();
-
-	return POINT{ px, py };
-}
-
-static int get_screen_coords(GUID_t GUID, POINT *coords) {
-	wow_camera_t *c = (wow_camera_t*)get_wow_camera();
-	if (!c) return 0;
-
-	ObjectManager OM;
-	WowObject o;
-	if (!OM.get_object_by_GUID(GUID, &o)) return 0;
-	//if (!OM.get_local_object(&o)) return 0;
-
-	vec3 unitpos = o.get_pos();
-	//glm::vec4 up(-unitpos.y, unitpos.x, unitpos.z, 1);
-	glm::vec4 up = wow2glm(glm::vec4(unitpos.x, unitpos.y, unitpos.z, 1.0));
-
-	// increasing up.y just slightly will make the selection more intuitive
-	up.y += 0.5;
-
-	glm::vec3 cpos = wow2glm(glm::vec3(c->x, c->y, c->z));
-
-	glm::mat4 proj = glm::perspective(c->fov, c->aspect, c->zNear, c->zFar);
-	glm::mat4 view = glm::translate(glm::mat4(1.0), -cpos);
-
-	glm::mat4 rot = glm::rotate(glm::mat4(1.0), customcamera.get_angle(), glm::vec3(1.0, 0, 0));
-	glm::mat4 nMVP = proj*(rot*view);
-
-	glm::vec4 nclip = nMVP*up;
-	nclip /= nclip.w;
-
-	dump_glm_vec4((rot*view)*up);
-	dump_glm_vec4(nclip);
-
-	PRINT("\n------------------\n");
-
-	*coords = map_clip_to_screen(nclip);
-
-	return 1;
-}
-
-static int get_units_in_selection_rect(RECT sel) {
-	
-	selected_units.clear();
-
-	ObjectManager OM;
-	WowObject iter;
-	
-	if (!OM.get_first_object(&iter)) return 0;
-
-	while (iter.valid()) {
-		if (iter.get_type() == OBJECT_TYPE_UNIT) {
-			POINT coords;
-			memset(&coords, 0, sizeof(coords));
-			GUID_t unitguid = iter.get_GUID();
-			get_screen_coords(unitguid, &coords);
-
-			//PRINT("checking unit 0x%016llX (screen coords: %d, %d), selection rect data: (t: %ld, b: %ld, l: %ld, r: %ld)\n", 
-			//	unitguid, coords.x, coords.y, sel.top, sel.bottom, sel.left, sel.right);
-
-			if (coords.x > sel.left && coords.x < sel.right
-				&& coords.y < sel.bottom && coords.y > sel.top) {
-				selected_units[unitguid] = iter.unit_get_name();
-				//PRINT("^UNIT IN RECT!\n");
-			}
-
-		}
-		iter = iter.next();
-
-	}
-
-	return selected_units.size();
-
-}
-
-static void hook_DrawIndexedPrimitive() {
+void hook_DrawIndexedPrimitive() {
 	hookable_t *h = find_hookable("DrawIndexedPrimitive");
-h->patch.enable();
+	h->patch.enable();
 }
 
-static void unhook_DrawIndexedPrimitive() {
+void unhook_DrawIndexedPrimitive() {
 	hookable_t *h = find_hookable("DrawIndexedPrimitive");
 	h->patch.disable();
 }
 
-typedef struct rdmpheader_t {
-	DWORD MAGIC;
-	DWORD pitch;
-	DWORD width;
-	DWORD height;
-	DWORD stagenum;
-	DWORD callstack[8];
-} rmpheader_t;
-
-
-static struct {
-	int active;
-	int need_to_stop;
-	int drawcall_count;
-	FILE *capture_outfile;
-	std::string name_base;
-	int file_index;
-
-	int open_dumpfile(const std::string &name) {
-
-		fopen_s(&capture_outfile, name.c_str(), "wb");
-		if (!capture_outfile) {
-			PRINT("Couldn't open frame dump file %s!\n", name.c_str());
-			return 0;
-		}
-
-		PRINT("Opened frame dump file \"%s\"!\n", name.c_str());
-
-		return 1;
-
-	}
-
-	void reset() {
-		active = 0;
-		need_to_stop = 0;
-		drawcall_count = 0;
-		if (capture_outfile) {
-			fclose(capture_outfile);
-			capture_outfile = NULL;
-		}
-		name_base = "";
-		file_index = 1;
-
-	}
-
-	inline std::string get_chunkpostfix(int index) {
-		char buf[128];
-		sprintf_s(buf, "_chunk%02d", file_index);
-
-		return std::string(buf);
-	}
-
-	inline std::string get_basename() {
-		SYSTEMTIME t;
-		GetLocalTime(&t);
-
-		char buf[128];
-		sprintf_s(buf, "D:\\wowframe\\%02d%02d_%02d%02d%02d.rdmp", t.wDay, t.wMonth, t.wHour, t.wMinute, t.wSecond);
-
-		return std::string(buf);
-	}
-
-	void start() {
-
-		reset();
-
-		name_base = get_basename();
-
-		if (open_dumpfile(name_base + get_chunkpostfix(file_index))) {
-			hook_DrawIndexedPrimitive();
-			need_to_stop = 1; // this is to signal Present to unhook shit
-			active = 1;
-		}
-	}
-
-	void finish() {
-		PRINT("Frame dump %s complete! (%d stages in %d chunks)\n", name_base.c_str(), drawcall_count, file_index);
-		unhook_DrawIndexedPrimitive();
-		reset();
-	}
-
-	int new_chunk() {
-		++file_index;
-		fclose(capture_outfile);
-		if (!open_dumpfile(name_base + get_chunkpostfix(file_index))) {
-			PRINT("new_chunk failed!\n");
-			capture_outfile = NULL;
-			return 0;
-		}
-		return 1;
-	}
-
-	int append_to_file(const rdmpheader_t *hdr, const LPVOID data, size_t data_size_bytes) {
-#define MAX_CHUNKSIZE (1 << 31)
-		if (!capture_outfile) return 0;
-
-		if (ftell(capture_outfile) + data_size_bytes > MAX_CHUNKSIZE) {
-			if (!new_chunk()) return 0;
-		}
-		
-		fwrite(hdr, sizeof(rdmpheader_t), 1, capture_outfile);
-		fwrite(data, 1, data_size_bytes, capture_outfile);
-
-		return 1;
-	}
-
-} capture;
-
-void enable_capture_render() {
-	capture.active = 1;
-}
 
 static void __stdcall call_pylpyr() {
-	ObjectManager OM;
-	WowObject o;
-
-	for (auto &u : selected_units) {
-		if (!OM.get_object_by_GUID(u.first, &o)) continue;
-		DWORD objectbase = o.get_base();
-		DWORD vt = DEREF(objectbase);
-		DWORD funcaddr = DEREF(vt + 0x6C);
-
-		__asm {
-			mov ecx, objectbase;
-			call funcaddr;
-		}
-
-	}
-
-	//PRINT("called pylpyr for %llX\n", GUID);
-
+	wc3_draw_pylpyrs();
 }
 
 static void __stdcall Present_hook() {
 
-	GetCursorPos(&cursor_pos);
-	ScreenToClient(wow_hWnd, &cursor_pos);
-	GetClientRect(wow_hWnd, &client_area);
-
-	if (rect_active) {
-		draw_rect_brute();
-	}
+	do_wc3mode_stuff();
 
 	register_luafunc_if_not_registered();
 
 	static timer_interval_t fifty_ms(50);
 	static timer_interval_t half_second(500);
-
-	RIP_camera();
 
 	if (half_second.passed()) {
 		update_hwevent_tick();
@@ -743,33 +165,6 @@ static void __stdcall Present_hook() {
 		capture.finish();
 	}
 	
-
-
-	//__asm {
-	//	int 3;
-	//	pushad;
-	//	push 0x0C76;
-	//	push 0x9F9880;
-	//	push 1;
-	//	//push 0;
-	//	//push 8;
-	//	push 0xF1300012;
-	//	push 0x3C024E24;
-	//	mov edi, 0x4D4DB0;
-	//	call edi;
-	//	add esp, 0x14;
-	//	cmp eax, 0;
-
-	//	jz invalid_guid;
-	//	mov edx, dword ptr ds:[eax];
-	//	mov ecx, eax;
-	//	mov eax, dword ptr ds : [edx];
-	//	call eax;
-
-	//invalid_guid:
-	//	popad;
-
-	//}
 
 }
 
@@ -896,8 +291,6 @@ static const trampoline_t *prepare_EndScene_patch(patch_t *p) {
 }
 
 
-
-
 static const trampoline_t *prepare_ClosePetStables_patch(patch_t *p) {
 
 	static trampoline_t tr;
@@ -917,64 +310,6 @@ static const trampoline_t *prepare_ClosePetStables_patch(patch_t *p) {
 
 }
 
-
-//static trampoline_t prepare_CTM_main_patch(LPVOID hook_func_addr) {
-//	PRINT("Preparing CTM_main patch...\n");
-//
-//	static BYTE CTM_main_trampoline[] = {
-//		// original opcodes from 0x612A90 "CTM_main"
-//
-//		0x55, // PUSH EBP
-//		0x8B, 0xEC, // MOV EBP, ESP
-//		0x83, 0xEC, 0x18, // SUB ESP, 18
-//
-//		0x68, 0x00, 0x00, 0x00, 0x00, // push early return address (performs the 612A90 function normally)
-//		0x60,						// pushad
-//
-//		0x8B, 0x75, 0x8, // MOV ESI, DWORD PTR SS:[ARG.2] CTM_"push" or "action"
-//		0x56,			// PUSH ESI
-//
-//		0xE8, 0x00, 0x00, 0x00, 0x00, // call to get_CTM_retaddr. eax now has 1 or 0, depending on the env
-//		0x85, 0xC0,	// test EAX EAX
-//		0x74, 0x0F, // jz, hopefully to the second popad part
-//		0x8B, 0x75, 0x8, // MOV ESI, DWORD PTR SS:[ARG.2] CTM_"push" or "action"
-//		0x56,
-//		0x8B, 0x75, 0x10, // MOV ESI, DWORD PTR SS:[ARG.3] (contains the 3 floatz ^^)
-//		0x56,			  // PUSH ESI (arg to CTM_broadcast)
-//		0xE8, 0x00, 0x00, 0x00, 0x00, // call CTM_broadcast function :D loloz
-//		0x61, // popad
-//		0xC3, // ret
-//		
-//		// branch #2
-//
-//		0x61, // popad
-//		0x83, 0xC4, 0x04, // add esp, 4, to "pop" without screwing up reg values
-//		0x68, 0x00, 0x00, 0x00, 0x00, // push return late late
-//		0xC3 //ret
-//	};
-//
-//	static const uint retaddr_early = CTM_main + 0x6, retaddr_late = CTM_main + 0x12E;
-//
-//	DWORD tr_offset = ((DWORD)CTM_main_trampoline - (DWORD)CTM_main - 5);
-//	memcpy(CTM_main_patch + 1, &tr_offset, sizeof(tr_offset));
-//
-//	memcpy(CTM_main_trampoline + 7, &retaddr_late, sizeof(retaddr_late));
-//
-//	DWORD get_CTM_retaddr_offset = (DWORD)get_CTM_retaddr - (DWORD)CTM_main_trampoline - 21;
-//	memcpy(CTM_main_trampoline + 17, &get_CTM_retaddr_offset, sizeof(get_CTM_retaddr_offset));
-//
-//	memcpy(CTM_main_trampoline + 45, &retaddr_early, sizeof(retaddr_early));
-//
-//	DWORD hookfunc_offset = (DWORD)hook_func_addr - (DWORD)CTM_main_trampoline - 38;
-//	memcpy(CTM_main_trampoline + 34, &hookfunc_offset, sizeof(DWORD)); // add hookfunc offset
-//
-//	DWORD oldprotect;
-//	VirtualProtect((LPVOID)CTM_main_trampoline, sizeof(CTM_main_trampoline), PAGE_EXECUTE_READWRITE, &oldprotect);
-//
-//	PRINT("OK.\nCTM_main trampoline: %p, hook_func_addr: %p\n", &CTM_main_trampoline, hook_func_addr);
-//
-//	return 1;
-//}
 
 static const trampoline_t *prepare_CTM_finished_patch(patch_t *p) {
 	static trampoline_t tr;
@@ -1153,15 +488,6 @@ static const trampoline_t *prepare_DrawIndexedPrimitive_patch(patch_t *p) {
 }
 
 static int __stdcall mbuttondown_hook(DWORD wParam) {
-
-	if (wParam == WM_LBUTTONDOWN) {
-		GetCursorPos(&rect_begin);
-		ScreenToClient(wow_hWnd, &rect_begin);
-		//PRINT("mbd_hook: %d, %d", rect_begin.x, rect_begin.y);
-		rect_active = 1;
-		return 0;
-	}
-
 	return 1;
 }
 
@@ -1193,25 +519,7 @@ static const trampoline_t *prepare_mbuttondown_patch(patch_t *p) {
 
 static void __stdcall mbuttonup_hook(DWORD wParam) {
 	
-	if (wParam != WM_LBUTTONUP) return;
-
-	rect_active = 0;
-	get_units_in_selection_rect(get_selection_rect());
-
-	if (selected_units.size() < 1) {
-		DoString("RunMacroText(\"/lole clearselection\")");
-		return;
-	}
-
-	PRINT("Units within rectselect bounds:\n");
-	std::string units_concatd;
-
-	for (auto &u : selected_units) {
-		units_concatd = units_concatd + u.second + ",";
-	}
-	units_concatd.pop_back();
-
-	DoString("RunMacroText(\"/lole setselection %s\")", units_concatd.c_str());
+	
 }
 
 static const trampoline_t *prepare_mbuttonup_patch(patch_t *p) {
@@ -1258,8 +566,8 @@ static const trampoline_t *prepare_pylpyr_patch(patch_t *p) {
 
 static void __stdcall mwheel_hook(DWORD wParam) {
 	int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
-	if (zDelta < 0) customcamera.increment();
-	if (zDelta > 0) customcamera.decrement();
+	if (zDelta < 0) customcamera.increment_s();
+	if (zDelta > 0) customcamera.decrement_s();
 }
 
 static const trampoline_t *prepare_mwheel_patch(patch_t *p) {
@@ -1313,34 +621,12 @@ struct inpevent_t {
 
 static int fake_input = 0;
 
-static void mouselup() {
-	rect_active = 0;
-	get_units_in_selection_rect(get_selection_rect());
-
-	if (selected_units.size() < 1) {
-		DoString("RunMacroText(\"/lole clearselection\")");
-		return;
-	}
-
-	PRINT("Units within rectselect bounds:\n");
-	std::string units_concatd;
-
-	for (auto &u : selected_units) {
-		units_concatd = units_concatd + u.second + ",";
-	}
-	units_concatd.pop_back();
-
-	DoString("RunMacroText(\"/lole setselection %s\")", units_concatd.c_str());
-}
-
 static int handle_inputmousedown(struct inpevent_t *t) {
 	
 	static const auto ADD_INPUT_EVENT = (void(*)(DWORD, DWORD, DWORD, DWORD, DWORD))(AddInputEvent);
 
 	if (t->event == 0x1) { // 
-		GetCursorPos(&rect_begin);
-		ScreenToClient(wow_hWnd, &rect_begin);
-		rect_active = 1;
+		wc3_start_rect();
 
 		return 0;
 	}
@@ -1355,7 +641,7 @@ static int handle_inputmousedown(struct inpevent_t *t) {
 static int handle_inputmouseup(struct inpevent_t *t) {
 
 	if (t->event == 0x1) {
-		mouselup();
+		wc3mode_mouseup_hook();
 		return 0;
 	}	
 	
@@ -1395,10 +681,10 @@ static int __stdcall AddInputEvent_hook(struct inpevent_t *t) {
 		r = 1;
 	}
 
-	//if (t->action != INPUT_MOUSEMOVE) {
-	//	PRINT("[%d] [%s] (%d/%d) vars: %X, %X, %d, %d, %X\n",
-	//		GetTickCount(), r == 1 ? "VALID" : "FILTERED", ai, ai2, t->action, t->event, t->x, t->y, t->unk1);
-	//}
+	if (t->action != INPUT_MOUSEMOVE) {
+		PRINT("[%d] [%s] (%d/%d) vars: %X, %X, %d, %d, %X\n",
+			GetTickCount(), r == 1 ? "VALID" : "FILTERED", ai, ai2, t->action, t->event, t->x, t->y, t->unk1);
+	}
 
 	return r;
 }

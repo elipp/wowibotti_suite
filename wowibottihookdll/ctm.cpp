@@ -27,7 +27,7 @@ static struct {
 		float d = dot(diff, CTM_direction);
 	
 		if (d < 0) {
-			// then we're basically ahead of the estimate so all is good :D
+			// then we're basically ahead of the estimate so all is good, the startpos can be reset
 			timer.start();
 			startpos = curpos;
 			return true;

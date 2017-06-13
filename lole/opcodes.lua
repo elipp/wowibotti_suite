@@ -32,6 +32,7 @@ local LOP_GET_COMBAT_TARGETS = 0x1E
 
 local LOP_EXT_NOP = 0x70
 local LOPSL_RESETCAMERA = 0x71
+local LOPSL_WC3MODE = 0x72
 
 local LDOP_NOP = 0xE0
 local LDOP_DUMP = 0xE1
@@ -248,6 +249,10 @@ end
 
 function execute_script(script)
 	lop_exec(LOP_EXECUTE, script)
+end
+
+function enable_wc3mode(enabled)
+	lop_exec(LOPSL_WC3MODE, tonumber(enabled))
 end
 
 function L_TargetUnit(name)

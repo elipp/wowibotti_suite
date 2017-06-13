@@ -150,12 +150,14 @@
     <ClInclude Include="creds.h" />
     <ClInclude Include="ctm.h" />
     <ClInclude Include="defs.h" />
+    <ClInclude Include="dipcapture.h" />
     <ClInclude Include="dungeon_script.h" />
     <ClInclude Include="hooks.h" />
     <ClInclude Include="linalg.h" />
     <ClInclude Include="lua.h" />
     <ClInclude Include="packet.h" />
     <ClInclude Include="patch.h" />
+    <ClInclude Include="wc3mode.h" />
     <ClInclude Include="wowmem.h" />
     <ClInclude Include="opcodes.h" />
     <ClInclude Include="stdafx.h" />
@@ -165,6 +167,7 @@
   <ItemGroup>
     <ClCompile Include="creds.cpp" />
     <ClCompile Include="ctm.cpp" />
+    <ClCompile Include="dipcapture.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="dungeon_script.cpp" />
     <ClCompile Include="hooks.cpp" />
@@ -172,6 +175,7 @@
     <ClCompile Include="lua.cpp" />
     <ClCompile Include="packet.cpp" />
     <ClCompile Include="patch.cpp" />
+    <ClCompile Include="wc3mode.cpp" />
     <ClCompile Include="wowmem.cpp" />
     <ClCompile Include="opcodes.cpp" />
     <ClCompile Include="timer.cpp" />

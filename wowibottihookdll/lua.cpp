@@ -13,6 +13,7 @@ p_lua_pushlstring	lua_pushlstring = (p_lua_pushlstring)lua335_pushlstring;
 p_lua_getfield		lua_getfield = (p_lua_getfield)lua335_getfield;
 p_lua_tonumber		lua_tonumber = (p_lua_tonumber)lua335_tonumber;
 p_lua_tointeger		lua_tointeger = (p_lua_tointeger)lua335_tointeger;
+p_lua_toboolean		lua_toboolean = (p_lua_toboolean)lua335_toboolean;
 
 #define lua243_state 0xE1DB84
 #define lua335_state 0xD3F78C

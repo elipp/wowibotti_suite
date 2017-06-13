@@ -46,6 +46,9 @@ extern p_lua_tonumber lua_tonumber;
 typedef int (*p_lua_tointeger) (lua_State *L, int idx);
 extern p_lua_tointeger lua_tointeger;
 
+typedef int(*p_lua_toboolean) (lua_State *L, int idx);
+extern p_lua_toboolean lua_toboolean;
+
 int register_lop_exec();
 extern int lua_registered;
 

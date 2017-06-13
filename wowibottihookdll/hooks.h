@@ -52,6 +52,5 @@ struct trampoline_t {
 
 extern pipe_data PIPEDATA;
 
-void reset_camera();
-
-void enable_capture_render();
+void hook_DrawIndexedPrimitive();
+void unhook_DrawIndexedPrimitive();

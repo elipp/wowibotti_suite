@@ -207,3 +207,8 @@ struct WO_cached {
 		memset(this, 0, sizeof(*this));
 	}
 };
+
+DWORD get_wow_d3ddevice();
+DWORD get_EndScene();
+DWORD get_Present();
+DWORD get_DrawIndexedPrimitive();

@@ -238,6 +238,7 @@ local function lole_broadcast_ctm(x, y, z)
 end
 
 local function lole_ctm(x, y, z, prio)
+	print('olen hmo')
 	if not playermode() then
 		walk_to(tonumber(x), tonumber(y), tonumber(z), prio)
 	end
@@ -593,6 +594,10 @@ end
 
 local function lole_resetcamera()
 	reset_camera()
+end
+
+local function lole_wc3mode(enabled)
+	enable_wc3mode(enabled)
 end
 
 local function lole_capturerender()
@@ -1048,5 +1053,7 @@ lole_subcommands = {
 
 	resetcamera = lole_resetcamera;
 	capturerender = lole_capturerender;
+
+	wc3mode = lole_wc3mode;
 
 }

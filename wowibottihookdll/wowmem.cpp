@@ -651,3 +651,41 @@ std::vector<WowObject> ObjectManager::find_all_NPCs_at(const vec3 &pos, float ra
 	return NPCs;
 }
 
+DWORD get_wow_d3ddevice() {
+#define STATIC_335_DIRECT3DDEVICE 0xC5DF88 
+#define STATIC_335_D3DDEVICE_OFFSET 0x397C
+	DWORD wow_static_DX9 = DEREF(STATIC_335_DIRECT3DDEVICE);
+
+	if (!wow_static_DX9) return 0;
+
+	DWORD tmp1 = DEREF(wow_static_DX9 + STATIC_335_D3DDEVICE_OFFSET);
+	DWORD d3ddevice = tmp1;
+
+	return d3ddevice;
+}
+
+DWORD get_EndScene() {
+	DWORD wowd3d = get_wow_d3ddevice();
+	if (!wowd3d) return 0;
+
+	DWORD EndScene = DEREF(DEREF(wowd3d) + 0xA8);
+
+	return EndScene;
+}
+
+DWORD get_Present() {
+
+	DWORD wowd3d = get_wow_d3ddevice();
+	if (!wowd3d) return 0;
+
+	DWORD Present = DEREF(DEREF(wowd3d) + 0x44);
+	return Present;
+}
+
+DWORD get_DrawIndexedPrimitive() {
+	DWORD wowd3d = get_wow_d3ddevice();
+	if (!wowd3d) return 0;
+
+	DWORD DrawIndexedPrimitive = DEREF(DEREF(wowd3d) + 0x148);
+	return DrawIndexedPrimitive;
+}

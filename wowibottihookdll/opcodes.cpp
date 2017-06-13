@@ -13,6 +13,8 @@
 #include "lua.h"
 #include "packet.h"
 #include "linalg.h"
+#include "dipcapture.h"
+#include "wc3mode.h"
 
 extern HWND wow_hWnd;
 Timer since_noclip;
@@ -1372,6 +1374,13 @@ int lop_exec(lua_State *L) {
 	case LOP_SL_RESETCAMERA:
 		LOPSL_reset_camera();
 		break;
+
+	case LOP_WC3MODE: {
+		int b = lua_tointeger(L, 2);
+		enable_wc3mode(b);
+
+		break;
+	}
 
 	case LDOP_CAPTURE_FRAME_RENDER_STAGES:
 		enable_capture_render();

@@ -48,8 +48,9 @@ enum {
 };
 
 extern HANDLE glhProcess;
+extern HWND wow_hWnd;
 
-#define DEREF(x) *(uint*)(x)
+#define DEREF(x) *(DWORD*)(x)
 
 struct vec3;
 inline float dot(const vec3 &a, const vec3 &b);

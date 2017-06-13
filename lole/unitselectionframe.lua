@@ -23,7 +23,7 @@ us_frame:SetWidth(700)
 us_frame:SetPoint("BOTTOM", 0, 100)
 
 us_frame:SetBackdrop(backdrop)
---us_frame:Hide()
+us_frame:Hide()
 
 us_frame:EnableMouse(true)
 us_frame:SetMovable(false)
