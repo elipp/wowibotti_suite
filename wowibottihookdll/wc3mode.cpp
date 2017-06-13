@@ -318,8 +318,10 @@ static void draw_rect_brute() {
 
 	draw_rect(&mr, &r, D3DCOLOR_XRGB(0, 255, 0));
 
-	//D3DSURFACE_DESC d;
-	//s->GetDesc(&d);
+	D3DSURFACE_DESC d;
+	s->GetDesc(&d);
+
+	PRINT("D3DSURFACE_DESC: FORMAT: %X\n", d.Format);
 
 	s->UnlockRect();
 
