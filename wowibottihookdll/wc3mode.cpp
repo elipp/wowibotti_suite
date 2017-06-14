@@ -6,6 +6,7 @@
 #include "wowmem.h"
 #include "linalg.h"
 #include "hooks.h"
+#include "input.h"
 
 static POINT cursor_pos;
 static RECT client_area;
@@ -177,6 +178,9 @@ static void wc3mode_prepare_camera_patches() {
 
 void reset_camera() {
 
+	wow_camera_t *camera = (wow_camera_t*)get_wow_camera();
+	if (!camera) return;
+
 	ObjectManager OM;
 	WowObject o;
 	if (!OM.get_local_object(&o)) {
@@ -185,12 +189,10 @@ void reset_camera() {
 
 	vec3 pos = o.get_pos();
 
-	wow_camera_t *camera = (wow_camera_t*)get_wow_camera();
-	if (!camera) return;
-
 	customcamera.pos = wow2glm(glm::vec4(pos.x, pos.y, pos.z, 1.0));
+	customcamera.pos.z += 8;
 
-	glm::vec4 newpos = customcamera.pos + customcamera.get_cameraoffset() + glm::vec4(0, 3, -6, 1);
+	glm::vec4 newpos = customcamera.pos + customcamera.get_cameraoffset();
 
 	glm::vec4 nw = glm2wow(newpos);
 

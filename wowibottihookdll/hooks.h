@@ -5,18 +5,22 @@
 #include <string>
 #include <vector>
 
+#include "patch.h"
+
+struct hookable_t;
+
 int prepare_pipe_data();
 
-struct patch_serialized {
+typedef struct patch_serialized {
 	UINT32 buffer_size;
 	BYTE *buffer;
 	patch_serialized(UINT32 patch_addr, UINT32 patch_size, const BYTE *original_opcodes, const BYTE *patch);
 	patch_serialized() { memset(this, 0x0, sizeof(*this)); }
-};
+} patch_serialized;
 
 extern const UINT32 PIPE_PROTOCOL_MAGIC;
 
-struct pipe_data {
+typedef struct pipe_data {
 	
 	UINT32 num_patches;
 	std::vector<BYTE> data;
@@ -28,11 +32,11 @@ struct pipe_data {
 		memcpy(&data[4], &num_patches, sizeof(UINT32));
 		memcpy(&data[8], &meta_size, sizeof(UINT32));
 	}
-};
+} pipe_data;
 
 extern pipe_data PIPEDATA;
 
-struct trampoline_t {
+typedef struct trampoline_t {
 	BYTE bytes[128];
 	size_t length;
 	trampoline_t &append_relative_offset(DWORD offset);
@@ -48,23 +52,21 @@ struct trampoline_t {
 	}
 
 	template <typename T> trampoline_t &operator << (const T& arg);
-};
+} trampoline_t;
 
 extern pipe_data PIPEDATA;
 
 void hook_DrawIndexedPrimitive();
 void unhook_DrawIndexedPrimitive();
 
-void hook_input_func();
-void unhook_input_func();
-
-struct inpevent_t {
+typedef struct inpevent_t {
 	DWORD event;
 	int param;
 	int x;
 	int y;
 	DWORD unk1;
-};
+} inpevent_t;
 
-void add_input_event(inpevent_t *t);
-void get_cursor_pos(POINT *p);
+
+
+hookable_t *find_hookable(const std::string &funcname);

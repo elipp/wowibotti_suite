@@ -20,9 +20,7 @@ typedef struct vec4 {
 	vec4() {}
 	vec4(float _x, float _y, float _z, float _w) : x(_x), y(_y), z(_z), w(_w) {}
 
-
-
-};
+} vec4;
 
 vec4 operator-(const vec4 &v);
 
@@ -57,7 +55,7 @@ typedef struct wow_camera_t {
 	float zNear, zFar;
 	float fov;
 	float aspect;
-};
+} wow_camera_t;
 
 DWORD get_wow_camera();
 int get_wow_proj_matrix(mat4 *m);
