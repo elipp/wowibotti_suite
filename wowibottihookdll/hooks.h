@@ -67,3 +67,4 @@ struct inpevent_t {
 };
 
 void add_input_event(inpevent_t *t);
+void get_cursor_pos(POINT *p);

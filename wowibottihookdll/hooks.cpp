@@ -123,15 +123,45 @@ void unhook_input_func() {
 }
 
 static void __stdcall call_pylpyr() {
-	wc3_draw_pylpyrs();
+	if (wc3mode_enabled())
+		wc3_draw_pylpyrs();
+}
+
+static int need_mouseup = 0;
+static int mouse_pressed = 0;
+
+#define MOUSELEFT 0x1
+#define MOUSERIGHT 0x4
+
+static void add_mouseup() {
+	PRINT("add_mouseup called!\n");
+	POINT p;
+	get_cursor_pos(&p);
+
+	inpevent_t mup;
+
+	mup.event = 0xD;
+	mup.param = MOUSELEFT;
+	mup.x = p.x;
+	mup.y = p.y;
+	mup.unk1 = 0;
+
+	add_input_event(&mup);
 }
 
 static void __stdcall Present_hook() {
 
-	init_custom_d3d();
+	init_custom_d3d(); // this doesn't do anything if it's already initialized
 
 	do_wc3mode_stuff();
 
+	if (wc3mode_enabled()) {
+		if (mouse_pressed) {
+			need_mouseup = 1;
+			add_mouseup();
+			need_mouseup = 0;
+		}
+	}
 	register_luafunc_if_not_registered();
 
 	static timer_interval_t fifty_ms(50);
@@ -175,28 +205,14 @@ static void __stdcall Present_hook() {
 
 }
 
+void get_cursor_pos(POINT *p) {
+	GetCursorPos(p);
+	ScreenToClient(wow_hWnd, p);
+}
+
 static void __stdcall EndScene_hook() {
 
 	draw_custom_d3d();
-
-	//static vec3 prevpos;
-	//static Timer timer;
-
-	//ObjectManager OM;
-	//WowObject p;
-	//if (!OM.get_local_object(&p)) return;
-
-	//vec3 nowpos = p.get_pos();
-	//vec3 diff = nowpos - prevpos;
-
-	//float t = timer.get_s();
-	//vec3 vt = vec3(diff.x / t, diff.y / t, diff.z / t);
-	//float dv = vt.length();
-
-	////PRINT("vt: (%.3f, %.3f, %.3f) (t = %f, dv = %.3f)\n", vt.x, vt.y, vt.z, t, dv);
-
-	//prevpos = nowpos;
-	//timer.start();
 
 }
 
@@ -257,8 +273,6 @@ static void __stdcall broadcast_CTM(float *coords, int action) {
 	char sprintf_buf[128];
 
 	sprintf_s(sprintf_buf, "%.1f %.1f %.1f", x, y, z);
-
-	// the CTM mode is determined in the LUA logic, in the subcommand handler.
 
 	DoString("RunMacroText(\"/lole broadcast ctm %s\")", sprintf_buf);
 }
@@ -481,10 +495,10 @@ static const trampoline_t *prepare_DrawIndexedPrimitive_patch(patch_t *p) {
 	PRINT("Found DrawIndexedPrimitive at 0x%X\n", DrawIndexedPrimitive);
 
 	p->patch_addr = DrawIndexedPrimitive;
-	tr << PUSHAD; // PUSHAD
+	tr << PUSHAD; 
 
 	tr.append_CALL((DWORD)DrawIndexedPrimitive_hook);
-	tr << POPAD; // POPAD
+	tr << POPAD; 
 
 	memcpy(p->original, (LPVOID)DrawIndexedPrimitive, p->size);
 	tr.append_bytes(p->original, p->size);
@@ -640,17 +654,22 @@ static const trampoline_t *prepare_CTM_main_patch(patch_t *p) {
 // 480130 handler for all these opcodes B)
 // B41834 contains a mask of which mouse buttons are being held down
 
-static int fake_input = 0;
+void add_input_event(inpevent_t *t) {
+	static const auto ADD_INPUT_EVENT = (void(*)(DWORD, DWORD, DWORD, DWORD, DWORD))(AddInputEvent);
+	ADD_INPUT_EVENT(t->event, t->param, t->x, t->y, t->unk1);
+}
+
+
 
 static int handle_inputmousedown(struct inpevent_t *t) {
 	
-	if (t->param == 0x1) { 
+	if (t->param == MOUSELEFT) {
 		wc3_start_rect(); // with this return 0
 
 		//return 1;
-	//	return 0;
+		return 0;
 	}
-	else if (t->param == 0x4) {
+	else if (t->param == MOUSERIGHT) {
 		//t->action = 0xD; // HEHE clever try, but apparently 0xD requires a valid 0x9 to work.
 		return 1;
 	}
@@ -658,20 +677,22 @@ static int handle_inputmousedown(struct inpevent_t *t) {
 
 }
 
-void add_input_event(inpevent_t *t) {
-	static const auto ADD_INPUT_EVENT = (void(*)(DWORD, DWORD, DWORD, DWORD, DWORD))(AddInputEvent);
-	ADD_INPUT_EVENT(t->event, t->param, t->x, t->y, t->unk1);
-}
 
 static int handle_inputmouseup(struct inpevent_t *t) {
 
-	if (t->param == 0x1) {
-		wc3mode_mouseup_hook(); // with this return 0
-	//	return 1;
-		return 0;
+	if (t->param == MOUSELEFT) {
+		if (need_mouseup) { 
+			need_mouseup = 0;
+			mouse_pressed = 0;
+			return 1; 
+		} 
+		else {
+			wc3mode_mouseup_hook(); // with this return 0
+			return 0;
+		}
 	}	
 	
-	if (t->param == 0x4) {
+	if (t->param == MOUSERIGHT) {
 		return 1;
 	}
 
@@ -716,7 +737,13 @@ static int __stdcall AddInputEvent_hook(struct inpevent_t *t) {
 		return 0;
 	}
 
-	if (!wc3mode_enabled()) return 1;
+	if (!wc3mode_enabled()) {
+		if (t->event == INPUT_MOUSEDOWN && t->param == MOUSELEFT) {
+			mouse_pressed = 1;
+		}
+		
+		return 1;
+	}
 
 	int r = 1;
 

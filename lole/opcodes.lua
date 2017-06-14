@@ -148,7 +148,7 @@ end
 
 function walk_to(x, y, z, prio)
 	-- the last argument is the priority level
-	echo(x .. ", " .. y .. ", " .. z)
+	--echo(x .. ", " .. y .. ", " .. z)
 	lop_exec(LOP_CTM, x, y, z, prio)
 end
 

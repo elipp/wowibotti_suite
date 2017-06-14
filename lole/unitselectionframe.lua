@@ -18,8 +18,8 @@ local backdrop = {
 	}
 }
 
-us_frame:SetHeight(150)
-us_frame:SetWidth(700)
+us_frame:SetHeight(0.16*GetScreenHeight())
+us_frame:SetWidth(0.7*GetScreenWidth())
 us_frame:SetPoint("BOTTOM", 0, 20)
 
 us_frame:SetBackdrop(backdrop)

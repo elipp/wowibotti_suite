@@ -372,8 +372,6 @@ static int get_screen_coords(GUID_t GUID, POINT *coords) {
 	//dump_glm_vec4((rot*view)*up);
 	//dump_glm_vec4(nclip);
 
-	PRINT("\n------------------\n");
-
 	*coords = map_clip_to_screen(nclip);
 
 	return 1;
@@ -417,8 +415,7 @@ void do_wc3mode_stuff() {
 
 	if (!patches_prepared) wc3mode_prepare_camera_patches();
 
-	GetCursorPos(&cursor_pos);
-	ScreenToClient(wow_hWnd, &cursor_pos);
+	get_cursor_pos(&cursor_pos);
 	GetClientRect(wow_hWnd, &client_area);
 
 	if (rect_active) {
@@ -474,7 +471,6 @@ int wc3mode_enabled() {
 }
 
 void enable_wc3mode(int b) {
-	PRINT("enable_wc3mode: b = %d\n", b);
 	if (b) {
 		wc3_enabled = 1;
 		patch_camera();
@@ -490,8 +486,7 @@ void enable_wc3mode(int b) {
 }
 
 void wc3_start_rect() {
-	GetCursorPos(&rect_begin);
-	ScreenToClient(wow_hWnd, &rect_begin);
+	get_cursor_pos(&rect_begin);
 	rect_active = 1;
 }
 
