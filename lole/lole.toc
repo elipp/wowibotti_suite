@@ -39,6 +39,7 @@ subcommands.lua
 
 frame.lua
 unitselectionframe.lua
+selectrect.lua
 
 lole.xml
 lole.lua

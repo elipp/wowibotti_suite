@@ -31,8 +31,9 @@ local LOP_CAST_SPELL = 0x1D
 local LOP_GET_COMBAT_TARGETS = 0x1E
 
 local LOP_EXT_NOP = 0x70
-local LOPSL_RESETCAMERA = 0x71
-local LOPSL_WC3MODE = 0x72
+local LOP_SL_RESETCAMERA = 0x71
+local LOP_WC3MODE = 0x72
+local LOP_SL_SELECTRECT = 0x73
 
 local LDOP_NOP = 0xE0
 local LDOP_DUMP = 0xE1
@@ -252,7 +253,11 @@ function execute_script(script)
 end
 
 function enable_wc3mode(enabled)
-	lop_exec(LOPSL_WC3MODE, tonumber(enabled))
+	lop_exec(LOP_WC3MODE, tonumber(enabled))
+end
+
+function report_selection(l, t, w, h)
+	lop_exec(LOP_SL_SELECTRECT, l, t, w, h)
 end
 
 function L_TargetUnit(name)
@@ -332,7 +337,7 @@ function L_target_focus()
 end
 
 function reset_camera()
-	lop_exec(LOPSL_RESETCAMERA)
+	lop_exec(LOP_SL_RESETCAMERA)
 end
 
 function capture_render_stages()
