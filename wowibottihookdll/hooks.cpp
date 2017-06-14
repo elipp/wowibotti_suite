@@ -636,13 +636,6 @@ static const trampoline_t *prepare_CTM_main_patch(patch_t *p) {
 	return &tr;
 }
 
-struct inpevent_t {
-	DWORD event;
-	int param;
-	int x;
-	int y;
-	DWORD unk1;
-};
 
 // 480130 handler for all these opcodes B)
 // B41834 contains a mask of which mouse buttons are being held down
@@ -651,12 +644,10 @@ static int fake_input = 0;
 
 static int handle_inputmousedown(struct inpevent_t *t) {
 	
-	static const auto ADD_INPUT_EVENT = (void(*)(DWORD, DWORD, DWORD, DWORD, DWORD))(AddInputEvent);
-
 	if (t->param == 0x1) { 
-		//wc3_start_rect(); // with this return 0
+		wc3_start_rect(); // with this return 0
 
-		return 1;
+		//return 1;
 	//	return 0;
 	}
 	else if (t->param == 0x4) {
@@ -667,11 +658,16 @@ static int handle_inputmousedown(struct inpevent_t *t) {
 
 }
 
+void add_input_event(inpevent_t *t) {
+	static const auto ADD_INPUT_EVENT = (void(*)(DWORD, DWORD, DWORD, DWORD, DWORD))(AddInputEvent);
+	ADD_INPUT_EVENT(t->event, t->param, t->x, t->y, t->unk1);
+}
+
 static int handle_inputmouseup(struct inpevent_t *t) {
 
 	if (t->param == 0x1) {
-		//wc3mode_mouseup_hook(); // with this return 0
-		return 1;
+		wc3mode_mouseup_hook(); // with this return 0
+	//	return 1;
 		return 0;
 	}	
 	

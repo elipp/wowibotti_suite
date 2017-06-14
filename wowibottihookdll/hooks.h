@@ -57,3 +57,13 @@ void unhook_DrawIndexedPrimitive();
 
 void hook_input_func();
 void unhook_input_func();
+
+struct inpevent_t {
+	DWORD event;
+	int param;
+	int x;
+	int y;
+	DWORD unk1;
+};
+
+void add_input_event(inpevent_t *t);
