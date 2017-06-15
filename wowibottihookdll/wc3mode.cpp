@@ -583,6 +583,8 @@ void draw_custom_d3d() {
 
 	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
 
+	if (!d) return;
+
 	d->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
 	d->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
 	d->SetRenderState(D3DRS_LIGHTING, FALSE);
@@ -613,6 +615,8 @@ int init_custom_d3d() {
 	if (customd3d_initialized) return 1;
 
 	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
+
+	if (!d) return 0;
 
 	HRESULT hr;
 	hr = d->CreateVertexShader((DWORD*)VSbuf, &vs);
