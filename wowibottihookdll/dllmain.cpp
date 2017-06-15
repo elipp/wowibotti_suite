@@ -25,9 +25,6 @@
 #include "creds.h"
 #include "packet.h"
 
-#ifdef _DEBUG
-#define DEBUG_CONSOLE
-#endif
 
 static HINSTANCE inj_hModule;          // HANDLE for injected module
 HANDLE glhProcess;

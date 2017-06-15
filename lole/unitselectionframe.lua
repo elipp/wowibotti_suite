@@ -18,9 +18,9 @@ local backdrop = {
 	}
 }
 
-us_frame:SetHeight(0.16*GetScreenHeight())
+us_frame:SetHeight(0.20*GetScreenHeight())
 us_frame:SetWidth(0.7*GetScreenWidth())
-us_frame:SetPoint("BOTTOM", 0, 20)
+us_frame:SetPoint("BOTTOM", 0, 10)
 
 us_frame:SetBackdrop(backdrop)
 us_frame:Hide()
@@ -108,7 +108,7 @@ function clear_selection()
 	num_units = 0
 end
 
-local stride_pixels = 48
+local stride_pixels = 52
 
 local function add_unitframe(unitname, unitframe)
 	selected_units[unitname] = unitframe
@@ -123,7 +123,7 @@ local function create_unit_frame(unitname)
 		return
 	end
 
-	local unitframe = CreateFrame("Frame", nil, us_frame)
+	local unitframe = CreateFrame("Button", nil, us_frame)
 	unitframe:SetBackdrop(backdrop)
 
 	unitframe:SetHeight(40)
@@ -135,6 +135,11 @@ local function create_unit_frame(unitname)
 	local name = unitframe:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	name:SetPoint("BOTTOM", unitframe, 0, -12)
 	name:SetText(UnitName("target"))
+	unitframe.unitname = UnitName("target")
+
+	unitframe:SetScript("OnClick", function(self)
+		set_selection(self.unitname)
+	end)
 
 	L_ClearTarget()
 

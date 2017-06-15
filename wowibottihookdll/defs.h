@@ -24,18 +24,33 @@ inline LPARAM get_KEYUP_LPARAM(int vk) {
 	return lparam;
 }
 
+
 #ifdef _DEBUG
+#define DEBUG_CONSOLE
+#endif
+
+//#define DEBUG_CONSOLE
+//#define DEBUG_LOG
+
+#ifdef DEBUG_CONSOLE
 #define PRINT(...) printf(__VA_ARGS__)
-//#define PRINT(...) do{\
-//FILE *fp;\
-//fopen_s(&fp, "log.txt", "a");\
-//fprintf(fp, "[%d] ", GetTickCount());\
-//fprintf(fp, __VA_ARGS__);\
-//fclose(fp); }\
-//while(0)
-#else
+#endif
+
+#ifdef DEBUG_LOG
+#define PRINT(...) do{\
+FILE *fp;\
+fopen_s(&fp, "log.txt", "a");\
+fprintf(fp, "[%d] ", GetTickCount());\
+fprintf(fp, __VA_ARGS__);\
+fclose(fp); }\
+while(0)
+#endif
+
+#if !defined(DEBUG_CONSOLE) && !defined(DEBUG_LOG)
 #define PRINT(...) 0
 #endif
+
+
 
 enum {
 	CTM_HUNTER_AIMED = 0x0,

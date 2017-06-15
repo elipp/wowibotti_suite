@@ -34,6 +34,10 @@ void add_input_event(inpevent_t *t) {
 static int handle_inputmousedown(struct inpevent_t *t) {
 
 	if (t->param == MOUSELEFT) {
+		if (t->y > (float)get_window_height() * 0.78) {
+			PRINT("mouse left down within area!\n");
+			return 1;
+		}
 		wc3_start_rect(); // with this return 0
 		return 0; //return 1;
 	}
@@ -52,6 +56,10 @@ static int handle_inputmouseup(struct inpevent_t *t) {
 		if (need_mouseup) {
 			need_mouseup = 0;
 			mouse_pressed = 0;
+			return 1;
+		}
+		else if (t->y > (float)get_window_height() * 0.78) {
+			PRINT("mouse left up within area!\n");
 			return 1;
 		}
 		else {

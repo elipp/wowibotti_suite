@@ -33,7 +33,7 @@ local LOP_GET_COMBAT_TARGETS = 0x1E
 local LOP_EXT_NOP = 0x70
 local LOP_SL_RESETCAMERA = 0x71
 local LOP_WC3MODE = 0x72
-local LOP_SL_SELECTRECT = 0x73
+local LOP_SL_SETSELECT = 0x73
 
 local LDOP_NOP = 0xE0
 local LDOP_DUMP = 0xE1
@@ -174,6 +174,10 @@ end
 
 function get_cast_failed_msgid()
     return lop_exec(LOP_GET_PREVIOUS_CAST_MSG);
+end
+
+function set_selection(names_commaseparated)
+	return lop_exec(LOP_SL_SETSELECT, names_commaseparated)
 end
 
 function interact_with_object(...)

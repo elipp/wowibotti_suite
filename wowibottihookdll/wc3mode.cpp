@@ -14,11 +14,11 @@ static RECT client_area;
 static RECT window_rect;
 static std::unordered_map<GUID_t, std::string> selected_units;
 
-static int get_window_width() {
+int get_window_width() {
 	return window_rect.right - window_rect.left;
 }
 
-static int get_window_height() {
+int get_window_height() {
 	return window_rect.bottom - window_rect.top;
 }
 
@@ -358,7 +358,7 @@ static int get_screen_coords(GUID_t GUID, POINT *coords) {
 	glm::vec4 up = wow2glm(glm::vec4(unitpos.x, unitpos.y, unitpos.z, 1.0));
 
 	// increasing up.y just slightly will make the selection more intuitive
-	up.y += 0.8;
+	up.y += 0.4;
 
 	glm::vec3 cpos = wow2glm(glm::vec3(c->x, c->y, c->z));
 
@@ -379,7 +379,18 @@ static int get_screen_coords(GUID_t GUID, POINT *coords) {
 	return 1;
 }
 
-static int get_units_in_selection_rect(const RECT &sel) {
+static inline float get_rect_area(const RECT &r) {
+	return abs((r.bottom - r.top) * (r.left - r.right));
+}
+
+static inline void broaden_rect(RECT *r) {
+	r->bottom += 20;
+	r->left -= 20;
+	r->right += 20;
+	r->top -= 20;
+}
+
+static int get_units_in_selection_rect(RECT sel) {
 
 	selected_units.clear();
 
@@ -387,6 +398,11 @@ static int get_units_in_selection_rect(const RECT &sel) {
 	WowObject iter;
 
 	if (!OM.get_first_object(&iter)) return 0;
+
+	if (get_rect_area(sel) < 150) {
+		PRINT("rect_area < 150! broadening\n");
+		broaden_rect(&sel);
+	}
 
 	while (iter.valid()) {
 		if (iter.get_type() == OBJECT_TYPE_UNIT) {
@@ -443,27 +459,30 @@ void wc3mode_mouseup_hook() {
 	for (auto &u : selected_units) {
 		units_concatd = units_concatd + u.second + ",";
 	}
-	units_concatd.pop_back();
 
+	units_concatd.pop_back();
 	DoString("RunMacroText(\"/lole setselection %s\")", units_concatd.c_str());
+
 }
 
-void wc3mode_checkselection(const RECT &r) {
-	get_units_in_selection_rect(r);
+static void set_internal_selection(const std::string &names_commaseparated) {
+	std::vector<std::string> names;
+	tokenize_string(names_commaseparated, ",", names);
+	selected_units.clear();
 
-	if (selected_units.size() < 1) {
-		DoString("RunMacroText(\"/lole clearselection\")");
-		return;
+	ObjectManager OM;
+
+	for (auto &n : names) {
+		WowObject o;
+		if (OM.get_unit_by_name(n, &o)) {
+			selected_units[o.get_GUID()] = n;
+		}
 	}
+}
 
-	std::string units_concatd;
-
-	for (auto &u : selected_units) {
-		units_concatd = units_concatd + u.second + ",";
-	}
-	units_concatd.pop_back();
-
-	DoString("RunMacroText(\"/lole setselection %s\")", units_concatd.c_str());
+void wc3mode_setselection(const std::string &names_commaseparated) {
+	set_internal_selection(names_commaseparated);
+	DoString("RunMacroText(\"/lole setselection %s\")", names_commaseparated.c_str());
 }
 
 static int wc3_enabled = 0;

@@ -38,9 +38,9 @@ static std::string DLL_path;
 
 #define CHAR_POS_DX 78
 
-#ifdef _DEBUG
+//#ifdef _DEBUG
 #define DEBUG_CONSOLE
-#endif
+//#endif
 
 struct wowcl_t {
 	HWND window_handle;

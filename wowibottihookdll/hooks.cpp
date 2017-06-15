@@ -690,7 +690,7 @@ int prepare_pipe_data() {
 	
 	patch_serialized p;
 
-#define ADD_PATCH_SAFE(patchname) do { assert(get_patch_from_hookable(patchname, &p)); PIPEDATA.add_patch(p); } while(0)
+#define ADD_PATCH_SAFE(patchname) do { int r = get_patch_from_hookable(patchname, &p); assert(r); PIPEDATA.add_patch(p); } while(0)
 
 	ADD_PATCH_SAFE("EndScene");
 	ADD_PATCH_SAFE("Present");
@@ -719,6 +719,7 @@ patch_serialized::patch_serialized(UINT32 patch_addr, UINT32 patch_size, const B
 	memcpy(buffer + 1 * sizeof(UINT32), &patch_size, sizeof(UINT32));
 	memcpy(buffer + 2 * sizeof(UINT32), original_opcodes, patch_size);
 	memcpy(buffer + 2 * sizeof(UINT32) + patch_size, patch_opcodes, patch_size);
+
 
 }
 

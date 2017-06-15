@@ -1141,10 +1141,6 @@ static void try_wowctm() {
 	}
 }
 
-static void LOP_selectrect(double l, double b, double w, double h) {
-	PRINT("%.3f %.3f %.3f %.3f\n", l, b, w, h);
-}
-
 int lop_exec(lua_State *L) {
 
 	// NOTE: the return value of this function --> number of values returned to caller in LUA
@@ -1386,25 +1382,10 @@ int lop_exec(lua_State *L) {
 		break;
 	}
 
-	case LOP_SL_SELECTRECT: {
-		int l, t, w, h;
-		l = lua_tonumber(L, 2);
-		t = lua_tonumber(L, 3);
-		w = lua_tonumber(L, 4);
-		h = lua_tonumber(L, 5);
-		
-		RECT r;
-		r.left = l;
-		r.top = t;
-		r.right = l + w;
-		r.bottom = t - h;
-
-		wc3mode_checkselection(r);
-
+	case LOP_SL_SETSELECT: {
+		wc3mode_setselection(lua_tolstring(L, 2, &len));
 		break;
 	}
-
-
 
 	case LDOP_CAPTURE_FRAME_RENDER_STAGES:
 		enable_capture_render();
