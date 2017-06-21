@@ -436,9 +436,6 @@ void do_wc3mode_stuff() {
 	get_cursor_pos(&cursor_pos);
 	GetClientRect(wow_hWnd, &client_area);
 
-	if (rect_active) {
-		//draw_rect_brute();
-	}
 
 	GetClientRect(wow_hWnd, &window_rect);
 	update_wowcamera();
@@ -447,7 +444,7 @@ void do_wc3mode_stuff() {
 
 void wc3mode_mouseup_hook() {
 
-	// hmm this causes a segfault at 7446C9 on Release mode
+	// hmm this causes a segfault at 7446C9 on Release mode // fixed??
 
 	rect_active = 0;
 	get_units_in_selection_rect(get_selection_rect());
@@ -577,65 +574,8 @@ void rect_to_vertices(const RECT &r, float *in) {
 	memcpy(in, vertices, 8 * sizeof(float));
 }
 
-void draw_custom_d3d() {
-	if (!customd3d_initialized) return;
-	if (!rect_active) return;
-
-	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
-
-	if (!d) return;
-
-	d->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-	d->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
-	d->SetRenderState(D3DRS_LIGHTING, FALSE);
-	d->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
-	d->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-
-	float vertices[2 * 4];
-	rect_to_vertices(get_selection_rect(), vertices);
-
-	void *vdata;
-	vbuffer->Lock(0, 0, &vdata, 0);
-	memcpy(vdata, vertices, 4 * 2 * sizeof(float));
-	vbuffer->Unlock();
-
-	d->SetVertexDeclaration(vd);
-	d->SetStreamSource(0, vbuffer, 0, 2 * sizeof(float));
-	d->SetIndices(ibuffer);
-	d->SetVertexShader(vs);
-	d->SetPixelShader(ps);
-
-	//PRINT("drawing shit:)\n");
-	d->DrawIndexedPrimitive(D3DPT_LINESTRIP, 0, 0, 4, 0, 4);
-
-
-}
-
-int init_custom_d3d() {
-	if (customd3d_initialized) return 1;
-
-	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
-
-	if (!d) return 0;
-
+static int create_d3d9buffers(IDirect3DDevice9 *d) {
 	HRESULT hr;
-	hr = d->CreateVertexShader((DWORD*)VSbuf, &vs);
-	if (FAILED(hr)) {
-		PRINT("CreateVertexShader failed: %X\n", hr);
-		return 0;
-	}
-
-	hr = d->CreatePixelShader((DWORD*)PSbuf, &ps);
-	if (FAILED(hr)) {
-		PRINT("CreatePixelShader failed: %X\n", hr);
-		return 0;
-	}
-
-	hr = d->CreateVertexDeclaration(vdecl, &vd);
-	if (FAILED(hr)) {
-		PRINT("CreateVertexDeclaration failed: %X\n", hr);
-		return 0;
-	}
 
 	hr = d->CreateVertexBuffer(4 * 2 * sizeof(float), D3DUSAGE_WRITEONLY | D3DUSAGE_DYNAMIC, 0, D3DPOOL_DEFAULT, &vbuffer, NULL);
 	if (FAILED(hr)) {
@@ -649,14 +589,92 @@ int init_custom_d3d() {
 		return 0;
 	}
 
-	UINT16 indices[] = {
+}
+
+static void populate_d3d9buffers() {
+
+	float vertices[2 * 4];
+	rect_to_vertices(get_selection_rect(), vertices);
+
+	void *mem;
+	vbuffer->Lock(0, 0, &mem, 0);
+	memcpy(mem, vertices, 4 * 2 * sizeof(float));
+	vbuffer->Unlock();
+
+	static const UINT16 indices[] = {
 		0, 1, 2, 3
 	};
-	
-	void *imem;
-	ibuffer->Lock(0, 0, &imem, 0);
-	memcpy(imem, indices, 4 * sizeof(UINT16));
+
+	ibuffer->Lock(0, 0, &mem, 0);
+	memcpy(mem, indices, 4 * sizeof(UINT16));
 	ibuffer->Unlock();
+}
+
+static void free_d3d9buffers() {
+	vbuffer->Release();
+	ibuffer->Release();
+}
+
+void draw_custom_d3d() {
+	if (!customd3d_initialized) return;
+	if (!rect_active) return;
+
+	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
+	if (!d) return;
+
+	create_d3d9buffers(d);
+	populate_d3d9buffers();
+
+	d->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+	d->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+	d->SetRenderState(D3DRS_LIGHTING, FALSE);
+	d->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+	d->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+
+	d->SetVertexDeclaration(vd);
+	d->SetStreamSource(0, vbuffer, 0, 2 * sizeof(float));
+	d->SetIndices(ibuffer);
+	d->SetVertexShader(vs);
+	d->SetPixelShader(ps);
+
+	//PRINT("drawing shit:)\n");
+	d->DrawIndexedPrimitive(D3DPT_LINESTRIP, 0, 0, 4, 0, 4);
+
+	free_d3d9buffers();
+}
+
+int init_custom_d3d() {
+ 
+	if (customd3d_initialized) return 1;
+
+	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
+
+	if (!d) return 0;
+
+	HRESULT hr;
+	hr = d->CreateVertexShader((DWORD*)VSbuf, &vs);
+	if (FAILED(hr)) {
+		PRINT("CreateVertexShader failed: %X\n", hr);
+		return 0;
+	}
+	
+
+
+	hr = d->CreatePixelShader((DWORD*)PSbuf, &ps);
+	if (FAILED(hr)) {
+		PRINT("CreatePixelShader failed: %X\n", hr);
+		return 0;
+	}
+
+
+
+	hr = d->CreateVertexDeclaration(vdecl, &vd);
+	if (FAILED(hr)) {
+		PRINT("CreateVertexDeclaration failed: %X\n", hr);
+		return 0;
+	}
+
+	// having these two (Create[Vertex|Index]Buffer) calls here in the init function cause a hang when resizing the window
 
 	customd3d_initialized = 1;
 

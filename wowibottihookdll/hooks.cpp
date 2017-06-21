@@ -122,7 +122,6 @@ static void __stdcall call_pylpyr() {
 static void __stdcall Present_hook() {
 
 	init_custom_d3d(); // this doesn't do anything if it's already initialized
-
 	do_wc3mode_stuff();
 
 	if (wc3mode_enabled()) {
@@ -132,6 +131,7 @@ static void __stdcall Present_hook() {
 			need_mouseup = 0;
 		}
 	}
+
 	register_luafunc_if_not_registered();
 
 	static timer_interval_t fifty_ms(50);
@@ -697,10 +697,8 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("CTM_finished");
 	ADD_PATCH_SAFE("ClosePetStables");
 	ADD_PATCH_SAFE("pylpyr");
-//	ADD_PATCH_SAFE("mwheel_handler");
 	ADD_PATCH_SAFE("CTM_main");
 	ADD_PATCH_SAFE("AddInputEvent");
-//	ADD_PATCH_SAFE("AddInputEvent_post");
 
 	
 	// don't add DrawIndexedPrimitive to this list, it will be patched manually later by a /lole subcommand
