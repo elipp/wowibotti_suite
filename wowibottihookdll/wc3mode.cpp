@@ -9,7 +9,6 @@
 #include "input.h"
 
 static POINT cursor_pos;
-static RECT client_area;
 
 static RECT window_rect;
 static std::unordered_map<GUID_t, std::string> selected_units;
@@ -47,7 +46,7 @@ void customcamera_t::decrement_s() {
 
 float customcamera_t::get_s() { return s;  }
 
-customcamera_t customcamera = { 0.5, 30, glm::vec4(0, 0, 0, 1) };
+customcamera_t customcamera = { 0.5, 30, glm::vec4(0, 80, 0, 1) };
 
 static void update_camera_rotation(wow_camera_t *camera) {
 
@@ -67,25 +66,36 @@ static void move_camera_if_cursor() {
 	//PRINT("camera: 0x%X\n", camera);
 
 	const float dd = 0.1*((1.0-SMIN) + customcamera.get_s());
-	const int margin = 100;
+	const float margin = 100;
 
 	int ww = get_window_width();
 	int wh = get_window_height();
 
 	//PRINT("ww: %d, wh: %d\n", ww, wh);
 
+	// TODO: add camera velocity scaling according to how near the edge of the window the cursor is.
+
+
 	if (cursor_pos.x < margin) {
-		customcamera.pos.x -= dd;
+		float xdiff = fabs(cursor_pos.x - margin);
+		float dr = xdiff / margin;
+		customcamera.pos.x -= dd*(1 + dr);
 	}
 	else if (cursor_pos.x > ww - margin) {
-		customcamera.pos.x += dd;
+		float xdiff = fabs((ww - cursor_pos.x) - margin);
+		float dr = xdiff / margin;
+		customcamera.pos.x += dd*(1+dr);
 	}
 
 	if (cursor_pos.y < margin) {
-		customcamera.pos.z -= dd;
+		float ydiff = fabs(cursor_pos.y - margin);
+		float dr = ydiff / margin;
+		customcamera.pos.z -= dd*(1 + dr);
 	}
 	else if (cursor_pos.y > wh - margin) {
-		customcamera.pos.z += dd;
+		float ydiff = fabs((wh - cursor_pos.y) - margin);
+		float dr = ydiff / margin;
+		customcamera.pos.z += dd*(1 + dr);
 	}
 
 }
@@ -225,10 +235,10 @@ template <typename T> T CLAMP(const T& value, const T& low, const T& high) {
 
 static void fix_mouse_rect(RECT *r) {
 
-	r->left = CLAMP(r->left, (LONG)0, client_area.right - 1);
-	r->right = CLAMP(r->right, (LONG)0, client_area.right - 1);
-	r->top = CLAMP(r->top, (LONG)0, client_area.bottom - 1);
-	r->bottom = CLAMP(r->bottom, (LONG)0, client_area.bottom - 1);
+	r->left = CLAMP(r->left, (LONG)0, window_rect.right - 1);
+	r->right = CLAMP(r->right, (LONG)0, window_rect.right - 1);
+	r->top = CLAMP(r->top, (LONG)0, window_rect.bottom - 1);
+	r->bottom = CLAMP(r->bottom, (LONG)0, window_rect.bottom - 1);
 
 	if (r->left > r->right) {
 		int temp = r->left;
@@ -371,11 +381,8 @@ static int get_screen_coords(GUID_t GUID, POINT *coords) {
 	glm::vec4 nclip = nMVP*up;
 	nclip /= nclip.w;
 
-	//dump_glm_vec4((rot*view)*up);
-	//dump_glm_vec4(nclip);
-
+	
 	*coords = map_clip_to_screen(nclip);
-
 	return 1;
 }
 
@@ -432,12 +439,10 @@ static int get_units_in_selection_rect(RECT sel) {
 void do_wc3mode_stuff() {
 
 	if (!patches_prepared) wc3mode_prepare_camera_patches();
-
-	get_cursor_pos(&cursor_pos);
-	GetClientRect(wow_hWnd, &client_area);
-
-
+	
 	GetClientRect(wow_hWnd, &window_rect);
+	get_cursor_pos(&cursor_pos);
+
 	update_wowcamera();
 
 }
