@@ -22,7 +22,12 @@ int get_window_height() {
 }
 
 static int rect_active = 0;
+static int buffers_initialized = 0;
 static POINT rect_begin;
+
+static int create_d3d9buffers(IDirect3DDevice9 *d);
+static void populate_d3d9buffers();
+static void free_d3d9buffers();
 
 #define SMAX 0.7
 #define SMIN 0.4
@@ -452,6 +457,8 @@ void wc3mode_mouseup_hook() {
 	// hmm this causes a segfault at 7446C9 on Release mode // fixed??
 
 	rect_active = 0;
+	free_d3d9buffers();
+
 	get_units_in_selection_rect(get_selection_rect());
 
 	if (selected_units.size() < 1) {
@@ -594,6 +601,7 @@ static int create_d3d9buffers(IDirect3DDevice9 *d) {
 		return 0;
 	}
 
+	buffers_initialized = 1;
 }
 
 static void populate_d3d9buffers() {
@@ -618,6 +626,8 @@ static void populate_d3d9buffers() {
 static void free_d3d9buffers() {
 	vbuffer->Release();
 	ibuffer->Release();
+
+	buffers_initialized = 0;
 }
 
 void draw_custom_d3d() {
@@ -626,8 +636,11 @@ void draw_custom_d3d() {
 
 	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
 	if (!d) return;
+	
+	if (!buffers_initialized) {
+		create_d3d9buffers(d);
+	}
 
-	create_d3d9buffers(d);
 	populate_d3d9buffers();
 
 	d->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
@@ -644,8 +657,6 @@ void draw_custom_d3d() {
 
 	//PRINT("drawing shit:)\n");
 	d->DrawIndexedPrimitive(D3DPT_LINESTRIP, 0, 0, 4, 0, 4);
-
-	free_d3d9buffers();
 }
 
 int init_custom_d3d() {
