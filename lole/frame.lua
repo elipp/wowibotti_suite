@@ -667,8 +667,12 @@ function update_target_pos_text(x, y, z)
 end
 
 local function do_combat_stuff()
+
+	if lole_subcommands.get("hold") == 0 then
+		lole_main()
+	end
+	
 	do_CC_jobs()
-	lole_main()
 end
 
 local raid_zones = {

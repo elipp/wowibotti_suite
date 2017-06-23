@@ -22,10 +22,9 @@ void ctm_abort_if_not_moving();
 int get_wow_CTM_state();
 SIZE_T set_wow_CTM_state(int state);
 
-typedef void (*CTM_callback_t)(void*);
+void broadcast_hold();
 
-void ctm_update_prevpos();
-int char_is_moving();
+typedef void (*CTM_callback_t)(void*);
 
 struct CTM_posthook_t {
 	CTM_callback_t callback;

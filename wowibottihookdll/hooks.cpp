@@ -236,11 +236,7 @@ static void __stdcall broadcast_CTM(float *coords, int action) {
 
 	PRINT("broadcast_CTM: got CTM coords: (%f, %f, %f), action = %d\n", x, y, z, action);
 
-	char sprintf_buf[128];
-
-	sprintf_s(sprintf_buf, "%.1f %.1f %.1f", x, y, z);
-
-	DoString("RunMacroText(\"/lole broadcast ctm %s\")", sprintf_buf);
+	DoString("RunMacroText(\"/lole broadcast ctm %.1f %.1f %.1f\")", x, y, z);
 }
 
 
@@ -589,8 +585,6 @@ typedef struct {
 
 void __stdcall CTM_main_hook(CTM_final_args_t *a) {
 	PRINT("CTM: action %X, s1: %X, coords: %X, s2: %X\n", a->action, a->GUID, (DWORD)a->coords, a->s2);
-
-	// segfault at 6DD06A with action 0xA
 
 	if (a->action == 0x4) {
 		float *c = a->coords;

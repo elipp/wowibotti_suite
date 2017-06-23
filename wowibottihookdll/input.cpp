@@ -2,6 +2,7 @@
 #include "defs.h"
 #include "wc3mode.h"
 #include "hooks.h"
+#include "ctm.h"
 
 // 480130 handler for all these opcodes B)
 // B41834 contains a mask of which mouse buttons are being held down
@@ -87,8 +88,12 @@ int __stdcall AddInputEvent_hook(struct inpevent_t *t) {
 
 	static int ALT_pressed = 0;
 
+#define WOWINPUT_KEY_ALT 0x4
+#define WOWINPUT_KEY_R 0x52
+#define WOWINPUT_KEY_H 0x48
 
-	if (t->event == INPUT_KEYDOWN && t->param == 0x4 && ALT_pressed == 0) { // ALT
+	
+	if (t->event == INPUT_KEYDOWN && t->param == WOWINPUT_KEY_ALT && ALT_pressed == 0) { // ALT
 		enable_wc3mode(1);
 		ALT_pressed = 1;
 		return 0;
@@ -100,10 +105,18 @@ int __stdcall AddInputEvent_hook(struct inpevent_t *t) {
 		return 0;
 	}
 
-	if (ALT_pressed && t->event == INPUT_KEYDOWN && t->param == 0x52) {
-		// ALT+R reset camera
-		reset_camera();
-		return 0;
+	if (ALT_pressed && t->event == INPUT_KEYDOWN) {
+		switch (t->param) {
+		case WOWINPUT_KEY_R:
+			// ALT+R reset camera
+			reset_camera();
+			return 0;
+		case WOWINPUT_KEY_H:
+			broadcast_hold();
+			return 0;
+		default:
+			return 1;
+		}
 	}
 
 	if (!wc3mode_enabled()) {

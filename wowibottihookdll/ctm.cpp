@@ -346,3 +346,7 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 void click_to_move(const CTM_t& c) {
 	click_to_move(c.destination, c.action, c.interact_GUID, c.min_distance);
 }
+
+void broadcast_hold() {
+	DoString("RunMacroText(\"/lole broadcast hold\")");
+}

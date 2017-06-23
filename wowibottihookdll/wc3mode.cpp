@@ -454,8 +454,6 @@ void do_wc3mode_stuff() {
 
 void wc3mode_mouseup_hook() {
 
-	// hmm this causes a segfault at 7446C9 on Release mode // fixed??
-
 	rect_active = 0;
 	free_d3d9buffers();
 

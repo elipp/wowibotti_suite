@@ -83,10 +83,23 @@ local mode_attribs = {
 	buffmode = 0,
 	combatbuffmode = 0,
 	aoemode = 0,
+	hold = 0,
 }
 
 function get_available_configs()
 	return available_configs;
+end
+
+function get_available_mode_attribs()
+
+	local r = "|cFFFFFF00"
+
+	for k,v in mode_attribs do
+		 r = r .. " " .. k
+	end
+
+	return r
+
 end
 
 function get_current_config()
@@ -233,14 +246,32 @@ local function lole_broadcast_ctm(x, y, z)
 	local units = get_selected_units()
 
 	for i,n in pairs(units) do
-		lole_subcommands.sendmacro_to(n, "/lole ctm", x, y, z, CTM_PRIO_FOLLOW); -- last arg == priority level
+		lole_subcommands.sendmacro_to(n, "/lole ctm", x, y, z, CTM_PRIO_CLEAR_HOLD);
 	end
 end
 
 local function lole_ctm(x, y, z, prio)
-	if not playermode() then
+	if playermode() then return end
+
+	if lole_subcommands.get("hold") == 0 then
+		walk_to(tonumber(x), tonumber(y), tonumber(z), prio)
+	elseif tonumber(prio) >= CTM_PRIO_CLEAR_HOLD then
+		lole_subcommands.set("hold", 0)
 		walk_to(tonumber(x), tonumber(y), tonumber(z), prio)
 	end
+
+end
+
+local function lole_broadcast_hold()
+	local units = get_selected_units()
+
+	for i,n in pairs(units) do
+		lole_subcommands.sendmacro_to(n, "/lole hold");
+	end
+end
+
+local function lole_hold()
+	lole_subcommands.set("hold", 1)
 end
 
 local function lole_show()
@@ -901,6 +932,7 @@ local function lole_broadcast_attack(GUID_str)
 		for i,n in pairs(units) do
 			lole_subcommands.sendmacro_to(n, "/lole target", GUID_str); -- last arg == priority level
 			lole_subcommands.sendmacro_to(n, "/lole set blast 1")
+			lole_subcommands.sendmacro_to(n, "/lole set hold 0")
 		end
 
 end
@@ -963,6 +995,7 @@ local lole_broadcast_commands = {
 	leavegroup = lole_broadcast_leavegroup;
 	getbiscuits = lole_broadcast_getbiscuits;
 	loot_badge = lole_broadcast_loot_badge;
+	hold = lole_broadcast_hold;
 }
 
 local function lole_broadcast(funcname, ...)
@@ -986,7 +1019,7 @@ local function lole_broadcast(funcname, ...)
 end
 
 lole_subcommands = {
-    lbuffcheck = lole_leaderbuffcheck,
+	lbuffcheck = lole_leaderbuffcheck,
 	buffcheck = lole_buffcheck,
 	cooldowns = lole_cooldowns,
 	setconfig = lole_setconfig,
@@ -1000,6 +1033,8 @@ lole_subcommands = {
 	execute = lole_execute,
 
 	broadcast = lole_broadcast,
+	bc = lole_broadcast,
+
 	ctm = lole_ctm,
 
 	cooldowns = lole_cooldowns,
@@ -1020,20 +1055,20 @@ lole_subcommands = {
 	pull = lole_pull,
 	durability = lole_durability,
 	inv_ordered = lole_inv_ordered,
-    raid_aoe = lole_raid_aoe,
-  	healer = lole_manage_healers,
+	raid_aoe = lole_raid_aoe,
+	healer = lole_manage_healers,
 	de_greeniez = lole_disenchant_greeniez,
 
 	follow = lole_follow,
 	stopfollow = lole_stopfollow,
 	target = lole_target_GUID,
-    tar = lole_target,
+	tar = lole_target,
 	sendscript = lole_sendscript,
 	ss = lole_sendscript,
 	sendmacro = lole_sendmacro,
 	run = lole_sendmacro,
-    override = lole_override,
-    echo = lole_echo,
+	override = lole_override,
+	echo = lole_echo,
 
 	sendmacro_to = lole_sendmacro_to,
 
@@ -1049,7 +1084,7 @@ lole_subcommands = {
 	dscript = lole_dscript,
 
 	register = lole_debug_lua_register,
-    distance = lole_distance_to_target,
+	distance = lole_distance_to_target,
 
 	debug_test = lole_debug_test,
 	noclip = lole_noclip,
@@ -1065,5 +1100,6 @@ lole_subcommands = {
 	capturerender = lole_capturerender;
 
 	wc3mode = lole_wc3mode;
+	hold = lole_hold;
 
 }
