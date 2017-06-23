@@ -688,7 +688,6 @@ int init_custom_d3d() {
 	}
 
 
-
 	hr = d->CreateVertexDeclaration(vdecl, &vd);
 	if (FAILED(hr)) {
 		PRINT("CreateVertexDeclaration failed: %X\n", hr);

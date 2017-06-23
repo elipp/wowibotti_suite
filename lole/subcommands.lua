@@ -74,6 +74,9 @@ local available_configs = {
 	class_config_create("warrior_prot", {}, {"Commanding Shout"}, get_class_color("warrior"), combat_warrior_prot, {}, ROLES.warrior_tank, "TANK", survive_warrior_prot),
 	--mage_aespam =
 	--class_config_create("mage_aespam", {}, {}, get_class_color("mage"), function() L_CastSpellByName("Arcane Explosion") end, {}, ROLES.caster),
+	noob_config =
+	class_config_create("noob_config", {}, {}, "FFFFFF", combat_noob, {}, ROLES.melee, "MELEE", function() end)
+
 };
 
 local mode_attribs = {

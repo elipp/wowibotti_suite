@@ -1,7 +1,12 @@
 local function noobhunter_combat()
 
-  L_PetAttack()
+  if not has_buff("player", "Aspect of the Hawk") then
+    L_CastSpellByName("Aspect of the Hawk")
+    return
+  end
+
   L_PetPassiveMode()
+  L_PetAttack()
 
   if GetSpellCooldown("Rake") == 0 then
     L_CastSpellByName("Rake")
@@ -26,7 +31,7 @@ local function noobhunter_combat()
 end
 
 local TOTEMS = {
-["earth"] = "Stoneskin Totem"
+["earth"] = "Stoneskin Totem",
 ["fire"] = "Searing Totem"
 }
 
@@ -74,9 +79,9 @@ function combat_noob()
 
   if string.find(class, "ROGUE") then
     return noobrogue_combat()
-  elseif string.find(class, "SHAMAN")
+  elseif string.find(class, "SHAMAN") then
     return noobshaman_combat()
-  elseif string.find(class, "HUNTER")
+  elseif string.find(class, "HUNTER") then
     return noobhunter_combat()
   end
 
