@@ -604,6 +604,8 @@ static int create_d3d9buffers(IDirect3DDevice9 *d) {
 
 static void populate_d3d9buffers() {
 
+	if (!buffers_initialized) return;
+
 	float vertices[2 * 4];
 	rect_to_vertices(get_selection_rect(), vertices);
 
@@ -622,8 +624,13 @@ static void populate_d3d9buffers() {
 }
 
 static void free_d3d9buffers() {
+
+	if (!buffers_initialized) return;
+
 	vbuffer->Release();
+	vbuffer = NULL;
 	ibuffer->Release();
+	ibuffer = NULL;
 
 	buffers_initialized = 0;
 }

@@ -586,11 +586,11 @@ typedef struct {
 void __stdcall CTM_main_hook(CTM_final_args_t *a) {
 	PRINT("CTM: action %X, s1: %X, coords: %X, s2: %X\n", a->action, a->GUID, (DWORD)a->coords, a->s2);
 
-	if (a->action == 0x4) {
+	if (a->action == CTM_MOVE) {
 		float *c = a->coords;
 		DoString("RunMacroText(\"/lole broadcast ctm %.3f %.3f %.3f\")", c[0], c[1], c[2]);
 	}
-	else if (a->action == 0xA) {
+	else if (a->action == CTM_MOVE_AND_ATTACK) {
 		DoString("RunMacroText(\"/lole broadcast attack 0x%16llX\")", *a->GUID);
 	}
 }
