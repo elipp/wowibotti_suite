@@ -791,6 +791,11 @@ local guild_members = {
   ["Robins"] = 3,
   ["Eino"] = 4,
   ["Kuratorn"] = 5,
+  ["Iijj"] = 6,
+  ["Teilor"] = 7,
+  ["Briit"] = 8,
+  ["Spobodi"] = 9,
+  ["Ghospodi"] = 10
 }
 
 for name, num in pairs(guild_members) do

@@ -1,4 +1,10 @@
 local function noobhunter_combat()
+  if not UnitAffectingCombat("player") and not has_buff("player", "Aspect of the Viper") then
+    L_CastSpellByName("Aspect of the Viper")
+  end
+
+  if not validate_target() then return end
+
 
   if not has_buff("player", "Aspect of the Hawk") then
     L_CastSpellByName("Aspect of the Hawk")
@@ -21,6 +27,11 @@ local function noobhunter_combat()
     return
   end
 
+  if GetSpellCooldown("Multi-Shot") == 0 then
+    L_CastSpellByName("Multi-Shot")
+    return;
+  end
+
   if not has_debuff("target", "Serpent Sting") then
     L_CastSpellByName("Serpent Sting")
     return;
@@ -34,24 +45,27 @@ local function noobhunter_combat()
 
 end
 
-local TOTEMS = {
-["earth"] = "Stoneskin Totem",
---["fire"] = "Searing Totem"
-}
-
 local function noobshaman_renew_weaponenchant()
   local has_mh, mh_exp, mh_charges = GetWeaponEnchantInfo()
   --echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
 
   if (not has_mh) then
-      L_CastSpellByName("Flametongue Weapon")
+      L_CastSpellByName("Windfury Weapon")
   end
 end
 
 local function noobshaman_combat()
 
-  melee_attack_behind()
+  if not UnitAffectingCombat("player") then
+    L_CastSpellByName("Totemic Recall")
+    return
+  end
 
+  if not validate_target() then return end
+
+  L_CastSpellByName("Call of the Elements")
+
+  melee_attack_behind()
   L_StartAttack()
 
   if not has_buff("player", "Water Shield") then
@@ -60,14 +74,6 @@ local function noobshaman_combat()
   end
 
   noobshaman_renew_weaponenchant()
-  if refresh_totems(TOTEMS) then return; end
-
-  local _, searing = GetTotemInfo(1)
-  if string.find("0", tostring(searing)) then
-    L_CastSpellByName("Searing Totem")
-  end
-
-  if not validate_target() then return end
 
   if not has_debuff("target", "Flame Shock") then
       if cast_if_nocd("Flame Shock") then return end
@@ -77,7 +83,40 @@ local function noobshaman_combat()
 
 end
 
+local mh_apply = nil
+local oh_apply = nil
+
+local function reapply_poisons()
+
+  if mh_apply then
+    L_RunMacroText("/use 16")
+    mh_apply = nil
+    return
+  elseif oh_apply then
+    L_RunMacroText("/use 17")
+    oh_apply = nil
+    return
+  end
+
+  local has_mh, mh_exp, mh_charges, has_oh, oh_exp, oh_charges = GetWeaponEnchantInfo()
+  --echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
+
+  if not has_mh then
+    L_RunMacroText("/use Crippling Poison")
+    mh_apply = GetTime()
+  elseif not has_oh then
+    L_RunMacroText("/use Deadly Poison")
+    oh_apply = GetTime()
+  end
+
+end
+
 local function noobrogue_combat()
+
+  reapply_poisons()
+
+  if not validate_target() then return end
+
   melee_attack_behind()
 
   if (GetComboPoints("player", "target") < 5) then
@@ -91,7 +130,6 @@ end
 
 function combat_noob()
 
-  if not validate_target() then return end
 
   local _, class = UnitClass("player")
 
