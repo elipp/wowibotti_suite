@@ -448,7 +448,8 @@ void do_wc3mode_stuff() {
 	GetClientRect(wow_hWnd, &window_rect);
 	get_cursor_pos(&cursor_pos);
 
-	update_wowcamera();
+	// TODO: THIS IS BUGGED_AF.
+	//update_wowcamera();
 
 }
 

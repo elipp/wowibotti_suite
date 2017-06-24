@@ -122,7 +122,9 @@ static void __stdcall call_pylpyr() {
 static void __stdcall Present_hook() {
 
 	init_custom_d3d(); // this doesn't do anything if it's already initialized
+	
 	do_wc3mode_stuff();
+	//return;
 
 	if (wc3mode_enabled()) {
 		if (mouse_pressed) {
