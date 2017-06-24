@@ -126,7 +126,7 @@ static void update_wowcamera() {
 
 #define CAMERAPATCH_BASE 0x6075AB
 
-static const int camera_patchsize = 0x6075EB - CAMERAPATCH_BASE;
+static const int camera_patchsize = 0x6075EC - CAMERAPATCH_BASE;
 
 static BYTE camera_original[camera_patchsize];
 static BYTE camera_patched[camera_patchsize];
@@ -502,6 +502,8 @@ int wc3mode_enabled() {
 }
 
 void enable_wc3mode(int b) {
+	if (b == 2) { b = !wc3_enabled; }
+
 	if (b) {
 		wc3_enabled = 1;
 		patch_camera();

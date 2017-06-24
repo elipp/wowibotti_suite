@@ -16,7 +16,11 @@ local function noobhunter_combat()
 
   caster_range_check(35)
 
-  L_CastSpellByName("Hunter's Mark")
+  if not has_debuff("target", "Hunter's Mark") then
+    L_CastSpellByName("Hunter's Mark")
+    return
+  end
+
   if not has_debuff("target", "Serpent Sting") then
     L_CastSpellByName("Serpent Sting")
     return;
@@ -32,7 +36,7 @@ end
 
 local TOTEMS = {
 ["earth"] = "Stoneskin Totem",
-["fire"] = "Searing Totem"
+--["fire"] = "Searing Totem"
 }
 
 local function noobshaman_renew_weaponenchant()
@@ -48,8 +52,22 @@ local function noobshaman_combat()
 
   melee_attack_behind()
 
+  L_StartAttack()
+
+  if not has_buff("player", "Water Shield") then
+    L_CastSpellByName("Water Shield")
+    return
+  end
+
   noobshaman_renew_weaponenchant()
   if refresh_totems(TOTEMS) then return; end
+
+  local _, searing = GetTotemInfo(1)
+  if string.find("0", tostring(searing)) then
+    L_CastSpellByName("Searing Totem")
+  end
+
+  if not validate_target() then return end
 
   if not has_debuff("target", "Flame Shock") then
       if cast_if_nocd("Flame Shock") then return end

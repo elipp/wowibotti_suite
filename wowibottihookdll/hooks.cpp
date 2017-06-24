@@ -583,16 +583,19 @@ typedef struct {
 	DWORD s2;
 } CTM_final_args_t;
 
-void __stdcall CTM_main_hook(CTM_final_args_t *a) {
+int __stdcall CTM_main_hook(CTM_final_args_t *a) {
 	PRINT("CTM: action %X, s1: %X, coords: %X, s2: %X\n", a->action, a->GUID, (DWORD)a->coords, a->s2);
 
 	if (a->action == CTM_MOVE) {
 		float *c = a->coords;
 		DoString("RunMacroText(\"/lole broadcast ctm %.3f %.3f %.3f\")", c[0], c[1], c[2]);
+		return 0;
 	}
 	else if (a->action == CTM_MOVE_AND_ATTACK) {
 		DoString("RunMacroText(\"/lole broadcast attack 0x%16llX\")", *a->GUID);
+		return 0;
 	}
+	else return 1;
 }
 
 static const trampoline_t *prepare_CTM_main_patch(patch_t *p) {
@@ -601,11 +604,17 @@ static const trampoline_t *prepare_CTM_main_patch(patch_t *p) {
 	tr << PUSHAD;
 	tr.append_hexstring("8D54242452"); // lea edx, [esp + 24]; push edx; because LOLZ
 	tr.append_CALL((DWORD)CTM_main_hook);
+	tr.append_hexstring("83F800"); // cmp eax, 0
+	tr.append_hexstring("0F840D000000"); // jz branch 2
 	tr << POPAD;
-//	tr.append_bytes(p->original, p->size);
-//	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size);
-	tr.append_hexstring("C21000"); // retn 10
 
+	tr.append_bytes(p->original, p->size);
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size);
+	tr << RET;
+
+	// branch 2
+	tr << POPAD;
+	tr.append_hexstring("C21000"); // retn 10
 
 	return &tr;
 }

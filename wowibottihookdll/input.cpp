@@ -93,22 +93,21 @@ int __stdcall AddInputEvent_hook(struct inpevent_t *t) {
 #define WOWINPUT_KEY_H 0x48
 
 	
-	if (t->event == INPUT_KEYDOWN && t->param == WOWINPUT_KEY_ALT && ALT_pressed == 0) { // ALT
-		enable_wc3mode(1);
-		ALT_pressed = 1;
-		return 0;
-	}
+	//if (t->event == INPUT_KEYDOWN && t->param == WOWINPUT_KEY_ALT && ALT_pressed == 0) { // ALT
+	//	enable_wc3mode(1);
+	//	ALT_pressed = 1;
+	//	return 0;
+	//}
 
-	if (t->event == INPUT_KEYUP && t->param == 0x4) { // ALT
-		enable_wc3mode(0);
-		ALT_pressed = 0;
-		return 0;
-	}
+	//if (t->event == INPUT_KEYUP && t->param == WOWINPUT_KEY_ALT) { // ALT
+	//	enable_wc3mode(0);
+	//	ALT_pressed = 0;
+	//	return 0;
+	//}
 
-	if (ALT_pressed && t->event == INPUT_KEYDOWN) {
+	if (wc3mode_enabled && t->event == INPUT_KEYDOWN) {
 		switch (t->param) {
 		case WOWINPUT_KEY_R:
-			// ALT+R reset camera
 			reset_camera();
 			return 0;
 		case WOWINPUT_KEY_H:

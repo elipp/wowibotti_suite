@@ -12,6 +12,7 @@ local totem_name_type_map = {
 
 	["Totem of Wrath"] = totem_type_id_map["fire"],
 	["Frost Resistance Totem"] = totem_type_id_map["fire"],
+	["Searing Totem"] = totem_type_id_map["fire"],
 
 	["Mana Spring Totem"] = totem_type_id_map["water"],
 	["Mana Tide Totem"] = totem_type_id_map["water"],

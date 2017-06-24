@@ -1400,9 +1400,9 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LDOP_TEST: {
-		//LOPDBG_test();
+		LOPDBG_test();
 
-		try_wowctm();
+	//	try_wowctm();
 		break;
 	}
 	case LDOP_NOCLIP:

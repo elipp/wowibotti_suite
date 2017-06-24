@@ -276,6 +276,10 @@ function L_CastSpellByName(spellname)
 	execute_script("CastSpellByName(\"" .. spellname .. "\")")
 end
 
+function L_StartAttack()
+	execute_script("StartAttack()")
+end
+
 function L_RunScript(script)
 	execute_script(script)
 end
