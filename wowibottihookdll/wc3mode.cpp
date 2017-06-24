@@ -444,12 +444,15 @@ static int get_units_in_selection_rect(RECT sel) {
 void do_wc3mode_stuff() {
 
 	if (!patches_prepared) wc3mode_prepare_camera_patches();
-	
+
+	if (wc3mode_enabled()) {
+		update_wowcamera();
+	}
+
 	GetClientRect(wow_hWnd, &window_rect);
 	get_cursor_pos(&cursor_pos);
 
 	// TODO: THIS IS BUGGED_AF.
-	//update_wowcamera();
 
 }
 
