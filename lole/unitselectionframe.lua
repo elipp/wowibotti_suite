@@ -101,8 +101,8 @@ local selected_units = {}
 local num_units = 0
 
 function clear_selection()
-	for c, frame in pairs(selected_units) do
-		frame:Hide()
+	for i, uf in pairs(selected_units) do
+		uf.unitframe:Hide()
 	end
 	selected_units = {}
 	num_units = 0
@@ -111,8 +111,44 @@ end
 local stride_pixels = 52
 
 local function add_unitframe(unitname, unitframe)
-	selected_units[unitname] = unitframe
-	num_units = num_units + 1
+	local uf = {}
+	uf.unitname = unitname
+	uf.unitframe = unitframe
+	unitframe:SetPoint("TOPLEFT", 30+num_units*stride_pixels, -30)
+	selected_units[#selected_units + 1] = uf
+	num_units = #selected_units
+end
+
+local function refresh_unitframe_positions()
+	for i, uf in pairs(selected_units) do
+		uf.unitframe:SetPoint("TOPLEFT", 30 + (i-1)*stride_pixels, -30)
+	end
+end
+
+local function deselect_unit(unitname)
+
+	local index = nil
+	for i, uf in pairs(selected_units) do
+		if uf.unitname == unitname then
+			index = i
+			break
+		end
+	end
+
+	if not index then return end
+
+	selected_units[index].unitframe:Hide()
+
+	for i = index,num_units-1 do
+		selected_units[i] = selected_units[i+1]
+	end
+
+	table.remove(selected_units) -- this is like a "pop" operation
+	num_units = #selected_units
+
+	refresh_unitframe_positions()
+	set_selection(get_selected_units_commaseparated())
+
 end
 
 local function create_unit_frame(unitname)
@@ -128,9 +164,10 @@ local function create_unit_frame(unitname)
 
 	unitframe:SetHeight(40)
 	unitframe:SetWidth(40)
-	unitframe:SetPoint("TOPLEFT", 30+num_units*stride_pixels, -30)
 	local portframe = create_portrait(unitframe)
 	local icon = create_class_icon(portframe)
+
+	-- SetPoint is done later (even though it's kind of weird), in add_unitframe
 
 	local name = unitframe:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	name:SetPoint("BOTTOM", unitframe, 0, -12)
@@ -138,7 +175,11 @@ local function create_unit_frame(unitname)
 	unitframe.unitname = UnitName("target")
 
 	unitframe:SetScript("OnClick", function(self)
-		set_selection(self.unitname)
+		if IsControlKeyDown() then
+			deselect_unit(self.unitname)
+		else
+			set_selection(self.unitname)
+		end
 	end)
 
 	L_ClearTarget()
@@ -162,11 +203,20 @@ end
 
 function get_selected_units()
 	local u = {}
-	for n,f in pairs(selected_units) do
-		u[#u + 1] = n
+	for i,uf in pairs(selected_units) do
+		u[#u + 1] = uf.unitname
 	end
 
 	return u
+end
+
+function get_selected_units_commaseparated()
+	local s = ""
+	for i,uf in pairs(selected_units) do
+		s = s .. uf.unitname .. ","
+	end
+	return s:sub(1, -2) -- deletes the last comma apparently
+
 end
 
 --us_frame:SetScript("OnUpdate", update_selected)

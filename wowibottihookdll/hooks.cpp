@@ -594,6 +594,7 @@ int __stdcall CTM_main_hook(CTM_final_args_t *a) {
 		return 0;
 	}
 	else if (a->action == CTM_MOVE_AND_ATTACK) {
+		ctm_queue_reset();
 		DoString("RunMacroText(\"/lole broadcast attack 0x%16llX\")", *a->GUID);
 		return 0;
 	}

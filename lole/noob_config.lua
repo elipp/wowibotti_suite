@@ -54,19 +54,39 @@ local function noobshaman_renew_weaponenchant()
   end
 end
 
-local function noobshaman_combat()
+local function noobshaman_totemsexist()
+  local _,a = GetTotemInfo(1)
+  local _,b = GetTotemInfo(2)
+  local _,c = GetTotemInfo(3)
+  local _,d = GetTotemInfo(4)
 
-  if not UnitAffectingCombat("player") then
-    L_CastSpellByName("Totemic Recall")
-    return
+  if (a ~= "" or b ~= "" or c ~= "" or d ~= "") then
+    return true
+  else
+    return nil
   end
 
-  if not validate_target() then return end
+end
 
-  L_CastSpellByName("Call of the Elements")
+local function noobshaman_managetotems()
+  local totems_exist = noobshaman_totemsexist()
+  local within_range = has_buff("player", "Windfury Totem")
 
-  melee_attack_behind()
-  L_StartAttack()
+  if totems_exist and not within_range then
+    L_CastSpellByName("Totemic Recall")
+    return 1
+  end
+
+  if not totems_exist then
+    L_CastSpellByName("Call of the Elements")
+    return 1
+  end
+
+  return nil
+
+end
+
+local function noobshaman_combat()
 
   if not has_buff("player", "Water Shield") then
     L_CastSpellByName("Water Shield")
@@ -74,6 +94,13 @@ local function noobshaman_combat()
   end
 
   noobshaman_renew_weaponenchant()
+
+  if not validate_target() then return end
+
+  melee_attack_behind()
+  L_StartAttack()
+
+  if noobshaman_managetotems() then return end
 
   if not has_debuff("target", "Flame Shock") then
       if cast_if_nocd("Flame Shock") then return end
@@ -105,7 +132,7 @@ local function reapply_poisons()
     L_RunMacroText("/use Crippling Poison")
     mh_apply = GetTime()
   elseif not has_oh then
-    L_RunMacroText("/use Deadly Poison")
+    L_RunMacroText("/use Deadly Poison II")
     oh_apply = GetTime()
   end
 
@@ -118,6 +145,10 @@ local function noobrogue_combat()
   if not validate_target() then return end
 
   melee_attack_behind()
+
+  if UnitCastingInfo("target") or UnitchannelInfo("target") then
+    L_CastSpellByName("Kick")
+  end
 
   if (GetComboPoints("player", "target") < 5) then
       L_CastSpellByName("Backstab")

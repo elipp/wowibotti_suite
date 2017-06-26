@@ -260,10 +260,6 @@ function enable_wc3mode(enabled)
 	lop_exec(LOP_WC3MODE, tonumber(enabled))
 end
 
-function report_selection(l, t, w, h)
-	lop_exec(LOP_SL_SELECTRECT, l, t, w, h)
-end
-
 function L_TargetUnit(name)
     lop_exec(LOP_TARGET_GUID, UnitGUID(name))
 end

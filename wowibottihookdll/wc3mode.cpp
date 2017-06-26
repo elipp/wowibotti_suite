@@ -71,7 +71,7 @@ static void move_camera_if_cursor() {
 	//PRINT("camera: 0x%X\n", camera);
 
 	const float dd = 0.1*((1.0-SMIN) + customcamera.get_s());
-	const float margin = 100;
+	const float margin = 50;
 
 	int ww = get_window_width();
 	int wh = get_window_height();
@@ -402,14 +402,14 @@ static inline void broaden_rect(RECT *r) {
 	r->top -= 20;
 }
 
-static int get_units_in_selection_rect(RECT sel) {
+static std::unordered_map<GUID_t, std::string> get_units_in_selection_rect(RECT sel) {
 
-	selected_units.clear();
+	std::unordered_map<GUID_t, std::string> units;
 
 	ObjectManager OM;
 	WowObject iter;
 
-	if (!OM.get_first_object(&iter)) return 0;
+	if (!OM.get_first_object(&iter)) return units;
 
 	if (get_rect_area(sel) < 150) {
 		PRINT("rect_area < 150! broadening\n");
@@ -428,7 +428,7 @@ static int get_units_in_selection_rect(RECT sel) {
 
 			if (coords.x > sel.left && coords.x < sel.right
 				&& coords.y < sel.bottom && coords.y > sel.top) {
-				selected_units[unitguid] = iter.unit_get_name();
+				units[unitguid] = iter.unit_get_name();
 				//PRINT("^UNIT IN RECT!\n");
 			}
 
@@ -437,7 +437,7 @@ static int get_units_in_selection_rect(RECT sel) {
 
 	}
 
-	return selected_units.size();
+	return units;
 
 }
 
@@ -445,15 +445,26 @@ void do_wc3mode_stuff() {
 
 	if (!patches_prepared) wc3mode_prepare_camera_patches();
 
-	if (wc3mode_enabled()) {
+	if (wc3mode_enabled()) { // having the check here actually fixes a lot of problems.. :D
 		update_wowcamera();
 	}
 
 	GetClientRect(wow_hWnd, &window_rect);
 	get_cursor_pos(&cursor_pos);
 
-	// TODO: THIS IS BUGGED_AF.
+}
 
+static void add_units_to_selection(const std::unordered_map<GUID_t, std::string> &units) {
+
+	for (auto &u : units) {
+		if (selected_units.find(u.first) == selected_units.end()) {
+			selected_units[u.first] = u.second;
+		}
+	}
+}
+
+static void replace_selection(const std::unordered_map<GUID_t, std::string> &units) {
+	selected_units = units;
 }
 
 void wc3mode_mouseup_hook() {
@@ -461,11 +472,18 @@ void wc3mode_mouseup_hook() {
 	rect_active = 0;
 	free_d3d9buffers();
 
-	get_units_in_selection_rect(get_selection_rect());
+	auto rectunits = get_units_in_selection_rect(get_selection_rect());
 
-	if (selected_units.size() < 1) {
-		DoString("RunMacroText(\"/lole clearselection\")");
+	if (rectunits.size() < 1) {
+	//	DoString("RunMacroText(\"/lole clearselection\")"); // in actual Warcraft III, the selection doesn't get cleared when you click on emptiness
 		return;
+	}
+
+	if (iscontrolkeydown()) { // add the
+		add_units_to_selection(rectunits);
+	}
+	else {
+		replace_selection(rectunits);
 	}
 
 	std::string units_concatd;
@@ -476,7 +494,7 @@ void wc3mode_mouseup_hook() {
 
 	units_concatd.pop_back();
 	DoString("RunMacroText(\"/lole setselection %s\")", units_concatd.c_str());
-
+	
 }
 
 static void set_internal_selection(const std::string &names_commaseparated) {

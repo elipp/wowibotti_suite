@@ -14,3 +14,5 @@ extern int need_mouseup;
 extern int mouse_pressed;
 
 void add_mouseup();
+
+bool iscontrolkeydown();
