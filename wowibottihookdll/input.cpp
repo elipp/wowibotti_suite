@@ -19,8 +19,19 @@
 
 #define WOWINPUT_KEY_CTRL 0x2
 #define WOWINPUT_KEY_ALT 0x4
-#define WOWINPUT_KEY_R 0x52
+#define WOWINPUT_KEY_0 0x30
+#define WOWINPUT_KEY_1 0x31
+#define WOWINPUT_KEY_2 0x32
+#define WOWINPUT_KEY_3 0x33
+#define WOWINPUT_KEY_4 0x34
+#define WOWINPUT_KEY_5 0x35
+#define WOWINPUT_KEY_6 0x36
+#define WOWINPUT_KEY_7 0x37
+#define WOWINPUT_KEY_8 0x38
+#define WOWINPUT_KEY_9 0x39
+
 #define WOWINPUT_KEY_H 0x48
+#define WOWINPUT_KEY_R 0x52
 
 void get_cursor_pos(POINT *p) {
 	GetCursorPos(p);
@@ -40,6 +51,18 @@ void add_input_event(inpevent_t *t) {
 
 enum { INPUTEVENT_FILTER = 0, INPUTEVENT_LET_THROUGH };
 
+static bool cursor_in_selectionframearea(int x, int y) {
+	float ww = get_window_width();
+	float wh = get_window_height();
+
+	if (y > wh * 0.78) {
+		if (x > (0.15 * ww) && x < (0.85 * ww)) {
+			return true;
+		}
+	}	
+
+	return false;
+}
 
 static int handle_inputmousedown(struct inpevent_t *t) {
 
@@ -52,7 +75,7 @@ static int handle_inputmousedown(struct inpevent_t *t) {
 	}
 
 	if (t->param == MOUSELEFT) {
-		if (t->y > (float)get_window_height() * 0.78) {
+		if (cursor_in_selectionframearea(t->x, t->y)) {
 			PRINT("mouse left down within area!\n");
 			return INPUTEVENT_LET_THROUGH;
 		}
@@ -63,7 +86,8 @@ static int handle_inputmousedown(struct inpevent_t *t) {
 		//t->action = 0xD; // HEHE clever try, but apparently 0xD requires a valid 0x9 to work.
 		return INPUTEVENT_LET_THROUGH;
 	}
-	return INPUTEVENT_FILTER;
+
+	return INPUTEVENT_LET_THROUGH;
 
 }
 
@@ -78,7 +102,7 @@ static int handle_inputmouseup(struct inpevent_t *t) {
 			mouse_pressed = 0;
 			return INPUTEVENT_LET_THROUGH;
 		}
-		else if (t->y > (float)get_window_height() * 0.78) {
+		else if (cursor_in_selectionframearea(t->x, t->y) && !wc3_rect_active()) {
 			PRINT("mouse left up within area!\n");
 			return INPUTEVENT_LET_THROUGH;
 		}
@@ -96,32 +120,51 @@ static int handle_inputmouseup(struct inpevent_t *t) {
 }
 
 static int handle_keydown(struct inpevent_t *t) {
-	switch (t->param) {
 
-	case WOWINPUT_KEY_CTRL:
+	if (t->param == WOWINPUT_KEY_CTRL) {
 		control_key_down = 1;
-		return INPUTEVENT_LET_THROUGH;
-
-	case WOWINPUT_KEY_R:
-		if (wc3mode_enabled()) {
-			reset_camera();
-			return INPUTEVENT_FILTER;
-		}
-		break;
-
-	case WOWINPUT_KEY_H:
-		if (wc3mode_enabled()) {
-			broadcast_hold();
-			return INPUTEVENT_FILTER;
-		}
-		break;
-
 	}
 
-	return INPUTEVENT_LET_THROUGH;
+	if (!wc3mode_enabled()) {
+		return INPUTEVENT_LET_THROUGH;
+	}
+	else { // wc3mode stuff
+		if (t->param >= WOWINPUT_KEY_0 && t->param <= WOWINPUT_KEY_9) {
+			int index = 0xF & t->param;
+
+			if (controlkeyisdown()) {
+				wc3mode_assign_cgroup(index);
+			}
+			else {
+				wc3mode_restore_cgroup(index);
+			}
+
+			return INPUTEVENT_FILTER;
+		}
+
+		switch (t->param) {
+		case WOWINPUT_KEY_R:
+			reset_camera();
+			return INPUTEVENT_FILTER;
+
+		case WOWINPUT_KEY_H:
+			broadcast_hold();
+			return INPUTEVENT_FILTER;
+
+		default:
+			return INPUTEVENT_LET_THROUGH;
+
+		}
+
+		return INPUTEVENT_LET_THROUGH;
+	}
 }
 
 static int handle_keyup(struct inpevent_t *t) {
+	//if (t->param >= WOWINPUT_KEY_0 && t->param <= WOWINPUT_KEY_9) {
+	//	return INPUTEVENT_FILTER;
+	//}
+
 	if (t->param == WOWINPUT_KEY_CTRL) control_key_down = 0;
 	return INPUTEVENT_LET_THROUGH;
 }
@@ -150,8 +193,6 @@ int __stdcall AddInputEvent_hook(struct inpevent_t *t) {
 
 	DWORD ai = DEREF(0xD41400);
 	DWORD ai2 = DEREF(0xD41404);
-
-	static int ALT_pressed = 0;
 
 	int r = INPUTEVENT_LET_THROUGH;
 
@@ -220,6 +261,6 @@ void add_mouseup() {
 	add_input_event(&mup);
 }
 
-bool iscontrolkeydown() {
-	return control_key_down;
+bool controlkeyisdown() {
+	return control_key_down == 1;
 }

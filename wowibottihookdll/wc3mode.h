@@ -28,6 +28,7 @@ void enable_wc3mode(int b);
 void reset_camera();
 
 void wc3_start_rect();
+bool wc3_rect_active();
 void wc3_draw_pylpyrs();
 
 int init_custom_d3d();
@@ -35,3 +36,6 @@ void draw_custom_d3d();
 
 int get_window_width();
 int get_window_height();
+
+void wc3mode_assign_cgroup(int index);
+void wc3mode_restore_cgroup(int index);

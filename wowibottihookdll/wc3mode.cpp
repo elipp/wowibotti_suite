@@ -467,6 +467,22 @@ static void replace_selection(const std::unordered_map<GUID_t, std::string> &uni
 	selected_units = units;
 }
 
+static std::string get_selected_units_commasep() {
+
+	if (selected_units.size() < 1) return "";
+
+	std::string units_concatd;
+
+	for (auto &u : selected_units) {
+		units_concatd.append(u.second);
+		units_concatd.push_back(',');
+	}
+
+	units_concatd.pop_back(); // get rid of the last ','
+
+	return units_concatd;
+}
+
 void wc3mode_mouseup_hook() {
 
 	rect_active = 0;
@@ -479,25 +495,26 @@ void wc3mode_mouseup_hook() {
 		return;
 	}
 
-	if (iscontrolkeydown()) { // add the
+	if (controlkeyisdown()) { // add the
 		add_units_to_selection(rectunits);
 	}
 	else {
 		replace_selection(rectunits);
 	}
 
-	std::string units_concatd;
+	std::string units_commasep = get_selected_units_commasep();
 
-	for (auto &u : selected_units) {
-		units_concatd = units_concatd + u.second + ",";
-	}
-
-	units_concatd.pop_back();
-	DoString("RunMacroText(\"/lole setselection %s\")", units_concatd.c_str());
+	DoString("RunMacroText(\"/lole setselection %s\")", units_commasep.c_str());
 	
 }
 
 static void set_internal_selection(const std::string &names_commaseparated) {
+
+	if (names_commaseparated == "") {
+		selected_units = std::unordered_map<GUID_t, std::string>();
+		return;
+	}
+
 	std::vector<std::string> names;
 	tokenize_string(names_commaseparated, ",", names);
 	selected_units.clear();
@@ -513,9 +530,42 @@ static void set_internal_selection(const std::string &names_commaseparated) {
 }
 
 void wc3mode_setselection(const std::string &names_commaseparated) {
+	//PRINT("%s\n", names_commaseparated.c_str());
 	set_internal_selection(names_commaseparated);
-	DoString("RunMacroText(\"/lole setselection %s\")", names_commaseparated.c_str());
+
+	if (names_commaseparated == "") {
+		DoString("RunMacroText(\"/lole clearselection\")", names_commaseparated.c_str());
+	}
+	else {
+		DoString("RunMacroText(\"/lole setselection %s\")", names_commaseparated.c_str());
+	}
 }
+
+
+static struct {
+	std::unordered_map<GUID_t, std::string> cgroups[9];
+	void assign(const std::unordered_map<GUID_t, std::string> &units, int index) {
+		if (index < 0 || index > 9) return;
+		cgroups[index] = units;
+	}
+
+	void clear() { for (int i = 0; i < 9; ++i) cgroups[i] = std::unordered_map<GUID_t, std::string>(); }
+} cgroup_pool;
+
+
+void wc3mode_assign_cgroup(int index) {
+	if (index > 9) return;
+	cgroup_pool.assign(selected_units, index);
+}
+
+void wc3mode_restore_cgroup(int index) {
+	if (index > 9) return;
+
+	selected_units = cgroup_pool.cgroups[index];
+
+	wc3mode_setselection(get_selected_units_commasep());
+}
+
 
 static int wc3_enabled = 0;
 
@@ -543,6 +593,10 @@ void enable_wc3mode(int b) {
 void wc3_start_rect() {
 	get_cursor_pos(&rect_begin);
 	rect_active = 1;
+}
+
+bool wc3_rect_active() {
+	return rect_active == 1;
 }
 
 #pragma optimize( "", off )
@@ -624,6 +678,7 @@ static int create_d3d9buffers(IDirect3DDevice9 *d) {
 	}
 
 	buffers_initialized = 1;
+	return 1;
 }
 
 static void populate_d3d9buffers() {
