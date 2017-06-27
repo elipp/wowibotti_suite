@@ -146,7 +146,7 @@ local function noobrogue_combat()
 
   melee_attack_behind()
 
-  if UnitCastingInfo("target") or UnitchannelInfo("target") then
+  if UnitCastingInfo("target") or UnitChannelInfo("target") then
     L_CastSpellByName("Kick")
   end
 
