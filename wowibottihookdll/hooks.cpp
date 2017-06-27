@@ -587,6 +587,8 @@ typedef struct {
 
 int __stdcall CTM_main_hook(CTM_final_args_t *a) {
 	PRINT("CTM: action %X, s1: %X, coords: %X, s2: %X\n", a->action, a->GUID, (DWORD)a->coords, a->s2);
+	
+	if (!wc3mode_enabled()) return 1;
 
 	if (a->action == CTM_MOVE) {
 		float *c = a->coords;
