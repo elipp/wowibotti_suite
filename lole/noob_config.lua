@@ -102,6 +102,11 @@ local function noobshaman_combat()
 
   if noobshaman_managetotems() then return end
 
+  if GetSpellCooldown("Stormstrike") == 0 then
+    L_CastSpellByName("Stormstrike")
+    return
+  end
+
   if not has_debuff("target", "Flame Shock") then
       if cast_if_nocd("Flame Shock") then return end
   else

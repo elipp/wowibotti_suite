@@ -543,7 +543,7 @@ void wc3mode_setselection(const std::string &names_commaseparated) {
 
 
 static struct {
-	std::unordered_map<GUID_t, std::string> cgroups[9];
+	std::unordered_map<GUID_t, std::string> cgroups[10];
 	void assign(const std::unordered_map<GUID_t, std::string> &units, int index) {
 		if (index < 0 || index > 9) return;
 		cgroups[index] = units;
