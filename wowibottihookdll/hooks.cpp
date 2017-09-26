@@ -1,7 +1,14 @@
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+#include <Windows.h>
+
 #include <queue>
 #include <cassert>
 #include <unordered_map>
+
 #include <d3d9.h>
+
 #include "hooks.h"
 #include "addrs.h"
 #include "defs.h"
@@ -15,6 +22,7 @@
 #include "dipcapture.h"
 #include "wc3mode.h"
 #include "input.h"
+#include "patch.h"
 
 //static HRESULT(*EndScene)(void);
 pipe_data PIPEDATA;
@@ -83,6 +91,20 @@ trampoline_t &trampoline_t::append_bytes(const BYTE* b, int size) {
 	}
 	return (*this);
 
+}
+
+trampoline_t &trampoline_t::append_default_return(const patch_t *p) {
+	(*this) << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
+	(*this) << RET;
+
+	return (*this);
+}
+
+trampoline_t &trampoline_t::append_original_opcodes(const patch_t *p) {
+	// this works unless the original opcodes include a CALL or a JMP
+	this->append_bytes(p->original, p->size);
+
+	return (*this);
 }
 
 
@@ -177,10 +199,138 @@ static void __stdcall Present_hook() {
 
 }
 
+static int get_header_length(BYTE* pkt) {
+	if (pkt[0] & 0x80) {
+		return 5;
+		//	h.content_length = (((((uint32_t)pkt[0]) & 0x7F) << 16) | (((uint32_t)pkt[1]) << 8) | pkt[2]);
+		//memcpy(&h.opcode, &b[3], sizeof(uint16_t));
+	}
+	else {
+		return 4;
+		//	h.content_length = (((uint32_t)b[0]) << 8 | b[1]);
+		//memcpy(&h.opcode, &b[2], sizeof(uint16_t));
+	}
+}
+
+static uint32_t get_content_length(BYTE* pkt) {
+	if (pkt[0] & 0x80) {
+		return (((((uint32_t)pkt[0]) & 0x7F) << 16) | (((uint32_t)pkt[1]) << 8) | pkt[2]);
+	}
+	else {
+		return (((uint32_t)pkt[0]) << 8 | pkt[1]);
+	}
+}
+
+static int HAVE_NEW_PACKET;
+static uint8_t WARDEN_PACKET[8096];
+static int WARDEN_PACKET_LENGTH;
+static int WARDEN_THREAD_RUNNING;
+
+static SOCKET WARDEN_SOCKET = INVALID_SOCKET;
+
+static DWORD WINAPI create_warden_socket() {
+	WARDEN_SOCKET = INVALID_SOCKET;
+	WSADATA wsaData;
+	struct addrinfo *result = NULL,
+		*ptr = NULL,
+		hints;
+
+	int r = 0;
+
+	ZeroMemory(&hints, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+
+	// Resolve the server address and port
+	r = getaddrinfo("li1406-250.members.linode.com", "6337", &hints, &result);
+	if (r != 0) {
+		printf("getaddrinfo failed with error: %d\n", r);
+		WSACleanup();
+		return 1;
+	}
+
+	// Attempt to connect to an address until one succeeds
+	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
+
+		// Create a SOCKET for connecting to server
+		WARDEN_SOCKET = socket(ptr->ai_family, ptr->ai_socktype,
+			ptr->ai_protocol);
+		if (WARDEN_SOCKET == INVALID_SOCKET) {
+			printf("socket failed with error: %ld\n", WSAGetLastError());
+			WSACleanup();
+			return 1;
+		}
+
+		// Connect to server.
+		r = connect(WARDEN_SOCKET, ptr->ai_addr, (int)ptr->ai_addrlen);
+		if (r == SOCKET_ERROR) {
+			closesocket(WARDEN_SOCKET);
+			WARDEN_SOCKET = INVALID_SOCKET;
+			continue;
+		}
+		break;
+	}
+
+	freeaddrinfo(result);
+
+	if (WARDEN_SOCKET == INVALID_SOCKET) {
+		printf("Unable to connect to server!\n");
+		WSACleanup();
+		return 1;
+	}
+
+	PRINT("created socket for warden packet relaying!\n");
+
+}
+
 
 static void __stdcall EndScene_hook() {
-
 	draw_custom_d3d();
+}
+
+enum {
+	WARDEN_SOURCE_IN = 0,
+	WARDEN_SOURCE_OUT = 1
+};
+
+static void relay_warden_packet(BYTE *pkt, int pktlen, uint8_t source) {
+	if (WARDEN_SOCKET == INVALID_SOCKET) { create_warden_socket(); }
+	
+	PRINT("relay: pktlen = %d, source = %d\n", pktlen, source);
+
+	BYTE buf[8192];
+	buf[0] = source;
+	memcpy(buf + 1, pkt, pktlen);
+
+	int r = send(WARDEN_SOCKET, (const char*)buf, pktlen + 1, 0);
+	if (r < 0) {
+		PRINT("send() returned %d, closing connection!\n", r);
+		closesocket(WARDEN_SOCKET);
+		WARDEN_SOCKET = INVALID_SOCKET;
+	}
+	else {
+		PRINT("sent %d bytes\n", pktlen + 1);
+	}
+}
+
+static void dump_warden_input(BYTE* packet) {
+	static int num_warden_ipackets = 0;
+	++num_warden_ipackets;
+
+	int header_length = get_header_length(packet);
+	int content_length = get_content_length(packet);
+	relay_warden_packet(packet, content_length + header_length - 2, WARDEN_SOURCE_IN);
+
+}
+
+static void dump_warden_output(BYTE* packet) {
+
+	static int num_warden_opackets = 0;
+	++num_warden_opackets;
+
+	int content_length = get_content_length(packet);
+	relay_warden_packet(packet, content_length + 2, WARDEN_SOURCE_OUT);
 
 }
 
@@ -189,7 +339,14 @@ static void __stdcall dump_packet(BYTE *packet) {
 	enum {
 		CMSG_CAST_SPELL = 0x12E,
 		CMSG_SET_SELECTION = 0x13D,
+		SMSG_WARDEN_DATA = 0x2E6,
+		CMSG_WARDEN_DATA = 0x2E7,
 	};
+
+	if (packet[0] & 0x80) {
+		PRINT("have a BIG packet, ignoring\n");
+		return;
+	}
 
 	DWORD length = (DWORD)(packet[0]) << 8;
 	length += packet[1] + 2; // +2 for the length bytes themselves (not included apparently)
@@ -214,12 +371,22 @@ static void __stdcall dump_packet(BYTE *packet) {
 		}
 		PRINT("\n\n");
 	}
+	else if (opcode == SMSG_WARDEN_DATA) {
+		dump_warden_input(packet);
+		PRINT("GOT SMSG_WARDEN_DATA\n");
+	}
+
+	else if (opcode == CMSG_WARDEN_DATA) {
+		dump_warden_output(packet);
+		PRINT("GOT CMSG_WARDEN_DATA\n");
+	}
+	
 	else {
-		PRINT("opcode: %X\n", opcode);
-		for (int i = 6; i < length; ++i) {
-			PRINT("%02X ", packet[i]);
-		}
-		PRINT("\n\n");
+		//PRINT("opcode: 0x%04X (content length %d)\n", opcode, length-6);
+		//for (int i = 6; i < length; ++i) {
+		//	PRINT("%02X ", packet[i]);
+		//}
+		//PRINT("\n\n");
 	}
 }
 
@@ -333,11 +500,8 @@ static const trampoline_t *prepare_sendpacket_patch(patch_t *p) {
 	tr.append_CALL((DWORD)dump_packet);
 	tr << POPAD; // POPAD
 
-	tr.append_CALL(some_crypt_func); // from the original opcodes
-	
-	tr << (BYTE)0x68 << retaddr; // push RET addr
-	
-	tr << RET; // RET
+	tr.append_CALL(some_crypt_func); // from the original opcodes (append_original_opcodes doesn't work here, because CALL is relative)
+	tr.append_default_return(p);
 
 	return &tr;
 
@@ -352,20 +516,14 @@ static const trampoline_t *prepare_recvpacket_patch(patch_t *p) {
 	DWORD retaddr = 0x467ECD;
 
 	tr << PUSHAD; // PUSHAD
-
-	tr << (BYTE)0x8B << (BYTE)0x46 << (BYTE)0x1C; // mov eax, dword ptr ds:[esi+1c] // decrypted packet address
-	tr << (BYTE)0x50; // push eax
+	
+	tr.append_hexstring("8B461C50"); // mov eax, dword ptr ds : [esi + 1c], push eax
 
 	tr.append_CALL((DWORD)dump_packet);
 	tr << POPAD; // POPAD
 
-	// original stuff
-	tr << (BYTE)0x01 << (BYTE)0x5E << (BYTE)0x20;
-	tr << (BYTE)0x8B << (BYTE)0x4D << (BYTE)0xF8;
-
-	tr << (BYTE)0x68 << retaddr; // push RET addr
-
-	tr << RET; // RET
+	tr.append_original_opcodes(p);
+	tr.append_default_return(p);
 
 	return &tr;
 
@@ -558,7 +716,11 @@ static void __stdcall mwheel_hook(DWORD wParam) {
 	if (zDelta > 0) customcamera.decrement_s();
 }
 
+static void __stdcall SARC4_hook(uint* args) {
+	// the arguments are at args[0:3]
+	printf("arg1: %X, arg2: %X, arg3: %X, arg4: %X\n", args[0], args[1], args[2], args[3]);
 
+}
 
 static const trampoline_t *prepare_mwheel_patch(patch_t *p) {
 	static trampoline_t tr;
@@ -649,6 +811,20 @@ static const trampoline_t *prepare_AddInputEvent_patch(patch_t *p) {
 	return &tr;
 }
 
+static const trampoline_t *prepare_SARC4_patch(patch_t *p) {
+	static trampoline_t tr;
+	tr << PUSHAD;
+	tr.append_hexstring("8D5C242453"); // lea ebx, [esp + 0x24]; push ebx (to get all the four arguments)
+	tr.append_CALL((DWORD)SARC4_hook);
+	tr << POPAD;
+	tr.append_bytes(p->original, p->size);
+	
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
+	tr << RET;
+
+	return &tr;
+}
+
 static hookable_t hookable_functions[] = {
 	//{ "EndScene", 0x0, EndScene_original, EndScene_patch, EndScene_original, prepare_EndScene_patch },
 	//{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, ClosePetStables_original, prepare_ClosePetStables_patch },
@@ -672,6 +848,9 @@ static hookable_t hookable_functions[] = {
 	{ "mwheel_handler", patch_t(mwheel_hookaddr, 6, prepare_mwheel_patch) },
 	{ "CTM_main", patch_t(CTM_main_hookaddr, 6, prepare_CTM_main_patch)},
 	{ "AddInputEvent", patch_t(AddInputEvent, 8, prepare_AddInputEvent_patch) },
+	{ "SendPacket", patch_t(SendPacket_hookaddr, 5, prepare_sendpacket_patch) },
+	{ "RecvPacket", patch_t(RecvPacket_hookaddr, 6, prepare_recvpacket_patch) },
+	{ "SARC4_encrypt", patch_t(SARC4_encrypt, 6, prepare_SARC4_patch)},
 
 };
 
@@ -708,7 +887,9 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("pylpyr");
 	ADD_PATCH_SAFE("CTM_main");
 	ADD_PATCH_SAFE("AddInputEvent");
-
+	//ADD_PATCH_SAFE("SendPacket");
+//	ADD_PATCH_SAFE("RecvPacket");
+	//ADD_PATCH_SAFE("SARC4_encrypt");
 	
 	// don't add DrawIndexedPrimitive to this list, it will be patched manually later by a /lole subcommand
 	//ADD_PATCH_SAFE("DrawIndexedPrimitive");

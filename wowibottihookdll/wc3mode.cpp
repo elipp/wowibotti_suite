@@ -659,7 +659,7 @@ void rect_to_vertices(const RECT &r, float *in) {
 		left, top,
 	};
 
-	memcpy(in, vertices, 8 * sizeof(float));
+	memcpy(in, vertices, sizeof(vertices));
 }
 
 static int create_d3d9buffers(IDirect3DDevice9 *d) {
@@ -671,7 +671,7 @@ static int create_d3d9buffers(IDirect3DDevice9 *d) {
 		return 0;
 	}
 
-	hr = d->CreateIndexBuffer(4 * sizeof(UINT16), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &ibuffer, NULL);
+	hr = d->CreateIndexBuffer(5 * sizeof(UINT16), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &ibuffer, NULL);
 	if (FAILED(hr)) {
 		PRINT("CreateIndexBuffer failed: %X\n", hr);
 		return 0;
@@ -694,11 +694,11 @@ static void populate_d3d9buffers() {
 	vbuffer->Unlock();
 
 	static const UINT16 indices[] = {
-		0, 1, 2, 3
+		0, 1, 2, 3, 0
 	};
 
 	ibuffer->Lock(0, 0, &mem, 0);
-	memcpy(mem, indices, 4 * sizeof(UINT16));
+	memcpy(mem, indices, sizeof(indices));
 	ibuffer->Unlock();
 }
 
@@ -741,6 +741,7 @@ void draw_custom_d3d() {
 
 	//PRINT("drawing shit:)\n");
 	d->DrawIndexedPrimitive(D3DPT_LINESTRIP, 0, 0, 4, 0, 4);
+	//d->DrawPrimitive(D3DPT_LINESTRIP, 0, 4);
 }
 
 int init_custom_d3d() {

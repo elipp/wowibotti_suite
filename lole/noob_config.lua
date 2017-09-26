@@ -37,20 +37,24 @@ local function noobhunter_combat()
     return;
   end
 
-  if GetSpellCooldown("Arcane Shot") == 0 then
-    L_CastSpellByName("Arcane Shot")
-    return;
-  end
+  -- if GetSpellCooldown("Arcane Shot") == 0 then
+  --   L_CastSpellByName("Arcane Shot")
+  --   return;
+  -- end
 
+  L_CastSpellByName("Steady Shot")
 
 end
 
 local function noobshaman_renew_weaponenchant()
-  local has_mh, mh_exp, mh_charges = GetWeaponEnchantInfo()
+  local has_mh, mh_exp, mh_charges, has_oh, oh_exp, oh_charges = GetWeaponEnchantInfo()
   --echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
 
   if (not has_mh) then
       L_CastSpellByName("Windfury Weapon")
+  end
+  if (not has_oh) then
+    L_CastSpellByName("Flametongue Weapon")
   end
 end
 
@@ -107,6 +111,11 @@ local function noobshaman_combat()
     return
   end
 
+  if GetSpellCooldown("Lava Lash") == 0 then
+    L_CastSpellByName("Lava Lash")
+    return
+  end
+
   if not has_debuff("target", "Flame Shock") then
       if cast_if_nocd("Flame Shock") then return end
   else
@@ -137,7 +146,7 @@ local function reapply_poisons()
     L_RunMacroText("/use Crippling Poison")
     mh_apply = GetTime()
   elseif not has_oh then
-    L_RunMacroText("/use Deadly Poison II")
+    L_RunMacroText("/use Deadly Poison IV")
     oh_apply = GetTime()
   end
 
@@ -155,11 +164,26 @@ local function noobrogue_combat()
     L_CastSpellByName("Kick")
   end
 
+  if UnitHealth("target") < 2000 and GetComboPoints("player", "target") > 0 then
+    if not has_buff("player", "Slice and Dice") then
+      L_CastSpellByName("Slice and Dice")
+      return
+    else
+      L_CastSpellByName("Eviscerate")
+      return
+    end
+  end
+
   if (GetComboPoints("player", "target") < 5) then
-      L_CastSpellByName("Backstab")
+      L_CastSpellByName("Sinister Strike")
       return
   else
-    L_CastSpellByName("Eviscerate")
+    local hassnd, timeleft = has_buff("player", "Slice and Dice")
+    if not hassnd or timeleft < 6 then
+      L_CastSpellByName("Slice and Dice")
+    else
+      L_CastSpellByName("Eviscerate")
+    end
   end
 
 end

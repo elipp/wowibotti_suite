@@ -8,7 +8,6 @@
 #define PATCHADDR_LATER 0xFFFFFFFF
 
 struct trampoline_t;
-
 struct patch_t;
 
 typedef const trampoline_t* (*preparepatchfunc)(patch_t *);

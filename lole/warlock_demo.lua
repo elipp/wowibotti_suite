@@ -67,6 +67,7 @@ combat_warlock_demo = function()
 
 
     if player_casting() then return end
+    echo("MOROI")
 
     local mana = UnitMana("player");
     local maxmana = UnitManaMax("player");

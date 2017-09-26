@@ -8,6 +8,8 @@
 #include "patch.h"
 
 struct hookable_t;
+struct trampoline_t;
+struct patch_t;
 
 int prepare_pipe_data();
 
@@ -44,6 +46,9 @@ typedef struct trampoline_t {
 
 	trampoline_t &append_bytes(const BYTE* b, int size);
 	trampoline_t &append_hexstring(const char *hexstr);
+
+	trampoline_t &append_default_return(const patch_t *p);
+	trampoline_t &append_original_opcodes(const patch_t *p);
 	
 	trampoline_t() : length(0) {
 		memset(bytes, 0x0, sizeof(bytes));

@@ -8,6 +8,7 @@
 #define DelIgnore_hookaddr (DelIgnore + 0x11)
 #define SendPacket_hookaddr 0x46776E
 #define RecvPacket_hookaddr 0x467EC7
+#define SARC4_encrypt 0x774EA0
 
 //#define mbuttondown_handler 0x869870
 #define mbuttondown_handler 0x86A7F5
