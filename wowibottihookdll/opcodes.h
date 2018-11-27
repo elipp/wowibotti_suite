@@ -76,7 +76,8 @@ enum LDOP_OPCODES {
 void refollow_if_needed();
 void stopfollow();
 
-int lop_exec(lua_State *s);
+int lop_exec(lua_State *L);
+int get_rvals(lua_State *L);
 
 typedef struct cast_msg_t {
 	int msg;

@@ -209,6 +209,8 @@ struct WO_cached {
 };
 
 DWORD get_wow_d3ddevice();
+DWORD get_BeginScene();
 DWORD get_EndScene();
 DWORD get_Present();
 DWORD get_DrawIndexedPrimitive();
+IDirect3DDevice9 *get_wow_ID3D9();

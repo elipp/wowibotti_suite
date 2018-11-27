@@ -24,8 +24,6 @@ int register_lop_exec() {
 
 	lua_State *state = (lua_State*)(*(uint **)lua335_state);
 
-	lua_register(state, "lop_exec", lop_exec);
-
 	// TBC values
 	//uint *vfp_min = (uint*)0xE1F830;
 	//uint *vfp_max = (uint*)0xE1F834;
@@ -36,7 +34,10 @@ int register_lop_exec() {
 	// explanation: there's a check during lua_register that ensures the jump address lies within
 	// Wow.exe's .code section, so the upper limit needs to be... adjusted =)
 	*vfp_max = 0xEFFFFFFE;
-	
+
+	lua_register(state, "lop_exec", lop_exec);
+	lua_register(state, "get_rvals", get_rvals);
+
 	return 1;
 }
 

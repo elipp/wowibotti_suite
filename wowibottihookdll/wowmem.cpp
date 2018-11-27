@@ -1,3 +1,5 @@
+#include <d3d9.h>
+
 #include "wowmem.h"
 #include "ctm.h"
 
@@ -14,13 +16,17 @@ void DoString(const char* format, ...) {
 	vsprintf_s(cmd, format, args);
 	va_end(args);
 
-	LUA_DoString(cmd, cmd, NULL); // the last argument actually MUST be null :D
+	char cmd2[1024];
+	sprintf_s(cmd2, "getrvals(\"%s\")", cmd); // TODO decide if this is necessary
+
+	LUA_DoString(cmd, cmd, NULL); // the last argument actually MUST be null :D otherwise taint->blocked
 	PRINT("(DoString: executed script \"%s\")\n", cmd);
 }
 
 static const char* taint_caller;
 static const char **taint_addr = (const char**)0xD4139C;
 
+// these are garbage these days :D
 void set_taint_caller_zero() {
 	//PRINT("setting taint target zero (was %s)\n", *taint_addr);
 	taint_caller = *taint_addr;
@@ -668,9 +674,22 @@ DWORD get_EndScene() {
 	DWORD wowd3d = get_wow_d3ddevice();
 	if (!wowd3d) return 0;
 
-	DWORD EndScene = DEREF(DEREF(wowd3d) + 0xA8);
+	DWORD EndScene = DEREF(DEREF(wowd3d) + (0x2A*4));
 
 	return EndScene;
+}
+
+DWORD get_BeginScene() {
+	DWORD wowd3d = get_wow_d3ddevice();
+	if (!wowd3d) return 0;
+
+	DWORD BeginScene = DEREF(DEREF(wowd3d) + (0x29*4));
+
+	return BeginScene;
+}
+
+IDirect3DDevice9 *get_wow_ID3D9() {
+	return (IDirect3DDevice9*)get_wow_d3ddevice();
 }
 
 DWORD get_Present() {
@@ -678,7 +697,7 @@ DWORD get_Present() {
 	DWORD wowd3d = get_wow_d3ddevice();
 	if (!wowd3d) return 0;
 
-	DWORD Present = DEREF(DEREF(wowd3d) + 0x44);
+	DWORD Present = DEREF(DEREF(wowd3d) + (0x11*4));
 	return Present;
 }
 
@@ -686,6 +705,6 @@ DWORD get_DrawIndexedPrimitive() {
 	DWORD wowd3d = get_wow_d3ddevice();
 	if (!wowd3d) return 0;
 
-	DWORD DrawIndexedPrimitive = DEREF(DEREF(wowd3d) + 0x148);
+	DWORD DrawIndexedPrimitive = DEREF(DEREF(wowd3d) + (0x52*4));
 	return DrawIndexedPrimitive;
 }

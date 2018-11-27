@@ -5,6 +5,8 @@
 #define lua_setglobal(L,s)	lua_setfield(L, LUA_GLOBALSINDEX, (s))
 #define PUSHSTRING(L, S) lua_pushlstring(L, S, strlen(S))
 #define lua_register(L,n,f) (lua_pushcfunction(L, (f)), lua_setglobal(L, (n)))
+#define lua_getglobal(L,s)  lua_getfield(L, LUA_GLOBALSINDEX, s)
+
 
 typedef struct lua_State lua_State;
 typedef int(*lua_CFunction) (lua_State *L);
@@ -50,6 +52,7 @@ typedef int(*p_lua_toboolean) (lua_State *L, int idx);
 extern p_lua_toboolean lua_toboolean;
 
 int register_lop_exec();
+
 extern int lua_registered;
 
 #define lua335_unregisterfunction 0x00817FD0
@@ -81,6 +84,7 @@ extern int lua_registered;
 #define lua335_findtable 0x0084E590
 #define lua335_createtable 0x0084E6E0
 #define lua335_setfield 0x0084E900
-#define lua335_getfield 0x0059AAE0
 #define lua335_displayerror 0x0084F280
-//#define lua335_getfield 0x0084F3B0
+#define lua335_getfield 0x0084F3B0
+//define lua335_getfield 0x0059AAE0
+

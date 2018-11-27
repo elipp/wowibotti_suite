@@ -143,10 +143,10 @@ local function reapply_poisons()
   --echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
 
   if not has_mh then
-    L_RunMacroText("/use Crippling Poison")
+    L_RunMacroText("/use Instant Poison VI")
     mh_apply = GetTime()
   elseif not has_oh then
-    L_RunMacroText("/use Deadly Poison IV")
+    L_RunMacroText("/use Deadly Poison VI")
     oh_apply = GetTime()
   end
 

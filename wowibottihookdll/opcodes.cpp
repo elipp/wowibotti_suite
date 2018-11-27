@@ -1418,6 +1418,29 @@ int lop_exec(lua_State *L) {
 	return 0;
 }
 
+int get_rvals(lua_State *L) {
+	//get count of returns on stack
+	int n = lua_gettop(L);
+
+	//loop to retreive these
+	for (int i = 1; i <= n; i++)
+	{
+		//using lua_tostring to get the result
+		const char *rval = lua_tolstring(L, i, NULL);
+		//make sure its valid
+		if (rval && rval[0])
+		{
+			PRINT("rval %d/%d: %s\n", i, n, rval);
+		}
+		else {
+			PRINT("rval %d/%d: nil", i, n);
+		}
+	}
+
+	//returning 0 args
+	return 0;
+}
+
 
 // follow stuff
 

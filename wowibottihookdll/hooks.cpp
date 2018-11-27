@@ -6,6 +6,7 @@
 #include <queue>
 #include <cassert>
 #include <unordered_map>
+#include <ctime>
 
 #include <d3d9.h>
 
@@ -139,12 +140,18 @@ static void __stdcall call_pylpyr() {
 		wc3_draw_pylpyrs();
 }
 
-
+static int dbg_shown = 0;
 
 static void __stdcall Present_hook() {
 
 	init_custom_d3d(); // this doesn't do anything if it's already initialized
 	
+	if (!dbg_shown) {
+		IDirect3DDevice9 *d = get_wow_ID3D9();
+		PRINT("Present: %X, BeginScene: %X, EndScene: %X, DrawIndexedPrimitive: %X\n", get_Present(), get_BeginScene(), get_EndScene(), get_DrawIndexedPrimitive());
+		dbg_shown = 1;
+	}
+
 	do_wc3mode_stuff();
 	//return;
 
@@ -212,13 +219,17 @@ static int get_header_length(BYTE* pkt) {
 	}
 }
 
-static uint32_t get_content_length(BYTE* pkt) {
+static uint32_t s_get_content_length(BYTE* pkt) {
 	if (pkt[0] & 0x80) {
 		return (((((uint32_t)pkt[0]) & 0x7F) << 16) | (((uint32_t)pkt[1]) << 8) | pkt[2]);
 	}
 	else {
 		return (((uint32_t)pkt[0]) << 8 | pkt[1]);
 	}
+}
+
+static uint32_t c_get_content_length(BYTE *pkt) {
+	return (((uint32_t)pkt[0]) << 8 | pkt[1]);
 }
 
 static int HAVE_NEW_PACKET;
@@ -282,8 +293,8 @@ static DWORD WINAPI create_warden_socket() {
 
 	PRINT("created socket for warden packet relaying!\n");
 
+	return 0;
 }
-
 
 static void __stdcall EndScene_hook() {
 	draw_custom_d3d();
@@ -294,14 +305,33 @@ enum {
 	WARDEN_SOURCE_OUT = 1
 };
 
+enum {
+	CMSG_CAST_SPELL = 0x12E,
+	CMSG_SET_SELECTION = 0x13D,
+	SMSG_WARDEN_DATA = 0x2E6,
+	CMSG_WARDEN_DATA = 0x2E7,
+};
+
+static void print_bytes(const char* title, const uint8_t *bytes, int length, int modulo) {
+	PRINT("%s:\n", title);
+	for (int i = 0; i < length; ++i) {
+		PRINT("%02X ", bytes[i]);
+		if ((i % modulo) == (modulo - 1)) PRINT("\n");
+	}
+	PRINT("\n\n");
+}
+
+
 static void relay_warden_packet(BYTE *pkt, int pktlen, uint8_t source) {
 	if (WARDEN_SOCKET == INVALID_SOCKET) { create_warden_socket(); }
 	
 	PRINT("relay: pktlen = %d, source = %d\n", pktlen, source);
 
-	BYTE buf[8192];
+	uint8_t buf[8192];
 	buf[0] = source;
 	memcpy(buf + 1, pkt, pktlen);
+
+	print_bytes("warden packet", buf, pktlen + 1, 16);
 
 	int r = send(WARDEN_SOCKET, (const char*)buf, pktlen + 1, 0);
 	if (r < 0) {
@@ -314,80 +344,67 @@ static void relay_warden_packet(BYTE *pkt, int pktlen, uint8_t source) {
 	}
 }
 
-static void dump_warden_input(BYTE* packet) {
-	static int num_warden_ipackets = 0;
-	++num_warden_ipackets;
 
-	int header_length = get_header_length(packet);
-	int content_length = get_content_length(packet);
-	relay_warden_packet(packet, content_length + header_length - 2, WARDEN_SOURCE_IN);
+static void __stdcall dump_sendpacket(BYTE *packet) {
 
-}
+	uint32_t total_bytes = c_get_content_length(packet) + 2; 
 
-static void dump_warden_output(BYTE* packet) {
-
-	static int num_warden_opackets = 0;
-	++num_warden_opackets;
-
-	int content_length = get_content_length(packet);
-	relay_warden_packet(packet, content_length + 2, WARDEN_SOURCE_OUT);
-
-}
-
-static void __stdcall dump_packet(BYTE *packet) {
-
-	enum {
-		CMSG_CAST_SPELL = 0x12E,
-		CMSG_SET_SELECTION = 0x13D,
-		SMSG_WARDEN_DATA = 0x2E6,
-		CMSG_WARDEN_DATA = 0x2E7,
-	};
-
-	if (packet[0] & 0x80) {
-		PRINT("have a BIG packet, ignoring\n");
-		return;
-	}
-
-	DWORD length = (DWORD)(packet[0]) << 8;
-	length += packet[1] + 2; // +2 for the length bytes themselves (not included apparently)
-
-	DWORD opcode = 0;
-	memcpy(&opcode, &packet[2], 2); 
+	uint32_t opcode = 0;
+	memcpy(&opcode, packet + 2, sizeof(opcode)); 
 	// ^ interestingly, the client packets have 4 bytes for the opcode while the server packets only have 2.
 	// the largest opcode value in mangos/src/game/Opcodes.h is something like 0x500 so no worries
 
 	//PRINT("packet length: total: %d (actual data size without header: %d), opcode: 0x%X\n", length, length - 6, opcode);
 
-
-	if (opcode == CMSG_CAST_SPELL) {
-
+	switch (opcode) {
+	case CMSG_CAST_SPELL: {
 		BYTE cast_count = packet[6];
 		DWORD spellID;
 		memcpy(&spellID, &packet[7], 4);
 		BYTE flags = packet[11];
-		PRINT("got CMSG_SPELL_CAST. packet length: %d, spellID = %d, cast_count = %d, flags = 0x%X\n raw dump:\n", length, spellID, cast_count, flags);
-		for (int i = 0; i < length; ++i) {
+		PRINT("got CMSG_SPELL_CAST. total bytes: %d, spellID = %d, cast_count = %d, flags = 0x%X\n raw dump:\n", total_bytes, spellID, cast_count, flags);
+		for (int i = 0; i < total_bytes; ++i) {
 			PRINT("%02X ", packet[i]);
 		}
 		PRINT("\n\n");
-	}
-	else if (opcode == SMSG_WARDEN_DATA) {
-		dump_warden_input(packet);
-		PRINT("GOT SMSG_WARDEN_DATA\n");
+		break;
 	}
 
-	else if (opcode == CMSG_WARDEN_DATA) {
-		dump_warden_output(packet);
-		PRINT("GOT CMSG_WARDEN_DATA\n");
-	}
-	
-	else {
+	case CMSG_WARDEN_DATA: 
+		PRINT("GOT CMSG_WARDEN_DATA\n\n");
+		relay_warden_packet(packet, total_bytes, WARDEN_SOURCE_OUT);
+		PRINT("\n");
+		break;
+	default:
 		//PRINT("opcode: 0x%04X (content length %d)\n", opcode, length-6);
 		//for (int i = 6; i < length; ++i) {
 		//	PRINT("%02X ", packet[i]);
 		//}
 		//PRINT("\n\n");
+		break;
 	}
+}
+
+static void __stdcall dump_recvpacket(BYTE *packet) {
+
+	int header_length = get_header_length(packet);
+	uint32_t total_bytes = s_get_content_length(packet) - (header_length - 2);
+
+	uint16_t opcode;
+	memcpy(&opcode, packet + (header_length - 2), sizeof(uint16_t));
+
+	switch (opcode) {
+		case SMSG_WARDEN_DATA:
+				PRINT("GOT SMSG_WARDEN_DATA\n");
+				relay_warden_packet(packet, total_bytes, WARDEN_SOURCE_IN);
+				PRINT("\n");
+				break;
+		default:
+			break;
+	}
+
+
+
 }
 
 static void __stdcall ClosePetStables_hook() {
@@ -489,7 +506,7 @@ static const trampoline_t *prepare_sendpacket_patch(patch_t *p) {
 
 	static trampoline_t tr;
 	
-	PRINT("dump_packet offset: 0x%X, trampoline: 0x%X\n", dump_packet, tr.bytes);
+	PRINT("dump_sendpacket offset: 0x%X, trampoline: 0x%X\n", dump_sendpacket, tr.bytes);
 
 	DWORD retaddr = 0x467773;
 	DWORD some_crypt_func = 0x4665B0;
@@ -497,7 +514,7 @@ static const trampoline_t *prepare_sendpacket_patch(patch_t *p) {
 	tr << PUSHAD // PUSHAD
 	   << (BYTE)0x52; // push EDX (the packet address)
 
-	tr.append_CALL((DWORD)dump_packet);
+	tr.append_CALL((DWORD)dump_sendpacket);
 	tr << POPAD; // POPAD
 
 	tr.append_CALL(some_crypt_func); // from the original opcodes (append_original_opcodes doesn't work here, because CALL is relative)
@@ -511,7 +528,7 @@ static const trampoline_t *prepare_recvpacket_patch(patch_t *p) {
 
 	static trampoline_t tr;
 
-	PRINT("dump_packet offset: 0x%X, trampoline: 0x%X\n", dump_packet, tr.bytes);
+	PRINT("dump_recvpacket offset: 0x%X, trampoline: 0x%X\n", dump_recvpacket, tr.bytes);
 
 	DWORD retaddr = 0x467ECD;
 
@@ -519,7 +536,7 @@ static const trampoline_t *prepare_recvpacket_patch(patch_t *p) {
 	
 	tr.append_hexstring("8B461C50"); // mov eax, dword ptr ds : [esi + 1c], push eax
 
-	tr.append_CALL((DWORD)dump_packet);
+	tr.append_CALL((DWORD)dump_recvpacket);
 	tr << POPAD; // POPAD
 
 	tr.append_original_opcodes(p);
@@ -529,7 +546,161 @@ static const trampoline_t *prepare_recvpacket_patch(patch_t *p) {
 
 }
 
+enum {
+	PDUMP_OUT = 0x1,
+	PDUMP_IN = 0x2,
+	PDUMP_REALM = 0x4,
+	PDUMP_WORLD = 0x8
+};
 
+
+
+static std::string get_datestring() {
+	time_t rawtime;
+	struct tm * timeinfo;
+	char buffer[256];
+
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+
+	strftime(buffer, sizeof(buffer), "%d%m%Y%I%M%S", timeinfo);
+
+	return buffer;
+}
+
+static std::string DIRECTORY_PREFIX;
+
+static void create_dump_directory() {
+	static int already_created = 0;
+	if (already_created) return;
+
+	DIRECTORY_PREFIX = "PACKETDUMP_" + get_datestring() + "\\";
+	 
+	if (CreateDirectory(DIRECTORY_PREFIX.c_str(), NULL)) {
+		PRINT("created directory %s for packet dumps!\n", DIRECTORY_PREFIX.c_str());
+	}
+
+	already_created = 1;
+}
+
+static void dump_to_file(const std::string &filename, const uint8_t *buffer, int length) {
+	FILE *fp;
+	if (fopen_s(&fp, filename.c_str(), "wb")) { // 0 is success
+		PRINT("failed to create file %s!\n", filename.c_str());
+		return;
+	}
+
+	fwrite(buffer, 1, length, fp);
+	fclose(fp);
+	PRINT("dumped packet to file %s (len %d)\n", filename.c_str(), length);
+
+}
+
+static void dump_packet(const uint8_t *buffer, int length, int flags) {
+	static int realm_pnum_in = 0;
+	static int realm_pnum_out = 0;
+
+	static int world_pnum_in = 0;
+	static int world_pnum_out = 0;
+
+	create_dump_directory(); // will do nothing if it's already created
+
+	std::string prefix = DIRECTORY_PREFIX + ((flags & PDUMP_REALM) ? "REALM_" : "WORLD_") + ((flags & PDUMP_IN) ? "IN_" : "OUT_");
+
+	std::string filename;
+
+	if (flags & PDUMP_REALM) {
+		if (flags & PDUMP_IN) {
+			++realm_pnum_in;
+			filename = prefix + std::to_string(realm_pnum_in);
+		}
+		else {
+			++realm_pnum_out;
+			filename = prefix + std::to_string(realm_pnum_out);
+		}
+	}
+	else { // PDUMP_WORLD
+		if (flags & PDUMP_IN) {
+			++world_pnum_in;
+			filename = prefix + std::to_string(world_pnum_in);
+		}
+		else {
+			++world_pnum_out;
+			filename = prefix + std::to_string(world_pnum_out);
+		}
+	}
+
+//	dump_to_file(filename, buffer, length);
+}
+
+static void __stdcall dump_WS2recv(DWORD *args, DWORD recvlength) {
+
+	static uint8_t packetbuf[4096 * 4];
+	static char* worldpacket_buf;
+
+	DWORD retaddr = args[-1]; // XD
+	SOCKET s = args[0];
+	char* outbuf = (char*)args[1];
+	int length = args[2];
+	int flags = args[3];
+
+	//PRINT("%X, %X, %X, %X, %X, %d\n", retaddr, s, outbuf, length, flags, recvlength);
+
+	switch (retaddr) {
+	case 0x466F38:
+		print_bytes("recvbuf (REALM packet)", (uint8_t*)outbuf, recvlength, 16);
+		dump_packet((const uint8_t *)outbuf, recvlength, PDUMP_IN | PDUMP_REALM);
+		break;
+
+	case 0x467E64:
+		if (length == 2) {
+			// then we're probably dealing with "World" packets. it appears that the client calls recv() twice:
+			// once for the first 2 bytes, and decrypts them to get the packet length (and in case of a big packet, probably another 1 byte)
+			worldpacket_buf = outbuf;
+			memcpy(packetbuf, outbuf, 2);
+		}
+		else {
+			if (outbuf != worldpacket_buf + 2) {
+				PRINT("dump_WS2recv: 2nd stage: WARNING: outbuf != worldpacket_buf + 2! (SOCKET: %X)\n", s);
+				return;
+			}
+			else {
+				memcpy(packetbuf + 2, outbuf, length);
+				print_bytes("recvbuf (WORLD packet)", packetbuf, length + 2, 16);
+				dump_packet(packetbuf, length, PDUMP_IN | PDUMP_WORLD);
+			}
+		}
+		break;
+
+	default:
+		// these pop up sometimes, originating from the WININET module, so probably nothing to be worried about
+		PRINT("dealing with ??? (%X)\n", retaddr);
+		break;
+	}
+}
+
+static void __stdcall dump_WS2send(DWORD *args) {
+	DWORD retaddr = args[-1];
+	SOCKET s = args[0];
+	const char* buf = (const char*)args[1];
+	int length = args[2];
+	int flags = args[3];
+
+	switch (retaddr) {
+	case 0x467A39:
+		PRINT("send(): have REALM packet\n");
+		dump_packet((const uint8_t*)buf, length, PDUMP_REALM | PDUMP_OUT);
+		break;
+	case 0x467787:
+		PRINT("send(): have WORLD packet\n");
+		dump_packet((const uint8_t*)buf, length, PDUMP_WORLD | PDUMP_OUT);
+		break;
+	default:
+		PRINT("send(): have ???? packet\n");
+		break;
+	}
+
+}
 
 static const trampoline_t *prepare_Present_patch(patch_t *p) {
 
@@ -825,6 +996,39 @@ static const trampoline_t *prepare_SARC4_patch(patch_t *p) {
 	return &tr;
 }
 
+static const trampoline_t *prepare_WS2send_patch(patch_t *p) {
+	static trampoline_t tr;
+	tr << PUSHAD;
+	tr.append_hexstring("8D5C242453"); // lea ebx, [esp + 0x24]; push ebx (to get all the four arguments)
+	tr.append_CALL((DWORD)dump_WS2send);
+	tr << POPAD;
+	tr.append_bytes(p->original, p->size);
+
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
+	tr << RET;
+
+	return &tr;
+}
+
+static const trampoline_t *prepare_WS2recv_patch(patch_t *p) {
+	static trampoline_t tr;
+	//tr.append_bytes(p->original, p->size);
+	tr.append_hexstring("8BE55D"); // MOV ESP, EBP; POP EBP (from the original func)
+	tr << PUSHAD;
+	tr << (BYTE)0x50;
+	tr.append_hexstring("8D5C242853"); // lea ebx, [esp + 0x28]; push ebx (to get all the four arguments)
+	tr.append_CALL((DWORD)dump_WS2recv);
+	tr << POPAD;
+
+	tr.append_hexstring("C21000"); //retn 10
+
+	//tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
+	//tr << RET;
+
+
+	return &tr;
+}
+
 static hookable_t hookable_functions[] = {
 	//{ "EndScene", 0x0, EndScene_original, EndScene_patch, EndScene_original, prepare_EndScene_patch },
 	//{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, ClosePetStables_original, prepare_ClosePetStables_patch },
@@ -851,6 +1055,8 @@ static hookable_t hookable_functions[] = {
 	{ "SendPacket", patch_t(SendPacket_hookaddr, 5, prepare_sendpacket_patch) },
 	{ "RecvPacket", patch_t(RecvPacket_hookaddr, 6, prepare_recvpacket_patch) },
 	{ "SARC4_encrypt", patch_t(SARC4_encrypt, 6, prepare_SARC4_patch)},
+	{ "WS2_send", patch_t((DWORD)&send, 5, prepare_WS2send_patch)}, 
+	{ "WS2_recv", patch_t(((DWORD)&recv) + 0x18A, 6, prepare_WS2recv_patch) },
 
 };
 
@@ -888,9 +1094,11 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("CTM_main");
 	ADD_PATCH_SAFE("AddInputEvent");
 	//ADD_PATCH_SAFE("SendPacket");
-//	ADD_PATCH_SAFE("RecvPacket");
+	//ADD_PATCH_SAFE("RecvPacket");
 	//ADD_PATCH_SAFE("SARC4_encrypt");
-	
+//	ADD_PATCH_SAFE("WS2_send");
+//	ADD_PATCH_SAFE("WS2_recv");
+
 	// don't add DrawIndexedPrimitive to this list, it will be patched manually later by a /lole subcommand
 	//ADD_PATCH_SAFE("DrawIndexedPrimitive");
 

@@ -179,6 +179,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	case DLL_PROCESS_ATTACH: {
 #ifdef DEBUG_CONSOLE
 		AllocConsole();
+		freopen("CONIN$", "r", stdin);
+		freopen("CONOUT$", "wb", stderr);
 		freopen("CONOUT$", "wb", stdout);
 #endif
 
