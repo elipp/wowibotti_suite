@@ -24,7 +24,10 @@ static HWND button_launch_hWnd;
 static HWND button_assign_hWnd;
 static HWND button_affinity_hWnd;
 static HWND button_inject_hWnd;
+static HWND button_refresh_hWnd;
 static HWND updown_hWnd;
+static HWND pathedit_hWnd;
+static HWND numclients_static_hWnd;
 
 static std::vector<HANDLE> thread_handles;
 
@@ -47,15 +50,33 @@ struct wowcl_t {
 	std::string window_title;
 	int valid;
 	DWORD pid;
+	int index;
 	wowcl_t() {};
-	wowcl_t(HWND hWnd, std::string &title)
-		: window_handle(hWnd), window_title(title), valid(1) {
+	wowcl_t(HWND hWnd, std::string &title, int client_index)
+		: window_handle(hWnd), window_title(title), valid(1), index(client_index) {
 		GetWindowThreadProcessId(hWnd, &pid);
+		char *endptr;
+		char c = std::to_string(index + 1)[0]; // this is pretty risque... :D
+		//ShowWindow(main_window_hWnd, SW_HIDE);
+		RegisterHotKey(main_window_hWnd, index, MOD_ALT, c);
 	}
+
+	~wowcl_t() {
+		UnregisterHotKey(main_window_hWnd, index);
+	}
+
 };
 
-static std::vector<wowcl_t> wow_handles;
+static std::vector<wowcl_t*> wow_handles;
 static std::vector<HANDLE> cred_file_map_handles;
+
+static void clear_wow_handles() {
+	for (auto &c : wow_handles) {
+		delete c;
+	}
+	wow_handles = std::vector<wowcl_t*>();
+
+}
 
 struct wowaccount_t {
 	std::string login_name, password, char_name, class_name;
@@ -188,20 +209,33 @@ struct potti_config {
 
 static potti_config config_state;
 
+static int clindex = 0;
+
 BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam) {
 
 	char title[MAX_LOADSTRING];
 	char class_name[MAX_LOADSTRING];
-	
+
 	GetClassName(hWnd, class_name, sizeof(class_name));
 	GetWindowText(hWnd, title, sizeof(title));
 
+
 	if (strcmp(title, "World of Warcraft") == 0) {
-		wow_handles.push_back(wowcl_t(hWnd, std::string(title)));
+
+		wow_handles.push_back(new wowcl_t(hWnd, std::string(title), clindex));
+		++clindex;
 	}
 
 	return TRUE;
 }
+
+
+static void enum_windows() {
+	clindex = 0;
+	clear_wow_handles();
+	EnumWindows(EnumWindowsProc, NULL);
+}
+
 
 static BOOL SetPrivilege(HANDLE hToken, LPCTSTR Privilege, BOOL bEnablePrivilege) {
 
@@ -261,8 +295,7 @@ static BOOL SetPrivilege(HANDLE hToken, LPCTSTR Privilege, BOOL bEnablePrivilege
 static int create_account_assignments2() {
 	static const size_t BUF_MAX = 256;
 
-	wow_handles = std::vector<wowcl_t>();
-	EnumWindows(EnumWindowsProc, NULL);
+	enum_windows();
 
 	if (wow_handles.size() < 1) { return 1; }
 
@@ -272,7 +305,7 @@ static int create_account_assignments2() {
 	}
 
 	// gather all checked clients to a vector
-	std::vector <std::pair<wowaccount_t, wowcl_t>> assigned_accs;
+	std::vector <std::pair<wowaccount_t, wowcl_t*>> assigned_accs;
 	int n = 0;
 	for (const auto &account : config_state.accounts) {
 		HWND hWnd = char_select_checkboxes[account.char_name];
@@ -289,14 +322,14 @@ static int create_account_assignments2() {
 
 	for (unsigned int i = 0; i < num_to_process; ++i) {
 
-		const wowcl_t &c = assigned_accs[i].second;
+		const wowcl_t *c = assigned_accs[i].second;
 		const wowaccount_t &acc = assigned_accs[i].first;
 
 		//std::string content = acc.login_name + "," + acc.password + "," + acc.char_name;
 
-		creds[c.pid] = acc;
+		creds[c->pid] = acc;
 
-		printf("Assigned account %s to pid %d\n", acc.login_name.c_str(), c.pid);
+		printf("Assigned account %s to pid %d\n", acc.login_name.c_str(), c->pid);
 	}
 
 	return TRUE;
@@ -605,14 +638,12 @@ static HANDLE inject_dll(HWND window_handle) {
 static int inject_to_all() {
 
 	EnableWindow(button_inject_hWnd, FALSE);
-
-	wow_handles = std::vector<wowcl_t>();
 	thread_handles = std::vector<HANDLE>();
-
-	EnumWindows(EnumWindowsProc, NULL);
+	
+	enum_windows();
 
 	for (auto c : wow_handles) {
-		thread_handles.push_back(inject_dll(c.window_handle));
+		thread_handles.push_back(inject_dll(c->window_handle));
 	}
 
 	if (thread_handles.size() > 0) {
@@ -729,20 +760,28 @@ static HWND create_checkbox(const std::string &char_name, const std::string &acc
 
 static int launch_clients() {
 
-	char textbuf[64];
+	char textbuf[512];
+	LRESULT result = SendMessage(pathedit_hWnd, WM_GETTEXT, sizeof(textbuf), LPARAM(textbuf));
+	config_state.client_exe_path = std::string(textbuf);
+
 	long value;
 	char *endptr;
 
-	GetWindowText(edit_num_clients_hWnd, textbuf, 64);
+	GetWindowText(edit_num_clients_hWnd, textbuf, 512);
 
 	value = strtol(textbuf, &endptr, 10);	// the editbox has ES_NUMBER, so it's quite hard to come up with an invalid value :P
 
 	STARTUPINFO info = { sizeof(info) };
 	PROCESS_INFORMATION processInfo;
 
+	std::string cpath = config_state.client_exe_path + "\\Wow.exe";
+
 	for (int i = 0; i < value; ++i) {
-		CreateProcess(config_state.client_exe_path.c_str(), NULL, NULL, NULL, TRUE, 0, NULL, NULL, &info, &processInfo);
+		CreateProcess(cpath.c_str(), NULL, NULL, NULL, TRUE, 0, NULL, NULL, &info, &processInfo);
+		Sleep(100); // without this launching multiple clients at once sometimes causes a hangup in the 3D acceleration stack startup
 	}
+
+	enum_windows();
 
 	return 1;
 
@@ -750,9 +789,7 @@ static int launch_clients() {
 
 static int set_affinities() {
 	
-	wow_handles = std::vector<wowcl_t>();
-
-	EnumWindows(EnumWindowsProc, NULL);
+	enum_windows();
 
 	unsigned int n = 0;
 
@@ -762,7 +799,7 @@ static int set_affinities() {
 
 	for (auto c : wow_handles) {
 
-		HANDLE proc_handle = OpenProcess(PROCESS_ALL_ACCESS, TRUE, c.pid);
+		HANDLE proc_handle = OpenProcess(PROCESS_ALL_ACCESS, TRUE, c->pid);
 
 		DWORD aff_mask = (0x3 << (n * 2));
 
@@ -770,7 +807,7 @@ static int set_affinities() {
 		SetPriorityClass(proc_handle, ABOVE_NORMAL_PRIORITY_CLASS);
 		n = (n < (ncores/2 - 1)) ? (n + 1) : 0;
 
-		printf("proc_handle = %X, PID = %d, aff_mask = %X\n", (DWORD)proc_handle, c.pid, aff_mask);
+		printf("proc_handle = %X, PID = %d, aff_mask = %X\n", (DWORD)proc_handle, c->pid, aff_mask);
 
 		CloseHandle(proc_handle);
 
@@ -778,6 +815,18 @@ static int set_affinities() {
 
 	return 1;
 }
+
+static int refresh_client_list() {
+	enum_windows();
+
+	std::string num = std::to_string(wow_handles.size());
+
+	SetWindowText(numclients_static_hWnd, num.c_str());
+	ShowWindow(numclients_static_hWnd, SW_HIDE);
+	ShowWindow(numclients_static_hWnd, SW_SHOW);
+	return 1;
+}
+
 
 static LRESULT handle_checkbox_action(HWND hWnd) {
 
@@ -795,6 +844,43 @@ static LRESULT handle_checkbox_action(HWND hWnd) {
 	return SendMessage(hWnd, BM_SETCHECK, state == BST_UNCHECKED ? BST_CHECKED : BST_UNCHECKED, 0);
 }
 
+static HWND create_static_text(const std::string &text, int x, int y, HWND parent) {
+	HWND rw = CreateWindowEx(0,
+		"STATIC",
+		text.c_str(),
+		WS_CHILD | WS_VISIBLE,
+		x, y, text.length() * 5 + 10, 18,
+		parent,
+		NULL,
+		GetModuleHandle(NULL),
+		NULL);
+
+	SendMessage(rw,
+		WM_SETFONT,
+		(WPARAM)GetStockObject(DEFAULT_GUI_FONT),
+		MAKELPARAM(FALSE, 0));
+
+	return rw;
+
+}
+
+static HWND create_textedit(const std::string &default_text, int x, int y, int width, int RID, HWND parent) {
+	HWND rw = CreateWindowEx(
+		WS_EX_CLIENTEDGE, "EDIT",   // predefined class 
+		NULL,         // no window title 
+		WS_CHILD | WS_VISIBLE | ES_LEFT | WS_CLIPSIBLINGS,
+		x, y, width, 18, 
+		parent,         // parent window 
+		(HMENU)RID,   // edit control ID 
+		GetModuleHandle(NULL),
+		NULL);        // pointer not needed 
+
+
+	SendMessage(rw, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), MAKELPARAM(FALSE, 0));
+	SendMessage(rw, WM_SETTEXT, 0, (LPARAM)default_text.c_str());
+
+	return rw;
+}
 
 INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 
@@ -809,6 +895,7 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 		if (hi == BN_CLICKED) {
 
 			if ((HWND)lParam == button_launch_hWnd) {
+
 				launch_clients();
 				return TRUE;
 			}
@@ -822,6 +909,10 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 			}
 			else if ((HWND)lParam == button_assign_hWnd) {
 				create_account_assignments2();
+				return TRUE;
+			}
+			else if ((HWND)lParam == button_refresh_hWnd) {
+				refresh_client_list();
 				return TRUE;
 			}
 			else {
@@ -853,10 +944,10 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 		edit_num_clients_hWnd = CreateWindowEx(WS_EX_CLIENTEDGE,
 			"EDIT",
 			"",
-			WS_CHILD | WS_VISIBLE |
-			ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_NUMBER,
-			170,
-			25,
+			WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS
+			| ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_NUMBER,
+			180,
+			42,
 			60,
 			20,
 			hWnd,
@@ -864,10 +955,13 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 			GetModuleHandle(NULL),
 			NULL);
 
+		SendMessage(edit_num_clients_hWnd, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), MAKELPARAM(FALSE, 0));
+		SendMessage(edit_num_clients_hWnd, WM_SETTEXT, NULL, (LPARAM)"0");
+
 		updown_hWnd = CreateWindowEx(WS_EX_LEFT | WS_EX_LTRREADING,
 			UPDOWN_CLASS,
 			NULL,
-			WS_CHILDWINDOW | WS_VISIBLE
+			WS_CHILDWINDOW | WS_VISIBLE | WS_CLIPSIBLINGS
 			| UDS_AUTOBUDDY | UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_HOTTRACK,
 			0, 0,
 			0, 0,         // Set to zero to automatically size to fit the buddy window.
@@ -878,35 +972,30 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
 		SendMessage(updown_hWnd, UDM_SETRANGE32, 0, 25);
 
-		SendMessage(edit_num_clients_hWnd, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), MAKELPARAM(FALSE, 0));
-		SendMessage(edit_num_clients_hWnd, WM_SETTEXT, NULL, (LPARAM)"0");
+		HWND num_clients_static = create_static_text("Number of clients to launch:", 25, 45, hWnd);
+
+		HWND wowpath_static = create_static_text("Wow path:", 25, 15, hWnd);
+		pathedit_hWnd = create_textedit(config_state.client_exe_path, 100, 15, 300, ID_EDIT_WOWPATH, hWnd);
 		
-		button_launch_hWnd = create_button("Launch!", 240, 20, 100, 30, hWnd);
+		button_launch_hWnd = create_button("Launch!", 250, 37, 100, 30, hWnd);
 		button_affinity_hWnd = create_button("Set CPU affinities", 30, 80, 100, 30, hWnd);
 		button_assign_hWnd = create_button("Assign login creds", 30, 120, 100, 30, hWnd);
 		button_inject_hWnd = create_button("Inject DLL", 150, 80, 100, 30, hWnd);
 
-		HWND num_clients_static = CreateWindowEx(0,
-			"STATIC",
-			"Number of clients to launch:",
-			WS_CHILD | WS_VISIBLE,
-			25, 28, 140, 18,
-			hWnd,
-			NULL,
-			GetModuleHandle(NULL),
-			NULL);
-
-		SendMessage(num_clients_static,
-			WM_SETFONT,
-			(WPARAM)GetStockObject(DEFAULT_GUI_FONT),
-			MAKELPARAM(FALSE, 0));
-
-
+		button_refresh_hWnd = create_button("Refresh + set hotkeys", 500, 65, 115, 30, hWnd);
+		HWND ac_hWnd = create_static_text("Active clients:", 505, 45, hWnd);
+		numclients_static_hWnd = create_static_text("0", 575, 45, hWnd);
 
 		break;
 	}
-	//case WM_HOTKEY:
-		//break;
+	case WM_HOTKEY: {
+		// ASSUMING LESS THAN 10 CLIENTS :D
+		char c[2] = { HIWORD(lParam), '\0' };
+		char *endptr;
+		int index = strtol(c, &endptr, 10);
+		SetForegroundWindow(wow_handles[index - 1]->window_handle);	
+		break;
+	}
 
 	case WM_DESTROY:
 		for (auto &h : cred_file_map_handles) {
@@ -1003,6 +1092,8 @@ static int setup_char_checkboxes(const potti_config &c) {
 
 BOOL InitInstance(HINSTANCE hInstance, int nShowCmd) {
 
+	if (!config_state.read_from_file("potti.conf")) return FALSE;
+
 	hInst = hInstance; // Store instance handle in our global variable
 
 	WNDCLASSEX wClass;
@@ -1045,7 +1136,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nShowCmd) {
 
 	main_window_hWnd = hWnd;
 
-	if (!config_state.read_from_file("potti.conf")) return FALSE;
 
 	setup_char_checkboxes(config_state);
 
@@ -1101,8 +1191,10 @@ int APIENTRY WinMain(_In_ HINSTANCE hInstance,
 		if (ret == -1)
 			return -1;
 		if (!IsDialogMessage(main_window_hWnd, &msg) || msg.wParam == VK_RETURN) {	// so that tab works on the dialog controls
+
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
+			
 		}
 	}
 

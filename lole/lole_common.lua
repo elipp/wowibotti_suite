@@ -353,7 +353,7 @@ function cast_heal(spellname, target, range)
     if range == nil then range = 35; end
     if target then L_TargetUnit(target); end
     if spellname ~= "Prayer of Healing" then
-        caster_range_check(range);
+        caster_range_check(0,range);
     end
     if INSTANT_HEALS[spellname] then
         return cast_if_nocd(spellname);

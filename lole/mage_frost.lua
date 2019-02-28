@@ -27,7 +27,7 @@ combat_mage_frost = function()
 
     if not validate_target() then return end
 
-    caster_range_check(36);
+    caster_range_check(0,36);
 
     -- if has_buff("target", "Power Word: Shield") then
     --  L_CastSpellByName("Spellsteal")

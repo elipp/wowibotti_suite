@@ -75,7 +75,7 @@ local available_configs = {
 	--mage_aespam =
 	--class_config_create("mage_aespam", {}, {}, get_class_color("mage"), function() L_CastSpellByName("Arcane Explosion") end, {}, ROLES.caster),
 	noob_config =
-	class_config_create("noob_config", {}, {}, "FFFFFF", combat_noob, {}, ROLES.melee, "MELEE", function() end)
+	class_config_create("noob_config", {}, {}, "FFFFFF", combat_noob, {"Bestial Wrath", "Rapid Fire", "Shamanistic Rage", "Feral Spirit", "Blade Flurry", "Adrenaline Rush" }, ROLES.melee, "MELEE", function() end)
 
 };
 
@@ -494,7 +494,7 @@ end
 
 local function lole_pull(target_GUID)
 	target_unit_with_GUID(target_GUID)
-	caster_range_check(28)
+	caster_range_check(0,28)
 	L_CastSpellByName("Avenger's Shield")
 end
 

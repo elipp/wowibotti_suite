@@ -76,7 +76,7 @@ combat_hunter = function()
     end
 
     PetAttack()
-    caster_range_check(35)
+    caster_range_check(0,35)
 
     StartAttack()
 

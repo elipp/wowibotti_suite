@@ -13,7 +13,7 @@ local function vexallus()
 
 	if tap_if_need_to() then return true; end
 
-	caster_range_check(30);
+	caster_range_check(0,30);
 
 	L_TargetUnit("Pure Energy")
 
@@ -110,7 +110,7 @@ combat_warlock_affli = function()
 	end
 
 	if not validate_target() then return end
-	caster_range_check(30);
+	caster_range_check(0,30);
 
 	if tap_if_need_to(2000) then return end
 

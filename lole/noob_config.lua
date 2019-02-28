@@ -1,12 +1,12 @@
 local function noobhunter_combat()
-  if not UnitAffectingCombat("player") and not has_buff("player", "Aspect of the Viper") then
+  if UnitMana("player") < 500 or
+  (not UnitAffectingCombat("player") and not has_buff("player", "Aspect of the Viper")) then
     L_CastSpellByName("Aspect of the Viper")
   end
 
   if not validate_target() then return end
 
-
-  if not has_buff("player", "Aspect of the Hawk") then
+  if not has_buff("player", "Aspect of the Hawk") and UnitMana("player") > 1500 then
     L_CastSpellByName("Aspect of the Hawk")
     return
   end
@@ -14,13 +14,23 @@ local function noobhunter_combat()
   L_PetPassiveMode()
   L_PetAttack()
 
+  if GetSpellCooldown("Kill Command") == 0 then
+    L_CastSpellByName("Kill Command")
+    return;
+  end
+
+  if GetSpellCooldown("Rabid") == 0 then
+    L_CastSpellByName("Rabid")
+    return;
+  end
+
   if GetSpellCooldown("Rake") == 0 then
     L_CastSpellByName("Rake")
   else
     L_CastSpellByName("Claw")
   end
 
-  caster_range_check(35)
+  caster_range_check(5,35)
 
   if not has_debuff("target", "Hunter's Mark") then
     L_CastSpellByName("Hunter's Mark")
@@ -111,6 +121,12 @@ local function noobshaman_combat()
     return
   end
 
+  has, dur, count = has_buff("player", "Maelstrom Weapon")
+  if has and count > 4 then
+    L_CastSpellByName("Lightning Bolt")
+    return
+  end
+
   if GetSpellCooldown("Lava Lash") == 0 then
     L_CastSpellByName("Lava Lash")
     return
@@ -124,28 +140,28 @@ local function noobshaman_combat()
 
 end
 
-local mh_apply = nil
-local oh_apply = nil
+local mh_apply = 0
+local oh_apply = 0
 
 local function reapply_poisons()
 
-  if mh_apply then
-    L_RunMacroText("/use 16")
-    mh_apply = nil
-    return
-  elseif oh_apply then
-    L_RunMacroText("/use 17")
-    oh_apply = nil
-    return
-  end
+  -- if mh_apply then
+  --   L_RunMacroText("/use 16")
+  --   mh_apply = nil
+  --   return
+  -- elseif oh_apply then
+  --   L_RunMacroText("/use 17")
+  --   oh_apply = nil
+  --   return
+  -- end
 
   local has_mh, mh_exp, mh_charges, has_oh, oh_exp, oh_charges = GetWeaponEnchantInfo()
   --echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
 
-  if not has_mh then
+  if not has_mh and (GetTime() - mh_apply) > 8 then
     L_RunMacroText("/use Instant Poison VI")
     mh_apply = GetTime()
-  elseif not has_oh then
+  elseif not has_oh and (GetTime() - oh_apply) > 8 then
     L_RunMacroText("/use Deadly Poison VI")
     oh_apply = GetTime()
   end

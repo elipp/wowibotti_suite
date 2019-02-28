@@ -109,7 +109,7 @@ combat_warlock_demo = function()
       L_PetAttack()
     end
 
-    caster_range_check(30);
+    caster_range_check(0,30);
 
     if tap_if_need_to() then return; end
 

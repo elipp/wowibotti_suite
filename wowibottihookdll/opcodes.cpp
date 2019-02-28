@@ -43,7 +43,7 @@ static lop_func_t lop_funcs[] = {
 
 	 LOPFUNC(LOP_NOP, 0, 0, 0),
 	 LOPFUNC(LOP_TARGET_GUID, 1, 1, 0),
-	 LOPFUNC(LOP_CASTER_RANGE_CHECK, 1, 1, 0),
+	 LOPFUNC(LOP_CASTER_RANGE_CHECK, 2, 2, 0),
 	 LOPFUNC(LOP_FOLLOW, 1, 1, 0),
 	 LOPFUNC(LOP_CTM, 4, 4, 0),
 	 LOPFUNC(LOP_DUNGEON_SCRIPT, 1, 2, 0),
@@ -298,7 +298,7 @@ static int LOP_focus(const std::string &arg) {
 
 }
 
-static int LOP_range_check(double minrange) {
+static int LOP_range_check(double minrange, double maxrange) {
 	GUID_t target_GUID = get_target_GUID();
 	if (!target_GUID) return 0;
 
@@ -314,14 +314,23 @@ static int LOP_range_check(double minrange) {
 
 	vec3 diff = tpos - ppos;
 
-	if (diff.length() > minrange - 1) {
+	if (diff.length() > maxrange - 1) {
 		// move in a straight line to a distance of minrange-1 yd from the target. Kinda bug-prone though..
-		vec3 new_point = tpos - (minrange - 1) * diff.unit();
+		vec3 new_point = tpos - (maxrange - 1) * diff.unit();
 		ctm_add(CTM_t(new_point, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
 		return 1;
 
 	}
+	else if (diff.length() < minrange + 1) {
+		// move slightly away from the mob
+		vec3 new_point = tpos - (minrange + 1) * diff.unit();
+		ctm_add(CTM_t(new_point, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
+		return 1;
+	}
+
 	else {
+
+		// change facing to face the mob
 
 		// a continuous kind of facing function could also be considered (ie. just always face directly towards the mob)
 
@@ -1179,11 +1188,12 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LOP_LUA_UNLOCK:
-		LOP_lua_unlock();
+		//LOP_lua_unlock();
 		break;
 
 	case LOP_LUA_LOCK:
-		LOP_lua_lock();
+		// this is now deprecated =D
+		//LOP_lua_lock();
 		break;
 	
 	case LOP_EXECUTE:
@@ -1200,7 +1210,8 @@ int lop_exec(lua_State *L) {
 
 	case LOP_CASTER_RANGE_CHECK: {
 		double minrange = lua_tonumber(L, 2);
-		LOP_range_check(minrange);
+		double maxrange = lua_tonumber(L, 3);
+		LOP_range_check(minrange, maxrange);
 		break;
 	}
 

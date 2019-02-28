@@ -1,3 +1,11 @@
+// CAST COND ERRMSG NOTES (13.2.2019)
+// FIRST DIFFERENCE BETWEEN SUCCESS AND FAIL IS AT 8036A5 (FAIL JUMPS with JE to 8036AC, SUCCESS doesn't)
+// this occurs in the function 803500 (the return value is 0 for fail and 1 for success (EAX))
+// 808200 is one function that is called in fail and not called in success
+// 808200 IS THE fucking function :DD
+
+
+
 // CTM notes:
 
 

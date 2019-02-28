@@ -26,7 +26,7 @@ combat_shaman_elem = function()
 	if refresh_totems(TOTEMS) then return; end
 
 	if not validate_target() then return end
-	caster_range_check(30);
+	caster_range_check(0,30);
 
 	if lole_subcommands.get("aoemode") == 1 then
 		L_CastSpellByName("Elemental Mastery")
