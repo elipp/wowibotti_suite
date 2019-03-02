@@ -1428,6 +1428,15 @@ int lop_exec(lua_State *L) {
 		enable_noclip();
 		break;
 
+	case LDOP_CONSOLE_PRINT: {
+		FILE *fp = fopen("C:\\Users\\Elias\\Desktop\\lua.log", "a");
+		const char* s = lua_tolstring(L, 2, &len);
+		fputs(s, fp);
+		fclose(fp);
+		puts(s);
+		break;
+	}
+
 	default:
 		PRINT("lop_exec: unknown opcode %d!\n", opcode);
 		break;

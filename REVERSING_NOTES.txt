@@ -7,6 +7,15 @@ Address   Hex dump          Command                                  Comments
 
 // FUNCTION 00989B70 is the CGMOVEMENT SOMETHING
 
+// these are the possible functions which set the EDI + 120 to the camera struct address or we
+// 7B50A7
+// 6EB7A5
+// 6F149E
+// 6F13EC
+// 6F0A12
+// 4D3810 RETURNS SOMETHING INTERESTING
+
+
 the return values of those functions are [D4159C] and [C24954], which might be the ECX of all those functions
 
 

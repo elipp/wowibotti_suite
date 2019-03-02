@@ -44,6 +44,7 @@ local LDOP_LOS_TEST = 0xE5
 local LDOP_NOCLIP = 0xE6
 local LDOP_TEST = 0xE7
 local LDOP_CAPTURE_FRAME_RENDER_STAGES = 0xE8
+local LDOP_CONSOLE_PRINT = 0xE9
 
 
 
@@ -346,4 +347,8 @@ end
 
 function capture_render_stages()
 	lop_exec(LDOP_CAPTURE_FRAME_RENDER_STAGES)
+end
+
+function console_print(msg)
+	lop_exec(LDOP_CONSOLE_PRINT, msg)
 end

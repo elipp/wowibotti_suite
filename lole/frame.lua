@@ -14,7 +14,7 @@ lole_frame:RegisterEvent("PLAYER_LOGOUT")
 lole_frame:RegisterEvent("TRADE_SHOW")
 lole_frame:RegisterEvent("LFG_PROPOSAL_SHOW")
 lole_frame:RegisterEvent("LFG_ROLE_CHECK_SHOW")
-
+lole_frame:RegisterEvent("LFG_BOOT_PROPOSAL_UPDATE");
 
 function lole_frame_register(EVENTNAME)
 	lole_frame:RegisterEvent(EVENTNAME)
@@ -834,6 +834,9 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 
 elseif event == "LFG_ROLE_CHECK_SHOW" then
 		execute_script("RunMacroText(\"/click LFDRoleCheckPopupAcceptButton\")")
+
+elseif event == "LFG_BOOT_PROPOSAL_UPDATE" then
+		execute_script("RunMacroText(\"/click StaticPopup1Button1\")")
 
 	elseif event == "PLAYER_ENTERING_WORLD" then
 

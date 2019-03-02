@@ -75,7 +75,7 @@ local available_configs = {
 	--mage_aespam =
 	--class_config_create("mage_aespam", {}, {}, get_class_color("mage"), function() L_CastSpellByName("Arcane Explosion") end, {}, ROLES.caster),
 	noob_config =
-	class_config_create("noob_config", {}, {}, "FFFFFF", combat_noob, {"Bestial Wrath", "Rapid Fire", "Shamanistic Rage", "Heroism", "Feral Spirit", "Blade Flurry", "Adrenaline Rush" }, ROLES.melee, "MELEE", function() end)
+	class_config_create("noob_config", {}, {}, "FFFFFF", combat_noob, {"Bestial Wrath", "Rapid Fire", "Shamanistic Rage", "Heroism", "Feral Spirit", "Blade Flurry", "Adrenaline Rush", "Killing Spree" }, ROLES.melee, "MELEE", function() end)
 
 };
 
@@ -1028,6 +1028,15 @@ local function lole_broadcast(funcname, ...)
 
 end
 
+local function lole_console_print(msg)
+	for k,v in pairs(_G) do
+		--if string.find(k, "LFD") then
+			console_print(k)
+		--end
+	end
+
+end
+
 lole_subcommands = {
 	lbuffcheck = lole_leaderbuffcheck,
 	buffcheck = lole_buffcheck,
@@ -1111,5 +1120,7 @@ lole_subcommands = {
 
 	wc3mode = lole_wc3mode;
 	hold = lole_hold;
+
+	console_print = lole_console_print;
 
 }

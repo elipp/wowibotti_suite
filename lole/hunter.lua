@@ -29,7 +29,7 @@ local function feed_pet_if_need_to()
 
 end
 
-local PET_NAME = "MUKOJ"
+local PET_NAME = "prwlr"
 
 combat_hunter = function()
 
@@ -37,9 +37,12 @@ combat_hunter = function()
       L_CastSpellByName("Call Pet")
     end
 
-    PetPassiveMode()
+    --PetPassiveMode()
 
     if not UnitAffectingCombat("player") then
+      L_CastSpellByName("Aspect of the Viper")
+
+
       if UnitIsDead(PET_NAME) then
         L_CastSpellByName("Revive Pet")
         return
@@ -48,7 +51,9 @@ combat_hunter = function()
       if feed_pet_if_need_to() then
         return
       end
+
     end
+
 
     if not validate_target() then
         PetStopAttack()
@@ -63,8 +68,8 @@ combat_hunter = function()
             return;
         end
     elseif UnitMana("player") > 2500 then
-        if not has_buff("player", "Aspect of the Hawk") then
-            L_CastSpellByName("Aspect of the Hawk")
+        if not has_buff("player", "Aspect of the Dragonhawk") then
+            L_CastSpellByName("Aspect of the Dragonhawk")
             return
         end
     end
@@ -101,11 +106,6 @@ combat_hunter = function()
 
     if not has_debuff("target", "Hunter's Mark") then
         L_CastSpellByName("Hunter's Mark");
-        return
-    end
-
-    if not has_debuff("target", "Scorpid Sting") then
-        L_CastSpellByName("Scorpid Sting");
         return
     end
 

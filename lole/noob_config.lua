@@ -1,22 +1,37 @@
 local function noobhunter_combat()
-  if UnitMana("player") < 500 or
-  ((not UnitAffectingCombat("player")) and (not has_buff("player", "Aspect of the Viper"))) then
+
+  if not UnitAffectingCombat("Spobodi") then
+    L_PetPassiveMode()
+    if not has_buff("player", "Aspect of the Viper") then
+      L_CastSpellByName("Aspect of the Viper")
+    end
+    return
+
+  elseif UnitMana("player") < 500 and not has_buff("player", "Aspect of the Viper") then
     L_CastSpellByName("Aspect of the Viper")
     -- no return in this one, seems to work
   end
 
   if not validate_target() then return end
 
-  if (not has_buff("player", "Aspect of the Hawk")) and UnitMana("player") > 1500 then
-    L_CastSpellByName("Aspect of the Hawk")
+  if (not has_buff("player", "Aspect of the Dragonhawk")) and UnitMana("player") > 1800 then
+    L_CastSpellByName("Aspect of the Dragonhawk")
     return
   end
 
-  L_PetPassiveMode()
   L_PetAttack()
 
   if GetSpellCooldown("Kill Command") == 0 then
     L_CastSpellByName("Kill Command")
+    return;
+  end
+
+  if not has_debuff("target", "Hunter's Mark") then
+    L_CastSpellByName("Hunter's Mark")
+  end
+
+  if GetSpellCooldown("Rabid") == 0 then
+    L_CastSpellByName("Rabid")
     return;
   end
 
@@ -26,17 +41,8 @@ local function noobhunter_combat()
     L_CastSpellByName("Claw")
   end
 
-  if GetSpellCooldown("Rabid") == 0 then
-    L_CastSpellByName("Rabid")
-    return;
-  end
-
   caster_range_check(5,35)
 
-  if not has_debuff("target", "Hunter's Mark") then
-    L_CastSpellByName("Hunter's Mark")
-    return
-  end
 
   if GetSpellCooldown("Multi-Shot") == 0 then
     L_CastSpellByName("Multi-Shot")
@@ -179,49 +185,80 @@ local function noobrogue_combat()
 
   if not validate_target() then return end
 
-  if not UnitAffectingCombat("player") and GetSpellCooldown("Stealth") == 0 then
-    L_CastSpellByName("Stealth")
-    return
-  end
-
   melee_attack_behind()
 
   if UnitCastingInfo("target") or UnitChannelInfo("target") then
     L_CastSpellByName("Kick")
   end
 
-  if (not has_buff("player", "Hunger For Blood")) and GetSpellCooldown("Hunger For Blood") == 0 then
-    L_CastSpellByName("Hunger For Blood")
-    DEFAULT_CHAT_FRAME:AddMessage("HFB")
+  if GetComboPoints("player", "target") > 1 and UnitHealth("target") < 8000 then
+    L_CastSpellByName("Eviscerate")
     return
   end
 
-  if not has_buff("player", "Slice and Dice") then
-    DEFAULT_CHAT_FRAME:AddMessage("SND1")
-    if GetComboPoints("player", "target") < 1 then
-      L_CastSpellByName("Mutilate")
-      DEFAULT_CHAT_FRAME:AddMessage("MUT")
+  if GetComboPoints("player", "target") < 5 then
+    L_CastSpellByName("Sinister Strike")
+    return
+  else
+    if not has_buff("player", "Slice and Dice") then
+      L_CastSpellByName("Slice and Dice")
       return
     else
-      L_CastSpellByName("Slice and Dice")
-      DEFAULT_CHAT_FRAME:AddMessage("SND2")
-
-      return
+      if UnitHealth("target") < 10000 then
+        L_CastSpellByName("Eviscerate")
+        return
+      elseif not has_debuff("target", "Rupture") then
+        L_CastSpellByName("Rupture")
+        return
+      else
+        L_CastSpellByName("Sinister Strike")
+        return
+      end
     end
   end
 
-  if GetComboPoints("player", "target") < 4 then
-    L_CastSpellByName("Mutilate")
-    DEFAULT_CHAT_FRAME:AddMessage("MUT2")
-    return
-  else
-    L_CastSpellByName("Envenom")
-    DEFAULT_CHAT_FRAME:AddMessage("ENV")
+end
 
+function noobwarrior_combat()
+
+  if playermode() then
     return
   end
 
+  if IsUsableSpell("Revenge") then
+    L_CastSpellByName("Revenge")
+  end
+
+  if GetSpellCooldown("Shield Slam") == 0 then
+    L_CastSpellByName("Shield Slam")
+    return
+  end
+
+  if not has_buff("player", "Commanding Shout") then
+    L_CastSpellByName("Commanding Shout")
+    return
+  end
+
+  if not has_debuff("target", "Thunder Clap") then
+    L_CastSpellByName("Thunder Clap")
+    return
+  end
+
+  if not has_debuff("target", "Demoralizing Shout") then
+    L_CastSpellByName("Demoralizing Shout")
+    return
+  end
+
+  L_CastSpellByName("Devastate")
+
+  if UnitPower("player") > 30 then
+    L_CastSpellByName("Cleave")
+  else
+    L_CastSpellByName("Heroic Strike")
+  end
+
 end
+
 
 function combat_noob()
 
@@ -237,6 +274,8 @@ function combat_noob()
     return noobshaman_combat()
   elseif string.find(class, "HUNTER") then
     return noobhunter_combat()
+  elseif string.find(class, "WARRIOR") then
+    return noobwarrior_combat()
   end
 
 end
