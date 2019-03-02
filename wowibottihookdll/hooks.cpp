@@ -372,15 +372,15 @@ static void __stdcall dump_sendpacket(BYTE *packet) {
 
 	case CMSG_WARDEN_DATA: 
 		PRINT("GOT CMSG_WARDEN_DATA\n\n");
-		relay_warden_packet(packet, total_bytes, WARDEN_SOURCE_OUT);
+		//relay_warden_packet(packet, total_bytes, WARDEN_SOURCE_OUT);
 		PRINT("\n");
 		break;
 	default:
-		//PRINT("opcode: 0x%04X (content length %d)\n", opcode, length-6);
-		//for (int i = 6; i < length; ++i) {
-		//	PRINT("%02X ", packet[i]);
-		//}
-		//PRINT("\n\n");
+		PRINT("opcode: 0x%04X (total_length %d)\n", opcode, total_bytes);
+		for (int i = 6; i < total_bytes; ++i) {
+			PRINT("%02X ", packet[i]);
+		}
+		PRINT("\n\n");
 		break;
 	}
 }
@@ -1093,7 +1093,7 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("pylpyr");
 	ADD_PATCH_SAFE("CTM_main");
 	ADD_PATCH_SAFE("AddInputEvent");
-	//ADD_PATCH_SAFE("SendPacket");
+	ADD_PATCH_SAFE("SendPacket");
 	//ADD_PATCH_SAFE("RecvPacket");
 	//ADD_PATCH_SAFE("SARC4_encrypt");
 //	ADD_PATCH_SAFE("WS2_send");

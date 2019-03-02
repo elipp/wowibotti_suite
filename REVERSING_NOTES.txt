@@ -1,3 +1,16 @@
+// SETFACING SHITS 1.3.2019
+// CPU Disasm
+Address   Hex dump          Command                                  Comments
+006025AA  |> \E8 71882600   CALL 0086AE20
+006025AF  |.  8BF8          MOV EDI,EAX
+006025B1  |.  E8 1A70FFFF   CALL 005F95D0
+
+// FUNCTION 00989B70 is the CGMOVEMENT SOMETHING
+
+the return values of those functions are [D4159C] and [C24954], which might be the ECX of all those functions
+
+
+
 // CAST COND ERRMSG NOTES (13.2.2019)
 // FIRST DIFFERENCE BETWEEN SUCCESS AND FAIL IS AT 8036A5 (FAIL JUMPS with JE to 8036AC, SUCCESS doesn't)
 // this occurs in the function 803500 (the return value is 0 for fail and 1 for success (EAX))

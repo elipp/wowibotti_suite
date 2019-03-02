@@ -323,7 +323,7 @@ static int LOP_range_check(double minrange, double maxrange) {
 	}
 	else if (diff.length() < minrange + 1) {
 		// move slightly away from the mob
-		vec3 new_point = tpos - (minrange + 1) * diff.unit();
+		vec3 new_point = tpos - (minrange - 1) * diff.unit();
 		ctm_add(CTM_t(new_point, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
 		return 1;
 	}
@@ -1080,6 +1080,8 @@ int LOP_get_biscuits() {
 
 int LOP_loot_badge(const std::string &GUID_str) {
 
+
+
 	GUID_t corpse_GUID = convert_str_to_GUID(GUID_str);
 	if (corpse_GUID == 0) return 0;
 
@@ -1411,7 +1413,13 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LDOP_TEST: {
-		LOPDBG_test();
+		double angle = lua_tonumber(L, 2);
+		auto FACING = (void (* __stdcall)(float))0x989B70;
+		auto SOMEFUNC = (DWORD(*__stdcall)(void))0x74B330;
+		DWORD d = SOMEFUNC();
+		printf("%X\n", d);
+		//FACING(angle);
+		//LOPDBG_test();
 
 	//	try_wowctm();
 		break;

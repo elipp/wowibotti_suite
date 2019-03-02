@@ -67,7 +67,7 @@ function target_unit_with_marker(marker)
 	lop_exec(LOP_TARGET_MARKER, marker)
 end
 
-function caster_range_check(0,minrange, maxrange)
+function caster_range_check(minrange, maxrange)
 	if not playermode() then
 		if lop_exec(LOP_CASTER_RANGE_CHECK, minrange, maxrange) then
 			return true
@@ -231,8 +231,8 @@ function lua_lock()
 	return lop_exec(LOP_LUA_LOCK)
 end
 
-function lole_debug_test()
-	lop_exec(LDOP_TEST)
+function lole_debug_test(angle)
+	lop_exec(LDOP_TEST, angle)
 end
 
 function lole_debug_pull_test()

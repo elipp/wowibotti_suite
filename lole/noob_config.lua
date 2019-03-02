@@ -1,12 +1,13 @@
 local function noobhunter_combat()
   if UnitMana("player") < 500 or
-  (not UnitAffectingCombat("player") and not has_buff("player", "Aspect of the Viper")) then
+  ((not UnitAffectingCombat("player")) and (not has_buff("player", "Aspect of the Viper"))) then
     L_CastSpellByName("Aspect of the Viper")
+    -- no return in this one, seems to work
   end
 
   if not validate_target() then return end
 
-  if not has_buff("player", "Aspect of the Hawk") and UnitMana("player") > 1500 then
+  if (not has_buff("player", "Aspect of the Hawk")) and UnitMana("player") > 1500 then
     L_CastSpellByName("Aspect of the Hawk")
     return
   end
@@ -19,15 +20,15 @@ local function noobhunter_combat()
     return;
   end
 
-  if GetSpellCooldown("Rabid") == 0 then
-    L_CastSpellByName("Rabid")
-    return;
-  end
-
   if GetSpellCooldown("Rake") == 0 then
     L_CastSpellByName("Rake")
   else
     L_CastSpellByName("Claw")
+  end
+
+  if GetSpellCooldown("Rabid") == 0 then
+    L_CastSpellByName("Rabid")
+    return;
   end
 
   caster_range_check(5,35)
@@ -140,30 +141,34 @@ local function noobshaman_combat()
 
 end
 
-local mh_apply = 0
-local oh_apply = 0
+local mh_apply = nil
+local mh_applytime = 0
+local oh_apply = nil
+local oh_applytime = 0
 
 local function reapply_poisons()
 
-  -- if mh_apply then
-  --   L_RunMacroText("/use 16")
-  --   mh_apply = nil
-  --   return
-  -- elseif oh_apply then
-  --   L_RunMacroText("/use 17")
-  --   oh_apply = nil
-  --   return
-  -- end
+  if mh_apply then
+    L_RunMacroText("/use 16")
+    mh_applytime = GetTime()
+    mh_apply = 0
+    return
+  elseif oh_apply then
+    L_RunMacroText("/use 17")
+    oh_applytime = GetTime()
+    oh_apply = 0
+    return
+  end
 
   local has_mh, mh_exp, mh_charges, has_oh, oh_exp, oh_charges = GetWeaponEnchantInfo()
   --echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
 
-  if not has_mh and (GetTime() - mh_apply) > 8 then
-    L_RunMacroText("/use Instant Poison VI")
-    mh_apply = GetTime()
-  elseif not has_oh and (GetTime() - oh_apply) > 8 then
-    L_RunMacroText("/use Deadly Poison VI")
-    oh_apply = GetTime()
+  if not has_mh and (GetTime() - mh_applytime) > 5 then
+    L_RunMacroText("/use Instant Poison VII")
+    mh_apply = 1
+  elseif not has_oh and (GetTime() - oh_applytime) > 5 then
+    L_RunMacroText("/use Deadly Poison VII")
+    oh_apply = 1
   end
 
 end
@@ -174,38 +179,55 @@ local function noobrogue_combat()
 
   if not validate_target() then return end
 
+  if not UnitAffectingCombat("player") and GetSpellCooldown("Stealth") == 0 then
+    L_CastSpellByName("Stealth")
+    return
+  end
+
   melee_attack_behind()
 
   if UnitCastingInfo("target") or UnitChannelInfo("target") then
     L_CastSpellByName("Kick")
   end
 
-  if UnitHealth("target") < 2000 and GetComboPoints("player", "target") > 0 then
-    if not has_buff("player", "Slice and Dice") then
-      L_CastSpellByName("Slice and Dice")
+  if (not has_buff("player", "Hunger For Blood")) and GetSpellCooldown("Hunger For Blood") == 0 then
+    L_CastSpellByName("Hunger For Blood")
+    DEFAULT_CHAT_FRAME:AddMessage("HFB")
+    return
+  end
+
+  if not has_buff("player", "Slice and Dice") then
+    DEFAULT_CHAT_FRAME:AddMessage("SND1")
+    if GetComboPoints("player", "target") < 1 then
+      L_CastSpellByName("Mutilate")
+      DEFAULT_CHAT_FRAME:AddMessage("MUT")
       return
     else
-      L_CastSpellByName("Eviscerate")
+      L_CastSpellByName("Slice and Dice")
+      DEFAULT_CHAT_FRAME:AddMessage("SND2")
+
       return
     end
   end
 
-  if (GetComboPoints("player", "target") < 5) then
-      L_CastSpellByName("Sinister Strike")
-      return
+  if GetComboPoints("player", "target") < 4 then
+    L_CastSpellByName("Mutilate")
+    DEFAULT_CHAT_FRAME:AddMessage("MUT2")
+    return
   else
-    local hassnd, timeleft = has_buff("player", "Slice and Dice")
-    if not hassnd or timeleft < 6 then
-      L_CastSpellByName("Slice and Dice")
-    else
-      L_CastSpellByName("Eviscerate")
-    end
+    L_CastSpellByName("Envenom")
+    DEFAULT_CHAT_FRAME:AddMessage("ENV")
+
+    return
   end
 
 end
 
 function combat_noob()
 
+  -- if has_debuff("player", "Intense Cold") then
+  --   execute_script("JumpOrAscendStart()")
+  -- end
 
   local _, class = UnitClass("player")
 

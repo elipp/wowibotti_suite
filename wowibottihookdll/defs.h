@@ -55,6 +55,7 @@ while(0)
 
 enum {
 	CTM_HUNTER_AIMED = 0x0,
+	CTM_FACE = 0x2,
 	CTM_FOLLOW = 0x3,
 	CTM_MOVE = 0x4,
 	CTM_TALK_NPC = 0x5,
