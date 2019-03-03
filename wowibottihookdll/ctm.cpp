@@ -274,10 +274,21 @@ void ctm_unlock() {
 }
 
 
+// this seems to work OK?
+
+void ctm_face_target() {
+	ctm_add(CTM_t(CTM_FACE, CTM_PRIO_REPLACE));
+}
+
 
 void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_distance) {
 
 	if (ctm_locked) {
+		return;
+	}
+
+	if (action == CTM_FACE) {
+		writeAddr(CTM_ACTION, &action, sizeof(action));
 		return;
 	}
 

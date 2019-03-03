@@ -1,11 +1,18 @@
+local asdf = CreateFrame("frame",nil, UIParent); asdf:SetScript("OnUpdate", function()
+  if lole_get("blast") == 0 then
+    L_PetFollow()
+    L_PetPassiveMode()
+  end
+end);
+
 local function noobhunter_combat()
 
-  if not UnitAffectingCombat("Spobodi") then
+  if not UnitAffectingCombat("player") then
     L_PetPassiveMode()
     if not has_buff("player", "Aspect of the Viper") then
       L_CastSpellByName("Aspect of the Viper")
+      return
     end
-    return
 
   elseif UnitMana("player") < 500 and not has_buff("player", "Aspect of the Viper") then
     L_CastSpellByName("Aspect of the Viper")
@@ -19,11 +26,18 @@ local function noobhunter_combat()
     return
   end
 
+  L_StartAttack()
   L_PetAttack()
 
   if GetSpellCooldown("Kill Command") == 0 then
     L_CastSpellByName("Kill Command")
     return;
+  end
+
+  local hppercentage = UnitHealth('target')/UnitHealthMax('target')
+  if hppercentage < 0.20 then
+    L_CastSpellByName("Kill Shot")
+    -- no return, will not be done if cooldown
   end
 
   if not has_debuff("target", "Hunter's Mark") then
@@ -41,7 +55,7 @@ local function noobhunter_combat()
     L_CastSpellByName("Claw")
   end
 
-  caster_range_check(5,35)
+  caster_range_check(12,35)
 
 
   if GetSpellCooldown("Multi-Shot") == 0 then
@@ -109,10 +123,11 @@ end
 
 local function noobshaman_combat()
 
-  if not has_buff("player", "Water Shield") then
-    L_CastSpellByName("Water Shield")
+  if not has_buff("player", "Lightning Shield") then
+    L_CastSpellByName("Lightning Shield")
     return
   end
+
 
   noobshaman_renew_weaponenchant()
 
@@ -120,6 +135,10 @@ local function noobshaman_combat()
 
   melee_attack_behind()
   L_StartAttack()
+
+  if UnitMana("player") < 1000 then
+    L_CastSpellByName("Shamanistic Rage")
+  end
 
   if noobshaman_managetotems() then return end
 

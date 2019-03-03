@@ -75,7 +75,7 @@ local available_configs = {
 	--mage_aespam =
 	--class_config_create("mage_aespam", {}, {}, get_class_color("mage"), function() L_CastSpellByName("Arcane Explosion") end, {}, ROLES.caster),
 	noob_config =
-	class_config_create("noob_config", {}, {}, "FFFFFF", combat_noob, {"Bestial Wrath", "Rapid Fire", "Shamanistic Rage", "Heroism", "Feral Spirit", "Blade Flurry", "Adrenaline Rush", "Killing Spree" }, ROLES.melee, "MELEE", function() end)
+	class_config_create("noob_config", {}, {}, "FFFFFF", combat_noob, {"Bestial Wrath", "Rapid Fire", "Call of the Wild", "Shamanistic Rage", "Heroism", "Feral Spirit", "Blade Flurry", "Adrenaline Rush", "Killing Spree" }, ROLES.melee, "MELEE", function() end)
 
 };
 
@@ -209,7 +209,7 @@ local function lole_set(attrib_name, on_off_str)
 	return true;
 end
 
-local function lole_get(attrib_name)
+function lole_get(attrib_name)
 
 	if not attrib_name or attrib_name == "" then
 		return mode_attribs; -- return all attribs

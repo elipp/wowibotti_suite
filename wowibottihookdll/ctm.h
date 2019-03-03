@@ -10,6 +10,7 @@ void ctm_act();
 int ctm_handle_delayed_posthook();
 
 void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_distance = 0.0);
+void ctm_face_target();
 
 void ctm_lock();
 void ctm_unlock();
@@ -87,6 +88,16 @@ struct CTM_t {
 	CTM_t(const vec3 pos, int act, int prio, GUID_t interact, float min_dist) 
 		: destination(pos), action(act), priority(prio), interact_GUID(interact), min_distance(min_dist) {
 		
+		timestamp.start();
+		ID = CTMID;
+
+		posthook_chain = std::vector<CTM_posthook_t>();
+		hookchain_index = 0;
+
+		++CTMID;
+	}
+
+	CTM_t(int act, int prio) : action(act), priority(prio) {
 		timestamp.start();
 		ID = CTMID;
 

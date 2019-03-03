@@ -321,9 +321,9 @@ static int LOP_range_check(double minrange, double maxrange) {
 		return 1;
 
 	}
-	else if (diff.length() < minrange + 1) {
+	else if (diff.length() < minrange) {
 		// move slightly away from the mob
-		vec3 new_point = tpos - (minrange - 1) * diff.unit();
+		vec3 new_point = tpos - (minrange + 1) * diff.unit();
 		ctm_add(CTM_t(new_point, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
 		return 1;
 	}
@@ -342,6 +342,7 @@ static int LOP_range_check(double minrange, double maxrange) {
 
 		if (d < 0) {
 			ctm_add(CTM_t(ppos + diff.unit(), CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5)); // this seems quite stable for just changing orientation.
+			//ctm_face_target();
 		}
 	}
 
@@ -1429,11 +1430,12 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LDOP_CONSOLE_PRINT: {
-		FILE *fp = fopen("C:\\Users\\Elias\\Desktop\\lua.log", "a");
 		const char* s = lua_tolstring(L, 2, &len);
-		fputs(s, fp);
-		fclose(fp);
 		puts(s);
+
+		//FILE *fp = fopen("C:\\Users\\Elias\\Desktop\\lua.log", "a");
+		//fputs(s, fp);
+		//fclose(fp);
 		break;
 	}
 
