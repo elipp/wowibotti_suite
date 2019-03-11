@@ -1,7 +1,14 @@
+local petfollow_called = nil
+
 local function petfollow_default()
   if lole_get("blast") == 0 then
-    L_PetFollow()
-    L_PetPassiveMode()
+    if not petfollow_called then
+      L_PetFollow()
+      L_PetPassiveMode()
+      petfollow_called = true
+    end
+  else
+    petfollow_called = nil
   end
 end
 
@@ -26,7 +33,8 @@ end
 local function noobhunter_combat()
 
   if not petframe_dummy then
-    petframe_dummy = CreateFrame("frame",nil, UIParent); asdf:SetScript("OnUpdate", petfollow_default())
+    petframe_dummy = CreateFrame("frame",nil, UIParent)
+    petframe_dummy:SetScript("OnUpdate", petfollow_default)
   end
 
   if not PetHasActionBar() then
