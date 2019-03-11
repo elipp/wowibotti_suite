@@ -267,7 +267,7 @@ local function noobrogue_combat()
     elseif not has_debuff("target", "Rupture") then
         L_CastSpellByName("Rupture")
         return
-    else
+    elseif UnitPower("player") > 65 then
       L_CastSpellByName("Sinister Strike")
       return
     end
