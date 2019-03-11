@@ -323,7 +323,7 @@ static int LOP_range_check(double minrange, double maxrange) {
 	}
 	else if (diff.length() < minrange) {
 		// move slightly away from the mob
-		vec3 new_point = tpos - (minrange + 1) * diff.unit();
+		vec3 new_point = tpos - (minrange + 3) * diff.unit();
 		ctm_add(CTM_t(new_point, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
 		return 1;
 	}

@@ -1,28 +1,34 @@
-local asdf = CreateFrame("frame",nil, UIParent); asdf:SetScript("OnUpdate", function()
-  if lole_get("blast") == 0 then
-    L_PetFollow()
-    L_PetPassiveMode()
-  end
-end);
+--local asdf = CreateFrame("frame",nil, UIParent); asdf:SetScript("OnUpdate", function()
+--  if lole_get("blast") == 0 then
+  --  L_PetFollow()
+  --  L_PetPassiveMode()
+--  end
+--end);
 
 local function noobhunter_combat()
 
+  if not PetHasActionBar() then
+    L_CastSpellByName("Call Pet")
+    return
+  elseif UnitIsDead("pet") then
+    L_CastSpellByName("Revive Pet")
+  end
+
   if not UnitAffectingCombat("player") then
     L_PetPassiveMode()
+
     if not has_buff("player", "Aspect of the Viper") then
       L_CastSpellByName("Aspect of the Viper")
-      return
     end
-
-  elseif UnitMana("player") < 500 and not has_buff("player", "Aspect of the Viper") then
-    L_CastSpellByName("Aspect of the Viper")
-    -- no return in this one, seems to work
   end
 
   if not validate_target() then return end
 
-  if (not has_buff("player", "Aspect of the Dragonhawk")) and UnitMana("player") > 1800 then
+  if UnitMana("player") > 4000 and (not has_buff("player", "Aspect of the Dragonhawk")) then
     L_CastSpellByName("Aspect of the Dragonhawk")
+    return
+  elseif UnitMana("player") < 500 and (not has_buff("player", "Aspect of the Viper")) then
+    L_CastSpellByName("Aspect of the Viper")
     return
   end
 
@@ -37,7 +43,7 @@ local function noobhunter_combat()
   local hppercentage = UnitHealth('target')/UnitHealthMax('target')
   if hppercentage < 0.20 then
     L_CastSpellByName("Kill Shot")
-    -- no return, will not be done if cooldown
+    -- no return, will not be cast if incooldown
   end
 
   if not has_debuff("target", "Hunter's Mark") then
@@ -57,21 +63,20 @@ local function noobhunter_combat()
 
   caster_range_check(12,35)
 
-
-  if GetSpellCooldown("Multi-Shot") == 0 then
-    L_CastSpellByName("Multi-Shot")
-    return;
-  end
-
   if not has_debuff("target", "Serpent Sting") then
     L_CastSpellByName("Serpent Sting")
     return;
   end
 
-  -- if GetSpellCooldown("Arcane Shot") == 0 then
-  --   L_CastSpellByName("Arcane Shot")
-  --   return;
-  -- end
+  if GetSpellCooldown("Arcane Shot") == 0 then
+    L_CastSpellByName("Arcane Shot")
+    return
+  end
+
+  if GetSpellCooldown("Multi-Shot") == 0 then
+    L_CastSpellByName("Multi-Shot")
+    return;
+  end
 
   L_CastSpellByName("Steady Shot")
 
