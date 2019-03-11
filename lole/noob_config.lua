@@ -245,40 +245,50 @@ end
 
 function noobwarrior_combat()
 
-  if playermode() then
+  if not validate_target() then return end
+
+  melee_attack_behind()
+
+  L_RunMacroText("/cast [nostance:3] Berserker Stance");
+
+  if UnitCastingInfo("target") or UnitChannelInfo("target") then
+    L_CastSpellByName("Pummel")
+  end
+
+  if GetSpellCooldown("Bloodrage") == 0 then
+    L_CastSpellByName("Bloodrage")
+  end
+
+  if not has_buff("player", "Battle Shout") then
+    L_CastSpellByName("Battle Shout")
     return
   end
 
-  if IsUsableSpell("Revenge") then
-    L_CastSpellByName("Revenge")
-  end
-
-  if GetSpellCooldown("Shield Slam") == 0 then
-    L_CastSpellByName("Shield Slam")
+  if has_buff("player", "Slam!") then
+    L_CastSpellByName("Slam")
     return
   end
 
-  if not has_buff("player", "Commanding Shout") then
-    L_CastSpellByName("Commanding Shout")
+  if GetSpellCooldown("Bloodthirst") == 0 then
+    L_CastSpellByName("Bloodthirst")
     return
   end
 
-  if not has_debuff("target", "Thunder Clap") then
-    L_CastSpellByName("Thunder Clap")
+  if GetSpellCooldown("Whirlwind") == 0 then
+    L_CastSpellByName("Whirlwind")
     return
   end
 
-  if not has_debuff("target", "Demoralizing Shout") then
-    L_CastSpellByName("Demoralizing Shout")
+  L_CastSpellByName("Heroic Strike")
+
+  if GetSpellCooldown("Heroic Throw") == 0 then
+    L_CastSpellByName("Heroic Throw")
     return
   end
 
-  L_CastSpellByName("Devastate")
-
-  if UnitPower("player") > 30 then
-    L_CastSpellByName("Cleave")
-  else
-    L_CastSpellByName("Heroic Strike")
+  if IsUsableSpell("Execute") then
+    L_CastSpellByName("Execute")
+    return
   end
 
 end
