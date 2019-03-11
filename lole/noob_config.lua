@@ -1,11 +1,33 @@
---local asdf = CreateFrame("frame",nil, UIParent); asdf:SetScript("OnUpdate", function()
---  if lole_get("blast") == 0 then
-  --  L_PetFollow()
-  --  L_PetPassiveMode()
---  end
---end);
+local function petfollow_default()
+  if lole_get("blast") == 0 then
+    L_PetFollow()
+    L_PetPassiveMode()
+  end
+end
+
+local petframe_dummy = nil
+
+local aspect_changetime = 0
+local function change_aspect(aspectname)
+
+  -- explanation: on Warmane, there's a weird quirk that aspect changes get somehow "queued"
+  -- so in order to avoid getting trapped in a aspect change spam cycle for a while, we add a timeout
+
+  if GetTime() - aspect_changetime > 5 then
+    L_CastSpellByName(aspectname)
+    aspect_changetime = GetTime()
+    return true
+  end
+  return nil
+
+end
+
 
 local function noobhunter_combat()
+
+  if not petframe_dummy then
+    petframe_dummy = CreateFrame("frame",nil, UIParent); asdf:SetScript("OnUpdate", petfollow_default())
+  end
 
   if not PetHasActionBar() then
     L_CastSpellByName("Call Pet")
@@ -14,21 +36,24 @@ local function noobhunter_combat()
     L_CastSpellByName("Revive Pet")
   end
 
+
   if not UnitAffectingCombat("player") then
-    L_PetPassiveMode()
+    --L_PetPassiveMode()
 
     if not has_buff("player", "Aspect of the Viper") then
-      L_CastSpellByName("Aspect of the Viper")
+      change_aspect("Aspect of the Viper")
+      -- must NOT have return in this
     end
   end
 
   if not validate_target() then return end
 
+  caster_range_check(12,35)
+
   if UnitMana("player") > 4000 and (not has_buff("player", "Aspect of the Dragonhawk")) then
-    L_CastSpellByName("Aspect of the Dragonhawk")
-    return
+    if change_aspect("Aspect of the Dragonhawk") then return end
   elseif UnitMana("player") < 500 and (not has_buff("player", "Aspect of the Viper")) then
-    L_CastSpellByName("Aspect of the Viper")
+    if change_aspect("Aspect of the Viper") then return end
     return
   end
 
@@ -55,13 +80,11 @@ local function noobhunter_combat()
     return;
   end
 
-  if GetSpellCooldown("Rake") == 0 then
-    L_CastSpellByName("Rake")
+  if GetSpellCooldown("Rake(Rank 6)") == 0 then
+    L_CastSpellByName("Rake(Rank 6)")
   else
-    L_CastSpellByName("Claw")
+    L_CastSpellByName("Claw(Rank 11)")
   end
-
-  caster_range_check(12,35)
 
   if not has_debuff("target", "Serpent Sting") then
     L_CastSpellByName("Serpent Sting")
@@ -172,33 +195,35 @@ local function noobshaman_combat()
 end
 
 local mh_apply = nil
-local mh_applytime = 0
+local mh_at = 0
 local oh_apply = nil
-local oh_applytime = 0
+local oh_at = 0
 
 local function reapply_poisons()
 
   if mh_apply then
     L_RunMacroText("/use 16")
-    mh_applytime = GetTime()
-    mh_apply = 0
-    return
+    mh_at = GetTime()
+    mh_apply = nil
   elseif oh_apply then
     L_RunMacroText("/use 17")
-    oh_applytime = GetTime()
-    oh_apply = 0
-    return
+    oh_at = GetTime()
+    oh_apply = nil
   end
 
   local has_mh, mh_exp, mh_charges, has_oh, oh_exp, oh_charges = GetWeaponEnchantInfo()
-  --echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
+--  echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
 
-  if not has_mh and (GetTime() - mh_applytime) > 5 then
-    L_RunMacroText("/use Instant Poison VII")
-    mh_apply = 1
-  elseif not has_oh and (GetTime() - oh_applytime) > 5 then
-    L_RunMacroText("/use Deadly Poison VII")
-    oh_apply = 1
+  if not has_mh then
+    L_RunMacroText("/use Instant Poison IX")
+    if GetTime() - mh_at > 5 then
+      mh_apply = 1
+    end
+  elseif not has_oh then
+    L_RunMacroText("/use Deadly Poison IX")
+    if GetTime() - oh_at > 5 then
+      oh_apply = 1
+    end
   end
 
 end
@@ -224,20 +249,19 @@ local function noobrogue_combat()
     L_CastSpellByName("Sinister Strike")
     return
   else
-    if not has_buff("player", "Slice and Dice") then
+    if UnitHealth("target") < 10000 then
+      L_CastSpellByName("Eviscerate")
+      return
+    elseif not has_buff("player", "Slice and Dice") then
       L_CastSpellByName("Slice and Dice")
       return
-    else
-      if UnitHealth("target") < 10000 then
-        L_CastSpellByName("Eviscerate")
-        return
-      elseif not has_debuff("target", "Rupture") then
+
+    elseif not has_debuff("target", "Rupture") then
         L_CastSpellByName("Rupture")
         return
-      else
-        L_CastSpellByName("Sinister Strike")
-        return
-      end
+    else
+      L_CastSpellByName("Sinister Strike")
+      return
     end
   end
 
