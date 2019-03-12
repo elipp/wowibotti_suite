@@ -297,20 +297,20 @@ std::string WowObject::unit_get_name() const {
 }
 
 uint WowObject::unit_get_health() const {
-	uint info_field;
-	readAddr(base + unit_info_field, &info_field, sizeof(uint));
+	//uint info_field;
+	//readAddr(base + unit_info_field, &info_field, sizeof(uint));
 
 	uint cur_HP = 0;
-	readAddr(info_field + UnitHealth, &cur_HP, sizeof(cur_HP));
+	readAddr(base + 0xFB0, &cur_HP, sizeof(cur_HP));
 	return cur_HP;
 }
 
 uint WowObject::unit_get_health_max() const {
 	uint info_field;
-	readAddr(base + unit_info_field, &info_field, sizeof(uint));
+	readAddr(base + 0xD0, &info_field, sizeof(uint));
 
 	uint max_HP = 0;
-	readAddr(info_field + UnitHealthMax, &max_HP, sizeof(max_HP));
+	readAddr(info_field + 0x68, &max_HP, sizeof(max_HP));
 	return max_HP;
 }
 

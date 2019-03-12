@@ -1414,15 +1414,12 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LDOP_TEST: {
-		double angle = lua_tonumber(L, 2);
-		auto FACING = (void (* __stdcall)(float))0x989B70;
-		auto SOMEFUNC = (DWORD(*__stdcall)(void))0x74B330;
-		DWORD d = SOMEFUNC();
-		printf("%X\n", d);
-		//FACING(angle);
-		//LOPDBG_test();
 
-	//	try_wowctm();
+		ObjectManager OM;
+		WowObject u;
+		OM.get_unit_by_name("Rektorn", &u);
+		PRINT("rektorn's address: %p, %u/%u\n", u.get_base(), u.unit_get_health(), u.unit_get_health_max());
+
 		break;
 	}
 	case LDOP_NOCLIP:
