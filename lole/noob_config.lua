@@ -325,6 +325,58 @@ function noobwarrior_combat()
 
 end
 
+local function noobpriest_combat()
+
+  if not has_buff("player", "Shadowform") then
+    L_CastSpellByName("Shadowform")
+    return
+  end
+
+  if not has_buff("player", "Inner Fire") then
+    L_CastSpellByName("Inner Fire")
+    return
+  end
+
+  if not validate_target() then return end
+
+  caster_range_check(1, 32)
+
+  local c = UnitChannelInfo("player")
+
+  if c == "Mind Flay" or c == "Mind Sear" then
+    return -- in order not to clip mind flay/sear
+  end
+
+  if GetSpellCooldown("Shadowfiend") > 0 and UnitMana("player") < 500 then
+    L_CastSpellByName("Dispersion")
+  elseif UnitHealth("target") > 30000 and UnitMana("player") < 500 then
+    L_CastSpellByName("Shadowfiend")
+  end
+
+  if not has_debuff("target", "Vampiric Touch") then
+    L_CastSpellByName("Vampiric Touch")
+    return
+  elseif UnitCastingInfo("player") == "Vampiric Touch" then
+    L_SpellStopCasting()
+  end
+
+  if not has_debuff("target", "Devouring Plague") then
+    L_CastSpellByName("Devouring Plague")
+    return
+  end
+
+  if not has_debuff("target", "Shadow Word: Pain") then
+    L_CastSpellByName("Shadow Word: Pain")
+    return
+  end
+
+  if lole_get("aoemode") == 1 then
+    L_CastSpellByName("Mind Sear")
+  else
+    L_CastSpellByName("Mind Flay")
+  end
+end
+
 
 function combat_noob()
 
@@ -342,6 +394,8 @@ function combat_noob()
     return noobhunter_combat()
   elseif string.find(class, "WARRIOR") then
     return noobwarrior_combat()
+  elseif string.find(class, "PRIEST") then
+    return noobpriest_combat()
   end
 
 end

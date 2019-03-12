@@ -91,7 +91,9 @@ combat_warlock_demo = function()
 
     end
 
-
+    if not has_buff("player", "Fel Armor") then
+      L_CastSpellByName("Fel Armor")
+    end
 
     if not has_buff("player", "Master Demonologist") then
         L_CastSpellByName("Fel Domination")
