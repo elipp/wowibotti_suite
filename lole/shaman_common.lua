@@ -1,3 +1,5 @@
+TIME_TOTEMS_REFRESHED = 0;
+
 local totem_type_id_map = {
 	["fire"] = 1,
 	["earth"] = 2,
@@ -71,17 +73,22 @@ local function should_recast_totem(arg_totem)
 
 	L_ClearTarget()
 
-	local bname = totem_name_buffname_map[arg_totem];
+	--[[local bname = totem_name_buffname_map[arg_totem];
 	if bname then
 		if not has_buff("player", bname) then
+			echo(3)
 			return true;
 		end
-	end
+	end--]]
 
 	return false;
 end
 
 function refresh_totems(TOTEMS, TOTEM_BAR)
+	--[[if (GetTime() - TIME_TOTEMS_REFRESHED) < 5 then
+        return false;
+    end--]]
+
 	local totems_to_recast = {}
 	local num_to_recast = 0
 	for slot,name in pairs(TOTEMS) do
@@ -91,12 +98,14 @@ function refresh_totems(TOTEMS, TOTEM_BAR)
 		end
 		if num_to_recast > 2 then
 			L_CastSpellByName(TOTEM_BAR)
+			TIME_TOTEMS_REFRESHED = GetTime()
 			return true
 		end
 	end
 
 	for totem, _ in pairs(totems_to_recast) do
 		L_CastSpellByName(totem)
+		TIME_TOTEMS_REFRESHED = GetTime()
 		return true
 	end
 

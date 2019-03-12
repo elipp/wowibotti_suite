@@ -69,8 +69,8 @@ local function raid_heal()
             return true
         end
 
-        bounce1_is_deficient = false
-        bounce1 = heal_targets[2]
+        local bounce1_is_deficient = false
+        local bounce1 = heal_targets[2]
         if bounce1 then
             bounce1 = heal_targets[2]
             bounce1_deficit = UnitHealthMax(bounce1) - UnitHealth(bounce1)
@@ -138,18 +138,22 @@ combat_shaman_resto = function()
     if target_HPP < 30 then
         cast_heal("Riptide");
         cast_heal("Lesser Healing Wave");
+        return
 
     elseif health_percentage("player") < 30 then
         L_TargetUnit("player");
         cast_heal("Riptide");
         cast_heal("Lesser Healing Wave");
+        return
 
     elseif target_HPP < 70 then
         cast_heal("Healing Wave");
+        return
 
     elseif health_percentage("player") < 50 then
         L_TargetUnit("player");
         cast_heal("Healing Wave");
+        return
 
     elseif table.contains(heal_targets, "raid") then
         raid_heal();
