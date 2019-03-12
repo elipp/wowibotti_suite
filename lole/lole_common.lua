@@ -6,9 +6,10 @@ BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 OVERRIDE_COMMAND = nil;
 
-HEALERS = {"Printf"}; -- for keeping order mostly
+HEALERS = {"Printf", "Ghospodi"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
     Printf = {heals = {"raid"}, hots = {}, ignores = {}},
+    Ghospodi = {heals = {"raid"}, hots = {"Rektorn"}, ignores = {}}
 }
 ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
 HEALS_IN_PROGRESS = {};
@@ -46,6 +47,7 @@ HEAL_ESTIMATES = {
 INSTANT_HEALS = {
     ["Holy Shock"] = true,
     ["Earth Shield"] = true,
+    ["Riptide"] = true,
     ["Power Word: Shield"] = true,
     ["Circle of Healing"] = true,
     ["Renew"] = true,

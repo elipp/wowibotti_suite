@@ -1,44 +1,45 @@
 
 local function refresh_ES(hottargets)
 
-	if not hottargets or not hottargets[1] then return false; end
+    if not hottargets or not hottargets[1] then return false; end
 
     local targetname = hottargets[1];
     if not UnitExists(targetname) or not UnitIsConnected(targetname) or UnitIsDead(targetname) or has_buff(targetname, "Spirit of Redemption") or UNREACHABLE_TARGETS[targetname] > GetTime() then return false end
 
-	if not has_buff(targetname, "Earth Shield") then
-		L_TargetUnit(targetname)
-		cast_heal("Earth Shield");
-		return true;
-	end
+    if not has_buff(targetname, "Earth Shield") then
+        L_TargetUnit(targetname)
+        cast_heal("Earth Shield");
+        return true;
+    end
 
-	return false
+    return false
 
 end
 
 
 local function get_total_deficit(hp_deficits)
-	local total = 0;
+    local total = 0;
 
-	for name, deficit in pairs(hp_deficits) do
-		total = total + deficit
-	end
+    for name, deficit in pairs(hp_deficits) do
+        total = total + deficit
+    end
 
-	return total;
+    return total;
 
 end
 
+local TOTEM_BAR = "Call of the Spirits"
 local TOTEMS = {
 --["air"] = "Windfury Totem",
 ["air"] = "Wrath of Air Totem",
 
 --["earth"] = "Tremor Totem",
---["earth"] = "Strength of Earth Totem",
-["earth"] = "Stoneskin Totem",
+["earth"] = "Strength of Earth Totem",
+--["earth"] = "Stoneskin Totem",
 
 ["water"] = "Mana Spring Totem",
 
-["fire"] = "Frost Resistance Totem"
+["fire"] = "Flametongue Totem"
 }
 
 local function NS_heal_on_tank()
@@ -49,26 +50,47 @@ local function raid_heal()
 
     if (UnitHealth("player") < UnitHealthMax("player")*0.30) then
         L_TargetUnit("player");
+        cast_heal("Riptide");
         cast_heal("Lesser Healing Wave");
+        return true;
     else
-        local target, bounce1, bounce2 = get_CH_target_trio(get_serialized_heals());
-        if not target then
-            return false;
+        -- local target, bounce1, bounce2 = get_CH_target_trio(get_serialized_heals());
+        local target, urgencies = get_raid_heal_target(true)
+        local heal_targets = get_raid_heal_targets(urgencies, 4);
+
+        if not target then return end
+
+        L_TargetUnit(target);
+        local target_HPP = health_percentage("target")
+
+        if target_HPP < 20 then
+            cast_heal("Riptide");
+            cast_heal("Lesser Healing Wave");
+            return true
+        end
+
+        bounce1_is_deficient = false
+        bounce1 = heal_targets[2]
+        if bounce1 then
+            bounce1 = heal_targets[2]
+            bounce1_deficit = UnitHealthMax(bounce1) - UnitHealth(bounce1)
+            if bounce1_deficit > 2000 then
+                bounce1_is_deficient = true
+            end
+        end
+
+        if bounce1_is_deficient then
+            -- CH_BOUNCE_1 = bounce1
+            -- CH_BOUNCE_2 = bounce2
+            cast_heal("Chain Heal");
         else
-            L_TargetUnit(target);
-            if not bounce1 then
-                local deficit = get_HP_deficits(false, true)[target];
-                if deficit < 2500 then
-                    cast_heal("Healing Wave(Rank 7)");
-                elseif deficit < 4000 then
-                    cast_heal("Healing Wave(Rank 9)");
-                else
-                    cast_heal("Healing Wave(Rank 12)");
-                end
-            else
-                CH_BOUNCE_1 = bounce1
-                CH_BOUNCE_2 = bounce2
-                cast_heal("Chain Heal(Rank 4)");
+            if target_HPP < 30 then
+                cast_heal("Riptide");
+                cast_heal("Lesser Healing Wave");
+            elseif target_HPP < 50 then
+                cast_heal("Healing Wave");
+            elseif target_HPP < 70 then
+                cast_heal("Lesser Healing Wave");
             end
         end
     end
@@ -77,16 +99,28 @@ local function raid_heal()
 
 end
 
+function check_EL()
+    local has_mh, mh_exp, mh_charges, has_oh, oh_exp, oh_charges = GetWeaponEnchantInfo()
+    --echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
+
+    if not has_mh then
+        L_CastSpellByName("Earthliving Weapon")
+    end
+
+end
+
 combat_shaman_resto = function()
 
-	if casting_legit_heal() then return end
+    if player_casting() then return end
 
-	if not has_buff("player", "Water Shield") then
-		L_CastSpellByName("Water Shield");
-		return;
-	end
+    check_EL()
 
-	if refresh_totems(TOTEMS) then return; end
+    if not has_buff("player", "Water Shield") then
+        L_CastSpellByName("Water Shield");
+        return;
+    end
+
+    if refresh_totems(TOTEMS, TOTEM_BAR) then return; end
     if refresh_ES(get_assigned_hottargets(UnitName("player"))) then return end
 
     if UnitMana("player") < 5000 then
@@ -101,23 +135,25 @@ combat_shaman_resto = function()
 
     L_TargetUnit(heal_targets[1]);
 
-		local target_HPP = health_percentage("target")
+    local target_HPP = health_percentage("target")
 
     if target_HPP < 30 then
+        cast_heal("Riptide");
         cast_heal("Lesser Healing Wave");
 
-		elseif health_percentage("player") < 30 then
+    elseif health_percentage("player") < 30 then
         L_TargetUnit("player");
+        cast_heal("Riptide");
         cast_heal("Lesser Healing Wave");
 
-	  elseif target_HPP < 70 then
+    elseif target_HPP < 70 then
         cast_heal("Healing Wave");
 
-	  elseif health_percentage("player") < 50 then
+    elseif health_percentage("player") < 50 then
         L_TargetUnit("player");
         cast_heal("Healing Wave");
 
-	  elseif table.contains(heal_targets, "raid") then
+    elseif table.contains(heal_targets, "raid") then
         raid_heal();
     end
 

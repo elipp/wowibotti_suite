@@ -13,6 +13,7 @@ local totem_name_type_map = {
 	["Totem of Wrath"] = totem_type_id_map["fire"],
 	["Frost Resistance Totem"] = totem_type_id_map["fire"],
 	["Searing Totem"] = totem_type_id_map["fire"],
+	["Flametongue Totem"] = totem_type_id_map["fire"],
 
 	["Mana Spring Totem"] = totem_type_id_map["water"],
 	["Mana Tide Totem"] = totem_type_id_map["water"],
@@ -32,6 +33,7 @@ local totem_name_buffname_map = {
 
 	["Totem of Wrath"] = "Totem of Wrath",
 	["Frost Resistance Totem"] = "Frost Resistance",
+	["Flametongue Totem"] = "Flametongue Totem",
 
 	["Mana Spring Totem"] = "Mana Spring",
 --	["Mana Tide Totem"] = nil,
@@ -45,7 +47,7 @@ local totem_name_buffname_map = {
 };
 
 
-local function recast_totem_if_noexists_or_OOR(arg_totem)
+local function should_recast_totem(arg_totem)
 	local _, totemName, startTime, duration = GetTotemInfo(totem_name_type_map[arg_totem]);
 
 	if totemName == "Mana Tide Totem" then
@@ -53,7 +55,6 @@ local function recast_totem_if_noexists_or_OOR(arg_totem)
 	end
 
 	if startTime == 0 and duration == 0 then
-		L_CastSpellByName(arg_totem);
 		return true;
 	end
 
@@ -63,7 +64,6 @@ local function recast_totem_if_noexists_or_OOR(arg_totem)
 
 	L_TargetUnit(arg_totem);
 	if IsSpellInRange("Healing Wave", "target") == 0 then
-		L_CastSpellByName(arg_totem);
 		L_ClearTarget();
 		return true;
 	end
@@ -74,7 +74,6 @@ local function recast_totem_if_noexists_or_OOR(arg_totem)
 	local bname = totem_name_buffname_map[arg_totem];
 	if bname then
 		if not has_buff("player", bname) then
-			L_CastSpellByName(arg_totem);
 			return true;
 		end
 	end
@@ -82,9 +81,24 @@ local function recast_totem_if_noexists_or_OOR(arg_totem)
 	return false;
 end
 
-function refresh_totems(TOTEMS)
+function refresh_totems(TOTEMS, TOTEM_BAR)
+	local totems_to_recast = {}
+	local num_to_recast = 0
 	for slot,name in pairs(TOTEMS) do
-		if recast_totem_if_noexists_or_OOR(name) then return true; end
+		if should_recast_totem(name) then 
+			totems_to_recast[name] = true
+			num_to_recast = num_to_recast + 1
+		end
+		if num_to_recast > 2 then
+			L_CastSpellByName(TOTEM_BAR)
+			return true
+		end
 	end
-	return false;
+
+	for totem, _ in pairs(totems_to_recast) do
+		L_CastSpellByName(totem)
+		return true
+	end
+
+	return false
 end
