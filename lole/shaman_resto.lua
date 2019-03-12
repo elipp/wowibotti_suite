@@ -87,10 +87,8 @@ local function raid_heal()
             if target_HPP < 30 then
                 cast_heal("Riptide");
                 cast_heal("Lesser Healing Wave");
-            elseif target_HPP < 50 then
-                cast_heal("Healing Wave");
             elseif target_HPP < 70 then
-                cast_heal("Lesser Healing Wave");
+                cast_heal("Healing Wave");
             end
         end
     end
