@@ -75,7 +75,7 @@ local available_configs = {
 	--mage_aespam =
 	--class_config_create("mage_aespam", {}, {}, get_class_color("mage"), function() L_CastSpellByName("Arcane Explosion") end, {}, ROLES.caster),
 	noob_config =
-	class_config_create("noob_config", {}, {}, "FFFFFF", combat_noob, {"Bestial Wrath", "Rapid Fire", "Call of the Wild", "Shamanistic Rage", "Heroism", "Feral Spirit", "Blade Flurry", "Adrenaline Rush", "Killing Spree" }, ROLES.melee, "MELEE", function() end)
+	class_config_create("noob_config", {}, {}, "FFFFFF", combat_noob, {"Bestial Wrath", "Rapid Fire", "Call of the Wild", "Shamanistic Rage", "Heroism", "Feral Spirit", "Blade Flurry", "Adrenaline Rush", "Killing Spree", "Recklessness", "Death Wish" }, ROLES.melee, "MELEE", function() end)
 
 };
 

@@ -56,7 +56,7 @@ local function noobhunter_combat()
 
   if not validate_target() then return end
 
-  caster_range_check(12,35)
+  caster_range_check(7,35)
 
   if UnitMana("player") > 4000 and (not has_buff("player", "Aspect of the Dragonhawk")) then
     if change_aspect("Aspect of the Dragonhawk") then return end
@@ -242,36 +242,46 @@ local function noobrogue_combat()
 
   if not validate_target() then return end
 
+  if not UnitAffectingCombat("player") then
+    L_CastSpellByName("Stealth")
+    L_CastSpellByName("Sprint")
+  end
+
   melee_attack_behind()
 
   if UnitCastingInfo("target") or UnitChannelInfo("target") then
     L_CastSpellByName("Kick")
   end
 
-  if GetComboPoints("player", "target") > 1 and UnitHealth("target") < 8000 then
-    L_CastSpellByName("Eviscerate")
-    return
+  if not has_buff("player", "Hunger For Blood") then
+    L_CastSpellByName("Hunger For Blood")
+    -- don't return, this will fail if no bleed active
   end
 
-  if GetComboPoints("player", "target") < 5 then
-    L_CastSpellByName("Sinister Strike")
-    return
-  else
-    if UnitHealth("target") < 10000 then
-      L_CastSpellByName("Eviscerate")
-      return
-    elseif not has_buff("player", "Slice and Dice") then
-      L_CastSpellByName("Slice and Dice")
-      return
+  if GetSpellCooldown("Vanish") == 0 and not has_buff('player', "Overkill") then
+    L_CastSpellByName("Vanish")
+  end
 
-    elseif not has_debuff("target", "Rupture") then
-        L_CastSpellByName("Rupture")
-        return
-    elseif UnitPower("player") > 65 then
-      L_CastSpellByName("Sinister Strike")
+  if not has_buff("player", "Slice and Dice") then
+    if GetComboPoints("player", "target") > 1 then
+      L_CastSpellByName("Slice and Dice")
       return
     end
   end
+
+  if GetComboPoints("player", "target") < 5 then
+    if UnitHealth("target") < 15000 then
+      L_CastSpellByName("Envenom")
+    else
+      L_CastSpellByName("Mutilate")
+    end
+  else
+    L_CastSpellByName("Cold Blood")
+    L_CastSpellByName("Envenom")
+  end
+
+
+
 
 end
 
@@ -289,6 +299,14 @@ function noobwarrior_combat()
 
   if GetSpellCooldown("Bloodrage") == 0 then
     L_CastSpellByName("Bloodrage")
+  end
+
+  if UnitHealthMax("target") > 250000 then
+    has, dur, stacks = has_debuff("target", "Sunder Armor")
+    if not has or dur < 5 or stacks < 5 then
+      L_CastSpellByName("Sunder Armor")
+      return
+    end
   end
 
   if not has_buff("player", "Battle Shout") then
@@ -311,8 +329,11 @@ function noobwarrior_combat()
     return
   end
 
-  L_CastSpellByName("Heroic Strike")
-
+  if lole_get("aoemode") == 1 then
+    L_CastSpellByName("Cleave")
+  else
+    L_CastSpellByName("Heroic Strike")
+  end
   if GetSpellCooldown("Heroic Throw") == 0 then
     L_CastSpellByName("Heroic Throw")
     return

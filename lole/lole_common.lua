@@ -579,11 +579,11 @@ function has_debuff(targetname, debuff_name)
 	for i=1,40,1 do name, rank, icon, count, debuffType, duration, expirationTime = UnitDebuff(targetname,i)
 		if (name ~= nil and string.find(name, debuff_name)) then
 			fnd=true;
-      timeleft = expirationTime
+      timeleft = expirationTime - GetTime()
 			break;
 		end
 	end
-	return fnd, timeleft;
+	return fnd, timeleft, count;
 end
 
 function has_debuff_by_self(targetname, debuff_name)
