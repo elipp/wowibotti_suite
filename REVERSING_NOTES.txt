@@ -15,9 +15,9 @@ Address   Hex dump          Command                                  Comments
 // 6F0A12
 // 4D3810 RETURNS SOMETHING INTERESTING
 
+7274D1 is where the angle is stored
 
 the return values of those functions are [D4159C] and [C24954], which might be the ECX of all those functions
-
 
 
 // CAST COND ERRMSG NOTES (13.2.2019)
@@ -26,6 +26,8 @@ the return values of those functions are [D4159C] and [C24954], which might be t
 // 808200 is one function that is called in fail and not called in success
 // 808200 IS THE fucking function :DD
 
+
+// 072E500 is a call site for CTM of type 2 ("Face")
 
 
 // CTM notes:

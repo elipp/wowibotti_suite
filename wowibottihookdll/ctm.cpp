@@ -244,16 +244,17 @@ void ctm_purge_old() {
 
 
 static const uint
-	CTM_X = 0xCA1264,
-	CTM_Y = 0xCA1268,
-	CTM_Z = 0xCA126C,
-	CTM_ACTION = 0xCA11F4,
-	CTM_GUID = 0xCA11FC, // this is for interaction
+CTM_X = 0xCA1264,
+CTM_Y = 0xCA1268,
+CTM_Z = 0xCA126C,
+CTM_ACTION = 0xCA11F4,
+CTM_GUID = 0xCA11FC, // this is for interaction
 
-	CTM_walking_angle = 0xCA11D8,
-	CTM_GLOBAL_CONST1 = 0xCA11DC,
-	CTM_CONST2 = 0xCA11E0,
-	CTM_min_distance = 0xCA11E4;
+CTM_walking_angle = 0xCA11D8,
+CTM_GLOBAL_CONST1 = 0xCA11DC,
+CTM_CONST2 = 0xCA11E0,
+CTM_min_distance = 0xCA11E4,
+CTM_faceangle_maybe = 0xCA11EC;
 
 int get_wow_CTM_state() {
 	int state;
@@ -276,8 +277,46 @@ void ctm_unlock() {
 
 // this seems to work OK?
 
-void ctm_face_target() {
-	ctm_add(CTM_t(CTM_FACE, CTM_PRIO_REPLACE));
+void ctm_face_angle(float angle) {
+	//ctm_add(CTM_t(CTM_FACE, CTM_PRIO_REPLACE));
+	// apparently, action 2 stores zeroes into CA11F8, -1FC, -200, -1D4 and -1F4
+	// CA11F0 has this weird value assigned to it
+	// both set of coordinates (CA1258-60 and CA1264-6C) are set to zero
+	
+	static const float TWO_PI = M_PI * 2.0;
+
+	float angle_normalized = angle - TWO_PI * floor(angle / TWO_PI);
+
+	PRINT("angle_normalized: %f\n", angle_normalized);
+
+
+	// these don't really seem to matter
+	float zero = 0.0;
+
+	writeAddr(0xCA11F8, &zero, 4);
+	writeAddr(0xCA11FC, &zero, 4);
+	writeAddr(0xCA1200, &zero, 4);
+
+	writeAddr(0xCA11D4, &zero, 4);
+	writeAddr(0xCA11F4, &zero, 4);
+
+	writeAddr(0xCA1258, &zero, 4);
+	writeAddr(0xCA125C, &zero, 4);
+	writeAddr(0xCA1260, &zero, 4);
+
+	writeAddr(0xCA1264, &zero, 4);
+	writeAddr(0xCA1268, &zero, 4);
+	writeAddr(0xCA126C, &zero, 4);
+
+	// this is, for whatever reason, crucial!!
+	static const uint
+		GLOBAL_CONST1 = 0x415F66F3;
+
+	writeAddr(CTM_GLOBAL_CONST1, &GLOBAL_CONST1, sizeof(float));
+
+	writeAddr(CTM_faceangle_maybe, &angle_normalized, 4);
+	unsigned int two = 2;
+	writeAddr(CTM_ACTION, &two, 4);
 }
 
 

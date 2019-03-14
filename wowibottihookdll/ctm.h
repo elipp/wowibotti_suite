@@ -10,7 +10,7 @@ void ctm_act();
 int ctm_handle_delayed_posthook();
 
 void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_distance = 0.0);
-void ctm_face_target();
+void ctm_face_angle(float angle);
 
 void ctm_lock();
 void ctm_unlock();
