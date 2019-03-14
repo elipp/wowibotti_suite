@@ -56,7 +56,7 @@ local function noobhunter_combat()
 
   if not validate_target() then return end
 
-  caster_range_check(7,35)
+  caster_range_check(9,35)
 
   if UnitMana("player") > 4000 and (not has_buff("player", "Aspect of the Dragonhawk")) then
     if change_aspect("Aspect of the Dragonhawk") then return end
@@ -249,6 +249,10 @@ local function noobrogue_combat()
 
   melee_attack_behind()
 
+  if health_percentage("player") < 15 then
+    L_CastSpellByName("Cloak of Shadows")
+  end
+
   if UnitCastingInfo("target") or UnitChannelInfo("target") then
     L_CastSpellByName("Kick")
   end
@@ -269,14 +273,16 @@ local function noobrogue_combat()
     end
   end
 
-  if GetComboPoints("player", "target") < 5 then
+  if GetComboPoints("player", "target") < 4 then
     if UnitHealth("target") < 15000 then
       L_CastSpellByName("Envenom")
     else
       L_CastSpellByName("Mutilate")
     end
   else
-    L_CastSpellByName("Cold Blood")
+    if GetComboPoints("player", "target") == 5 then
+      L_CastSpellByName("Cold Blood")
+    end
     L_CastSpellByName("Envenom")
   end
 
@@ -381,6 +387,11 @@ local function noobpriest_combat()
     L_SpellStopCasting()
   end
 
+  if lole_get("aoemode") == 1 then
+    L_CastSpellByName("Mind Sear")
+    return
+  end
+
   if not has_debuff("target", "Devouring Plague") then
     L_CastSpellByName("Devouring Plague")
     return
@@ -391,11 +402,8 @@ local function noobpriest_combat()
     return
   end
 
-  if lole_get("aoemode") == 1 then
-    L_CastSpellByName("Mind Sear")
-  else
-    L_CastSpellByName("Mind Flay")
-  end
+  L_CastSpellByName("Mind Flay")
+
 end
 
 
