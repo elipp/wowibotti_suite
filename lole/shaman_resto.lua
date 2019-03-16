@@ -39,8 +39,8 @@ end
 
 local TOTEM_BAR = "Call of the Spirits"
 local TOTEMS = {
-["air"] = "Windfury Totem",
---["air"] = "Wrath of Air Totem",
+--["air"] = "Windfury Totem",
+["air"] = "Wrath of Air Totem",
 
 --["earth"] = "Tremor Totem",
 ["earth"] = "Strength of Earth Totem",

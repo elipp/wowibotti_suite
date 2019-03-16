@@ -278,6 +278,14 @@ function table.rid(tbl, value)
     return new_tbl;
 end
 
+function starts_with(str, start)
+   return str:sub(1, #start) == start
+end
+
+function ends_with(str, ending)
+   return ending == "" or str:sub(-#ending) == ending
+end
+
 function get_available_class_configs()
 	return get_list_of_keys(available_configs)
 end

@@ -56,6 +56,10 @@ local function should_recast_totem(arg_totem)
 		return false
 	end
 
+	if not starts_with(totemName, arg_totem) then
+		return true
+	end
+
 	if startTime == 0 and duration == 0 then
 		return true;
 	end
