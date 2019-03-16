@@ -37,13 +37,27 @@ local function get_total_deficit(hp_deficits)
 
 end
 
-local TOTEM_BAR = "Call of the Spirits"
-local TOTEMS = {
---["air"] = "Windfury Totem",
-["air"] = "Wrath of Air Totem",
+local TOTEM_BAR_1 = "Call of the Elements"
+local TOTEMS_1 = {
+["air"] = "Windfury Totem",
+--["air"] = "Wrath of Air Totem",
 
 --["earth"] = "Tremor Totem",
 ["earth"] = "Strength of Earth Totem",
+--["earth"] = "Stoneskin Totem",
+
+["water"] = "Mana Spring Totem",
+
+["fire"] = "Flametongue Totem"
+}
+
+local TOTEM_BAR_2 = "Call of the Ancestors"
+local TOTEMS_2 = {
+--["air"] = "Windfury Totem",
+["air"] = "Wrath of Air Totem",
+
+["earth"] = "Tremor Totem",
+--["earth"] = "Strength of Earth Totem",
 --["earth"] = "Stoneskin Totem",
 
 ["water"] = "Mana Spring Totem",
@@ -127,7 +141,14 @@ combat_shaman_resto = function()
         return;
     end
 
-    if refresh_totems(TOTEMS, TOTEM_BAR) then return; end
+    local totems = TOTEMS_1
+    local totem_bar = TOTEM_BAR_1
+    if table.contains(get_raid_members(), "Kuratorn") then
+        totems = TOTEMS_2
+        totem_bar = TOTEM_BAR_2
+    end
+
+    if refresh_totems(totems, totem_bar) then return; end
     if refresh_ES(get_assigned_hottargets(UnitName("player"))) then return end
 
     if UnitMana("player") < 5000 then
