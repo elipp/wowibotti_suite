@@ -3,11 +3,20 @@ local function refresh_ES(hottargets)
 
     if not hottargets or not hottargets[1] then return false; end
 
-    local targetname = hottargets[1];
-    if not UnitExists(targetname) or not UnitIsConnected(targetname) or UnitIsDead(targetname) or has_buff(targetname, "Spirit of Redemption") or UNREACHABLE_TARGETS[targetname] > GetTime() then return false end
+    local es_target = nil
+    for i, targetname in ipairs(hottargets) do
+        if not UnitExists(targetname) or not UnitIsConnected(targetname) or UnitIsDead(targetname) or has_buff(targetname, "Spirit of Redemption") or UNREACHABLE_TARGETS[targetname] > GetTime() then
+            -- pass
+        else
+            es_target = targetname
+            break
+        end
+    end
 
-    if not has_buff(targetname, "Earth Shield") then
-        L_TargetUnit(targetname)
+    if not es_target then return false end
+
+    if not has_buff(es_target, "Earth Shield") then
+        L_TargetUnit(es_target)
         cast_heal("Earth Shield");
         return true;
     end

@@ -9,7 +9,7 @@ OVERRIDE_COMMAND = nil;
 HEALERS = {"Printf", "Ghospodi"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
     Printf = {heals = {"raid"}, hots = {}, ignores = {}},
-    Ghospodi = {heals = {"raid"}, hots = {"Rektorn"}, ignores = {}}
+    Ghospodi = {heals = {"raid"}, hots = {"Rektorn", "Kuratorn"}, ignores = {}}
 }
 ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
 HEALS_IN_PROGRESS = {};
