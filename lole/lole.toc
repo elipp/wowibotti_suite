@@ -8,6 +8,7 @@ lole_buffs.lua
 
 class_config.lua
 
+death_knight_blood.lua
 death_knight_uh.lua
 druid_feral.lua
 druid_resto.lua

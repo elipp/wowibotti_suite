@@ -15,6 +15,7 @@ function class_config_create(name, buffs, self_buffs, color, combatfunc, cooldow
 end
 
 survive_template = function() end
+survive_death_knight_blood = survive_template;
 survive_death_knight_uh = survive_template;
 survive_druid_balance = survive_template;
 survive_druid_feral = survive_template;
