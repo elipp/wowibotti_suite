@@ -959,7 +959,12 @@ local function lole_broadcast_stopfollow()
 end
 
 local function lole_broadcast_set(attrib, state)
-	lole_subcommands.sendmacro("RAID", "/lole set", tostring(attrib), tostring(state));
+    if not in_party_or_raid() then
+        echo("Not in a party or raid, setting state locally")
+        lole_set(attrib, state)
+    else
+	   lole_subcommands.sendmacro("RAID", "/lole set", tostring(attrib), tostring(state));
+    end
 end
 
 local function lole_broadcast_cooldowns()
