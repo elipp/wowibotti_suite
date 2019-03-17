@@ -74,7 +74,7 @@ end
 local function drain_soul_if_needed()
 	if not enough_shards() then
 		local HP_threshold = 10000 -- for 5-man groups
-		if in_raid_group() then
+		if in_raid() then
 			if GetNumRaidMembers() > 10 then
 				HP_threshold = 40000
 			else

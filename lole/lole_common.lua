@@ -856,13 +856,25 @@ function get_item_bag_position(itemLink)
 
 end
 
-function in_raid_group()
-	if GetNumPartyMembers() > 0 then
-		if GetNumRaidMembers() > 0 then
-			return true;
-		end
-	end
-	return false;
+function in_party()
+    if GetNumPartMembers() > 0 and GetNumRaidMembers() == 0 then
+        return true;
+    end
+    return false;
+end
+
+function in_raid()
+    if GetNumRaidMembers() > 0 then
+        return true;
+    end
+    return false;
+end
+
+function in_party_or_raid()
+    if GetNumPartyMembers() > 0 or GetNumRaidMembers() > 0 then
+        return true
+    end
+    return false
 end
 
 
