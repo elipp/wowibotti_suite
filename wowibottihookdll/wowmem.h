@@ -110,9 +110,6 @@ public:
 	std::string NPC_get_name() const;
 	GUID_t NPC_get_target_GUID() const;
 
-	vec3 NPC_get_pos() const;
-	float NPC_get_rot() const;
-
 	uint NPC_get_buff(int index) const;
 	uint NPC_get_debuff(int index) const;
 
@@ -214,3 +211,6 @@ DWORD get_EndScene();
 DWORD get_Present();
 DWORD get_DrawIndexedPrimitive();
 IDirect3DDevice9 *get_wow_ID3D9();
+
+float get_distance3(const WowObject &a, const WowObject &b);
+float get_distance2(const WowObject &a, const WowObject &b);

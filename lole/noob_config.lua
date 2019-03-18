@@ -37,13 +37,12 @@ local function noobhunter_combat()
     petframe_dummy:SetScript("OnUpdate", petfollow_default)
   end
 
-  if not PetHasActionBar() then
+  if UnitExists("pet") and UnitIsDead("pet") then
+    L_CastSpellByName("Revive Pet")
+  elseif not UnitExists("pet") or not PetHasActionBar() then
     L_CastSpellByName("Call Pet")
     return
-  elseif UnitIsDead("pet") then
-    L_CastSpellByName("Revive Pet")
   end
-
 
   if not UnitAffectingCombat("player") then
     --L_PetPassiveMode()

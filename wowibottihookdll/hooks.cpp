@@ -24,6 +24,7 @@
 #include "wc3mode.h"
 #include "input.h"
 #include "patch.h"
+//#include "sslconn.h"
 
 //static HRESULT(*EndScene)(void);
 pipe_data PIPEDATA;
@@ -150,6 +151,7 @@ static void __stdcall Present_hook() {
 		IDirect3DDevice9 *d = get_wow_ID3D9();
 		PRINT("Present: %X, BeginScene: %X, EndScene: %X, DrawIndexedPrimitive: %X\n", get_Present(), get_BeginScene(), get_EndScene(), get_DrawIndexedPrimitive());
 		dbg_shown = 1;
+		//connect_to_governor();
 	}
 
 	do_wc3mode_stuff();

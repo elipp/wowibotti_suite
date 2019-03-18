@@ -72,6 +72,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_FOCUS, 1, 1, 0),
 	 LOPFUNC(LOP_CAST_SPELL, 2, 2, 0),
 	 LOPFUNC(LOP_GET_COMBAT_TARGETS, 0, 0, 0),
+	 LOPFUNC(LOP_GET_AOE_FEASIBILITY, 1, 1, 1),
 
 };
 
@@ -875,7 +876,6 @@ static int LOP_get_combat_targets(std::vector <GUID_t> *out) {
 				}
 			}
 			
-			
 		}
 
 		i = i.next();
@@ -883,6 +883,41 @@ static int LOP_get_combat_targets(std::vector <GUID_t> *out) {
 
 	return out->size();
 
+}
+
+static float LOP_get_aoe_feasibility(float threshold) {
+	GUID_t target_GUID = get_target_GUID();
+	if (!target_GUID) return -1;
+
+	ObjectManager OM;
+	WowObject t, i;
+
+	if (!OM.get_object_by_GUID(target_GUID, &t)) {
+		return -1;
+	}
+	vec3 tpos = t.get_pos();
+
+	if (!OM.get_first_object(&i)) {
+		return -1;
+	}
+
+	float feasibility = 0; // the mob itself will be counted in the loop, so that's an automatic +1
+
+	while (i.valid()) {
+		if (i.get_type() == OBJECT_TYPE_NPC) {
+			if (i.in_combat()) {
+				float dist = get_distance2(t, i);
+				if (dist < threshold) {
+					feasibility += -(dist / threshold) + 1;
+					PRINT("0x%llX is in combat, dist: %f, feasibility: %f\n", i.get_GUID(), dist, feasibility);
+				}
+			}
+
+		}
+		i = i.next();
+	}
+
+	return feasibility;
 }
 
 static int LOPDBG_test() {
@@ -1383,6 +1418,12 @@ int lop_exec(lua_State *L) {
 		return targets.size();
 
 		break;
+	}
+
+	case LOP_GET_AOE_FEASIBILITY: {
+		float f = LOP_get_aoe_feasibility(lua_tonumber(L, 2));
+		lua_pushnumber(L, f);
+		return 1;
 	}
 
 	case LOP_SL_RESETCAMERA:

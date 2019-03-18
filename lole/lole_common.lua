@@ -1,5 +1,17 @@
 -- globals
 
+-- UNCOMMENT THIS FOR ICK!
+-- local REMOVE_THIS_FRAME = CreateFrame("frame",nil, UIParent)
+-- REMOVE_THIS_FRAME:SetScript("OnUpdate",
+-- function()
+--   if UnitCastingInfo("target") == "Poison Nova" then
+--     walk_to(814, 92, 509, CTM_PRIO_FOLLOW)
+--   end
+-- end
+-- )
+
+
+
 NOTARGET = "0x0000000000000000";
 
 BLAST_TARGET_GUID = "0x0000000000000000";

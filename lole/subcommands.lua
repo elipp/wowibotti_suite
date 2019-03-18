@@ -239,13 +239,13 @@ local function lole_blast(arg)
 
 end
 
-local CTM_PRIO_NONE = 0
-local CTM_PRIO_LOW = 1
-local CTM_PRIO_REPLACE = 2
-local CTM_PRIO_EXCLUSIVE = 3
-local CTM_PRIO_FOLLOW = 4
-local CTM_PRIO_HOLD_POSITION = 5
-local CTM_PRIO_CLEAR_HOLD = 6
+CTM_PRIO_NONE = 0
+CTM_PRIO_LOW = 1
+CTM_PRIO_REPLACE = 2
+CTM_PRIO_EXCLUSIVE = 3
+CTM_PRIO_FOLLOW = 4
+CTM_PRIO_HOLD_POSITION = 5
+CTM_PRIO_CLEAR_HOLD = 6
 
 local function lole_broadcast_ctm(x, y, z)
 
@@ -911,7 +911,7 @@ local function lole_distance_to_target()
 end
 
 local function lole_noclip()
-	noclip()
+	echo(get_aoe_feasibility(10))
 end
 
 local function lole_cast_spell(spellID_str)

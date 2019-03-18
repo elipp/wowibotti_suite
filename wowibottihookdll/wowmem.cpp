@@ -472,7 +472,7 @@ uint WowObject::unit_get_debuff(int index) const {
 }
 
 int WowObject::in_combat() const {
-	uint mask = (DEREF(DEREF(base + 0x120) + 0xA0)) >> 0x13; // ref: 544BA0 (WOWAPI UnitAffectingCombat): 544BE0 onwards
+	uint mask = (DEREF(DEREF(base + 0xD0) + 0xD4)) >> 0x13; 
 	return mask & 0x1;
 }
 
@@ -707,4 +707,14 @@ DWORD get_DrawIndexedPrimitive() {
 
 	DWORD DrawIndexedPrimitive = DEREF(DEREF(wowd3d) + (0x52*4));
 	return DrawIndexedPrimitive;
+}
+
+float get_distance3(const WowObject &a, const WowObject &b) {
+	return (a.get_pos() - b.get_pos()).length();
+}
+
+float get_distance2(const WowObject &a, const WowObject &b) {
+	vec3 ap = a.get_pos();
+	vec3 bp = b.get_pos();
+	return vec3(ap.x - bp.x, ap.y - bp.y, 0).length();
 }

@@ -29,6 +29,7 @@ local LOP_EXECUTE = 0x1B
 local LOP_FOCUS = 0x1C
 local LOP_CAST_SPELL = 0x1D
 local LOP_GET_COMBAT_TARGETS = 0x1E
+local LOP_GET_AOE_FEASIBILITY = 0x1F
 
 local LOP_EXT_NOP = 0x70
 local LOP_SL_RESETCAMERA = 0x71
@@ -232,7 +233,7 @@ function lua_lock()
 	return lop_exec(LOP_LUA_LOCK)
 end
 
-function lole_debug_test(angle)
+function lole_debug_test()
 	lop_exec(LDOP_TEST, angle)
 end
 
@@ -259,6 +260,10 @@ end
 
 function enable_wc3mode(enabled)
 	lop_exec(LOP_WC3MODE, tonumber(enabled))
+end
+
+function get_aoe_feasibility(range)
+	return lop_exec(LOP_GET_AOE_FEASIBILITY, range)
 end
 
 function L_TargetUnit(name)
