@@ -215,7 +215,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 		--local guildies = get_guild_members()
 		--if guildies[sender] then
 
-		if message == "target" then
+		if starts_with(message, "RunMacroText(\"/lole target") then
 			if sender == "Kuratorn" then
 				if table.contains(GROUP_LIVING, UnitName("player")) then
 					L_RunScript(message)
