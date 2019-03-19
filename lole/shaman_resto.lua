@@ -136,7 +136,7 @@ combat_shaman_resto = function()
 
     check_EL()
 
-    if not has_buff("player", "Water Shield") then
+    if not has_buff("player", "Water Shield") and not has_buff("player", "Earth Shield") then
         L_CastSpellByName("Water Shield");
         return;
     end
