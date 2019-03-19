@@ -905,11 +905,11 @@ static float LOP_get_aoe_feasibility(float threshold) {
 
 	while (i.valid()) {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
-			if (i.in_combat()) {
+			if (i.in_combat() && !i.NPC_unit_is_dead()) {
 				float dist = get_distance2(t, i);
 				if (dist < threshold) {
 					feasibility += -(dist / threshold) + 1;
-					PRINT("0x%llX is in combat, dist: %f, feasibility: %f\n", i.get_GUID(), dist, feasibility);
+				//	PRINT("0x%llX is in combat, dist: %f, feasibility: %f\n", i.get_GUID(), dist, feasibility);
 				}
 			}
 
@@ -1459,9 +1459,17 @@ int lop_exec(lua_State *L) {
 		ctm_face_angle(m);
 		break;
 	}
-	case LDOP_NOCLIP:
-		enable_noclip();
+	case LDOP_NOCLIP: {
+		ObjectManager OM;
+		WowObject p;
+		if (OM.get_object_by_GUID(get_target_GUID(), &p)) {
+			if (p.get_type() == OBJECT_TYPE_NPC) {
+				printf("is dead: %d\n", p.NPC_unit_is_dead());
+			}
+		}
+		//enable_noclip();
 		break;
+	}
 
 	case LDOP_CONSOLE_PRINT: {
 		const char* s = lua_tolstring(L, 2, &len);
@@ -1482,9 +1490,16 @@ int lop_exec(lua_State *L) {
 	return 0;
 }
 
+static std::vector<std::string> lua_rvals;
+
+const std::vector<std::string>& LUA_RVALS() {
+	return lua_rvals;
+}
+
 int get_rvals(lua_State *L) {
 	//get count of returns on stack
 	int n = lua_gettop(L);
+	lua_rvals = std::vector <std::string>();
 
 	//loop to retreive these
 	for (int i = 1; i <= n; i++)
@@ -1492,12 +1507,8 @@ int get_rvals(lua_State *L) {
 		//using lua_tostring to get the result
 		const char *rval = lua_tolstring(L, i, NULL);
 		//make sure its valid
-		if (rval && rval[0])
-		{
-			PRINT("rval %d/%d: %s\n", i, n, rval);
-		}
-		else {
-			PRINT("rval %d/%d: nil", i, n);
+		if (rval && rval[0]) {
+			lua_rvals.push_back(rval);
 		}
 	}
 

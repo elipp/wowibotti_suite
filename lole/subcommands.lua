@@ -911,7 +911,7 @@ local function lole_distance_to_target()
 end
 
 local function lole_noclip()
-	echo(get_aoe_feasibility(10))
+	noclip()
 end
 
 local function lole_cast_spell(spellID_str)

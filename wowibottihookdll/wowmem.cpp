@@ -178,6 +178,12 @@ std::string WowObject::get_type_name() const {
 }
 
 
+int WowObject::NPC_unit_is_dead() const {
+	int d;
+	d = (DEREF(DEREF(base + 0xD0) + 0x48));
+	return d == 0;
+}
+
 int WowObject::NPC_get_health() const {
 	int h;
 	readAddr(base + NPCHealth, &h, sizeof(h));

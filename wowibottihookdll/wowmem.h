@@ -107,6 +107,8 @@ public:
 	int NPC_get_focus() const;
 	int NPC_get_focus_max() const;
 
+	int NPC_unit_is_dead() const;
+
 	std::string NPC_get_name() const;
 	GUID_t NPC_get_target_GUID() const;
 

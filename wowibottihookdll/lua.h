@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+#include <string>
+
 #define LUA_GLOBALSINDEX	(-10002)
 #define lua_pushcfunction(L,f)	lua_pushcclosure(L, (f), 0)
 #define lua_setglobal(L,s)	lua_setfield(L, LUA_GLOBALSINDEX, (s))
@@ -7,8 +10,11 @@
 #define lua_register(L,n,f) (lua_pushcfunction(L, (f)), lua_setglobal(L, (n)))
 #define lua_getglobal(L,s)  lua_getfield(L, LUA_GLOBALSINDEX, s)
 
-
 typedef struct lua_State lua_State;
+
+int get_rvals(lua_State *L);
+const std::vector<std::string>& LUA_RVALS();
+
 typedef int(*lua_CFunction) (lua_State *L);
 typedef double lua_Number;
 
