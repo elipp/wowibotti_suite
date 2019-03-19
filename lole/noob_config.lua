@@ -334,11 +334,12 @@ function noobwarrior_combat()
     return
   end
 
-  if lole_get("aoemode") == 1 then
+  if get_aoe_feasibility(8) > 2.50 then
     L_CastSpellByName("Cleave")
   else
     L_CastSpellByName("Heroic Strike")
   end
+
   if GetSpellCooldown("Heroic Throw") == 0 then
     L_CastSpellByName("Heroic Throw")
     return
@@ -373,9 +374,9 @@ local function noobpriest_combat()
     return -- in order not to clip mind flay/sear
   end
 
-  if GetSpellCooldown("Shadowfiend") > 0 and UnitMana("player") < 500 then
+  if GetSpellCooldown("Shadowfiend") > 0 and UnitMana("player") < 2000 then
     L_CastSpellByName("Dispersion")
-  elseif UnitHealth("target") > 30000 and UnitMana("player") < 500 then
+  elseif UnitHealth("target") > 30000 and UnitMana("player") < 1500 then
     L_CastSpellByName("Shadowfiend")
   end
 
@@ -386,7 +387,7 @@ local function noobpriest_combat()
     L_SpellStopCasting()
   end
 
-  if lole_get("aoemode") == 1 then
+  if get_aoe_feasibility(15) > 3 then
     L_CastSpellByName("Mind Sear")
     return
   end
