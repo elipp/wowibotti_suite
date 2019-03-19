@@ -568,6 +568,8 @@ function cleanse_raid(debuffname)
                 L_TargetUnit(name);
                 L_CastSpellByName("Cleanse");
                 L_CastSpellByName("Dispel Magic")
+                L_CastSpellByName("Cleanse Spirit")
+                L_CastSpellByName("Remove Curse")
                 return true;
             end
         end

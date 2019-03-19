@@ -155,6 +155,8 @@ combat_shaman_resto = function()
         if cast_if_nocd("Mana Tide Totem") then return end
     end
 
+    if cleanse_raid("Curse of the Plaguebringer") then return end
+
     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
     if heal_targets[1] == nil or heal_targets[1] == "raid" then
         raid_heal();

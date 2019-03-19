@@ -115,7 +115,8 @@ combat_warlock_demo = function()
 
     if tap_if_need_to() then return; end
 
-    if lole_subcommands.get("aoemode") == 1 then
+    --if lole_subcommands.get("aoemode") == 1 then
+    if get_aoe_feasibility(15) > 3.2 then
       	for i,g in pairs({get_combat_targets()}) do
       			target_unit_with_GUID(g)
 
