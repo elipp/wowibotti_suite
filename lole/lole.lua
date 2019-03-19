@@ -176,6 +176,12 @@ local function on_spell_event(self, event, caster, spell, rank, target)
     end
 end
 
+local GROUP_LIVING = {
+	"Spobodi",
+	"Iijj",
+	"Kuratorn",
+}
+
 local function OnMsgEvent(self, event, prefix, message, channel, sender)
 
 	if (prefix == "lole_opcode") then
@@ -208,10 +214,20 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
     if prevent_double_call(prefix) then return end
 		--local guildies = get_guild_members()
 		--if guildies[sender] then
-		if true then
-			L_RunScript(message);
+
+		if message == "target" then
+			if sender == "Kuratorn" then
+				if table.contains(GROUP_LIVING, UnitName("player")) then
+					L_RunScript(message)
+				end
+			elseif sender == "Rektorn" then
+				if not table.contains(GROUP_LIVING, UnitName("player")) then
+					L_RunScript(message)
+				end
+			end
+
 		else
-			SendChatMessage("lole_runscript: " .. sender .. " doesn't appear to be a member of Uuslapio, not running script!", "GUILD");
+			L_RunScript(message);
 		end
 
     elseif (prefix == "lole_override") then

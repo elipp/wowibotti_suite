@@ -15,6 +15,7 @@
 #include "linalg.h"
 #include "dipcapture.h"
 #include "wc3mode.h"
+#include "lua.h"
 
 extern HWND wow_hWnd;
 Timer since_noclip;
@@ -905,7 +906,11 @@ static float LOP_get_aoe_feasibility(float threshold) {
 
 	while (i.valid()) {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
-			if (i.in_combat() && !i.NPC_unit_is_dead()) {
+			SelectUnit(i.get_GUID());
+			auto R = dostring_getrvals("UnitReaction(\"player\", \"target\")");
+			int reaction = std::stoi(R[0]);
+
+			if (reaction < 5 && i.in_combat() && !i.NPC_unit_is_dead()) {
 				float dist = get_distance2(t, i);
 				if (dist < threshold) {
 					feasibility += -(dist / threshold) + 1;

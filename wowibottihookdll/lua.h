@@ -11,9 +11,11 @@
 #define lua_getglobal(L,s)  lua_getfield(L, LUA_GLOBALSINDEX, s)
 
 typedef struct lua_State lua_State;
+typedef std::vector<std::string> lua_rvals_t;
 
 int get_rvals(lua_State *L);
-const std::vector<std::string>& LUA_RVALS();
+const lua_rvals_t& LUA_RVALS();
+const lua_rvals_t &dostring_getrvals(const std::string &script);
 
 typedef int(*lua_CFunction) (lua_State *L);
 typedef double lua_Number;

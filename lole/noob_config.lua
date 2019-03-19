@@ -334,7 +334,8 @@ function noobwarrior_combat()
     return
   end
 
-  if get_aoe_feasibility(8) > 2.50 then
+  --if get_aoe_feasibility(8) > 2.50 then
+  if lole_get("aoemode") == 1 then
     L_CastSpellByName("Cleave")
   else
     L_CastSpellByName("Heroic Strike")
@@ -387,10 +388,10 @@ local function noobpriest_combat()
     L_SpellStopCasting()
   end
 
-  if get_aoe_feasibility(15) > 3 then
-    L_CastSpellByName("Mind Sear")
-    return
-  end
+  -- if get_aoe_feasibility(15) > 3 then
+  --   L_CastSpellByName("Mind Sear")
+  --   return
+  -- end
 
   if not has_debuff("target", "Devouring Plague") then
     L_CastSpellByName("Devouring Plague")
@@ -399,6 +400,11 @@ local function noobpriest_combat()
 
   if not has_debuff("target", "Shadow Word: Pain") then
     L_CastSpellByName("Shadow Word: Pain")
+    return
+  end
+
+  if GetSpellCooldown("Mind Blast") == 0 then
+    L_CastSpellByName("Mind Blast")
     return
   end
 

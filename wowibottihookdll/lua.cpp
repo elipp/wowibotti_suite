@@ -42,4 +42,8 @@ int register_lop_exec() {
 }
 
 
+const lua_rvals_t &dostring_getrvals(const std::string &script) {
+	DoString("get_rvals(%s)", script.c_str());
+	return LUA_RVALS();
+}
 
