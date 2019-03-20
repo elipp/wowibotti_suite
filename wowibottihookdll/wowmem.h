@@ -216,3 +216,5 @@ IDirect3DDevice9 *get_wow_ID3D9();
 
 float get_distance3(const WowObject &a, const WowObject &b);
 float get_distance2(const WowObject &a, const WowObject &b);
+
+int get_reaction(const WowObject &A, const WowObject &B);

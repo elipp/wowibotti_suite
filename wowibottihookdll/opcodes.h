@@ -92,3 +92,5 @@ extern int noclip_enabled;
 
 void enable_noclip();
 void disable_noclip();
+
+void settarget_GUID(GUID_t GUID);

@@ -260,8 +260,7 @@ static int LOP_melee_avoid_aoe_buff(long spellID) {
 	return 0;
 }
 
-static int LOP_target_GUID(const std::string &arg) {
-	GUID_t GUID = convert_str_to_GUID(arg);
+ void settarget_GUID(GUID_t GUID) {
 
 	static GUID_t * const GUID_addr1 = (GUID_t*)0xBD07B0;
 	static GUID_t * const GUID_addr2 = (GUID_t*)0xBD07C0;
@@ -274,7 +273,11 @@ static int LOP_target_GUID(const std::string &arg) {
 	reset_taint_caller();
 
 	// 0081B530 is the function that gives the taint error message
+}
 
+static int LOP_target_GUID(const std::string &arg) {
+	GUID_t GUID = convert_str_to_GUID(arg);
+	settarget_GUID(GUID);
 	return 1;
 }
 
@@ -891,7 +894,9 @@ static float LOP_get_aoe_feasibility(float threshold) {
 	if (!target_GUID) return -1;
 
 	ObjectManager OM;
-	WowObject t, i;
+	WowObject p, t, i;
+
+	OM.get_local_object(&p);
 
 	if (!OM.get_object_by_GUID(target_GUID, &t)) {
 		return -1;
@@ -906,15 +911,17 @@ static float LOP_get_aoe_feasibility(float threshold) {
 
 	while (i.valid()) {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
-			SelectUnit(i.get_GUID());
-			auto R = dostring_getrvals("UnitReaction(\"player\", \"target\")");
-			int reaction = std::stoi(R[0]);
+
+			//settarget_GUID(i.get_GUID());
+			//auto R = dostring_getrvals("UnitReaction(\"player\", \"target\")");
+			//int reaction = std::stoi(R[0]);
+			int reaction = get_reaction(p, i);
 
 			if (reaction < 5 && i.in_combat() && !i.NPC_unit_is_dead()) {
 				float dist = get_distance2(t, i);
 				if (dist < threshold) {
 					feasibility += -(dist / threshold) + 1;
-					PRINT("0x%llX (%s) is in combat, dist: %f, feasibility: %f\n", i.get_GUID(), i.NPC_get_name().c_str(), dist, feasibility);
+					PRINT("0x%llX (%s) is in combat, dist: %f, feasibility: %f, reaction: %d\n", i.get_GUID(), i.NPC_get_name().c_str(), dist, feasibility, reaction);
 				}
 			}
 

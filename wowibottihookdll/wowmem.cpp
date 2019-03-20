@@ -16,8 +16,8 @@ void DoString(const char* format, ...) {
 	vsprintf_s(cmd, format, args);
 	va_end(args);
 
-	char cmd2[1024];
-	sprintf_s(cmd2, "getrvals(\"%s\")", cmd); // TODO decide if this is necessary
+//	char cmd2[1024];
+	//sprintf_s(cmd2, "getrvals(\"%s\")", cmd); // TODO decide if this is necessary
 
 	LUA_DoString(cmd, cmd, NULL); // the last argument actually MUST be null :D otherwise taint->blocked
 	PRINT("(DoString: executed script \"%s\")\n", cmd);
@@ -723,4 +723,24 @@ float get_distance2(const WowObject &a, const WowObject &b) {
 	vec3 ap = a.get_pos();
 	vec3 bp = b.get_pos();
 	return vec3(ap.x - bp.x, ap.y - bp.y, 0).length();
+}
+
+int get_reaction(const WowObject &A, const WowObject &B) {
+	DWORD UnitReaction = 0x7251C0;
+	
+	DWORD baseA = A.get_base();
+	DWORD baseB = B.get_base();
+
+	int R;
+
+	__asm {
+		pushad
+		mov ecx, baseA
+		push baseB
+		call UnitReaction
+		mov R, eax
+		popad
+	}
+
+	return R + 1;
 }
