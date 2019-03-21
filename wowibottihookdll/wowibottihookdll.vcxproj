@@ -71,8 +71,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(VC_SourcePath);$(IncludePath);C:\Users\Elias\Downloads\openssl-1.1.1b\include;</IncludePath>
-    <LibraryPath>$(LibraryPath);C:\Users\Elias\Downloads\openssl-1.1.1b\</LibraryPath>
+    <IncludePath>$(VC_SourcePath);$(IncludePath);$(VC_SourcePath);</IncludePath>
+    <LibraryPath>$(LibraryPath);$(VC_SourcePath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
