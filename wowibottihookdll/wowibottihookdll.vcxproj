@@ -71,16 +71,16 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(VC_SourcePath);$(IncludePath);$(VC_SourcePath);</IncludePath>
-    <LibraryPath>$(LibraryPath);$(VC_SourcePath)</LibraryPath>
+    <IncludePath>$(VC_SourcePath);$(IncludePath);$(ProjectDir);</IncludePath>
+    <LibraryPath>$(LibraryPath);$(ProjectDir);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(VC_SourcePath);$(IncludePath);C:\Users\Elias\Downloads\openssl-1.1.1b\include;</IncludePath>
-    <LibraryPath>$(LibraryPath);C:\Users\Elias\Downloads\openssl-1.1.1b\</LibraryPath>
+    <IncludePath>$(VC_SourcePath);$(IncludePath);$(ProjectDir);</IncludePath>
+    <LibraryPath>$(LibraryPath);$(ProjectDir);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -161,6 +161,7 @@
     <ClInclude Include="packet.h" />
     <ClInclude Include="patch.h" />
     <ClInclude Include="ps.h" />
+    <ClInclude Include="sslconn.h" />
     <ClInclude Include="vs.h" />
     <ClInclude Include="wc3mode.h" />
     <ClInclude Include="wowmem.h" />
@@ -181,6 +182,7 @@
     <ClCompile Include="lua.cpp" />
     <ClCompile Include="packet.cpp" />
     <ClCompile Include="patch.cpp" />
+    <ClCompile Include="sslconn.cpp" />
     <ClCompile Include="wc3mode.cpp" />
     <ClCompile Include="wowmem.cpp" />
     <ClCompile Include="opcodes.cpp" />
