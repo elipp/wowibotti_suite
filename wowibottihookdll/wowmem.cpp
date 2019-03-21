@@ -185,14 +185,12 @@ int WowObject::NPC_unit_is_dead() const {
 }
 
 int WowObject::NPC_get_health() const {
-	int h;
-	readAddr(base + NPCHealth, &h, sizeof(h));
+	int h = DEREF(base + 0xFB0);
 	return h;
 }
 
 int WowObject::NPC_get_health_max() const {
-	int h;
-	readAddr(base + NPCHealthMax, &h, sizeof(h));
+	int h = (DEREF(DEREF(base + 0xD0) + 0x68));
 	return h;
 }
 

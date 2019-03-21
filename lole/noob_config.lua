@@ -334,8 +334,8 @@ function noobwarrior_combat()
     return
   end
 
-  --if get_aoe_feasibility(8) > 2.50 then
-  if lole_get("aoemode") == 1 then
+  if lole_get("aoemode") == 1 and get_aoe_feasibility(8) > 2.50 then
+  --if lole_get("aoemode") == 1 then
     L_CastSpellByName("Cleave")
   else
     L_CastSpellByName("Heroic Strike")
@@ -354,6 +354,10 @@ function noobwarrior_combat()
 end
 
 local function noobpriest_combat()
+
+  if not UnitAffectingCombat("player") and UnitMana("player") < 10000 then
+    L_CastSpellByName("Dispersion")
+  end
 
   if not has_buff("player", "Shadowform") then
     L_CastSpellByName("Shadowform")
@@ -381,6 +385,15 @@ local function noobpriest_combat()
     L_CastSpellByName("Shadowfiend")
   end
 
+  if lole_get("aoemode") == 1 and get_aoe_feasibility(15) > 3 then
+    L_CastSpellByName("Mind Sear")
+    return
+  end
+
+  if UnitHealth("target") < 15000 then
+    L_CastSpellByName("Shadow Word: Death")
+  end
+
   if not has_debuff("target", "Vampiric Touch") then
     L_CastSpellByName("Vampiric Touch")
     return
@@ -388,10 +401,6 @@ local function noobpriest_combat()
     L_SpellStopCasting()
   end
 
-  -- if get_aoe_feasibility(15) > 3 then
-  --   L_CastSpellByName("Mind Sear")
-  --   return
-  -- end
 
   if not has_debuff("target", "Devouring Plague") then
     L_CastSpellByName("Devouring Plague")

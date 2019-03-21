@@ -873,11 +873,13 @@ static int LOP_get_combat_targets(std::vector <GUID_t> *out) {
 
 	while (i.valid()) {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
-			if (i.NPC_get_target_GUID() != 0) {
-				float dist = (i.get_pos() - ppos).length();
-				if (dist < 30) {
-					out->push_back(i.get_GUID());
-				}
+			int reaction = get_reaction(p, i);
+
+			if (reaction < 5 && i.in_combat() && !i.NPC_unit_is_dead() && i.NPC_get_health_max() > 2500) {
+				//float dist = (i.get_pos() - ppos).length();
+				//if (dist < 30) {
+				out->push_back(i.get_GUID());
+				//}
 			}
 			
 		}
@@ -917,7 +919,7 @@ static float LOP_get_aoe_feasibility(float threshold) {
 			//int reaction = std::stoi(R[0]);
 			int reaction = get_reaction(p, i);
 
-			if (reaction < 5 && i.in_combat() && !i.NPC_unit_is_dead()) {
+			if (reaction < 5 && !i.NPC_unit_is_dead() && i.NPC_get_health_max() > 2500) {
 				float dist = get_distance2(t, i);
 				if (dist < threshold) {
 					feasibility += -(dist / threshold) + 1;

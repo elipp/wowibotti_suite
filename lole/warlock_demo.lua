@@ -51,7 +51,7 @@ local function drain_soul_if_needed()
             end
         end
 
-        if (UnitHealth("target") < HP_threshold) then
+        if UnitLevel("target") > 71 and (UnitHealth("target") < HP_threshold) then
             L_CastSpellByName("Drain Soul");
             return true;
         end
@@ -61,12 +61,36 @@ local function drain_soul_if_needed()
 end
 
 local time_from_pet_summon = 0
-local last_soc_target = nil
+local prev_seed_target = NOTARGET
+local immolate_lock = 0
+
+
+local cast_barrier = 0
+local soc_bans = {}
+
+local function clear_expired_soc_bans()
+  local T = GetTime()
+
+  for G, t in pairs(soc_bans) do
+    if (T - t) > 5 then
+      soc_bans[G] = nil
+    end
+  end
+end
+
+local function add_soc_ban(GUID)
+  soc_bans[GUID] = GetTime()
+end
+
+local function soc_banned(GUID)
+  for G,t in pairs(soc_bans) do
+    if G == GUID then return true end
+  end
+  return false
+end
+
 
 combat_warlock_demo = function()
-
-
-    if player_casting() then return end
 
     local mana = UnitMana("player");
     local maxmana = UnitManaMax("player");
@@ -105,40 +129,49 @@ combat_warlock_demo = function()
         time_from_pet_summon = 0
     end
 
-    if not validate_target() then return end
-
     if UnitAffectingCombat("player") then
       L_PetAttack()
     end
+
+    if not validate_target() then return end
 
     caster_range_check(0,30);
 
     if tap_if_need_to() then return; end
 
-    --if lole_subcommands.get("aoemode") == 1 then
-    if get_aoe_feasibility(15) > 3.2 then
+    -- CONSIDER HOOKING UNIT_SPELLCAST_SENT
+
+    clear_expired_soc_bans()
+
+-- explanation: cast_barrier is something that should prevent a laggy AURA_UPDATE from fucking us up
+-- a second should be enough to
+    if lole_get("aoemode") == 1 and get_aoe_feasibility(15) > 1.6 then
+        if GetTime() - cast_barrier < 1 or UnitCastingInfo("player") == "Seed of Corruption" then
+          return
+        end
       	for i,g in pairs({get_combat_targets()}) do
       			target_unit_with_GUID(g)
-
-      			if UnitIsEnemy("target", "player") and not has_debuff("target", "Seed of Corruption") then
-                if not last_soc_target or (last_soc_target and last_soc_target ~= g) then
-        					L_CastSpellByName("Seed of Corruption")
-                  last_soc_target = g
-        					return;
-                end
-      			end
+      			if not soc_banned(g) and not has_debuff("target", "Seed of Corruption") then
+      					L_CastSpellByName("Seed of Corruption")
+                add_soc_ban(g)
+                cast_barrier = GetTime()
+        				return;
+            end
       		end
     end
 
-    last_soc_target = nil
+    last_seed_target = NOTARGET
+
+    if not validate_target() then return end -- to target the actual blast target
 
     if drain_soul_if_needed() then return end
     if cast_assigned_curse() then return end
 
     if not has_debuff("target", "Shadow Mastery") then
         L_CastSpellByName("Shadow Bolt");
-    elseif not has_debuff_by_self("target", "Immolate") then
+    elseif not has_debuff_by_self("target", "Immolate") and immolate_lock == 0 then
         L_CastSpellByName("Immolate");
+        immolate_lock = 1
     elseif not has_debuff_by_self("target", "Corruption") then
         L_CastSpellByName("Corruption");
     elseif has_buff("player", "Decimation") then
@@ -148,6 +181,7 @@ combat_warlock_demo = function()
     else
         L_CastSpellByName("Shadow Bolt");
     end
+    immolate_lock = 0
 
 end
 

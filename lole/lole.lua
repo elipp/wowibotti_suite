@@ -215,20 +215,20 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 		--local guildies = get_guild_members()
 		--if guildies[sender] then
 
-		if starts_with(message, "RunMacroText(\"/lole target") then
-			if sender == "Kuratorn" then
-				if table.contains(GROUP_LIVING, UnitName("player")) then
-					L_RunScript(message)
-				end
-			elseif sender == "Rektorn" then
-				if not table.contains(GROUP_LIVING, UnitName("player")) then
-					L_RunScript(message)
-				end
-			end
-
-		else
+		-- if starts_with(message, "RunMacroText(\"/lole target") then
+		-- 	if sender == "Kuratorn" then
+		-- 		if table.contains(GROUP_LIVING, UnitName("player")) then
+		-- 			L_RunScript(message)
+		-- 		end
+		-- 	elseif sender == "Rektorn" then
+		-- 		if not table.contains(GROUP_LIVING, UnitName("player")) then
+		-- 			L_RunScript(message)
+		-- 		end
+		-- 	end
+		--
+		-- else
 			L_RunScript(message);
-		end
+		--end
 
     elseif (prefix == "lole_override") then
         if prevent_double_call(prefix) then return end
