@@ -1500,6 +1500,8 @@ int lop_exec(lua_State *L) {
 		}
 		else {
 
+			static float angle = 0;
+
 			vec3 ppos = P.get_pos();
 			int needed = 0;
 			for (auto &o : n) {
@@ -1514,37 +1516,13 @@ int lop_exec(lua_State *L) {
 			WowObject F;
 			if (!OM.get_object_by_GUID(get_focus_GUID(), &F)) return 0;
 			vec3 fpos = F.get_pos();
-			
-			int found = 0;
-			vec3 newpos_suggestion;
-			float dist = 30;
 
-			while (!found && dist > 0) {
-				float angle = 0;
-				while (angle < 2*M_PI) {
-					newpos_suggestion = fpos + dist * vec3(1.0, 0, 0).rotated_2d(angle);
-					int ok = 1;
-					for (auto &o : n) {
-						if ((o.get_pos() - newpos_suggestion).length() < 15) {
-							ok = 0;
-							break;
-						}
-					}
-					if (ok) {
-						found = 1;
-						break;
-					}
-					else {
-						angle += 0.25*M_PI;
-					}
-				}
-				dist -= 5;
-			}
-			if (!found) return 0;
-			else {
-				ctm_add(CTM_t(newpos_suggestion, CTM_MOVE, CTM_PRIO_NOOVERRIDE, 0, 1.0));
-				return 0;
-			}
+			vec3 newpos = fpos + 28 * vec3(1, 0, 0).rotated_2d(angle);
+
+			angle += 0.25*M_PI;
+
+			ctm_add(CTM_t(newpos, CTM_MOVE, CTM_PRIO_NOOVERRIDE, 0, 1.0));
+
 
 		}
 		return 0;
