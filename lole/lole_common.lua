@@ -9,7 +9,9 @@ function()
     walk_to(814, 92, 509, CTM_PRIO_FOLLOW)
   end
 
-  avoid_npc_with_name("Fire Bomb")
+  if lole_get("playermode") == 0 then
+    avoid_npc_with_name("Fire Bomb")
+  end
 
 end
 )

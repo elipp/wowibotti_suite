@@ -1499,6 +1499,18 @@ int lop_exec(lua_State *L) {
 			return 0;
 		}
 		else {
+
+			vec3 ppos = P.get_pos();
+			int needed = 0;
+			for (auto &o : n) {
+				if ((o.get_pos() - ppos).length() < 15) {
+					needed = 1;
+					break;
+				}
+			}
+
+			if (!needed) return 0;
+
 			WowObject F;
 			if (!OM.get_object_by_GUID(get_focus_GUID(), &F)) return 0;
 			vec3 fpos = F.get_pos();
