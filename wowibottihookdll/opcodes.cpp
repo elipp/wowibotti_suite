@@ -194,7 +194,7 @@ static int LOP_melee_behind() {
 			vec3 face = (tpos - ppos).unit();
 			float newa = atan2(face.y, face.x);
 			PRINT("prot: %f, target_rot: %f\n", prot, newa);
-			ctm_add(CTM_t::construct_CTM_face(CTM_PRIO_REPLACE, newa));
+			//ctm_add(CTM_t::construct_CTM_face(CTM_PRIO_REPLACE, newa));
 			return 1;
 		}
 		WowObject tot;
@@ -221,9 +221,9 @@ static int LOP_melee_behind() {
 		CTM_t act = CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_REPLACE, 0, 0.5);
 		vec3 face = (tpos - ppos).unit();
 		float newa = atan2(face.y, face.x);
-		act.add_posthook(CTM_posthook_t(face_posthook, &newa, sizeof(newa), 10));
-		act.add_posthook(CTM_posthook_t(face_posthook, &newa, sizeof(newa), 40));
-		act.add_posthook(CTM_posthook_t(face_posthook, &newa, sizeof(newa), 70));
+		act.add_posthook(CTM_posthook_t(face_posthook, &newa, sizeof(newa), 50));
+
+		// TODO ADD DOT PRODUCT CHECKING
 
 		ctm_add(act);
 		
@@ -1231,6 +1231,8 @@ float randf() {
 	return static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 }
 
+static int initial_angle_set = 0;
+
 int lop_exec(lua_State *L) {
 
 	// NOTE: the return value of this function --> number of values returned to caller in LUA
@@ -1499,10 +1501,19 @@ int lop_exec(lua_State *L) {
 			return 0;
 		}
 		else {
+			vec3 ppos = P.get_pos();
+			WowObject F;
+			if (!OM.get_object_by_GUID(get_focus_GUID(), &F)) return 0;
+			vec3 fpos = F.get_pos();
 
 			static float angle = 0;
+			if (!initial_angle_set) {
+				vec3 face = (ppos - fpos).unit();
+				angle = atan2(face.y, face.x);
+				PRINT("starting avoidance from initial angle %f\n", angle);
+				initial_angle_set = 1;
+			}
 
-			vec3 ppos = P.get_pos();
 			int needed = 0;
 			for (auto &o : n) {
 				if ((o.get_pos() - ppos).length() < 15) {
@@ -1512,10 +1523,6 @@ int lop_exec(lua_State *L) {
 			}
 
 			if (!needed) return 0;
-
-			WowObject F;
-			if (!OM.get_object_by_GUID(get_focus_GUID(), &F)) return 0;
-			vec3 fpos = F.get_pos();
 
 			vec3 newpos = fpos + 28 * vec3(1, 0, 0).rotated_2d(angle);
 
