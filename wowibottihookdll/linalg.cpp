@@ -304,3 +304,10 @@ vec3 glm2wow(const vec3& v) {
 	return vec3(-v.z, -v.x, v.y);
 }
 
+vec3 vec3::rotated_2d(float angle) {
+	return vec3(x * cos(angle) - y * sin(angle), x * sin(angle) + y * cos(angle), 0);
+}
+
+
+
+

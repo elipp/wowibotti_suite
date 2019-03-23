@@ -80,6 +80,8 @@ struct vec3 {
 
 	float length() const { return sqrt(dot(*this, *this)); };
 
+	vec3 rotated_2d(float angle);
+
 	vec3(float X, float Y, float Z) : x(X), y(Y), z(Z) {};
 	vec3() : x(0), y(0), z(0) {};
 	vec3 unit() const { 

@@ -49,7 +49,7 @@ static int ctm_posthook_delay_active() {
 	if (!c) return 0;
 	if (!c->get_current_posthook()) return 0;
 
-	PRINT("posthook->active: %d\n", c->get_current_posthook()->active);
+	//PRINT("posthook->active: %d\n", c->get_current_posthook()->active);
 
 	if (c->get_current_posthook()->active) return 1;
 
@@ -131,8 +131,7 @@ void ctm_abort_if_not_moving() {
 	if (!CTM_START.is_moving(p.get_pos())) {
 		PRINT("ctm_next(): determined that we have not been moving, aborting CTM task!\n");
 	//	DoString("SendChatMessage(\"I'm stuck, halp plx!\", \"GUILD\")");
-		ctm_queue_reset();
-		stopfollow();
+		ctm_cancel();
 	}
 	
 }
@@ -274,6 +273,40 @@ void ctm_unlock() {
 	ctm_locked = 0;
 }
 
+static int prevpos_index = 0;
+static vec3 prevpos;
+
+void ctm_cancel() {
+	ctm_queue_reset();
+	stopfollow();
+}
+
+int ctm_check_direction() {
+	auto c = ctm_get_current_action();
+	if (!c) return 1;
+
+	if (c->action != CTM_FACE) {
+		ObjectManager OM;
+		WowObject P;
+		OM.get_local_object(&P);
+		vec3 ppos = P.get_pos();
+		if (prevpos_index == 0) {
+			prevpos = ppos;
+			prevpos_index = 1;
+		}
+		else {
+			prevpos_index = 0;
+			if ((c->destination - ppos).length() > (c->destination - prevpos).length()) {
+				PRINT("Warning: we seem to be moving away from CTM destination!\n");
+				return 0;
+			}
+
+		}
+	}
+
+	return 1;
+}
+
 
 // this seems to work OK?
 
@@ -320,14 +353,14 @@ void ctm_face_angle(float angle) {
 }
 
 
-void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_distance) {
+void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_distance, float angle) {
 
 	if (ctm_locked) {
 		return;
 	}
 
 	if (action == CTM_FACE) {
-		writeAddr(CTM_ACTION, &action, sizeof(action));
+		ctm_face_angle(angle);
 		return;
 	}
 
@@ -394,7 +427,7 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 
 
 void click_to_move(const CTM_t& c) {
-	click_to_move(c.destination, c.action, c.interact_GUID, c.min_distance);
+	click_to_move(c.destination, c.action, c.interact_GUID, c.min_distance, c.angle);
 }
 
 void broadcast_hold() {

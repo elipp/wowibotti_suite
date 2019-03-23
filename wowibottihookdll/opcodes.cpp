@@ -157,6 +157,13 @@ static struct follow_state_t {
 
 	//set_facing(directed_angle + M_PI);
 
+static void face_posthook(void *a) {
+	float angle = *(float*)a;
+	PRINT("Executed face_posthook (angle: %f)\n", angle);
+	ctm_face_angle(angle);
+	LOP_execute("RunMacroText(\"/startattack\")");
+}
+
 static int LOP_melee_behind() {
 	
 	ObjectManager OM;
@@ -171,6 +178,8 @@ static int LOP_melee_behind() {
 	//vec3 rot_unit(1.0 * std::cos(target_rot) - 0.0 * std::sin(target_rot), 1.0 * std::sin(target_rot) + 0.0 * std::cos(target_rot), 0.0);
 
 	vec3 ppos = p.get_pos();
+	float prot = p.get_rot();
+
 	vec3 tpos = t.get_pos();
 	
 	// ok, so turns out the get_rot() variable isn't really kept up-to-date in the OM,
@@ -181,7 +190,13 @@ static int LOP_melee_behind() {
 	float target_rot;
 
 	if (tot_GUID) {
-		if (tot_GUID == OM.get_local_GUID()) return 0;
+		if (tot_GUID == OM.get_local_GUID()) {
+			vec3 face = (tpos - ppos).unit();
+			float newa = atan2(face.y, face.x);
+			PRINT("prot: %f, target_rot: %f\n", prot, newa);
+			ctm_add(CTM_t::construct_CTM_face(CTM_PRIO_REPLACE, newa));
+			return 1;
+		}
 		WowObject tot;
 		OM.get_object_by_GUID(tot_GUID, &tot);
 		vec3 trot_diff = tot.get_pos() - tpos;
@@ -194,29 +209,34 @@ static int LOP_melee_behind() {
 
 	vec3 trot_unit = vec3(std::cos(target_rot), std::sin(target_rot), 0.0);
 
-	float prot = p.get_rot();
 	vec3 prot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
 
 	//vec3 point_behind(tc.x - std::cos(target_rot), tc.y - std::sin(target_rot), tc.z);
-	vec3 point_behind_actual = tpos - 3.0*trot_unit;
+	vec3 point_behind_actual = tpos + 3 * trot_unit.rotated_2d(0.8*M_PI); // this should put us into a nice "dragon slaying position" :D
 	vec3 point_behind_ctm = point_behind_actual + 0.5*prot_unit;
 	vec3 diff = point_behind_ctm - ppos;
-	
-	if (diff.length() > 1.0) {
-		ctm_add(CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_REPLACE, 0, 0.5));
+	diff.z = 0;
+	float dl = diff.length();
+	if (dl > 1) {
+		CTM_t act = CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_REPLACE, 0, 0.5);
+		vec3 face = (tpos - ppos).unit();
+		float newa = atan2(face.y, face.x);
+		act.add_posthook(CTM_posthook_t(face_posthook, &newa, sizeof(newa), 10));
+		ctm_add(act);
+		
 		return 1;
 	}
 	else {
-		LOP_execute("RunMacroText(\"/startattack\")");
-		float d = dot(prot_unit, trot_unit);
-
-		 if (d < 0.6) { 
-			 // dot product of normalized vectors gives the cosine of the angle between them,
-			 // and for auto-attacking, the valid sector is actually rather small, unlike spells,
-			 // for which perfectly perpendicular is ok
-			vec3 face = (tpos - ppos).unit();
-			ctm_add(CTM_t(ppos + face, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
-		}
+	
+		// dot product of normalized vectors gives the cosine of the angle between them,
+		// and for auto-attacking, the valid sector is actually rather small, unlike spells,
+		// for which perfectly perpendicular is ok
+		//vec3 face = (tpos - ppos).unit();
+		////ctm_add(CTM_t(ppos + face, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5)); // TODO: CHANGE THIS TO FACE_ANGLE!!!
+		//float newa = atan2(face.y, face.x);
+		//PRINT("prot: %f, target_rot: %f\n", prot, newa);
+		//ctm_add(CTM_t::construct_CTM_face(CTM_PRIO_REPLACE, newa));
+		
 	}
 
 	return 1;
@@ -1471,8 +1491,18 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LDOP_TEST: {
-		double m = lua_tonumber(L, 2);
-		ctm_face_angle(m);
+		ObjectManager OM;
+		WowObject i;
+		OM.get_first_object(&i);
+		while (i.valid()) {
+			if (i.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
+				vec3 pos = i.DO_get_pos();
+				PRINT("dynamicobject: base: 0x%X, spellid: %u, pos: (%.1f, %.1f, %.1f)\n", i.get_base(), i.DO_get_spellID(), pos.x, pos.y, pos.z);
+			}
+
+			i = i.next();
+		}
+
 		break;
 	}
 	case LDOP_NOCLIP: {

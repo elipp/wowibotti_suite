@@ -165,6 +165,10 @@ static void __stdcall Present_hook() {
 		}
 	}
 
+	if (!ctm_check_direction()) {
+		ctm_cancel();
+	}
+
 	register_luafunc_if_not_registered();
 
 	static timer_interval_t fifty_ms(50);

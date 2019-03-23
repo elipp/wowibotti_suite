@@ -9,7 +9,7 @@ void ctm_act();
 
 int ctm_handle_delayed_posthook();
 
-void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_distance = 0.0);
+void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_distance = 0.0, float angle = 0.0);
 void ctm_face_angle(float angle);
 
 void ctm_lock();
@@ -41,15 +41,15 @@ struct CTM_posthook_t {
 		timestamp.start();
 		delay_ms = delay_milliseconds;
 		
-		//if (hookfunc_arg) {
-		//	argument = malloc(arg_size);
-		//	memcpy(hookfunc_arg, argument, arg_size);
-		//	argument_size = arg_size;
-		//}
-		//else {
-		//	hookfunc_arg = NULL;
-		//	argument_size = 0;
-		//}
+		if (hookfunc_arg) {
+			argument = malloc(arg_size);
+			memcpy(argument, hookfunc_arg, arg_size);
+			argument_size = arg_size;
+		}
+		else {
+			hookfunc_arg = NULL;
+			argument_size = 0;
+		}
 	};
 
 	CTM_posthook_t() : callback(NULL), delay_ms(0), active(0) {}
@@ -80,6 +80,7 @@ struct CTM_t {
 	int priority;
 	GUID_t interact_GUID;
 	float min_distance;
+	float angle;
 
 	std::vector<CTM_posthook_t> posthook_chain;
 	int hookchain_index;
@@ -107,6 +108,16 @@ struct CTM_t {
 		++CTMID;
 	}
 	
+	// this is only for CTM_FACE :D
+	static CTM_t construct_CTM_face(int prio, float angle) {
+		ObjectManager OM;
+		WowObject p;
+		OM.get_local_object(&p);
+		CTM_t r(p.get_pos(), CTM_FACE, prio, 0, 0);
+		r.angle = angle;
+		return r;
+	}
+
 	void add_posthook(const CTM_posthook_t &hook) {
 		posthook_chain.push_back(hook);
 		PRINT("@add_posthook, base addr = %p, ID=%ld posthook_chain.size() = %lu\n", this, this->ID, posthook_chain.size());
@@ -156,3 +167,6 @@ CTM_t ctm_pop();
 void click_to_move(const CTM_t&);
 void ctm_queue_reset();
 CTM_t *ctm_get_current_action();
+void ctm_cancel();
+
+int ctm_check_direction();

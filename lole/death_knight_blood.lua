@@ -2,7 +2,44 @@ function survive_death_knight_blood()
 
 end
 
+-- local MARROWGAR = nil
+-- local MARROWGAR_GUID = NOTARGET
+-- local function set_MGUID(g)
+--   if MARROWGAR_GUID == NOTARGET then
+--     MARROWGAR_GUID = g
+--     echo("MARROWGAR_GUID set to " .. g)
+--   end
+-- end
+--
+-- local function MARROWGAR_STUFF()
+--
+--   if not UnitAffectingCombat("player") then return end
+--
+--   local ts = {get_combat_targets()}
+--   for i,g in pairs(ts) do
+--     target_unit_with_GUID(g)
+--     local tname = UnitName("target")
+--     if not UnitIsDead("target") and tname == "Bone Spike" and BLAST_TARGET_GUID ~= g then
+--       lole_subcommands.sendmacro("RAID", "/lole target", g);
+--       return
+--
+--     elseif tname == "Lord Marrowgar" then
+--       set_MGUID(g)
+--     end
+--   end
+--
+--   if BLAST_TARGET_GUID ~= MARROWGAR_GUID then
+--     lole_subcommands.sendmacro("RAID", "/lole target", MARROWGAR_GUID);
+--   end
+--
+-- end
+
 combat_death_knight_blood = function()
+  -- 
+  -- if not MARROWGAR then
+  --   MARROWGAR = CreateFrame("frame", nil, UIParent)
+  --   MARROWGAR:SetScript("OnUpdate", MARROWGAR_STUFF)
+  -- end
 
   L_TargetUnit("Ghostly Priest")
     if UnitExists("target") then

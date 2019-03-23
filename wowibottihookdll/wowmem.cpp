@@ -20,7 +20,7 @@ void DoString(const char* format, ...) {
 	//sprintf_s(cmd2, "getrvals(\"%s\")", cmd); // TODO decide if this is necessary
 
 	LUA_DoString(cmd, cmd, NULL); // the last argument actually MUST be null :D otherwise taint->blocked
-	PRINT("(DoString: executed script \"%s\")\n", cmd);
+	//PRINT("(DoString: executed script \"%s\")\n", cmd);
 }
 
 static const char* taint_caller;
@@ -494,13 +494,15 @@ const WowObject& WowObject::operator=(const WowObject &o) {
 
 int WowObject::DO_get_spellID() const {
 	int spellID = 0;
-	readAddr(base + 0x1BC, &spellID, sizeof(spellID)); 
+	// this seems to work for wotlk (the spellid is written in about 100 different locations in the struct?)
+	readAddr(base + 0x17C, &spellID, sizeof(spellID)); 
 	return spellID;
 }
 
 vec3 WowObject::DO_get_pos() const {
 	float coords[3];
-	readAddr(base + 0x1DC, coords, 3 * sizeof(float));
+
+	readAddr(base + 0xE8, coords, 3 * sizeof(float));
 	return vec3(coords[0], coords[1], coords[2]);
 }
 
