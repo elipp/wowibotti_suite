@@ -61,7 +61,7 @@ static void ctm_queue_reinit_with(const CTM_t &new_ctm) {
 	ctm_queue.push(new_ctm);
 }
 
-static int ctm_queue_get_top_prio() {
+int ctm_queue_get_top_prio() {
 	if (!ctm_queue.empty()) {
 		const CTM_t &top = ctm_queue.front();
 		return top.priority;
@@ -81,11 +81,17 @@ void ctm_add(const CTM_t &new_ctm) {
 	PRINT("called ctm_ADD with %.1f, %.1f, %.1f, ID=%ld, prio %d, action 0x%X\n", 
 		new_ctm.destination.x, new_ctm.destination.y, new_ctm.destination.z, new_ctm.ID, new_ctm.priority, new_ctm.action);
 
-	if (new_ctm.priority == CTM_PRIO_LOW && ctm_queue_get_top_prio() == CTM_PRIO_LOW) {
+	int topprio = ctm_queue_get_top_prio();
+
+	if (topprio == CTM_PRIO_NOOVERRIDE) {
+		return;
+	}
+	
+	else if (new_ctm.priority == CTM_PRIO_LOW && topprio == CTM_PRIO_LOW) {
 		ctm_queue.push(new_ctm);
 	}
-
-	else if (ctm_queue_get_top_prio() <= new_ctm.priority) {
+	
+	else if (topprio <= new_ctm.priority) {
 		ctm_queue_reinit_with(new_ctm);
 		ctm_act();
 	}

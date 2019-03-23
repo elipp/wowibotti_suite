@@ -66,6 +66,7 @@ enum {
 	CTM_PRIO_REPLACE,
 	CTM_PRIO_EXCLUSIVE,
 	CTM_PRIO_FOLLOW,
+	CTM_PRIO_NOOVERRIDE,
 	CTM_PRIO_HOLD_POSITION,
 	CTM_PRIO_CLEAR_HOLD
 };
@@ -168,5 +169,6 @@ void click_to_move(const CTM_t&);
 void ctm_queue_reset();
 CTM_t *ctm_get_current_action();
 void ctm_cancel();
+int ctm_queue_get_top_prio();
 
 int ctm_check_direction();

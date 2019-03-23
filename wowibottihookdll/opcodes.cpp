@@ -1487,6 +1487,9 @@ int lop_exec(lua_State *L) {
 	}
 
 	case LOP_AVOID_NPC_WITH_NAME: {
+		
+		if (ctm_queue_get_top_prio() == CTM_PRIO_NOOVERRIDE) return 0;
+
 		size_t len;
 		std::string name(lua_tolstring(L, 2, &len));
 		ObjectManager OM;
@@ -1500,11 +1503,12 @@ int lop_exec(lua_State *L) {
 			for (auto &o : n) {
 				if (get_distance2(P, o) < 12) {
 					vec3 newpos = o.get_pos() + 12*vec3(1, 0, 0).rotated_2d(rand());
-					ctm_add(CTM_t(newpos, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 1.0));
+					ctm_add(CTM_t(newpos, CTM_MOVE, CTM_PRIO_NOOVERRIDE, 0, 1.0));
 					return 0;
 				}
 			}
 		}
+		return 0;
 	
 	}
 
