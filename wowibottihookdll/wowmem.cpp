@@ -763,3 +763,7 @@ int get_reaction(const WowObject &A, const WowObject &B) {
 
 	return R + 1;
 }
+
+GUID_t get_focus_GUID() {
+	return *(GUID_t*)0xBD07D0;
+}

@@ -1231,7 +1231,6 @@ float randf() {
 	return static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 }
 
-
 int lop_exec(lua_State *L) {
 
 	// NOTE: the return value of this function --> number of values returned to caller in LUA
@@ -1500,13 +1499,41 @@ int lop_exec(lua_State *L) {
 			return 0;
 		}
 		else {
-			for (auto &o : n) {
-				if (get_distance2(P, o) < 12) {
-					vec3 newpos = o.get_pos() + 12*vec3(1, 0, 0).rotated_2d(rand());
-					ctm_add(CTM_t(newpos, CTM_MOVE, CTM_PRIO_NOOVERRIDE, 0, 1.0));
-					return 0;
+			WowObject F;
+			if (!OM.get_object_by_GUID(get_focus_GUID(), &F)) return 0;
+			vec3 fpos = F.get_pos();
+			
+			int found = 0;
+			vec3 newpos_suggestion;
+			float dist = 30;
+
+			while (!found && dist > 0) {
+				float angle = 0;
+				while (angle < 2*M_PI) {
+					newpos_suggestion = fpos + dist * vec3(1.0, 0, 0).rotated_2d(angle);
+					int ok = 1;
+					for (auto &o : n) {
+						if ((o.get_pos() - newpos_suggestion).length() < 15) {
+							ok = 0;
+							break;
+						}
+					}
+					if (ok) {
+						found = 1;
+						break;
+					}
+					else {
+						angle += 0.25*M_PI;
+					}
 				}
+				dist -= 5;
 			}
+			if (!found) return 0;
+			else {
+				ctm_add(CTM_t(newpos_suggestion, CTM_MOVE, CTM_PRIO_NOOVERRIDE, 0, 1.0));
+				return 0;
+			}
+
 		}
 		return 0;
 	

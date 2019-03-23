@@ -77,17 +77,19 @@ int ctm_job_in_progress() {
 
 
 void ctm_add(const CTM_t &new_ctm) {
-	
-	PRINT("called ctm_ADD with %.1f, %.1f, %.1f, ID=%ld, prio %d, action 0x%X\n", 
-		new_ctm.destination.x, new_ctm.destination.y, new_ctm.destination.z, new_ctm.ID, new_ctm.priority, new_ctm.action);
+
 
 	int topprio = ctm_queue_get_top_prio();
 
 	if (topprio == CTM_PRIO_NOOVERRIDE) {
+		PRINT("CTM_PRIO_NOOVERRIDE set, not overriding\n");
 		return;
 	}
-	
-	else if (new_ctm.priority == CTM_PRIO_LOW && topprio == CTM_PRIO_LOW) {
+
+	PRINT("called ctm_ADD with %.1f, %.1f, %.1f, ID=%ld, prio %d, action 0x%X\n",
+		new_ctm.destination.x, new_ctm.destination.y, new_ctm.destination.z, new_ctm.ID, new_ctm.priority, new_ctm.action);
+
+	if (new_ctm.priority == CTM_PRIO_LOW && topprio == CTM_PRIO_LOW) {
 		ctm_queue.push(new_ctm);
 	}
 	

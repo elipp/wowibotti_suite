@@ -217,6 +217,8 @@ DWORD get_Present();
 DWORD get_DrawIndexedPrimitive();
 IDirect3DDevice9 *get_wow_ID3D9();
 
+GUID_t get_focus_GUID();
+
 float get_distance3(const WowObject &a, const WowObject &b);
 float get_distance2(const WowObject &a, const WowObject &b);
 
