@@ -1502,6 +1502,17 @@ int lop_exec(lua_State *L) {
 		}
 		else {
 			vec3 ppos = P.get_pos();
+
+			int needed = 0;
+			for (auto &o : n) {
+				if ((o.get_pos() - ppos).length() < 12) {
+					needed = 1;
+					break;
+				}
+			}
+
+			if (!needed) return 0;
+
 			WowObject F;
 			if (!OM.get_object_by_GUID(get_focus_GUID(), &F)) return 0;
 			vec3 fpos = F.get_pos();
@@ -1514,19 +1525,10 @@ int lop_exec(lua_State *L) {
 				initial_angle_set = 1;
 			}
 
-			int needed = 0;
-			for (auto &o : n) {
-				if ((o.get_pos() - ppos).length() < 15) {
-					needed = 1;
-					break;
-				}
-			}
 
-			if (!needed) return 0;
+			vec3 newpos = fpos + 25 * vec3(1, 0, 0).rotated_2d(angle);
 
-			vec3 newpos = fpos + 28 * vec3(1, 0, 0).rotated_2d(angle);
-
-			angle += 0.25*M_PI;
+			angle += 0.15*M_PI;
 
 			ctm_add(CTM_t(newpos, CTM_MOVE, CTM_PRIO_NOOVERRIDE, 0, 1.0));
 
@@ -1549,18 +1551,7 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LDOP_TEST: {
-		ObjectManager OM;
-		WowObject i;
-		OM.get_first_object(&i);
-		while (i.valid()) {
-			if (i.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
-				vec3 pos = i.DO_get_pos();
-				PRINT("dynamicobject: base: 0x%X, spellid: %u, pos: (%.1f, %.1f, %.1f)\n", i.get_base(), i.DO_get_spellID(), pos.x, pos.y, pos.z);
-			}
-
-			i = i.next();
-		}
-
+		initial_angle_set = 0;
 		break;
 	}
 	case LDOP_NOCLIP: {
