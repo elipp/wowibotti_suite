@@ -8,6 +8,9 @@ function()
   if UnitCastingInfo("target") == "Poison Nova" then
     walk_to(814, 92, 509, CTM_PRIO_FOLLOW)
   end
+
+  avoid_npc_with_name("Fire Bomb")
+
 end
 )
 

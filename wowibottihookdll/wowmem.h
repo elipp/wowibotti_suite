@@ -143,6 +143,7 @@ public:
 	WowObject(unsigned int addr);
 	WowObject();
 
+
 	unsigned int get_base() const;
 
 	const WowObject& operator=(const WowObject &o);
@@ -184,6 +185,8 @@ public:
 	std::vector<WowObject> find_all_NPCs_at(const vec3 &pos, float radius);
 
 	std::vector<WowObject> get_spell_objects_with_spellID(long spellID);
+	std::vector<WowObject> get_NPCs_by_name(const std::string &name);
+
 
 };
 

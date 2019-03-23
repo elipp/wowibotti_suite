@@ -594,8 +594,27 @@ int ObjectManager::get_unit_by_name(const std::string &name, WowObject *o) const
 	PRINT("get_unit_by_name: couldn't find unit with name %s\n", name.c_str());
 
 	return 0;
-
 }
+
+std::vector<WowObject> ObjectManager::get_NPCs_by_name(const std::string &name) {
+	WowObject i;
+	this->get_first_object(&i);
+
+	std::vector<WowObject> ret;
+
+	while (i.valid()) {
+		if (i.get_type() == OBJECT_TYPE_NPC) {
+			if (i.NPC_get_name() == name) {
+				ret.push_back(i);
+			}
+		}
+
+		i = i.next();
+	}
+
+	return ret;
+}
+
 
 int ObjectManager::get_GO_by_name(const std::string &name, WowObject *o) const {
 	WowObject n;

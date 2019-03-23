@@ -35,11 +35,13 @@ end
 -- end
 
 combat_death_knight_blood = function()
-  -- 
+  --
   -- if not MARROWGAR then
   --   MARROWGAR = CreateFrame("frame", nil, UIParent)
   --   MARROWGAR:SetScript("OnUpdate", MARROWGAR_STUFF)
   -- end
+
+  avoid_npc_with_name("Fire Bomb")
 
   L_TargetUnit("Ghostly Priest")
     if UnitExists("target") then

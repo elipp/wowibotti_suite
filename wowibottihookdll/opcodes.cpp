@@ -74,7 +74,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_CAST_SPELL, 2, 2, 0),
 	 LOPFUNC(LOP_GET_COMBAT_TARGETS, 0, 0, 0),
 	 LOPFUNC(LOP_GET_AOE_FEASIBILITY, 1, 1, 1),
-
+	 LOPFUNC(LOP_AVOID_NPC_WITH_NAME, 1, 1, 0),
 };
 
 
@@ -222,6 +222,9 @@ static int LOP_melee_behind() {
 		vec3 face = (tpos - ppos).unit();
 		float newa = atan2(face.y, face.x);
 		act.add_posthook(CTM_posthook_t(face_posthook, &newa, sizeof(newa), 10));
+		act.add_posthook(CTM_posthook_t(face_posthook, &newa, sizeof(newa), 40));
+		act.add_posthook(CTM_posthook_t(face_posthook, &newa, sizeof(newa), 70));
+
 		ctm_add(act);
 		
 		return 1;
@@ -1224,6 +1227,11 @@ static void try_wowctm() {
 	}
 }
 
+float randf() {
+	return static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+}
+
+
 int lop_exec(lua_State *L) {
 
 	// NOTE: the return value of this function --> number of values returned to caller in LUA
@@ -1478,6 +1486,28 @@ int lop_exec(lua_State *L) {
 		break;
 	}
 
+	case LOP_AVOID_NPC_WITH_NAME: {
+		size_t len;
+		std::string name(lua_tolstring(L, 2, &len));
+		ObjectManager OM;
+		WowObject P;
+		OM.get_local_object(&P);
+		auto n = OM.get_NPCs_by_name(name);
+		if (n.size() == 0) {
+			return 0;
+		}
+		else {
+			for (auto &o : n) {
+				if (get_distance2(P, o) < 12) {
+					vec3 newpos = o.get_pos() + 12*vec3(1, 0, 0).rotated_2d(rand());
+					ctm_add(CTM_t(newpos, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 1.0));
+					return 0;
+				}
+			}
+		}
+	
+	}
+
 	case LDOP_CAPTURE_FRAME_RENDER_STAGES:
 		enable_capture_render();
 		break;
@@ -1571,28 +1601,9 @@ void refollow_if_needed() {
 
 static int dump_wowobjects_to_log() {
 
-	char desktop_path[MAX_PATH];
-
-	if (!SUCCEEDED(SHGetFolderPath(NULL, CSIDL_DESKTOPDIRECTORY | CSIDL_FLAG_CREATE, NULL, SHGFP_TYPE_CURRENT, desktop_path))) {
-		PRINT("SHGetFolderPath for CSIDL_DESKTOPDIRECTORY failed, errcode %d\n", GetLastError());
-		return 0;
-	}
-
-	static const std::string log_path = std::string(desktop_path) + "\\wodump.log";
-	FILE *fp;
-	errno_t err = fopen_s(&fp, log_path.c_str(), "w");
-
-	if (!fp) {
-		PRINT("Opening file \"%s\" failed!\n", log_path.c_str());
-		return 0;
-	}
-
 	ObjectManager OM;
 
-	PRINT("Dumping WowObjects to file \"%s\"!\n", log_path.c_str());
-	GUID_t target_GUID = get_target_GUID();
-
-	fprintf(fp, "Basic info: ObjectManager base: %X, local GUID = 0x%016llX, player target: 0x%016llX\n\n", OM.get_base_address(), OM.get_local_GUID(), target_GUID);
+	fprintf(stdout, "Basic info: ObjectManager base: %X, local GUID = 0x%016llX\n\n", OM.get_base_address(), OM.get_local_GUID());
 	WowObject o;
 	if (!OM.get_first_object(&o)) return 0;
 
@@ -1600,81 +1611,67 @@ static int dump_wowobjects_to_log() {
 		uint type = o.get_type();
 		if (type == OBJECT_TYPE_ITEM || type == OBJECT_TYPE_CONTAINER) { continue; }  
 		
-		fprintf(fp, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+		fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
 
 		if (type == OBJECT_TYPE_NPC || type == OBJECT_TYPE_UNIT) {
 			vec3 pos = o.get_pos();
-			fprintf(fp, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, o.get_rot());
+			fprintf(stdout, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, o.get_rot());
 
 			if (type == OBJECT_TYPE_NPC) {
-				fprintf(fp, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", o.NPC_get_name().c_str(), o.NPC_get_health(), o.NPC_get_health_max(), o.NPC_get_target_GUID(), o.in_combat());
-				fprintf(fp, "--- buffs (by spellID): ---\n");
-				for (int n = 1; n <= 16; ++n) { // the maximum is actually 40, but..
-					uint spellID = o.NPC_get_buff(n);
-					if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
-					else break;
-				}
+				fprintf(stdout, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", o.NPC_get_name().c_str(), o.NPC_get_health(), o.NPC_get_health_max(), o.NPC_get_target_GUID(), o.in_combat());
+				//fprintf(fp, "--- buffs (by spellID): ---\n");
+				//for (int n = 1; n <= 16; ++n) { // the maximum is actually 40, but..
+				//	uint spellID = o.NPC_get_buff(n);
+				//	if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
+				//	else break;
+				//}
 
-				fprintf(fp, "--- debuffs (by spellID): ---\n");
+				//fprintf(fp, "--- debuffs (by spellID): ---\n");
 
-				for (int n = 1; n <= 16; ++n) {
-					uint spellID = o.NPC_get_debuff(n);
-					if (spellID != 0) {
-						uint duration = o.NPC_get_debuff_duration(n, spellID);
-						fprintf(fp, "%d: %u, duration = %u\n", n, spellID, duration);
-					}
-					else break;
-				}
+				//for (int n = 1; n <= 16; ++n) {
+				//	uint spellID = o.NPC_get_debuff(n);
+				//	if (spellID != 0) {
+				//		uint duration = o.NPC_get_debuff_duration(n, spellID);
+				//		fprintf(fp, "%d: %u, duration = %u\n", n, spellID, duration);
+				//	}
+				//	else break;
+				//}
 
-				fprintf(fp, "\n");
+				//fprintf(fp, "\n");
 				
 			}
 			else if (type == OBJECT_TYPE_UNIT) {
-				fprintf(fp, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", o.unit_get_name().c_str(), o.unit_get_health(), o.unit_get_health_max(), o.unit_get_target_GUID(), o.in_combat());
-				fprintf(fp, "--- buffs (by spellID): ---\n");
-				for (int n = 1; n <= 16; ++n) {
-					uint spellID = o.unit_get_buff(n);
-					if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
-				}
+				fprintf(stdout, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", o.unit_get_name().c_str(), o.unit_get_health(), o.unit_get_health_max(), o.unit_get_target_GUID(), o.in_combat());
+				//fprintf(fp, "--- buffs (by spellID): ---\n");
+				//for (int n = 1; n <= 16; ++n) {
+				//	uint spellID = o.unit_get_buff(n);
+				//	if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
+				//}
 
-				fprintf(fp, "--- debuffs (by spellID): ---\n");
+				//fprintf(fp, "--- debuffs (by spellID): ---\n");
 
-				for (int n = 1; n <= 16; ++n) {
-					uint spellID = o.unit_get_debuff(n);
-					if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
-				}
+				//for (int n = 1; n <= 16; ++n) {
+				//	uint spellID = o.unit_get_debuff(n);
+				//	if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
+				//}
 
-				fprintf(fp, "\n");
+				//fprintf(fp, "\n");
 			}
 		}
 		else if (type == OBJECT_TYPE_DYNAMICOBJECT) {
 			vec3 DO_pos = o.DO_get_pos();
-			fprintf(fp, "position: (%.1f, %.1f, %.1f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, o.DO_get_spellID());
+			fprintf(stdout, "position: (%.1f, %.1f, %.1f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, o.DO_get_spellID());
 		}
 		else if (type == OBJECT_TYPE_GAMEOBJECT) {
 			vec3 GO_pos = o.GO_get_pos();
-			fprintf(fp, "name: %s, position: (%.1f, %.1f, %.1f)\n\n", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
+		//	fprintf(fp, "name: %s, position: (%.1f, %.1f, %.1f)\n\n", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
 		}
 
-		fprintf(fp, "----------------------------------------------------------------------------\n");
+		fprintf(stdout, "----------------------------------------------------------------------------\n");
 
-	}
-
-	fclose(fp);
-	err = fopen_s(&fp, log_path.c_str(), "r");
-
-	char buf[256];
-
-	while (fgets(buf, 256, fp) != NULL) {
-		if (*buf) {
-			buf[strlen(buf) - 1] = '\0'; // the AddMessage function will fail with unfinished string error without this
-			DoString("DEFAULT_CHAT_FRAME:AddMessage(\"|cFFFFD100%s\")", buf);
-		}
 	}
 	
-	fclose(fp);
-
-	SelectUnit(target_GUID); // this is because the *_get_[de]buff calls call SelectUnit
+	//SelectUnit(target_GUID); // this is because the *_get_[de]buff calls call SelectUnit
 
 	return 1;
 }
