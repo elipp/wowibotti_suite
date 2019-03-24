@@ -306,18 +306,20 @@ function noobwarrior_combat()
     L_CastSpellByName("Bloodrage")
   end
 
+
   if UnitHealthMax("target") > 250000 then
-    has, dur, stacks = has_debuff("target", "Sunder Armor")
-    if not has or dur < 5 or stacks < 5 then
+    local has, dur, stacks = has_debuff("target", "Sunder Armor")
+    if (not has) or dur < 5 or stacks < 5 then
       L_CastSpellByName("Sunder Armor")
       return
     end
   end
 
-  if not has_buff("player", "Battle Shout") then
-    L_CastSpellByName("Battle Shout")
-    return
-  end
+-- This is somehow fucked in raid setup
+  -- if not has_buff("player", "Battle Shout") then
+  --   L_CastSpellByName("Battle Shout")
+  --   return
+  -- end
 
   if has_buff("player", "Slam!") then
     L_CastSpellByName("Slam")

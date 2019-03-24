@@ -1551,6 +1551,7 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LDOP_TEST: {
+		PRINT("resetting initial angle\n");
 		initial_angle_set = 0;
 		break;
 	}
