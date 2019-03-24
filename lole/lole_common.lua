@@ -10,7 +10,7 @@ function()
   end
 
   if lole_get("playermode") == 0 then
-    avoid_npc_with_name("Fire Bomb")
+    boss_action("Gormok")
   end
 
 end

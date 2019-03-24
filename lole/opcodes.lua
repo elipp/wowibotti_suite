@@ -31,6 +31,7 @@ local LOP_CAST_SPELL = 0x1D
 local LOP_GET_COMBAT_TARGETS = 0x1E
 local LOP_GET_AOE_FEASIBILITY = 0x1F
 local LOP_AVOID_NPC_WITH_NAME = 0x20
+local LOP_BOSS_ACTION = 0x21
 
 local LOP_EXT_NOP = 0x70
 local LOP_SL_RESETCAMERA = 0x71
@@ -353,6 +354,10 @@ end
 
 function avoid_npc_with_name(name)
 	lop_exec(LOP_AVOID_NPC_WITH_NAME, name)
+end
+
+function boss_action(name)
+	lop_exec(LOP_BOSS_ACTION, name)
 end
 
 function capture_render_stages()

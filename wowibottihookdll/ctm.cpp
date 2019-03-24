@@ -328,7 +328,7 @@ void ctm_face_angle(float angle) {
 
 	float angle_normalized = angle - TWO_PI * floor(angle / TWO_PI);
 
-	PRINT("angle_normalized: %f\n", angle_normalized);
+	//PRINT("angle_normalized: %f\n", angle_normalized);
 
 
 	// these don't really seem to matter

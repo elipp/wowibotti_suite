@@ -31,7 +31,7 @@ struct CTM_posthook_t {
 	CTM_callback_t callback;
 	float delay_ms;
 
-	void *argument;
+	BYTE argument[128]; // ONLY integral types are ok!
 	size_t argument_size;
 
 	Timer timestamp;
@@ -42,7 +42,6 @@ struct CTM_posthook_t {
 		delay_ms = delay_milliseconds;
 		
 		if (hookfunc_arg) {
-			argument = malloc(arg_size);
 			memcpy(argument, hookfunc_arg, arg_size);
 			argument_size = arg_size;
 		}

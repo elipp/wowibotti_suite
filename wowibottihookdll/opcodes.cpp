@@ -75,6 +75,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_GET_COMBAT_TARGETS, 0, 0, 0),
 	 LOPFUNC(LOP_GET_AOE_FEASIBILITY, 1, 1, 1),
 	 LOPFUNC(LOP_AVOID_NPC_WITH_NAME, 1, 1, 0),
+	 LOPFUNC(LOP_BOSS_ACTION, 1, 1, 0),
 };
 
 
@@ -216,31 +217,24 @@ static int LOP_melee_behind() {
 	vec3 point_behind_ctm = point_behind_actual + 0.5*prot_unit;
 	vec3 diff = point_behind_ctm - ppos;
 	diff.z = 0;
+
+	vec3 face = (tpos - ppos).unit();
+	float newa = atan2(face.y, face.x);
+
 	float dl = diff.length();
-	if (dl > 1) {
+	if (dl > 1.5) {
 		CTM_t act = CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_REPLACE, 0, 0.5);
-		vec3 face = (tpos - ppos).unit();
-		float newa = atan2(face.y, face.x);
+
 		act.add_posthook(CTM_posthook_t(face_posthook, &newa, sizeof(newa), 50));
-
 		// TODO ADD DOT PRODUCT CHECKING
-
 		ctm_add(act);
 		
 		return 1;
 	}
 	else {
-	
-		// dot product of normalized vectors gives the cosine of the angle between them,
-		// and for auto-attacking, the valid sector is actually rather small, unlike spells,
-		// for which perfectly perpendicular is ok
-		//vec3 face = (tpos - ppos).unit();
-		////ctm_add(CTM_t(ppos + face, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5)); // TODO: CHANGE THIS TO FACE_ANGLE!!!
-		//float newa = atan2(face.y, face.x);
-		//PRINT("prot: %f, target_rot: %f\n", prot, newa);
-		//ctm_add(CTM_t::construct_CTM_face(CTM_PRIO_REPLACE, newa));
-		
+		ctm_face_angle(newa);
 	}
+
 
 	return 1;
 
@@ -1230,8 +1224,57 @@ static void try_wowctm() {
 float randf() {
 	return static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 }
-
 static int initial_angle_set = 0;
+
+static void do_boss_action(const std::string &bossname) {
+	if (bossname == "Gormok") {
+		if (ctm_queue_get_top_prio() == CTM_PRIO_NOOVERRIDE) return;
+
+		size_t len;
+		ObjectManager OM;
+		WowObject P;
+		OM.get_local_object(&P);
+		auto n = OM.get_NPCs_by_name(bossname);
+		if (n.size() == 0) {
+			return;
+		}
+		else {
+			vec3 ppos = P.get_pos();
+
+			int needed = 0;
+			for (auto &o : n) {
+				if ((o.get_pos() - ppos).length() < 12) {
+					needed = 1;
+					break;
+				}
+			}
+
+			if (!needed) return;
+
+			WowObject F;
+			if (!OM.get_object_by_GUID(get_focus_GUID(), &F)) return;
+			vec3 fpos = F.get_pos();
+
+			static float angle = 0;
+			if (!initial_angle_set) {
+				vec3 face = (ppos - fpos).unit();
+				angle = atan2(face.y, face.x);
+				PRINT("starting Gormok avoidance from initial angle %f\n", angle);
+				initial_angle_set = 1;
+			}
+
+
+			vec3 newpos = fpos + 25 * vec3(1, 0, 0).rotated_2d(angle);
+
+			angle += 0.15*M_PI;
+
+			ctm_add(CTM_t(newpos, CTM_MOVE, CTM_PRIO_NOOVERRIDE, 0, 1.0));
+
+		}
+	}
+
+}
+
 
 int lop_exec(lua_State *L) {
 
@@ -1489,54 +1532,14 @@ int lop_exec(lua_State *L) {
 
 	case LOP_AVOID_NPC_WITH_NAME: {
 		
-		if (ctm_queue_get_top_prio() == CTM_PRIO_NOOVERRIDE) return 0;
 
-		size_t len;
-		std::string name(lua_tolstring(L, 2, &len));
-		ObjectManager OM;
-		WowObject P;
-		OM.get_local_object(&P);
-		auto n = OM.get_NPCs_by_name(name);
-		if (n.size() == 0) {
-			return 0;
-		}
-		else {
-			vec3 ppos = P.get_pos();
-
-			int needed = 0;
-			for (auto &o : n) {
-				if ((o.get_pos() - ppos).length() < 12) {
-					needed = 1;
-					break;
-				}
-			}
-
-			if (!needed) return 0;
-
-			WowObject F;
-			if (!OM.get_object_by_GUID(get_focus_GUID(), &F)) return 0;
-			vec3 fpos = F.get_pos();
-
-			static float angle = 0;
-			if (!initial_angle_set) {
-				vec3 face = (ppos - fpos).unit();
-				angle = atan2(face.y, face.x);
-				PRINT("starting avoidance from initial angle %f\n", angle);
-				initial_angle_set = 1;
-			}
-
-
-			vec3 newpos = fpos + 25 * vec3(1, 0, 0).rotated_2d(angle);
-
-			angle += 0.15*M_PI;
-
-			ctm_add(CTM_t(newpos, CTM_MOVE, CTM_PRIO_NOOVERRIDE, 0, 1.0));
-
-
-		}
 		return 0;
 	
 	}
+
+	case LOP_BOSS_ACTION:
+		do_boss_action(lua_tolstring(L, 2, &len));
+		break;
 
 	case LDOP_CAPTURE_FRAME_RENDER_STAGES:
 		enable_capture_render();
