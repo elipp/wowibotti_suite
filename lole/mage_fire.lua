@@ -1,3 +1,5 @@
+local spellsteal_lock = 0
+
 combat_mage_fire = function()
 
 	-- L_TargetUnit("Ghostly Priest")
@@ -39,6 +41,15 @@ combat_mage_fire = function()
 	if lole_subcommands.get("aoemode") == 1 and get_aoe_feasibility(15) > 3 then
 			lole_subcommands.cast_gtaoe("Flamestrike", get_unit_position("target"))
 			return
+	end
+
+	if has_buff("target", "Nether Power") then
+		local t = GetTime()
+		if (t - spellsteal_lock > 12) then
+			L_CastSpellByName("Spellsteal")
+			spellsteal_lock = t
+			return
+		end
 	end
 
 	local hs, ts = has_debuff("target", "Improved Scorch");

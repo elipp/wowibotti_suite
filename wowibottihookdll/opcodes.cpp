@@ -1556,6 +1556,7 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LDOP_DUMP:
+		dump_wowobjects_to_log();
 		should_unpatch = 1;
 		break;
 

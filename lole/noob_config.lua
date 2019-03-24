@@ -381,6 +381,8 @@ local function noobpriest_combat()
     return -- in order not to clip mind flay/sear
   end
 
+  L_CastSpellByName("Dispel Magic")
+
   if GetSpellCooldown("Shadowfiend") > 0 and UnitMana("player") < 2000 then
     L_CastSpellByName("Dispersion")
   elseif UnitHealth("target") > 30000 and UnitMana("player") < 1500 then

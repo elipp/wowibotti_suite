@@ -147,6 +147,12 @@ static void __stdcall call_pylpyr() {
 		wc3_draw_pylpyrs();
 }
 
+
+static DWORD WINAPI unload_DLL(LPVOID lpParameter) {
+	FreeLibraryAndExitThread(inj_hModule, 0);
+	return 0;
+}
+
 static int dbg_shown = 0;
 
 static void __stdcall Present_hook() {
@@ -214,6 +220,7 @@ static void __stdcall Present_hook() {
 		unpatch_all();
 		DoString("ConsoleExec(\"reloadui\")");
 		should_unpatch = 0;
+		_beginthread();
 		FreeLibraryAndExitThread(inj_hModule, 0);
 	}
 
