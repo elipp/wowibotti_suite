@@ -286,8 +286,21 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
 
 				if (dist < 20) then
 					local middle_diff = TOC_middle:subtract(ppos)
-					local newpos = TOC_middle:add(middle_diff:rotated2d(0.55 + 3.14):scale(0.97))
-					walk_to(newpos.x, newpos.y, newpos.z, 3)
+					local newpos1 = TOC_middle:add(middle_diff:rotated2d(-0.55 + 3.14):scale(0.97))
+					local newpos2 = TOC_middle:add(middle_diff:rotated2d(0.55 + 3.14):scale(0.97))
+					local final = nil
+
+					local d1 = newpos1:distance(world_pos)
+					local d2 = newpos2:distance(world_pos)
+				--	echo(d1)
+			--		echo(d2)
+					if (d1 > d2) then
+						final = newpos1
+					else
+						final = newpos2
+					end
+					walk_to(final.x, final.y, final.z, 3)
+
 				end
 
 	end
