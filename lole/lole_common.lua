@@ -64,7 +64,7 @@ function()
 end
 )
 
-local middle = vec3:create(562, 137, 395)
+TOC_middle = vec3:create(562, 137, 395)
 
 REMOVE_THIS_FRAME:RegisterEvent("MINIMAP_PING")
 REMOVE_THIS_FRAME:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
@@ -73,6 +73,11 @@ REMOVE_THIS_FRAME:SetScript("OnEvent", function(self, event, prefix, message, ch
     -- THIS IS FOR TOC ONLY!!
 
     local from = prefix
+    if (from ~= "player") then
+      return
+    end
+
+
     local x = message
     local y = channel
 
@@ -80,17 +85,9 @@ REMOVE_THIS_FRAME:SetScript("OnEvent", function(self, event, prefix, message, ch
     -- and minimap left is -0.25
 
     local ppos = vec3:create(get_unit_position(UnitName("player")))
-    local npos = vec3:create(ppos.x + (200 * y), ppos.y + (-200 * x), ppos.z)
+    local world_pos = vec3:create(ppos.x + (200 * y), ppos.y + (-200 * x), ppos.z)
 
-    local diff = npos:subtract(ppos)
-    local dist = diff:length()
-
-    if (dist < 20) then
-      local middle_diff = middle:subtract(ppos)
-      local newpos = middle:add(middle_diff:rotated2d(0.55 + 3.14):scale(0.97))
-      walk_to(newpos.x, newpos.y, newpos.z, 3)
-    end
-
+    SendAddonMessage("lole_avoid_coords", tostring(world_pos.x) .. "," .. tostring(world_pos.y) .. "," .. tostring(world_pos.z), "RAID")
 
   end
 

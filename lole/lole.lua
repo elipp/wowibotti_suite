@@ -275,6 +275,21 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
     elseif (prefix == "lole_mount") then
         L_RunMacro("mount");
 
+		elseif (prefix == "lole_avoid_coords") then
+
+				local coords = {strsplit(",", message)}
+				local world_pos = vec3:create(tonumber(coords[1]), tonumber(coords[2]), tonumber(coords[3]))
+				local ppos = vec3:create(get_unit_position(UnitName("player")))
+
+				local diff = world_pos:subtract(ppos)
+				local dist = diff:length()
+
+				if (dist < 20) then
+					local middle_diff = TOC_middle:subtract(ppos)
+					local newpos = TOC_middle:add(middle_diff:rotated2d(0.55 + 3.14):scale(0.97))
+					walk_to(newpos.x, newpos.y, newpos.z, 3)
+				end
+
 	end
 end
 
