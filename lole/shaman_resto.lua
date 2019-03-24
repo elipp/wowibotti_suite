@@ -77,9 +77,9 @@ local function raid_heal()
         cast_heal("Lesser Healing Wave");
         return true;
     else
-        -- local target, bounce1, bounce2 = get_CH_target_trio(get_serialized_heals());
-        local target, urgencies = get_raid_heal_target(true)
-        local heal_targets = get_raid_heal_targets(urgencies, 4);
+        local target, bounce1, bounce2 = get_CH_target_trio(get_serialized_heals());
+        --local target, urgencies = get_raid_heal_target(true)
+        --local heal_targets = get_raid_heal_targets(urgencies, 4);
 
         if not target then return end
 
@@ -92,7 +92,7 @@ local function raid_heal()
             return true
         end
 
-        local bounce1_is_deficient = false
+        --[[local bounce1_is_deficient = false
         local bounce1 = heal_targets[2]
         if bounce1 then
             bounce1 = heal_targets[2]
@@ -100,11 +100,12 @@ local function raid_heal()
             if bounce1_deficit > 2000 then
                 bounce1_is_deficient = true
             end
-        end
+        end--]]
 
-        if bounce1_is_deficient then
-            -- CH_BOUNCE_1 = bounce1
-            -- CH_BOUNCE_2 = bounce2
+        --if bounce1_is_deficient then
+        if bounce1 then
+            CH_BOUNCE_1 = bounce1
+            CH_BOUNCE_2 = bounce2
             cast_heal("Chain Heal");
         else
             if target_HPP < 30 then
