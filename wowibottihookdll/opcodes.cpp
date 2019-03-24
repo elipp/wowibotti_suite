@@ -1235,7 +1235,7 @@ static void do_boss_action(const std::string &bossname) {
 		ObjectManager OM;
 		WowObject P;
 		OM.get_local_object(&P);
-		auto n = OM.get_NPCs_by_name(bossname);
+		auto n = OM.get_NPCs_by_name("Fire Bomb");
 		if (n.size() == 0) {
 			return;
 		}
