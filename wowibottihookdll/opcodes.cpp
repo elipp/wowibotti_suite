@@ -1269,7 +1269,7 @@ static void do_boss_action(const std::string &bossname) {
 
 			vec3 newpos = fpos + 25 * vec3(1, 0, 0).rotated_2d(angle);
 
-			angle += 0.15*M_PI;
+			angle += 0.10*M_PI;
 
 			ctm_add(CTM_t(newpos, CTM_MOVE, CTM_PRIO_NOOVERRIDE, 0, 1.0));
 
@@ -1556,7 +1556,7 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LDOP_DUMP:
-		dump_wowobjects_to_log();
+		should_unpatch = 1;
 		break;
 
 	case LDOP_TEST: {

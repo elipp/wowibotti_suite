@@ -25,10 +25,7 @@
 #include "creds.h"
 #include "packet.h"
 
-
-
-
-static HINSTANCE inj_hModule;          // HANDLE for injected module
+HINSTANCE inj_hModule;          // HANDLE for injected module
 HANDLE glhProcess;
 HWND wow_hWnd;
 

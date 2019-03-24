@@ -26,6 +26,12 @@
 #include "patch.h"
 //#include "sslconn.h"
 
+extern HINSTANCE inj_hModule;
+
+static std::vector<std::string> ENABLED_PATCHES;
+
+int should_unpatch = 0;
+
 //static HRESULT(*EndScene)(void);
 pipe_data PIPEDATA;
 
@@ -186,12 +192,6 @@ static void __stdcall Present_hook() {
 	ctm_handle_delayed_posthook();
 	ctm_abort_if_not_moving();
 
-	if (noclip_enabled) {
-		if (since_noclip.get_ms() > 250) {
-			disable_noclip();
-		}
-	}
-
 
 	if (fifty_ms.passed()) {
 		ctm_purge_old();
@@ -202,14 +202,20 @@ static void __stdcall Present_hook() {
 		fifty_ms.reset();
 	}
 
-	if (capture.active) {
-		capture.start();
-		capture.active = 0;
-	}
-	else if (capture.need_to_stop) {
-		capture.finish();
-	}
+	//if (capture.active) {
+	//	capture.start();
+	//	capture.active = 0;
+	//}
+	//else if (capture.need_to_stop) {
+	//	capture.finish();
+	//}
 	
+	if (should_unpatch) {
+		unpatch_all();
+		DoString("ConsoleExec(\"reloadui\")");
+		should_unpatch = 0;
+		FreeLibraryAndExitThread(inj_hModule, 0);
+	}
 
 }
 
@@ -1091,7 +1097,7 @@ int prepare_pipe_data() {
 	
 	patch_serialized p;
 
-#define ADD_PATCH_SAFE(patchname) do { int r = get_patch_from_hookable(patchname, &p); assert(r); PIPEDATA.add_patch(p); } while(0)
+#define ADD_PATCH_SAFE(patchname) do { int r = get_patch_from_hookable(patchname, &p); assert(r); PIPEDATA.add_patch(p); ENABLED_PATCHES.push_back(patchname); } while(0)
 
 	ADD_PATCH_SAFE("EndScene");
 	ADD_PATCH_SAFE("Present");
@@ -1134,3 +1140,11 @@ int pipe_data::add_patch(const patch_serialized &p) {
 	return num_patches;
 }
 
+int unpatch_all() {
+	for (auto &p : ENABLED_PATCHES) {
+		hookable_t *h = find_hookable(p);
+		WriteProcessMemory(glhProcess, (LPVOID)h->patch.patch_addr, h->patch.original, h->patch.size, NULL);
+		PRINT("Unpatched %s at location %X, size %d\n", p.c_str(), h->patch.patch_addr, h->patch.size);
+	}
+	return 1;
+}

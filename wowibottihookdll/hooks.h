@@ -11,6 +11,8 @@ struct hookable_t;
 struct trampoline_t;
 struct patch_t;
 
+extern int should_unpatch;
+
 int prepare_pipe_data();
 
 typedef struct patch_serialized {
@@ -73,5 +75,6 @@ typedef struct inpevent_t {
 } inpevent_t;
 
 
-
 hookable_t *find_hookable(const std::string &funcname);
+
+int unpatch_all();
