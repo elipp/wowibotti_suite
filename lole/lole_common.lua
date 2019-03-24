@@ -2,6 +2,54 @@
 
 --UNCOMMENT THIS FOR ICK!
 
+vec3 = {}
+vec3.__index = vec3
+
+function vec3:create(x, y, z)
+   local v = {}             -- our new object
+   setmetatable(v,vec3)  -- make Account handle lookup
+   v.x = x      -- initialize our object
+   v.y = y
+   v.z = z
+   return v
+end
+
+function vec3:rotated2d(angle)
+  return vec3:create(self.x * math.cos(angle) - self.y * math.sin(angle), self.x * math.sin(angle) + self.y * math.cos(angle), 0)
+end
+
+function vec3:length()
+  return math.sqrt(self.x*self.x + self.y*self.y + self.z*self.z)
+end
+
+function vec3:subtract(other)
+  return vec3:create(self.x - other.x, self.y - other.y, self.z - other.z)
+end
+
+function vec3:add(other)
+  return vec3:create(self.x + other.x, self.y + other.y, self.z + other.z)
+end
+
+function vec3:distance(other)
+  return self:subtract(other):length()
+end
+
+function vec3:unit()
+  local len = self:length()
+  return vec3:create(self.x / len, self.y / len, self.z / len)
+end
+
+function vec3:direction_angle()
+  local u = self:unit()
+  return math.atan2(u.y, u.x);
+end
+
+function vec3:scale(s)
+  return vec3:create(s * self.x, s * self.y, s * self.z)
+end
+
+
+
 local REMOVE_THIS_FRAME = CreateFrame("frame",nil, UIParent)
 REMOVE_THIS_FRAME:SetScript("OnUpdate",
 function()
@@ -15,6 +63,40 @@ function()
 
 end
 )
+
+local middle = vec3:create(562, 137, 395)
+
+REMOVE_THIS_FRAME:RegisterEvent("MINIMAP_PING")
+REMOVE_THIS_FRAME:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
+
+  if event == "MINIMAP_PING" then
+    -- THIS IS FOR TOC ONLY!!
+
+    local from = prefix
+    local x = message
+    local y = channel
+
+    -- left side is 561, 186; center 562, 137
+    -- and minimap left is -0.25
+
+    local ppos = vec3:create(get_unit_position(UnitName("player")))
+    local npos = vec3:create(ppos.x + (200 * y), ppos.y + (-200 * x), ppos.z)
+
+    local diff = npos:subtract(ppos)
+    local dist = diff:length()
+
+    if (dist < 20) then
+      local middle_diff = middle:subtract(ppos)
+      local newpos = middle:add(middle_diff:rotated2d(0.55 + 3.14):scale(0.97))
+      walk_to(newpos.x, newpos.y, newpos.z, 3)
+    end
+
+
+  end
+
+end)
+
+
 
 
 

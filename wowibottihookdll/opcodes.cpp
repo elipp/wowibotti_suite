@@ -1227,12 +1227,14 @@ float randf() {
 static int initial_angle_set = 0;
 
 static void do_boss_action(const std::string &bossname) {
+	
+	ObjectManager OM;
+	
 	if (bossname == "Gormok") {
 
 		if (ctm_queue_get_top_prio() == CTM_PRIO_NOOVERRIDE) return;
 
 		size_t len;
-		ObjectManager OM;
 		WowObject P;
 		OM.get_local_object(&P);
 		auto n = OM.get_NPCs_by_name("Fire Bomb");
@@ -1272,6 +1274,9 @@ static void do_boss_action(const std::string &bossname) {
 			ctm_add(CTM_t(newpos, CTM_MOVE, CTM_PRIO_NOOVERRIDE, 0, 1.0));
 
 		}
+	}
+	else if (bossname == "Icehowl") {
+
 	}
 
 }
