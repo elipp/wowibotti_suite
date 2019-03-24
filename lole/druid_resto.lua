@@ -176,7 +176,16 @@ combat_druid_resto = function()
 		return;
 	end
 
-  if cleanse_raid("Curse of the Plaguebringer") then return end
+    --if cleanse_raid("Curse of the Plaguebringer") then return end
+    local debuffed_player = get_player_with_debuff("Incinerate Flesh")
+    if debuffed_player then
+        L_TargetUnit(debuffed_player)
+        if not has_buff(debuffed_player, "Regrowth") then
+            cast_heal("Regrowth")
+        end
+        cast_heal("Nourish")
+        return
+    end
 
     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
     if heal_targets[1] == nil or heal_targets[1] == "raid" then

@@ -626,6 +626,32 @@ function cleanse_party(debuffname)
 	return false;
 end
 
+function get_player_with_debuff(debuffname)
+    num_raid_members = GetNumRaidMembers();
+    if num_raid_members == 0 then
+        for i=1,5,1 do
+            local exists = true;
+            local name = "party" .. i;
+            if i == 5 then
+                name = "player"
+            else
+                exists = GetPartyMember(i)
+            end
+            if exists and has_debuff(name, debuffname) then
+                return name;
+            end
+        end
+    else
+        for i=1,num_raid_members,1 do
+            local exists = true;
+            local name = UnitName("raid" .. tonumber(i));
+            if UnitExists(name) and has_debuff(name, debuffname) then
+                return name;
+            end
+        end
+    end
+end
+
 function cleanse_raid(debuffname)
     num_raid_members = GetNumRaidMembers();
     if num_raid_members == 0 then

@@ -156,7 +156,14 @@ combat_shaman_resto = function()
         if cast_if_nocd("Mana Tide Totem") then return end
     end
 
-    if cleanse_raid("Curse of the Plaguebringer") then return end
+    --if cleanse_raid("Curse of the Plaguebringer") then return end
+    local debuffed_player = get_player_with_debuff("Incinerate Flesh")
+    if debuffed_player then
+        L_TargetUnit(debuffed_player)
+        cast_heal("Tidal Force")
+        cast_heal("Lesser Healing Wave")
+        return
+    end
 
     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
     if heal_targets[1] == nil or heal_targets[1] == "raid" then
