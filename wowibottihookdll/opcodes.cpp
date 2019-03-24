@@ -1228,6 +1228,8 @@ static int initial_angle_set = 0;
 
 static void do_boss_action(const std::string &bossname) {
 	if (bossname == "Gormok") {
+		PRINT("boss action called!\n");
+
 		if (ctm_queue_get_top_prio() == CTM_PRIO_NOOVERRIDE) return;
 
 		size_t len;

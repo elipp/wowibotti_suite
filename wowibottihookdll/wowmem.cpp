@@ -604,7 +604,7 @@ std::vector<WowObject> ObjectManager::get_NPCs_by_name(const std::string &name) 
 
 	while (i.valid()) {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
-			if (i.NPC_get_name() == name) {
+			if (i.NPC_get_name().find(name) != std::string::npos) {
 				ret.push_back(i);
 			}
 		}
