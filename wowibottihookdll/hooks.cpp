@@ -191,7 +191,7 @@ static void __stdcall Present_hook() {
 		PRINT("Present: %X, BeginScene: %X, EndScene: %X, DrawIndexedPrimitive: %X\n", get_Present(), get_BeginScene(), get_EndScene(), get_DrawIndexedPrimitive());
 		dbg_shown = 1;
 		srand(time(NULL));
-		connect_to_governor();
+		//connect_to_governor();
 	}
 
 	do_wc3mode_stuff();

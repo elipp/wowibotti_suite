@@ -298,6 +298,14 @@ function noobwarrior_combat()
 
   L_RunMacroText("/cast [nostance:3] Berserker Stance");
 
+  local ppos = vec3:create(get_unit_position("player"))
+  local tpos = vec3:create(get_unit_position("target"))
+  local dist = ppos:distance(tpos)
+
+  if (dist > 8 and dist < 25) then
+    L_CastSpellByName("Intercept")
+  end
+
   if UnitCastingInfo("target") or UnitChannelInfo("target") then
     L_CastSpellByName("Pummel")
   end
@@ -316,10 +324,9 @@ function noobwarrior_combat()
   end
 
 -- This is somehow fucked in raid setup
-  -- if not has_buff("player", "Battle Shout") then
-  --   L_CastSpellByName("Battle Shout")
-  --   return
-  -- end
+  if not has_buff("player", "Battle Shout") then
+    L_CastSpellByName("Battle Shout")
+  end
 
   if has_buff("player", "Slam!") then
     L_CastSpellByName("Slam")
