@@ -1,4 +1,5 @@
 local spellsteal_lock = 0
+local scorch_lock = 0
 
 combat_mage_fire = function()
 
@@ -55,8 +56,11 @@ combat_mage_fire = function()
 	local hs, ts = has_debuff("target", "Improved Scorch");
 
 	if ((not hs) or (hs and ts < 8)) then
-		L_CastSpellByName("Scorch");
-		return;
+		if GetTime() - scorch_lock > 2.3 then
+			L_CastSpellByName("Scorch");
+			scorch_lock = GetTime()
+			return;
+		end
 	end
 
 	if has_buff("player", "Hot Streak") then
@@ -64,8 +68,8 @@ combat_mage_fire = function()
 		return
 	end
 
-
-	for i,g in pairs({get_combat_targets()}) do
+	if lole_get("aoemode") == 1 and get_aoe_feasibility(15) > 3 then
+		for i,g in pairs({get_combat_targets()}) do
 			target_unit_with_GUID(g)
 
 			if UnitIsEnemy("target", "player") and not has_debuff("target", "Living Bomb") then
@@ -73,6 +77,7 @@ combat_mage_fire = function()
 					return;
 			end
 		end
+	end
 
 	if not validate_target() then return end -- this is to re-target the main nuke target
 

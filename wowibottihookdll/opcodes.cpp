@@ -30,6 +30,11 @@ static int dump_wowobjects_to_log();
 
 struct cast_msg_t previous_cast_msg;
 
+GUID_t string_to_GUID(const std::string &G) {
+	char *end;
+	GUID_t r = strtoull(G.c_str(), &end, 16);
+}
+
 struct lop_func_t {
 	std::string opcode_name;
 	int min_arguments;
