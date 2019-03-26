@@ -183,7 +183,7 @@ void __cdecl DO_STUFF(void *args) {
 	glhProcess = GetCurrentProcess();
 
 #ifdef DEBUG_CONSOLE
-	AllocConsole();
+	AllocConsole(); //
 	freopen_s(&out, "CONOUT$", "wb", stdout);
 #endif
 

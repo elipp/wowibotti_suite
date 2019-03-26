@@ -50,11 +50,13 @@ struct wowcl_t {
 	std::string window_title;
 	int valid;
 	DWORD pid;
+	DWORD tid; // tid of window thread
 	int index;
+	HANDLE library_handle;
 	wowcl_t() {};
 	wowcl_t(HWND hWnd, std::string &title, int client_index)
 		: window_handle(hWnd), window_title(title), valid(1), index(client_index) {
-		GetWindowThreadProcessId(hWnd, &pid);
+		tid = GetWindowThreadProcessId(hWnd, &pid);
 		char *endptr;
 		char c = std::to_string(index + 1)[0]; // this is pretty risque... :D
 		//ShowWindow(main_window_hWnd, SW_HIDE);
@@ -379,16 +381,16 @@ static int suspend_process_for(DWORD pid, DWORD ms) {
 	return 1;
 }
 
-static int remote_thread_dll(DWORD pid) {
+static int remote_thread_dll(wowcl_t *cl) {
 
 	if (!obtain_debug_privileges()) {
 		printf("Couldn't obtain debug privileges. Please re-run this program with administrator privileges.");
 		return 0;
 	}
 
-	printf("Attempting to inject DLL %s to process %d...\n", DLL_path.c_str(), pid);
+	printf("Attempting to inject DLL %s to process %d...\n", DLL_path.c_str(), cl->pid);
 
-	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, cl->pid);
 	if (hProcess == NULL) { printf("OpenProcess failed: %d\n", GetLastError()); return 0; }
 
 	LPVOID LoadLibraryAddr = (LPVOID)GetProcAddress(GetModuleHandle("kernel32.dll"), "LoadLibraryA");
@@ -406,9 +408,16 @@ static int remote_thread_dll(DWORD pid) {
 
 	if (rt == NULL) { printf("CreateRemoteThread failed: %d\n", GetLastError()); return 0; }
 
+	DWORD library_handle;
+	
+	WaitForSingleObject(rt, INFINITE);
+	GetExitCodeThread(rt, &library_handle);
+	
+	cl->library_handle = (HANDLE)library_handle;
+
 	CloseHandle(hProcess);
 
-	printf("DLL injection to pid %d successful!\n", pid);
+	printf("DLL injection to pid %d successful!\n", cl->pid);
 
 	return 1;
 }
@@ -607,21 +616,21 @@ static int do_pipe_operations(DWORD pid) {
 static DWORD WINAPI inject_threadfunc(LPVOID param) {
 
 	// lol. each thread needs to individually obtain debug privileges..
-	DWORD pid = 0;
+	wowcl_t *cl = (wowcl_t*)param;
 	
-	DWORD tid = GetWindowThreadProcessId((HWND)param, &pid);
+	//DWORD tid = GetWindowThreadProcessId(cl->window_handle, &cl->tpid);
 
-	if (tid == 0 || pid == 0) {
+	if (cl->tid == 0 || cl->pid == 0) {
 		printf("error: GetWindowThreadProcessId() returned 0. GetLastError() = %d. Exiting.\n", GetLastError());
 		return 0;
 	}
 
-	if (!remote_thread_dll(pid)) {
+	if (!remote_thread_dll(cl)) {
 		printf("remote_thread_dll() failed. Exiting.\n");
 		return 0;
 	}
 	
-	if (!do_pipe_operations(pid)) {
+	if (!do_pipe_operations(cl->pid)) {
 		printf("do_pipe_operations() failed. Exiting.\n");
 		return 0;
 	}
@@ -630,8 +639,8 @@ static DWORD WINAPI inject_threadfunc(LPVOID param) {
 }
 
 
-static HANDLE inject_dll(HWND window_handle) {
-	HANDLE hThread = CreateThread(NULL, 0, inject_threadfunc, (LPVOID)window_handle, 0, NULL);
+static HANDLE inject_dll(wowcl_t *cl) {
+	HANDLE hThread = CreateThread(NULL, 0, inject_threadfunc, (LPVOID)cl, 0, NULL);
 	return hThread;
 }
 
@@ -643,7 +652,7 @@ static int inject_to_all() {
 	enum_windows();
 
 	for (auto c : wow_handles) {
-		thread_handles.push_back(inject_dll(c->window_handle));
+		thread_handles.push_back(inject_dll(c));
 	}
 
 	if (thread_handles.size() > 0) {
@@ -828,6 +837,47 @@ static int refresh_client_list() {
 }
 
 
+static int uninject_all() {
+
+	// this doesn't really work, BTW :D
+
+	printf("Uninjecting all clients!\n");
+
+	for (auto &c : wow_handles) {
+		HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, c->pid);
+		if (hProcess == NULL) {
+			printf("OpenProcess failed\n");
+			return 0;
+		}
+
+		HMODULE hModule = GetModuleHandle("kernel32.dll");
+		HANDLE hRemoteThread = CreateRemoteThread(hProcess, NULL, 0,
+			(LPTHREAD_START_ROUTINE)GetProcAddress(hModule, "FreeLibrary"),
+			(LPVOID)c->library_handle, 0, NULL);
+
+		if (hRemoteThread == NULL){
+			printf("CreateRemoteThread fail\n");
+			return 0;
+		}
+		DWORD r;
+		WaitForSingleObject(hRemoteThread, INFINITE);
+		GetExitCodeThread(hRemoteThread, &r);
+
+		if (r == TRUE) {
+			printf("freelibrary returned true for pid %d!\n", c->pid);
+		}
+		else {
+			printf("freelibrary failed!\n");
+		}
+
+		CloseHandle(hProcess);
+
+	}
+
+	return 1;
+}
+
+
 static LRESULT handle_checkbox_action(HWND hWnd) {
 
 	LRESULT state = SendMessage(hWnd, BM_GETCHECK, 0, 0);
@@ -908,7 +958,9 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 				return TRUE;
 			}
 			else if ((HWND)lParam == button_assign_hWnd) {
-				create_account_assignments2();
+				//create_account_assignments2();
+				uninject_all();
+				// just disable this since it's obsolete
 				return TRUE;
 			}
 			else if ((HWND)lParam == button_refresh_hWnd) {

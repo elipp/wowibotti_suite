@@ -152,8 +152,7 @@ static void __stdcall call_pylpyr() {
 
 
 static void __cdecl unload_DLL(LPVOID lpParameter) {
-
-	close_console();
+	//close_console();
 	FreeLibraryAndExitThread(inj_hModule, 0);
 }
 
@@ -177,6 +176,8 @@ static int report_client_status() {
 			return 2;
 		}
 	}
+
+	return 3;
 }
 
 
@@ -191,19 +192,19 @@ static void __stdcall Present_hook() {
 		PRINT("Present: %X, BeginScene: %X, EndScene: %X, DrawIndexedPrimitive: %X\n", get_Present(), get_BeginScene(), get_EndScene(), get_DrawIndexedPrimitive());
 		dbg_shown = 1;
 		srand(time(NULL));
-		connect_to_governor();
+		//connect_to_governor();
 	}
 
-	do_wc3mode_stuff();
+	//do_wc3mode_stuff();
 	//return;
 
-	if (wc3mode_enabled()) {
-		if (mouse_pressed) {
-			need_mouseup = 1;
-			add_mouseup();
-			need_mouseup = 0;
-		}
-	}
+	//if (wc3mode_enabled()) {
+	//	if (mouse_pressed) {
+	//		need_mouseup = 1;
+	//		add_mouseup();
+	//		need_mouseup = 0;
+	//	}
+	//}
 
 	if (!ctm_check_direction()) {
 		ctm_cancel();
@@ -252,6 +253,8 @@ static void __stdcall Present_hook() {
 	if (should_unpatch) {
 		PRINT("should unpatch! unpatching!\n");
 		
+		disconnect_from_governor();
+
 		unpatch_all();
 		DoString("ConsoleExec(\"reloadui\")");
 		should_unpatch = 0;
@@ -1149,7 +1152,9 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("pylpyr");
 	ADD_PATCH_SAFE("CTM_main");
 	ADD_PATCH_SAFE("AddInputEvent");
-//	ADD_PATCH_SAFE("SendPacket");
+
+	
+	//	ADD_PATCH_SAFE("SendPacket");
 	//ADD_PATCH_SAFE("RecvPacket");
 	//ADD_PATCH_SAFE("SARC4_encrypt");
 //	ADD_PATCH_SAFE("WS2_send");

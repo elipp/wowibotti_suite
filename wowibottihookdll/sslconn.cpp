@@ -8,6 +8,8 @@
 #include <Windows.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <openssl/engine.h>
+#include <openssl/conf.h>
 #include <assert.h>
 #include <string>
 
@@ -18,7 +20,7 @@
 
 
 static SSL_CTX* ctx = NULL;
-static BIO *web = NULL, *out = NULL;
+static BIO *web = NULL;
 static SSL *ssl = NULL;
 
 static int connected_to_governor = 0;
@@ -74,24 +76,37 @@ int setup_SSL() {
 }
 
 int cleanup_SSL() {
-	if (out)
-		BIO_free(out);
 
-	if (web != NULL)
-		BIO_free_all(web);
+	FIPS_mode_set(0);
+	CRYPTO_set_locking_callback(nullptr);
+	CRYPTO_set_id_callback(nullptr);
 
-	if (NULL != ctx)
-		SSL_CTX_free(ctx);
+	ERR_remove_state(0);
 
+	SSL_COMP_free_compression_methods();
+
+	ENGINE_cleanup();
+
+	CONF_modules_free();
+	CONF_modules_unload(1);
+
+	COMP_zlib_cleanup();
+
+	ERR_free_strings();
+	EVP_cleanup();
+
+	CRYPTO_cleanup_all_ex_data();
 	return 1;
 }
 
 int connect_to_governor() {
+	
 	long res = 1;
 
 	printf("Setting up a TLS connection to governor@%s\n", HOST_NAME ":" HOST_PORT);
 
 	setup_SSL();
+
 	
 	web = BIO_new_ssl_connect(ctx);
 	if (!(web != NULL)) {
@@ -121,12 +136,6 @@ int connect_to_governor() {
 	res = SSL_set_tlsext_host_name(ssl, HOST_NAME);
 	if (!(1 == res)) {
 		printf("set_tlsext failed\n");
-		return 0;
-	}
-
-	out = BIO_new_fp(stdout, BIO_NOCLOSE);
-	if (!(NULL != out)) {
-		printf("bio_new_fp failed\n");
 		return 0;
 	}
 
@@ -214,4 +223,20 @@ int send_to_governor(const void* data, int data_len) {
 	else {
 		return rlen;
 	}
+}
+
+int disconnect_from_governor() {
+
+	if (!connected_to_governor) return 1;
+
+	if (ssl != NULL) 
+		SSL_shutdown(ssl);
+	
+	if (ssl != NULL) 
+		SSL_free(ssl);
+	
+	//if (web != NULL)
+	//	BIO_free_all(web);
+
+	cleanup_SSL();
 }

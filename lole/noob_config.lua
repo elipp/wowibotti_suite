@@ -316,10 +316,10 @@ function noobwarrior_combat()
   end
 
 -- This is somehow fucked in raid setup
-  -- if not has_buff("player", "Battle Shout") then
-  --   L_CastSpellByName("Battle Shout")
-  --   return
-  -- end
+  if not has_buff("player", "Battle Shout") then
+    L_CastSpellByName("Battle Shout")
+    return
+  end
 
   if has_buff("player", "Slam!") then
     L_CastSpellByName("Slam")
