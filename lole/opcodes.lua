@@ -48,7 +48,7 @@ local LDOP_NOCLIP = 0xE6
 local LDOP_TEST = 0xE7
 local LDOP_CAPTURE_FRAME_RENDER_STAGES = 0xE8
 local LDOP_CONSOLE_PRINT = 0xE9
-
+local LDOP_REPORT_CONNECTED = 0xEA
 
 
 ----------------------------
@@ -362,6 +362,11 @@ end
 
 function capture_render_stages()
 	lop_exec(LDOP_CAPTURE_FRAME_RENDER_STAGES)
+end
+
+function report_status_to_governor()
+	local msg = UnitName("player") .. "," .. GetRealmName() .. "," .. GetMinimapZoneText()
+	lop_exec(LDOP_REPORT_CONNECTED, msg)
 end
 
 function console_print(msg)

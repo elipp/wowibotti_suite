@@ -2,6 +2,7 @@
 #include <ws2tcpip.h>
 
 #include <Windows.h>
+#include <process.h>
 
 #include <queue>
 #include <cassert>
@@ -24,7 +25,9 @@
 #include "wc3mode.h"
 #include "input.h"
 #include "patch.h"
-//#include "sslconn.h"
+#include "sslconn.h"
+
+extern void close_console();
 
 extern HINSTANCE inj_hModule;
 
@@ -117,9 +120,9 @@ trampoline_t &trampoline_t::append_original_opcodes(const patch_t *p) {
 
 
 static void register_luafunc_if_not_registered() {
-	if (!lua_registered) {
+	//if (!lua_registered) {
 		register_lop_exec();
-	}
+	//}
 }
 
 static void update_hwevent_tick() {
@@ -148,10 +151,34 @@ static void __stdcall call_pylpyr() {
 }
 
 
-static DWORD WINAPI unload_DLL(LPVOID lpParameter) {
+static void __cdecl unload_DLL(LPVOID lpParameter) {
+
+	close_console();
 	FreeLibraryAndExitThread(inj_hModule, 0);
-	return 0;
 }
+
+extern time_t in_world; // from opcodes.cpp
+
+static int report_client_status() {
+
+	// this only reports login screen and char select, world status is coming from LOLE (the addon)
+
+	if (time(NULL) - in_world > 15) {
+		const lua_rvals_t R = dostring_getrvals("IsConnectedToServer()");
+		if (R.size() < 1 || R[0] == "nil") {
+			const char* msg = "status STATUS_LOGIN_SCREEN";
+			send_to_governor(msg, strlen(msg) + 1);
+			return 1;
+		}
+		else {
+			const lua_rvals_t R2 = dostring_getrvals("GetCharacterInfo(1)");
+			std::string msg("status STATUS_CHAR_SELECT:" + R2[0]);
+			send_to_governor(msg.c_str(), msg.length() + 1);
+			return 2;
+		}
+	}
+}
+
 
 static int dbg_shown = 0;
 
@@ -164,7 +191,7 @@ static void __stdcall Present_hook() {
 		PRINT("Present: %X, BeginScene: %X, EndScene: %X, DrawIndexedPrimitive: %X\n", get_Present(), get_BeginScene(), get_EndScene(), get_DrawIndexedPrimitive());
 		dbg_shown = 1;
 		srand(time(NULL));
-		//connect_to_governor();
+		connect_to_governor();
 	}
 
 	do_wc3mode_stuff();
@@ -186,6 +213,7 @@ static void __stdcall Present_hook() {
 
 	static timer_interval_t fifty_ms(50);
 	static timer_interval_t half_second(500);
+	static timer_interval_t fifteen_seconds(15000);
 
 	if (half_second.passed()) {
 		update_hwevent_tick();
@@ -208,6 +236,11 @@ static void __stdcall Present_hook() {
 		fifty_ms.reset();
 	}
 
+	if (fifteen_seconds.passed()) {
+		report_client_status(); //
+		fifteen_seconds.reset();
+	}
+
 	//if (capture.active) {
 	//	capture.start();
 	//	capture.active = 0;
@@ -217,11 +250,14 @@ static void __stdcall Present_hook() {
 	//}
 	
 	if (should_unpatch) {
+		PRINT("should unpatch! unpatching!\n");
+		
 		unpatch_all();
 		DoString("ConsoleExec(\"reloadui\")");
 		should_unpatch = 0;
-		_beginthread();
-		FreeLibraryAndExitThread(inj_hModule, 0);
+		
+		_beginthread(unload_DLL, 0, NULL);
+
 	}
 
 }

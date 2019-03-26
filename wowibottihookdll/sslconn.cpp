@@ -21,6 +21,8 @@ static SSL_CTX* ctx = NULL;
 static BIO *web = NULL, *out = NULL;
 static SSL *ssl = NULL;
 
+static int connected_to_governor = 0;
+
 static void init_openssl_library(void)
 {
 	(void)SSL_library_init();
@@ -92,55 +94,90 @@ int connect_to_governor() {
 	setup_SSL();
 	
 	web = BIO_new_ssl_connect(ctx);
-	if (!(web != NULL)) assert(("new_ssl_connect failed", false));
+	if (!(web != NULL)) {
+		printf("new_ssl_connect failed\n");
+		return 0;
+	}
 
 	res = BIO_set_conn_hostname(web, HOST_NAME ":" HOST_PORT);
-	if (!(1 == res)) assert(("conn hostname failed", false));
+	if (!(1 == res)) {
+		printf("conn hostname failed\n");
+		return 0;
+	}
 
 	BIO_get_ssl(web, &ssl);
-	if (!(ssl != NULL)) assert(("get_ssl failed", false));
+	if (!(ssl != NULL)) {
+		printf("get_ssl failed\n");
+		return 0;
+	}
 
 	const char* const PREFERRED_CIPHERS = "HIGH:!aNULL:!kRSA:!PSK:!SRP:!MD5:!RC4";
 	res = SSL_set_cipher_list(ssl, PREFERRED_CIPHERS);
-	if (!(1 == res)) assert(("set_cipher_list failed", false));
+	if (!(1 == res)) {
+		printf("set_cipher_list failed\n");
+		return 0;
+	}
 
 	res = SSL_set_tlsext_host_name(ssl, HOST_NAME);
-	if (!(1 == res)) assert(("set_tlsext failed", false));
+	if (!(1 == res)) {
+		printf("set_tlsext failed\n");
+		return 0;
+	}
 
 	out = BIO_new_fp(stdout, BIO_NOCLOSE);
-	if (!(NULL != out)) assert(("bio_new_fp failed", false));
+	if (!(NULL != out)) {
+		printf("bio_new_fp failed\n");
+		return 0;
+	}
 
 	res = BIO_do_connect(web);
-	if (!(1 == res)) assert(("do_connect failed", false));
+	if (!(1 == res)) {
+		printf("do_connect failed\n");
+		return 0;
+	}
 
 	res = BIO_do_handshake(web);
-	if (!(1 == res)) assert(("do_handshake failed", false));
+	if (!(1 == res)) {
+		printf("do_handshake failed\n");
+		return 0;
+	}
 
 	/* Step 1: verify a server certificate was presented during the negotiation */
 	X509* cert = SSL_get_peer_certificate(ssl);
 	if (cert) { X509_free(cert); } /* Free immediately */
-	if (NULL == cert) assert(("get_peer_cert failed", false));
+	if (NULL == cert) {
+		printf("get_peer_cert failed\n");
+		return 0;
+	}
 
 	/* Step 2: verify the result of chain verification */
 	/* Verification performed according to RFC 4158    */
 	res = SSL_get_verify_result(ssl);
-	if (!(X509_V_OK == res)) assert(("get_verify_result failed", false));
+	if (!(X509_V_OK == res)) {
+		printf("get_verify_result failed\n");
+		return 0;
+	}
 
 	/* Step 3: hostname verification */
 	/* An exercise left to the reader */
 
+	connected_to_governor = 1;
+
 	int len = 0;
 	const char *login = "GOVERNOR_REMOTECLIENT:avaruuteen_ni_asemalle";
-	len = send_to_governor(login, strlen(login));
+	len = send_to_governor(login, strlen(login) + 1);
 	if (len <= 0) {
-		printf("sending login data failed\n");
+		printf("Error: sending login data to governor failed (governor not online?)\n");
+		connected_to_governor = 0;
+		return 0;
 	}
 
-	char buff[1024] = {};
+	char buff[1024];
 
 	do {
 		buff[0] = '\0';
 		len = BIO_read(web, buff, 1024);
+		buff[len] = '\0';
 		if (len > 0) {
 			if (strcmp(buff, "AUTH_OK") == 0) {
 				printf("Connection established! (Got AUTH_OK from remote governor)\n");
@@ -148,11 +185,13 @@ int connect_to_governor() {
 			}
 			else {
 				printf("Authentication with remote governor failed! (got %s)\n", buff);
+				connected_to_governor = 0;
 				return 0;
 			}
 		}
 		else {
 			printf("BIO_read for governor remote failed :(\n");
+			connected_to_governor = 0;
 			return 0;
 		}
 
@@ -162,7 +201,17 @@ int connect_to_governor() {
 }
 
 int send_to_governor(const void* data, int data_len) {
+	if (!connected_to_governor) return 0;
+
 	int rlen = 0;
 	do { rlen = BIO_write(web, data, data_len); } while (BIO_should_retry(web));
-	return rlen;
+	
+	if (rlen <= 0) {
+		printf("sending message to governor failed! Connection error\n");
+		connected_to_governor = 0;
+		return -1;
+	}
+	else {
+		return rlen;
+	}
 }

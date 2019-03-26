@@ -16,6 +16,7 @@ lole_frame:RegisterEvent("LFG_PROPOSAL_SHOW")
 lole_frame:RegisterEvent("LFG_ROLE_CHECK_SHOW")
 lole_frame:RegisterEvent("LFG_BOOT_PROPOSAL_UPDATE");
 
+
 function lole_frame_register(EVENTNAME)
 	lole_frame:RegisterEvent(EVENTNAME)
 end
@@ -23,6 +24,8 @@ end
 function lole_frame_unregister(EVENTNAME)
 	lole_frame:UnRegisterEvent(EVENTNAME)
 end
+
+local last_status_sent = 0
 
 LOOT_OPENED_REASON = nil
 
@@ -725,6 +728,11 @@ lole_frame:SetScript("OnUpdate", function()
 
 	every_4th_frame = every_4th_frame >= 4 and 0 or (every_4th_frame + 1)
 	every_30th_frame = every_30th_frame >= 30 and 0 or (every_30th_frame + 1)
+
+	if GetTime() - last_status_sent > 15 then
+		report_status_to_governor()
+		last_status_sent = GetTime()
+	end
 
 end);
 

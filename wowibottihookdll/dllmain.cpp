@@ -29,9 +29,19 @@ HINSTANCE inj_hModule;          // HANDLE for injected module
 HANDLE glhProcess;
 HWND wow_hWnd;
 
+#include <process.h>
+
 int afkjump_keyup_queued = 0;
 static int enter_world = 0;
 
+static FILE *out;
+
+void close_console() {
+#ifdef DEBUG_CONSOLE
+	fclose(out);
+	FreeConsole();
+#endif
+}
 
 BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam) {
 
@@ -169,34 +179,41 @@ int handle_pipe_stuff() {
 
 }
 
+void __cdecl DO_STUFF(void *args) {
+	glhProcess = GetCurrentProcess();
+
+#ifdef DEBUG_CONSOLE
+	AllocConsole();
+	freopen_s(&out, "CONOUT$", "wb", stdout);
+#endif
+
+	handle_pipe_stuff();
+	dscript_read_all();
+
+	EnumWindows(EnumWindowsProc, NULL);
+
+}
+
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
 
 	inj_hModule = hModule;
-	glhProcess = GetCurrentProcess();
 
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH: {
-#ifdef DEBUG_CONSOLE
-		AllocConsole();
-		freopen("CONIN$", "r", stdin);
-		freopen("CONOUT$", "wb", stderr);
-		freopen("CONOUT$", "wb", stdout);
-#endif
-
-		handle_pipe_stuff();
-		dscript_read_all();
-
-		EnumWindows(EnumWindowsProc, NULL);
-
+		_beginthread(DO_STUFF, 0, NULL);
 		break;
 	}
 	case DLL_THREAD_ATTACH:
+	//	printf("ATTACH\n");
 		break;
 
 	case DLL_THREAD_DETACH:
+	//	printf("THREAD_DETAHCH\n");
 		break;
 
 	case DLL_PROCESS_DETACH:
+	//	printf("PROCESS_DETACH\n");
+
 		break;
 	}
 

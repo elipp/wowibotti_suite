@@ -3,6 +3,7 @@
 #include <Windows.h>
 #include <Shlobj.h> // for the function that gets the desktop directory path for current user
 #include <WinSock2.h>
+#include <time.h>
 
 #include "opcodes.h"
 #include "ctm.h"
@@ -17,9 +18,13 @@
 #include "wc3mode.h"
 #include "lua.h"
 
+#include "sslconn.h"
+
 extern HWND wow_hWnd;
 Timer since_noclip;
 int noclip_enabled;
+
+time_t in_world = 0;
 
 static int dump_wowobjects_to_log();
 
@@ -1556,7 +1561,7 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LDOP_DUMP:
-		dump_wowobjects_to_log();
+		dump_wowobjects_to_log();;
 		should_unpatch = 1;
 		break;
 
@@ -1585,6 +1590,14 @@ int lop_exec(lua_State *L) {
 		//fputs(s, fp);
 		//fclose(fp);
 		break;
+	}
+
+	case LDOP_REPORT_CONNECTED: {
+		// this is sent by the addon, so if we're getting this, we're most definitely in world
+		std::string msg = "status " + std::string(lua_tolstring(L, 2, &len));
+		send_to_governor(msg.c_str(), msg.length() + 1);
+		in_world = time(NULL);
+		return 0;
 	}
 
 	default:
