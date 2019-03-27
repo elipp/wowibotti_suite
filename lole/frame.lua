@@ -312,7 +312,7 @@ local cooldowns_button =
 create_simple_button("cooldowns_button", lole_frame, 115, -130, "Cooldowns", 115, 27,
 function()
 	lole_subcommands.broadcast("cooldowns");
-	L_RunMacroText("/lole run w Ghospodi /stopcasting /cast Heroism")
+	L_RunMacroText("/lole run w Ghospodi SpellStopCasting(); CastSpellByName(\"Heroism\")")
 end);
 
 local drink_button =
@@ -334,7 +334,7 @@ local getbiscuit_button =
 create_simple_button("getbiscuit_button", lole_frame, 310, -130, "Biscuit", 68, 27, function() lole_subcommands.broadcast("getbiscuits") end);
 
 local loot_badge_button =
-create_simple_button("loot_badge_button", lole_frame, 310, -160, "Badge", 68, 27, function() lole_subcommands.broadcast("loot_badge", UnitGUID("target")) end);
+create_simple_button("unload_dll_button", lole_frame, 310, -160, "Unload", 68, 27, function() unload_DLL() end);
 
 
 local mode_attrib_title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");

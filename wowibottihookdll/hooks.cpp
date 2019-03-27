@@ -195,7 +195,6 @@ static void __stdcall Present_hook() {
 	}
 
 	do_wc3mode_stuff();
-	//return;
 
 	if (wc3mode_enabled()) {
 		if (mouse_pressed) {
@@ -251,13 +250,9 @@ static void __stdcall Present_hook() {
 	
 	if (should_unpatch) {
 		PRINT("should unpatch! unpatching!\n");
-		
 		unpatch_all();
 		DoString("ConsoleExec(\"reloadui\")");
 		should_unpatch = 0;
-		
-		_beginthread(unload_DLL, 0, NULL);
-
 	}
 
 }

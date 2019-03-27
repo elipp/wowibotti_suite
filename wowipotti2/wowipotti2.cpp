@@ -16,7 +16,7 @@
 
 #include "UI.h"
 
-static HINSTANCE hInst;	
+static HINSTANCE hInst;
 static HWND main_window_hWnd;
 
 static HWND edit_num_clients_hWnd;
@@ -50,11 +50,13 @@ struct wowcl_t {
 	std::string window_title;
 	int valid;
 	DWORD pid;
+	DWORD tid; // tid of window thread
 	int index;
+	HANDLE library_handle;
 	wowcl_t() {};
 	wowcl_t(HWND hWnd, std::string &title, int client_index)
 		: window_handle(hWnd), window_title(title), valid(1), index(client_index) {
-		GetWindowThreadProcessId(hWnd, &pid);
+		tid = GetWindowThreadProcessId(hWnd, &pid);
 		char *endptr;
 		char c = std::to_string(index + 1)[0]; // this is pretty risque... :D
 		//ShowWindow(main_window_hWnd, SW_HIDE);
@@ -81,7 +83,7 @@ static void clear_wow_handles() {
 struct wowaccount_t {
 	std::string login_name, password, char_name, class_name;
 	int valid;
-	wowaccount_t(std::string ln, std::string pw, std::string chn, std::string cln) 
+	wowaccount_t(std::string ln, std::string pw, std::string chn, std::string cln)
 		: login_name(ln), password(pw), char_name(chn), class_name(cln), valid(1) {}
 
 	wowaccount_t() : valid(0) {}
@@ -125,7 +127,7 @@ static int find_stuff_between(const std::string &in_str, char c, std::string &ou
 		error_box("Invalid config variable (values needs to be enclosed in quotes. E.g. WOWPATH=\"<your_path>\"). Exiting.");
 		return 0;
 	}
-	
+
 	out_str = in_str.substr(d_begin + 1, d_end - d_begin - 1);
 
 	return 1;
@@ -150,7 +152,7 @@ struct potti_config {
 		std::string line;
 		while (std::getline(conf_file, line)) {
 			lines.push_back(line);
-		//	printf("got line \"%s\"", line.c_str());
+			//	printf("got line \"%s\"", line.c_str());
 		}
 
 		for (auto &l : lines) {
@@ -260,7 +262,7 @@ static BOOL SetPrivilege(HANDLE hToken, LPCTSTR Privilege, BOOL bEnablePrivilege
 		sizeof(TOKEN_PRIVILEGES),
 		&tpPrevious,
 		&cbPrevious
-		);
+	);
 
 	if (GetLastError() != ERROR_SUCCESS) return FALSE;
 
@@ -285,7 +287,7 @@ static BOOL SetPrivilege(HANDLE hToken, LPCTSTR Privilege, BOOL bEnablePrivilege
 		cbPrevious,
 		NULL,
 		NULL
-		);
+	);
 
 	if (GetLastError() != ERROR_SUCCESS) return FALSE;
 
@@ -315,7 +317,7 @@ static int create_account_assignments2() {
 			++n;
 		}
 	}
-	
+
 	if (num_characters_selected != assigned_accs.size()) {
 		printf("WARNING: create_account_assignments: num_characters_selected (%d) != assigned_accs.size() (%d)!!\n", num_characters_selected, assigned_accs.size());
 	}
@@ -379,16 +381,16 @@ static int suspend_process_for(DWORD pid, DWORD ms) {
 	return 1;
 }
 
-static int remote_thread_dll(DWORD pid) {
+static int remote_thread_dll(wowcl_t *cl) {
 
 	if (!obtain_debug_privileges()) {
 		printf("Couldn't obtain debug privileges. Please re-run this program with administrator privileges.");
 		return 0;
 	}
 
-	printf("Attempting to inject DLL %s to process %d...\n", DLL_path.c_str(), pid);
+	printf("Attempting to inject DLL %s to process %d...\n", DLL_path.c_str(), cl->pid);
 
-	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, cl->pid);
 	if (hProcess == NULL) { printf("OpenProcess failed: %d\n", GetLastError()); return 0; }
 
 	LPVOID LoadLibraryAddr = (LPVOID)GetProcAddress(GetModuleHandle("kernel32.dll"), "LoadLibraryA");
@@ -406,9 +408,16 @@ static int remote_thread_dll(DWORD pid) {
 
 	if (rt == NULL) { printf("CreateRemoteThread failed: %d\n", GetLastError()); return 0; }
 
+	DWORD library_handle;
+
+	WaitForSingleObject(rt, INFINITE);
+	GetExitCodeThread(rt, &library_handle);
+
+	cl->library_handle = (HANDLE)library_handle;
+
 	CloseHandle(hProcess);
 
-	printf("DLL injection to pid %d successful!\n", pid);
+	printf("DLL injection to pid %d successful!\n", cl->pid);
 
 	return 1;
 }
@@ -436,23 +445,23 @@ static int parse_pipe_response(const BYTE *resp, size_t resp_length, std::vector
 	}
 
 
-	const BYTE *iter = &resp[3*sizeof(UINT32)];
+	const BYTE *iter = &resp[3 * sizeof(UINT32)];
 
 	for (UINT32 i = 0; i < num_patches; ++i) {
 		patch_t p;
 
-		memcpy(&p.patch_addr, &iter[0*sizeof(UINT32)], sizeof(UINT32));
-		memcpy(&p.patch_size, &iter[1*sizeof(UINT32)], sizeof(UINT32));
-		printf("patch #%d: iter = %d, patch addr: 0x%08X, size = %u\n", i+1, (int)(iter - resp), p.patch_addr, p.patch_size);
-		
+		memcpy(&p.patch_addr, &iter[0 * sizeof(UINT32)], sizeof(UINT32));
+		memcpy(&p.patch_size, &iter[1 * sizeof(UINT32)], sizeof(UINT32));
+		printf("patch #%d: iter = %d, patch addr: 0x%08X, size = %u\n", i + 1, (int)(iter - resp), p.patch_addr, p.patch_size);
+
 		p.original_opcodes = new BYTE[p.patch_size];
 		memcpy(p.original_opcodes, &iter[2 * sizeof(UINT32)], p.patch_size);
 
 		p.patch_opcodes = new BYTE[p.patch_size];
 		memcpy(p.patch_opcodes, &iter[2 * sizeof(UINT32) + p.patch_size], p.patch_size);
-		
+
 		iter += 2 * sizeof(UINT32) + 2 * p.patch_size;
-		
+
 		patches.push_back(p);
 	}
 
@@ -533,7 +542,7 @@ static int do_pipe_operations(DWORD pid) {
 	hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | FILE_WRITE_DATA, 0, NULL, OPEN_EXISTING, 0, NULL);
 
 	const int num_retries = 4;
-	int rnum = 1; 
+	int rnum = 1;
 	while (hPipe == INVALID_HANDLE_VALUE) {
 
 		if (rnum > num_retries) {
@@ -584,12 +593,12 @@ static int do_pipe_operations(DWORD pid) {
 			delete[] p.original_opcodes;
 			delete[] p.patch_opcodes;
 		}
-		
+
 		std::string cred_str;
 		if (get_credentials(pid, &cred_str)) {
 			response_str.append(";CREDENTIALS=" + cred_str);
 		}
-	
+
 	}
 	else {
 		response_str = PATCH_FAIL;
@@ -607,31 +616,31 @@ static int do_pipe_operations(DWORD pid) {
 static DWORD WINAPI inject_threadfunc(LPVOID param) {
 
 	// lol. each thread needs to individually obtain debug privileges..
-	DWORD pid = 0;
-	
-	DWORD tid = GetWindowThreadProcessId((HWND)param, &pid);
+	wowcl_t *cl = (wowcl_t*)param;
 
-	if (tid == 0 || pid == 0) {
+	//DWORD tid = GetWindowThreadProcessId(cl->window_handle, &cl->tpid);
+
+	if (cl->tid == 0 || cl->pid == 0) {
 		printf("error: GetWindowThreadProcessId() returned 0. GetLastError() = %d. Exiting.\n", GetLastError());
 		return 0;
 	}
 
-	if (!remote_thread_dll(pid)) {
+	if (!remote_thread_dll(cl)) {
 		printf("remote_thread_dll() failed. Exiting.\n");
 		return 0;
 	}
-	
-	if (!do_pipe_operations(pid)) {
+
+	if (!do_pipe_operations(cl->pid)) {
 		printf("do_pipe_operations() failed. Exiting.\n");
 		return 0;
 	}
-	
+
 	return 1;
 }
 
 
-static HANDLE inject_dll(HWND window_handle) {
-	HANDLE hThread = CreateThread(NULL, 0, inject_threadfunc, (LPVOID)window_handle, 0, NULL);
+static HANDLE inject_dll(wowcl_t *cl) {
+	HANDLE hThread = CreateThread(NULL, 0, inject_threadfunc, (LPVOID)cl, 0, NULL);
 	return hThread;
 }
 
@@ -639,11 +648,11 @@ static int inject_to_all() {
 
 	EnableWindow(button_inject_hWnd, FALSE);
 	thread_handles = std::vector<HANDLE>();
-	
+
 	enum_windows();
 
 	for (auto c : wow_handles) {
-		thread_handles.push_back(inject_dll(c->window_handle));
+		thread_handles.push_back(inject_dll(c));
 	}
 
 	if (thread_handles.size() > 0) {
@@ -683,7 +692,7 @@ static int validate_editbox_value_apply(HWND hWnd) {
 
 
 HWND create_button(const std::string &text, int pos_x, int pos_y, int width, int height, HWND parent_hWnd) {
-	
+
 	HWND btn_hWnd = CreateWindow(
 		"BUTTON",  // Predefined class; Unicode assumed 
 		text.c_str(),      // Button text 
@@ -741,13 +750,13 @@ static HWND create_checkbox_tooltip(HWND hwndParent, const std::string &text) {
 
 
 static HWND create_checkbox(const std::string &char_name, const std::string &acc_name, int pos_x, int pos_y, HWND parent_hWnd) {
-	HWND hWnd = CreateWindow("BUTTON", char_name.c_str(), WS_VISIBLE | WS_CHILD |  BS_CHECKBOX, 
-		pos_x, pos_y, CHAR_POS_DX-8, 20, parent_hWnd, NULL, (HINSTANCE)GetWindowLongPtr(main_window_hWnd, GWLP_HINSTANCE), NULL);
+	HWND hWnd = CreateWindow("BUTTON", char_name.c_str(), WS_VISIBLE | WS_CHILD | BS_CHECKBOX,
+		pos_x, pos_y, CHAR_POS_DX - 8, 20, parent_hWnd, NULL, (HINSTANCE)GetWindowLongPtr(main_window_hWnd, GWLP_HINSTANCE), NULL);
 	if (!hWnd) {
 		error_box("Rekt. create_checkbox() whaled: " + std::to_string(GetLastError()));
 		return NULL;
 	}
-	
+
 	SendMessage(hWnd,
 		WM_SETFONT,
 		(WPARAM)GetStockObject(DEFAULT_GUI_FONT),
@@ -788,7 +797,7 @@ static int launch_clients() {
 }
 
 static int set_affinities() {
-	
+
 	enum_windows();
 
 	unsigned int n = 0;
@@ -805,7 +814,7 @@ static int set_affinities() {
 
 		SetProcessAffinityMask(proc_handle, aff_mask);
 		SetPriorityClass(proc_handle, ABOVE_NORMAL_PRIORITY_CLASS);
-		n = (n < (ncores/2 - 1)) ? (n + 1) : 0;
+		n = (n < (ncores / 2 - 1)) ? (n + 1) : 0;
 
 		printf("proc_handle = %X, PID = %d, aff_mask = %X\n", (DWORD)proc_handle, c->pid, aff_mask);
 
@@ -828,6 +837,47 @@ static int refresh_client_list() {
 }
 
 
+static int uninject_all() {
+
+	// this doesn't really work, BTW :D
+
+	printf("Uninjecting all clients!\n");
+
+	for (auto &c : wow_handles) {
+		HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, c->pid);
+		if (hProcess == NULL) {
+			printf("OpenProcess failed\n");
+			return 0;
+		}
+
+		HMODULE hModule = GetModuleHandle("kernel32.dll");
+		HANDLE hRemoteThread = CreateRemoteThread(hProcess, NULL, 0,
+			(LPTHREAD_START_ROUTINE)GetProcAddress(hModule, "FreeLibrary"),
+			(LPVOID)c->library_handle, 0, NULL);
+
+		if (hRemoteThread == NULL) {
+			printf("CreateRemoteThread fail\n");
+			return 0;
+		}
+		DWORD r;
+		WaitForSingleObject(hRemoteThread, INFINITE);
+		GetExitCodeThread(hRemoteThread, &r);
+
+		if (r == TRUE) {
+			printf("freelibrary returned true for pid %d!\n", c->pid);
+		}
+		else {
+			printf("freelibrary failed!\n");
+		}
+
+		CloseHandle(hProcess);
+
+	}
+
+	return 1;
+}
+
+
 static LRESULT handle_checkbox_action(HWND hWnd) {
 
 	LRESULT state = SendMessage(hWnd, BM_GETCHECK, 0, 0);
@@ -839,7 +889,7 @@ static LRESULT handle_checkbox_action(HWND hWnd) {
 	SendMessage(updown_hWnd, UDM_SETRANGE32, num_characters_selected, 25);
 
 
-//	printf("num_checked = %d\n", num_checked);
+	//	printf("num_checked = %d\n", num_checked);
 
 	return SendMessage(hWnd, BM_SETCHECK, state == BST_UNCHECKED ? BST_CHECKED : BST_UNCHECKED, 0);
 }
@@ -869,7 +919,7 @@ static HWND create_textedit(const std::string &default_text, int x, int y, int w
 		WS_EX_CLIENTEDGE, "EDIT",   // predefined class 
 		NULL,         // no window title 
 		WS_CHILD | WS_VISIBLE | ES_LEFT | WS_CLIPSIBLINGS,
-		x, y, width, 18, 
+		x, y, width, 18,
 		parent,         // parent window 
 		(HMENU)RID,   // edit control ID 
 		GetModuleHandle(NULL),
@@ -908,7 +958,9 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 				return TRUE;
 			}
 			else if ((HWND)lParam == button_assign_hWnd) {
-				create_account_assignments2();
+				//create_account_assignments2();
+				uninject_all();
+				// just disable this since it's obsolete
 				return TRUE;
 			}
 			else if ((HWND)lParam == button_refresh_hWnd) {
@@ -927,16 +979,16 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 			//	toggle_blast();
 			//	return TRUE;
 			//	break;
-			case ID_UPDOWN_NUMCLIENTS:
-				return TRUE;
-				break;
+		case ID_UPDOWN_NUMCLIENTS:
+			return TRUE;
+			break;
 
-			default:
-				break;
+		default:
+			break;
 		}
 
 		break;
-		
+
 
 
 
@@ -976,10 +1028,10 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
 		HWND wowpath_static = create_static_text("Wow path:", 25, 15, hWnd);
 		pathedit_hWnd = create_textedit(config_state.client_exe_path, 100, 15, 300, ID_EDIT_WOWPATH, hWnd);
-		
+
 		button_launch_hWnd = create_button("Launch!", 250, 37, 100, 30, hWnd);
 		button_affinity_hWnd = create_button("Set CPU affinities", 30, 80, 100, 30, hWnd);
-		button_assign_hWnd = create_button("Assign login creds", 30, 120, 100, 30, hWnd);
+		button_assign_hWnd = create_button("Eject DLL", 30, 120, 100, 30, hWnd);
 		button_inject_hWnd = create_button("Inject DLL", 150, 80, 100, 30, hWnd);
 
 		button_refresh_hWnd = create_button("Refresh + set hotkeys", 500, 65, 115, 30, hWnd);
@@ -993,7 +1045,7 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 		char c[2] = { HIWORD(lParam), '\0' };
 		char *endptr;
 		int index = strtol(c, &endptr, 10);
-		SetForegroundWindow(wow_handles[index - 1]->window_handle);	
+		SetForegroundWindow(wow_handles[index - 1]->window_handle);
 		break;
 	}
 
@@ -1048,12 +1100,12 @@ static int setup_char_checkboxes(const potti_config &c) {
 
 	for (auto &k : c.accounts) {
 		int *num = &class_num_map[k.class_name];
-	
+
 		int pos_x = char_posx_offset + class_indices[k.class_name] * dx;
 		int pos_y = char_posy_offset + (*num) * dy;
-		
+
 		char_select_checkboxes[k.char_name] = create_checkbox(k.char_name, k.login_name, pos_x, pos_y, main_window_hWnd);
-		
+
 		++(*num);
 		//printf("added %s:%s (num = %d, pos_x = %d, pos_y = %d)\n", k.char_name.c_str(), k.class_name.c_str(), *num, pos_x, pos_y);
 	}
@@ -1063,15 +1115,15 @@ static int setup_char_checkboxes(const potti_config &c) {
 		int pos_y = char_posy_offset - 3;
 		int width = CHAR_POS_DX - 2;
 		int height = class_num_map[cl.first] * dy;
-		
+
 		HWND static_frame = CreateWindow("STATIC", (cl.first + "_staticframe").c_str(), WS_CHILD | WS_VISIBLE | SS_ETCHEDFRAME,
 			pos_x, pos_y, width, height, main_window_hWnd, NULL, (HINSTANCE)GetWindowLongPtr(main_window_hWnd, GWLP_HINSTANCE), NULL);
-		
+
 		std::string image_filename = "images\\" + cl.first + ".bmp";
 		HBITMAP class_image = (HBITMAP)LoadImage(GetModuleHandle(NULL), image_filename.c_str(), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
-		
-	//	printf("image_filename = %s, class_image: %X\n", image_filename.c_str(), (int)class_image);
-	
+
+		//	printf("image_filename = %s, class_image: %X\n", image_filename.c_str(), (int)class_image);
+
 		if (class_image != NULL) {
 			HWND class_icon_hWnd = CreateWindow("STATIC", (cl.first + "_staticicon").c_str(), WS_CHILD | WS_VISIBLE | SS_BITMAP | SS_CENTERIMAGE,
 				pos_x + 16, pos_y - 42, 32, 32, main_window_hWnd, NULL, (HINSTANCE)GetWindowLongPtr(main_window_hWnd, GWLP_HINSTANCE), NULL);
@@ -1115,6 +1167,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nShowCmd) {
 		error_box("RegisterClassEx() failed! Errcode: " + std::to_string(GetLastError()));
 		return FALSE;
 	}
+
 
 	HWND hWnd = CreateWindowEx(NULL,
 		wClass.lpszClassName,
@@ -1194,7 +1247,7 @@ int APIENTRY WinMain(_In_ HINSTANCE hInstance,
 
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
-			
+
 		}
 	}
 

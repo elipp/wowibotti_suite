@@ -33,6 +33,7 @@ struct cast_msg_t previous_cast_msg;
 GUID_t string_to_GUID(const std::string &G) {
 	char *end;
 	GUID_t r = strtoull(G.c_str(), &end, 16);
+	return r;
 }
 
 struct lop_func_t {
@@ -1337,7 +1338,7 @@ int lop_exec(lua_State *L) {
 		// this is now deprecated =D
 		//LOP_lua_lock();
 		break;
-	
+
 	case LOP_EXECUTE:
 		LOP_execute(lua_tolstring(L, 2, &len));
 		break;
@@ -1360,7 +1361,7 @@ int lop_exec(lua_State *L) {
 	case LOP_FOLLOW:
 		LOP_follow_unit(lua_tolstring(L, 2, &len));
 		break;
-	
+
 	case LOP_CTM: {
 		double x, y, z;
 		x = lua_tonumber(L, 2);
@@ -1372,19 +1373,19 @@ int lop_exec(lua_State *L) {
 		LOP_CTM_act(x, y, z, prio);
 		break;
 	}
-	
+
 	case LOP_DUNGEON_SCRIPT: {
 		const char* command = lua_tolstring(L, 2, &len);
-	
+
 		const char* scriptname = NULL;
 		if (nargs > 2) {
 			scriptname = lua_tolstring(L, 3, &len);
 		}
 
 		LOP_dungeon_script(command, scriptname ? scriptname : "");
-		break;	
+		break;
 	}
-	
+
 	case LOP_TARGET_MARKER:
 		LOP_target_marker(lua_tolstring(L, 2, &len));
 		break;
@@ -1438,7 +1439,7 @@ int lop_exec(lua_State *L) {
 		vec3 pos;
 		double rot;
 		int r = LOP_get_unit_position(lua_tolstring(L, 2, &len), &pos, &rot);
-		
+
 		if (!r) { return 0; }
 		else {
 			lua_pushnumber(L, pos.x);
@@ -1450,7 +1451,7 @@ int lop_exec(lua_State *L) {
 		break;
 	}
 
-	case LOP_GET_WALKING_STATE: 
+	case LOP_GET_WALKING_STATE:
 		if (get_wow_CTM_state() != CTM_DONE) {
 			lua_pushboolean(L, 1);
 			return 1;
@@ -1466,7 +1467,7 @@ int lop_exec(lua_State *L) {
 
 	case LOP_GET_PREVIOUS_CAST_MSG:
 		lua_pushinteger(L, previous_cast_msg.msg);
-		lua_pushnumber(L, (double)(previous_cast_msg.timestamp)/1000.0);
+		lua_pushnumber(L, (double)(previous_cast_msg.timestamp) / 1000.0);
 		return 2;
 		break;
 
@@ -1481,28 +1482,28 @@ int lop_exec(lua_State *L) {
 
 		uint spellID = lua_tointeger(L, 2);
 		vec3 pos = vec3(lua_tonumber(L, 3), lua_tonumber(L, 4), lua_tonumber(L, 5));
-	
+
 		LOP_cast_gtaoe(spellID, pos);
 		second.reset();
 
 		break;
 	}
 
-	case LOP_CAST_SPELL: 
+	case LOP_CAST_SPELL:
 		LOP_cast_spell(lua_tointeger(L, 2), convert_str_to_GUID(lua_tolstring(L, 3, &len)));
 		break;
 
-	case LOP_HAS_AGGRO: 
+	case LOP_HAS_AGGRO:
 		if (have_aggro()) {
 			lua_pushboolean(L, 1);
 			return 1;
 		}
 		break;
-	
-	case LOP_INTERACT_GOBJECT: 
+
+	case LOP_INTERACT_GOBJECT:
 		LOP_interact_object(lua_tolstring(L, 2, &len));
 		break;
-	
+
 	case LOP_GET_BISCUITS:
 		LOP_get_biscuits();
 		break;
@@ -1514,7 +1515,7 @@ int lop_exec(lua_State *L) {
 	case LOP_GET_COMBAT_TARGETS: {
 		std::vector<GUID_t> targets;
 		LOP_get_combat_targets(&targets);
-		
+
 		for (int i = 0; i < targets.size(); ++i) {
 			PUSHSTRING(L, convert_GUID_to_str(targets[i]).c_str());
 		}
@@ -1547,10 +1548,10 @@ int lop_exec(lua_State *L) {
 	}
 
 	case LOP_AVOID_NPC_WITH_NAME: {
-		
+
 
 		return 0;
-	
+
 	}
 
 	case LOP_BOSS_ACTION:
@@ -1566,8 +1567,7 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LDOP_DUMP:
-		dump_wowobjects_to_log();;
-		should_unpatch = 1;
+		dump_wowobjects_to_log();
 		break;
 
 	case LDOP_TEST: {
@@ -1602,6 +1602,11 @@ int lop_exec(lua_State *L) {
 		std::string msg = "status " + std::string(lua_tolstring(L, 2, &len));
 		send_to_governor(msg.c_str(), msg.length() + 1);
 		in_world = time(NULL);
+		return 0;
+	}
+
+	case LDOP_UNLOAD_DLL: {
+		should_unpatch = 1;
 		return 0;
 	}
 
