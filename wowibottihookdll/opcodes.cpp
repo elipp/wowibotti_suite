@@ -18,7 +18,7 @@
 #include "wc3mode.h"
 #include "lua.h"
 
-#include "sslconn.h"
+#include "govconn.h"
 
 extern HWND wow_hWnd;
 Timer since_noclip;

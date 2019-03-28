@@ -25,7 +25,7 @@
 #include "wc3mode.h"
 #include "input.h"
 #include "patch.h"
-#include "sslconn.h"
+#include "govconn.h"
 
 extern void close_console();
 
