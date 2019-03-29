@@ -337,6 +337,10 @@ function L_SpellStopCasting()
 	execute_script("SpellStopCasting()")
 end
 
+function L_InviteUnit(name)
+	execute_script("InviteUnit(" .. tostring(name) .. ")")
+end
+
 function L_focus_target()
 	lop_exec(LOP_FOCUS, UnitGUID("target"))
 end

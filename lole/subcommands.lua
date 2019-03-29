@@ -905,6 +905,14 @@ local function lole_debug_test_blast_target()
 		update_target()
 end
 
+local function lole_invite_guild()
+	for i = 1, GetNumGuildMembers() do
+		local name = GetGuildRosterInfo(i)
+		if UnitName("player") ~= name then
+			InviteUnit(name)
+		end
+	end
+end
 
 local function lole_distance_to_target()
     echo(get_distance_between("player", "target"));
@@ -1117,6 +1125,7 @@ lole_subcommands = {
 	noclip = lole_noclip,
 	getbiscuit = lole_getbiscuit,
 	loot_badge = lole_loot_badge,
+	invite_guild = lole_invite_guild,
 
 	cast_spell = lole_cast_spell;
 
