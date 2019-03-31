@@ -786,7 +786,9 @@ static int launch_clients() {
 	std::string cpath = config_state.client_exe_path + "\\Wow.exe";
 
 	for (int i = 0; i < value; ++i) {
-		CreateProcess(cpath.c_str(), NULL, NULL, NULL, TRUE, 0, NULL, NULL, &info, &processInfo);
+		if (CreateProcess(cpath.c_str(), NULL, NULL, NULL, TRUE, 0, NULL, NULL, &info, &processInfo) == 0) {
+			printf("CreateProcess for Wow.exe (path: %s) failed: %d\n", cpath.c_str(), GetLastError());
+		}
 		Sleep(100); // without this launching multiple clients at once sometimes causes a hangup in the 3D acceleration stack startup
 	}
 

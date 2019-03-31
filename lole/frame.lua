@@ -845,7 +845,8 @@ elseif event == "LFG_ROLE_CHECK_SHOW" then
 		execute_script("RunMacroText(\"/click LFDRoleCheckPopupAcceptButton\")")
 
 elseif event == "LFG_BOOT_PROPOSAL_UPDATE" then
-		execute_script("RunMacroText(\"/click StaticPopup1Button1\")")
+		--execute_script("RunMacroText(\"/click StaticPopup1Button1\")")
+        SetLFGBootVote(true)
 
 	elseif event == "PLAYER_ENTERING_WORLD" then
 

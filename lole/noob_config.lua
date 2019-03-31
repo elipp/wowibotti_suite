@@ -390,10 +390,12 @@ local function noobpriest_combat()
 
   L_CastSpellByName("Dispel Magic")
 
-  if GetSpellCooldown("Shadowfiend") > 0 and UnitMana("player") < 2000 then
-    L_CastSpellByName("Dispersion")
-  elseif UnitHealth("target") > 30000 and UnitMana("player") < 1500 then
-    L_CastSpellByName("Shadowfiend")
+  if UnitMana("player") < 10000 then
+    if GetSpellCooldown("Shadowfiend") == 0 and UnitHealth("target") > 70000 then
+      L_CastSpellByName("Shadowfiend")
+    elseif GetSpellCooldown("Dispersion") == 0 then
+      L_CastSpellByName("Dispersion")
+    end
   end
 
   if lole_get("aoemode") == 1 and get_aoe_feasibility(15) > 3 then

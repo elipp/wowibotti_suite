@@ -906,6 +906,7 @@ local function lole_debug_test_blast_target()
 end
 
 local function lole_invite_guild()
+    GuildRoster()
 	for i = 1, GetNumGuildMembers() do
 		local name = GetGuildRosterInfo(i)
 		if UnitName("player") ~= name then

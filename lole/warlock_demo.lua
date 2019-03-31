@@ -1,3 +1,17 @@
+local petfollow_called = nil
+
+local function petfollow_default()
+  if lole_get("blast") == 0 then
+    if not petfollow_called then
+      L_PetFollow()
+      L_PetPassiveMode()
+      petfollow_called = true
+    end
+  else
+    petfollow_called = nil
+  end
+end
+
 local function tap_if_need_to()
     if UnitMana("player") < 2500 then
         if UnitHealth("player") > 3500 then
@@ -89,9 +103,13 @@ local function soc_banned(GUID)
   return false
 end
 
+local petfollow_called = nil
 
 combat_warlock_demo = function()
-
+    if not petframe_dummy then
+        petframe_dummy = CreateFrame("frame",nil, UIParent)
+        petframe_dummy:SetScript("OnUpdate", petfollow_default)
+    end
     local mana = UnitMana("player");
     local maxmana = UnitManaMax("player");
 
