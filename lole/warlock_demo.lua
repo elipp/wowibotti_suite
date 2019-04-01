@@ -117,8 +117,6 @@ combat_warlock_demo = function()
         if (mana < 0.90*maxmana) then
             L_CastSpellByName("Life Tap");
         end
-        L_PetPassiveMode()
-        L_PetFollow()
 
         if (GetItemCount(41196) == 0) then
           L_CastSpellByName("Create Spellstone");
@@ -135,16 +133,18 @@ combat_warlock_demo = function()
 
     if not has_buff("player", "Fel Armor") then
       L_CastSpellByName("Fel Armor")
+      return
     end
 
-    if not has_buff("player", "Master Demonologist") then
+    if not UnitExists("pet") or not PetHasActionBar() then
+      if GetSpellCooldown("Fel Domination") == 0 then
         L_CastSpellByName("Fel Domination")
-        if GetTime() - time_from_pet_summon > 16 then
-            L_CastSpellByName("Summon Felguard")
-            time_from_pet_summon = GetTime()
-        end
+      end
+      L_CastSpellByName("Summon Felguard")
     else
-        time_from_pet_summon = 0
+      if UnitCastingInfo("player") == "Summon Felguard" then
+        L_SpellStopCasting()
+      end
     end
 
     if UnitAffectingCombat("player") then
