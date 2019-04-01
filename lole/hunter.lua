@@ -1,118 +1,113 @@
-local scorpid_time = 0
+local petfollow_called = nil
 
-local pet_warning_given = nil
-local function feed_pet_if_need_to()
-
-    if has_buff("pet", "Feed Pet Effect") then return false end
-    local happiness = GetPetHappiness()
-
-    if happiness ~= nil and happiness < 3 then
-        local _, link = GetItemInfo(29451) -- Clefthoof Ribs
-        local bag, slot = get_item_bag_position(link)
-
-        if not bag then
-            if not pet_warning_given then
-                SendChatMessage("Pet is unhappy, and I don't's gots no [ribs] for him!", "GUILD")
-                pet_warning_given = true
-            end
-            return false
-        end
-
-        PickupContainerItem(bag, slot)
-
-        DropItemOnUnit("pet")
-
-        return true
+local function petfollow_default()
+  if lole_get("blast") == 0 then
+    if not petfollow_called then
+      L_PetFollow()
+      L_PetPassiveMode()
+      petfollow_called = true
     end
+  else
+    petfollow_called = nil
+  end
+end
 
-    return false
+local petframe_dummy = nil
+
+local aspect_changetime = 0
+local function change_aspect(aspectname)
+
+  -- explanation: on Warmane, there's a weird quirk that aspect changes get somehow "queued"
+  -- so in order to avoid getting trapped in a aspect change spam cycle for a while, we add a timeout
+
+  if GetTime() - aspect_changetime > 5 then
+    L_CastSpellByName(aspectname)
+    aspect_changetime = GetTime()
+    return true
+  end
+  return nil
 
 end
 
-local PET_NAME = "prwlr"
 
-combat_hunter = function()
+local function hunter_combat()
 
-    if not UnitExists(PET_NAME) then
-      L_CastSpellByName("Call Pet")
+  if not petframe_dummy then
+    petframe_dummy = CreateFrame("frame",nil, UIParent)
+    petframe_dummy:SetScript("OnUpdate", petfollow_default)
+  end
+
+  if UnitExists("pet") and UnitIsDead("pet") then
+    L_CastSpellByName("Revive Pet")
+  elseif not UnitExists("pet") or not PetHasActionBar() then
+    L_CastSpellByName("Call Pet")
+    return
+  end
+
+  if not UnitAffectingCombat("player") then
+    --L_PetPassiveMode()
+
+    if not has_buff("player", "Aspect of the Viper") then
+      change_aspect("Aspect of the Viper")
+      -- must NOT have return in this
     end
+  end
 
-    --PetPassiveMode()
+  if not validate_target() then return end
 
-    if not UnitAffectingCombat("player") then
-      L_CastSpellByName("Aspect of the Viper")
+  caster_range_check(9,35)
 
+  if UnitMana("player") > 4000 and (not has_buff("player", "Aspect of the Dragonhawk")) then
+    if change_aspect("Aspect of the Dragonhawk") then return end
+  elseif UnitMana("player") < 500 and (not has_buff("player", "Aspect of the Viper")) then
+    if change_aspect("Aspect of the Viper") then return end
+    return
+  end
 
-      if UnitIsDead(PET_NAME) then
-        L_CastSpellByName("Revive Pet")
-        return
-      end
+  L_StartAttack()
+  L_PetAttack()
 
-      if feed_pet_if_need_to() then
-        return
-      end
+  if GetSpellCooldown("Kill Command") == 0 then
+    L_CastSpellByName("Kill Command")
+    return;
+  end
 
-    end
+  local hppercentage = UnitHealth('target')/UnitHealthMax('target')
+  if hppercentage < 0.20 then
+    L_CastSpellByName("Kill Shot")
+    -- no return, will not be cast if incooldown
+  end
 
+  if not has_debuff("target", "Hunter's Mark") then
+    L_CastSpellByName("Hunter's Mark")
+  end
 
-    if not validate_target() then
-        PetStopAttack()
-        PetWait()
-        PetFollow()
-        return;
-    end
+  if GetSpellCooldown("Rabid") == 0 then
+    L_CastSpellByName("Rabid")
+    return;
+  end
 
-    if UnitMana("player") < 800 then
-        if not has_buff("player", "Aspect of the Viper") then
-            L_CastSpellByName("Aspect of the Viper")
-            return;
-        end
-    elseif UnitMana("player") > 2500 then
-        if not has_buff("player", "Aspect of the Dragonhawk") then
-            L_CastSpellByName("Aspect of the Dragonhawk")
-            return
-        end
-    end
+  if GetSpellCooldown("Rake(Rank 6)") == 0 then
+    L_CastSpellByName("Rake(Rank 6)")
+  else
+    L_CastSpellByName("Claw(Rank 11)")
+  end
 
-    if not has_buff("pet", "Mend Pet")
-    and (UnitHealthMax("pet") - UnitHealth("pet")) > 1000 then
-        L_CastSpellByName("Mend Pet");
-        return;
-    end
+  if not has_debuff("target", "Serpent Sting") then
+    L_CastSpellByName("Serpent Sting")
+    return;
+  end
 
-    PetAttack()
-    caster_range_check(0,35)
+  if GetSpellCooldown("Arcane Shot") == 0 then
+    L_CastSpellByName("Arcane Shot")
+    return
+  end
 
-    StartAttack()
+  if GetSpellCooldown("Multi-Shot") == 0 then
+    L_CastSpellByName("Multi-Shot")
+    return;
+  end
 
-    cast_if_nocd("Kill Command")
-
-
-    if GetSpellCooldown("Gore") == 0 then
-        if GetSpellCooldown("Bite") == 0 then
-            L_CastSpellByName("Bite")
-        else
-            L_CastSpellByName("Gore")
-        end
-    end
-
-    if player_casting() then return end
-
-  --  if lole_subcommands.get("aoemode") == 1 then
-  		--	lole_subcommands.cast_gtaoe("Volley", get_unit_position("target"))
-      --  return
-  --	end
-
-
-    if not has_debuff("target", "Hunter's Mark") then
-        L_CastSpellByName("Hunter's Mark");
-        return
-    end
-
-    if lole_subcommands.get("aoemode") then
-        if cast_if_nocd("Multi Shot") then return end
-    end
-
-    L_CastSpellByName("Steady Shot");
+  L_CastSpellByName("Steady Shot")
 
 end

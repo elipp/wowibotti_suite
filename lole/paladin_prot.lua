@@ -1,5 +1,4 @@
-
-combat_paladin_prot = function()
+function combat_paladin_prot()
 
     --if cleanse_party("Arcane Shock") then return; end
 

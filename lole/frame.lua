@@ -742,6 +742,8 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 	if event == "ADDON_LOADED" then
 		if prefix ~= "lole" then return end
 
+		-- LOLE LOADED:
+
 		if LOLE_CLASS_CONFIG_NAME_SAVED ~= nil then
 			lole_subcommands.setconfig(LOLE_CLASS_CONFIG_NAME_SAVED, LOLE_CLASS_CONFIG_ATTRIBS_SAVED);
 		else

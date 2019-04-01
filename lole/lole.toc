@@ -6,47 +6,34 @@
 lole_common.lua
 lole_buffs.lua
 
-class_config.lua
-
 death_knight_blood.lua
 death_knight_uh.lua
-druid_feral.lua
 druid_resto.lua
-druid_balance.lua
 hunter.lua
 paladin_holy.lua
 paladin_prot.lua
 paladin_retri.lua
 mage_fire.lua
-mage_frost.lua
 priest_holy.lua
 priest_shadow.lua
-rogue_combat.lua
-warlock_affli.lua
-warlock_sb.lua
+rogue.lua
 warlock_demo.lua
-warrior_arms.lua
 warrior_fury.lua
 warrior_prot.lua
 
 shaman_common.lua
-
-shaman_elem.lua
-shaman_enh.lua
 shaman_resto.lua
 
-noob_config.lua
+class_config.lua
 
 opcodes.lua
 subcommands.lua
 
 frame.lua
 unitselectionframe.lua
-selectrect.lua
 
 lole.xml
 lole.lua
-
 
 
 ##SavedVariablesPerCharacter: LOLE_CLASS_CONFIG_NAME_SAVED LOLE_CLASS_CONFIG_ATTRIBS_SAVED LOLE_HEALER_TARGETS_SAVED
