@@ -1,0 +1,3 @@
+DSCRIPT_ACTIVE = nil
+
+MOBPACK_TO_KILL = {}
