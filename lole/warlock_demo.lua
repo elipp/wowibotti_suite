@@ -125,7 +125,8 @@ combat_warlock_demo = function()
 
         if not GetWeaponEnchantInfo() then
           if GetItemCount(41196) > 0 then
-            L_RunMacro("spellstone")
+            L_RunMacroText("/use Grand Spellstone")
+            L_RunMacroText("/use 16")
           end
         end
 
