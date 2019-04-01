@@ -353,6 +353,10 @@ function L_target_focus()
 	lop_exec(LOP_TARGET_GUID, UnitGUID("focus"))
 end
 
+function L_TargetTotem(slot)
+	execute_script("TargetTotem(" .. tostring(slot) .. ")")
+end
+
 function reset_camera()
 	lop_exec(LOP_SL_RESETCAMERA)
 end

@@ -951,7 +951,7 @@ static float LOP_get_aoe_feasibility(float threshold) {
 				float dist = get_distance2(t, i);
 				if (dist < threshold) {
 					feasibility += -(dist / threshold) + 1;
-					PRINT("0x%llX (%s) is in combat, dist: %f, feasibility: %f, reaction: %d\n", i.get_GUID(), i.NPC_get_name().c_str(), dist, feasibility, reaction);
+					//PRINT("0x%llX (%s) is in combat, dist: %f, feasibility: %f, reaction: %d\n", i.get_GUID(), i.NPC_get_name().c_str(), dist, feasibility, reaction);
 				}
 			}
 

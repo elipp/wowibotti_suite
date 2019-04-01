@@ -48,9 +48,22 @@ local totem_name_buffname_map = {
 
 };
 
+function get_active_multicast_totems()
+	local r = {}
+	for i = 1, 4 do
+		local _, _, _, spellId = GetActionInfo(_G["MultiCastSlotButton" .. tostring(i)].actionButton.action)
+		r[i] = GetSpellInfo(spellId)
+	end
+	return r
+end
+
+function get_active_multicast_summonspell()
+	return GetSpellInfo(MultiCastSummonSpellButton.spellId)
+end
 
 local function should_recast_totem(arg_totem)
-	local _, totemName, startTime, duration = GetTotemInfo(totem_name_type_map[arg_totem]);
+	local totemslot = totem_name_type_map[arg_totem]
+	local _, totemName, startTime, duration = GetTotemInfo(totemslot);
 
 	if totemName == "Mana Tide Totem" then
 		return false
@@ -64,15 +77,19 @@ local function should_recast_totem(arg_totem)
 		return true;
 	end
 
-	-- see if totem in range (doesn't work for tremor totem, mana tide totem, windfury totem etc)
-
 	local cur_target = UnitName("target");
 
-	L_TargetUnit(arg_totem);
-	if IsSpellInRange("Healing Wave", "target") == 0 then
-		L_ClearTarget();
-		return true;
+	--L_TargetUnit(arg_totem);
+	L_TargetTotem(totemslot)
+
+	if get_distance_between("player", "target") > 32 then -- it's actually 35 but
+		L_ClearTarget()
+		return true
 	end
+	--if IsSpellInRange("Healing Wave", "target") == 0 then
+		--L_ClearTarget();
+	--	return true;
+--	end
  -- too bad shamans don't have a 30yd heal
 
 	L_ClearTarget()
@@ -96,7 +113,7 @@ function refresh_totems(TOTEMS, TOTEM_BAR)
 	local totems_to_recast = {}
 	local num_to_recast = 0
 	for slot,name in pairs(TOTEMS) do
-		if should_recast_totem(name) then 
+		if should_recast_totem(name) then
 			totems_to_recast[name] = true
 			num_to_recast = num_to_recast + 1
 		end
