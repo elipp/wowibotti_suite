@@ -30,7 +30,7 @@ local function change_aspect(aspectname)
 end
 
 
-local function hunter_combat()
+function combat_hunter()
 
   if not petframe_dummy then
     petframe_dummy = CreateFrame("frame",nil, UIParent)

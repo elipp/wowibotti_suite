@@ -1,4 +1,4 @@
-function warrior_fury_combat()
+function combat_warrior_fury()
 
   if not validate_target() then return end
 
