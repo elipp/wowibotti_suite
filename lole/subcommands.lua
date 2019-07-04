@@ -963,6 +963,30 @@ local function lole_console_print(msg)
 
 end
 
+local function lole_spread_those_cheeks()
+	local opos = vec3:create(-10.6, -219.4, -87.7)
+	local v = vec3:create(23, 0, 0)
+
+	local V = opos:add(v:rotated2d(-2.5*(3.14)/8))
+	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+
+	V = opos:add(v:rotated2d(-1.5*(3.14)/8))
+	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+
+	V = opos:add(v:rotated2d(-0.5*(3.14)/8))
+	lole_sendmacro_to("Teilor", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+
+	V = opos:add(v:rotated2d(0.5*(3.14)/8))
+	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+
+	V = opos:add(v:rotated2d(1.5*(3.14)/8))
+	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+
+	V = opos:add(v:rotated2d(2.5*(3.14)/8))
+	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+
+end
+
 lole_subcommands = {
 	lbuffcheck = lole_leaderbuffcheck,
 	buffcheck = lole_buffcheck,
@@ -1039,6 +1063,8 @@ lole_subcommands = {
 
 	cast_spell = lole_cast_spell;
 
+	spread = lole_spread_those_cheeks;
+
 	setselection = lole_setselection;
 	clearselection = lole_clearselection;
 
@@ -1049,5 +1075,6 @@ lole_subcommands = {
 	hold = lole_hold;
 
 	console_print = lole_console_print;
+
 
 }

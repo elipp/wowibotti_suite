@@ -3,6 +3,7 @@ function combat_warrior_fury()
   if not validate_target() then return end
 
   melee_attack_behind()
+  L_StartAttack()
 
   L_RunMacroText("/cast [nostance:3] Berserker Stance");
 

@@ -53,7 +53,8 @@ function combat_hunter()
     end
   end
 
-  if not validate_target() then return end
+  --if not validate_target() then return end
+  L_TargetUnit("Onyxia")
 
   caster_range_check(9,35)
 

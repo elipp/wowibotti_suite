@@ -34,10 +34,14 @@ combat_mage_fire = function()
 		end
 	end
 
-	if cleanse_raid("Curse of the Plaguebringer") then return end
+	--if cleanse_raid("Curse of the Plaguebringer") then return end
 
 	if not validate_target() then return end
 	caster_range_check(0,36);
+
+	if UnitCastingInfo("target") or UnitChannelInfo("target") then
+		L_CastSpellByName("Counterspell")
+	end
 
 	if lole_subcommands.get("aoemode") == 1 and get_aoe_feasibility(15) > 3 then
 			lole_subcommands.cast_gtaoe("Flamestrike", get_unit_position("target"))
@@ -80,6 +84,11 @@ combat_mage_fire = function()
 	end
 
 	if not validate_target() then return end -- this is to re-target the main nuke target
+
+	if not has_debuff("target", "Living Bomb") then
+			L_CastSpellByName("Living Bomb")
+			return;
+	end
 
 	L_CastSpellByName("Frostfire Bolt");
 

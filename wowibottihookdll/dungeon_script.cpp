@@ -249,6 +249,29 @@ int dscript_run() {
 
 }
 
+int dscript_objective_t::get_mob_info() {
+	ObjectManager OM;
+	std::vector<WowObject> M = OM.find_all_NPCs_at(this->pack_pos, this->radius);
+
+	for (auto &m : M) {
+		this->mobs.push_back(mob_t(m));
+	}
+
+
+	PRINT("list of mobs found at objective point (%.0f, %.0f, %.0f):\n", this->pack_pos.x, this->pack_pos.y, this->pack_pos.z);
+	for (auto &m : this->mobs) {
+		PRINT("Name: %s, GUID: 0x%llX, health: %d/%d\n", m.name.c_str(), m.guid, m.current_health, m.max_health);
+	}
+
+
+	if (M.size() != this->num_mobs) {
+		PRINT("dscript_next: warning: found %u mobs at (%.1f, %.1f, %.1f), radius %f, expected %u\n", M.size(), this->pack_pos.x, this->pack_pos.y, this->pack_pos.z, this->radius, this->num_mobs);
+		return 0;
+	}
+
+	return 1;
+}
+
 
 int dscript_next() {
 
@@ -256,21 +279,15 @@ int dscript_next() {
 		return 0;
 	}
 
-	const dscript_objective_t &o = current_script->tasks.front();
-
-	ObjectManager OM;
+	dscript_objective_t &o = current_script->tasks.front();
 	//PRINT("script: num_tasks = %u\n", current_script->tasks.size());
+	if (o.in_progress) { return 1; }
+	
+	o.get_mob_info();
 
-	std::vector<WowObject> mobs = OM.find_all_NPCs_at(o.pack_pos, o.radius);
-
-	if (mobs.size() != o.num_mobs) {
-		PRINT("dscript_next: warning: found %u mobs at (%.1f, %.1f, %.1f), radius %f, expected %u\n", mobs.size(), o.pack_pos.x, o.pack_pos.y, o.pack_pos.z, o.radius, o.num_mobs);
-	}
-
-	PRINT("list of mobs found at objective point (%.0f, %.0f, %.0f):\n", o.pack_pos.x, o.pack_pos.y, o.pack_pos.z);
-	for (auto &m : mobs) {
-		PRINT("Name: %s, GUID: 0x%llX\n", m.NPC_get_name().c_str(), m.get_GUID());
-	}
+	// just select a mob to target and kill :D
+	o.mob_to_kill = &o.mobs[0];
+	DoString("RunMacroText(\"/lole target 0x%16llX\"", o.mob_to_kill->guid);
 
 	return 1;
 }

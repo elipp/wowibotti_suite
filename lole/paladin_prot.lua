@@ -4,6 +4,8 @@ function combat_paladin_prot()
 
     --tank_face()
 
+    if cleanse_raid("Shared Suffering") then return end
+
     if not has_buff("player", "Holy Shield") then
         if cast_if_nocd("Holy Shield") then return; end
     end

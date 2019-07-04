@@ -756,15 +756,11 @@ static int LOP_tank_face() {
 		return 0;
 	}
 
-	if (t.get_GUID() == OM.get_local_GUID()) return 1;
+	vec3 face = (t.get_pos() - p.get_pos()).unit();
+	float newa = atan2(face.y, face.x);
 
-	vec3 ppos = p.get_pos();
-	vec3 tpos = t.get_pos();
-	vec3 diff = tpos - ppos;
-	vec3 dir = diff.unit();
+	ctm_face_angle(newa);
 
-	CTM_t face(ppos + dir, CTM_MOVE, 0, 0, 1.5);
-	ctm_add(face);
 }
 
 static int LOP_interact_object(const std::string &objname) {

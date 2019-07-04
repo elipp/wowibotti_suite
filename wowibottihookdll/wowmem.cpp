@@ -582,7 +582,7 @@ int ObjectManager::get_unit_by_name(const std::string &name, WowObject *o) const
 	while (next.valid()) {
 		if (next.get_type() == OBJECT_TYPE_UNIT) {
 			if (next.unit_get_name() == name) {
-				PRINT("Found %s!\n", next.unit_get_name().c_str());
+				//PRINT("Found %s!\n", next.unit_get_name().c_str());
 				*o = next;
 				return 1;
 			}

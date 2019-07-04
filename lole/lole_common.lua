@@ -7,7 +7,7 @@ vec3.__index = vec3
 
 function vec3:create(x, y, z)
    local v = {}             -- our new object
-   setmetatable(v,vec3)  -- make Account handle lookup
+   setmetatable(v,vec3)
    v.x = x      -- initialize our object
    v.y = y
    v.z = z
@@ -652,6 +652,13 @@ function get_player_with_debuff(debuffname)
     end
 end
 
+local function CAST_CLEANSE_ALL()
+  L_CastSpellByName("Cleanse");
+  L_CastSpellByName("Dispel Magic")
+  L_CastSpellByName("Cleanse Spirit")
+  L_CastSpellByName("Remove Curse")
+end
+
 function cleanse_raid(debuffname)
     num_raid_members = GetNumRaidMembers();
     if num_raid_members == 0 then
@@ -665,8 +672,7 @@ function cleanse_raid(debuffname)
             end
             if exists and has_debuff(name, debuffname) then
                 L_TargetUnit(name);
-                L_CastSpellByName("Cleanse");
-                L_CastSpellByName("Dispel Magic")
+                CAST_CLEANSE_ALL()
                 return true;
             end
         end
@@ -676,10 +682,7 @@ function cleanse_raid(debuffname)
             local name = UnitName("raid" .. tonumber(i));
             if UnitExists(name) and has_debuff(name, debuffname) then
                 L_TargetUnit(name);
-                L_CastSpellByName("Cleanse");
-                L_CastSpellByName("Dispel Magic")
-                L_CastSpellByName("Cleanse Spirit")
-                L_CastSpellByName("Remove Curse")
+                CAST_CLEANSE_ALL()
                 return true;
             end
         end

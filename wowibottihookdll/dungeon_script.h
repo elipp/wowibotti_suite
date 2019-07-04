@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 #include "defs.h"
+#include "wowmem.h"
 
 
 enum {
@@ -25,6 +26,23 @@ enum {
 	SCRIPT_STATE_FIGHTING
 };
 
+struct mob_t {
+	int current_health;
+	int max_health;
+	int dead;
+	int in_combat;
+	std::string name;
+	GUID_t guid;
+	mob_t(const WowObject &o) {
+		current_health = o.NPC_get_health();
+		max_health = o.NPC_get_health_max();
+		dead = o.NPC_unit_is_dead();
+		in_combat = o.in_combat();
+		name = o.NPC_get_name();
+		guid = o.get_GUID();
+	}
+};
+
 struct dscript_objective_t {
 	int type;
 	vec3 wp_pos;
@@ -33,8 +51,13 @@ struct dscript_objective_t {
 	int num_mobs;
 	int pack_type;
 	float radius;
+	int in_progress;
 
-	std::vector<GUID> mob_GUIDS;
+	const mob_t *mob_to_kill;
+	std::vector<mob_t> mobs;
+	int get_mob_info();
+
+	dscript_objective_t() : in_progress(0) {}; // the other stuff comes from the read_from_file func
 };
 
 struct dscript_t {
