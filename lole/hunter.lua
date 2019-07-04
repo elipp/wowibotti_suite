@@ -54,7 +54,7 @@ function combat_hunter()
   end
 
   --if not validate_target() then return end
-  L_TargetUnit("Onyxia")
+  L_RunMacroText("/lole target 0xF1300027C8000007")
 
   caster_range_check(9,35)
 

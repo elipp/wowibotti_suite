@@ -965,25 +965,24 @@ end
 
 local function lole_spread_those_cheeks()
 	local opos = vec3:create(-10.6, -219.4, -87.7)
-	local v = vec3:create(23, 0, 0)
+	local v = vec3:create(14, 0, 0)
 
 	local V = opos:add(v:rotated2d(-2.5*(3.14)/8))
-	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
-	V = opos:add(v:rotated2d(-1.5*(3.14)/8))
+	V = opos:add(v:rotated2d(-2*(3.14)/8))
 	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
-	V = opos:add(v:rotated2d(-0.5*(3.14)/8))
-	lole_sendmacro_to("Teilor", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
-
-	V = opos:add(v:rotated2d(0.5*(3.14)/8))
-	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
-
-	V = opos:add(v:rotated2d(1.5*(3.14)/8))
+	V = opos:add(v:rotated2d(-1*(3.14)/8))
 	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
-	V = opos:add(v:rotated2d(2.5*(3.14)/8))
+	V = opos:add(v:rotated2d(0*(3.14)/8))
 	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+
+	V = opos:add(v:rotated2d(1*(3.14)/8))
+	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+
+	V = opos:add(v:rotated2d(2*(3.14)/8))
+	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
 end
 

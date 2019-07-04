@@ -152,7 +152,9 @@ combat_warlock_demo = function()
       L_PetAttack()
     end
 
-    if not validate_target() then return end
+    --if not validate_target() then return end
+    L_RunMacroText("/lole target 0xF1300027C8000007")
+
 
     caster_range_check(0,30);
 
