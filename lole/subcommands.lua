@@ -975,10 +975,10 @@ local function lole_spread_those_cheeks()
 	V = opos:add(v:rotated2d(-1*(3.14)/8))
 	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
-	V = opos:add(v:rotated2d(0*(3.14)/8))
+	V = opos
 	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
-	V = opos:add(v:rotated2d(1*(3.14)/8))
+	V = opos
 	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
 	V = opos:add(v:rotated2d(2*(3.14)/8))
