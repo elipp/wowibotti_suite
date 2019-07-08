@@ -513,13 +513,17 @@ vec3 WowObject::DO_get_pos() const {
 std::string WowObject::GO_get_name() const {
 	// see Wow.exe: 0x5FD820
 
+	// WOTLK REVERSING NOTES:
+	// GO NAME IS FETCHED FOR TOOLTIPS AT 0x6267AB
+	// 0x70CDF0 is the function that actually fetches it
+
 	DWORD step1 = 0;
-	readAddr(base + 0x224, &step1, sizeof(step1));
+	readAddr(base + 0x1A4, &step1, sizeof(step1));
 
 	if (!step1) { return "error"; }
 
 	const char* namestr = NULL;
-	readAddr(step1 + 0x78, &namestr, sizeof(namestr));
+	readAddr(step1 + 0x90, &namestr, sizeof(namestr));
 
 	return namestr;
 
@@ -527,7 +531,7 @@ std::string WowObject::GO_get_name() const {
 
 vec3 WowObject::GO_get_pos() const {
 	float coords[3];
-	readAddr(base + 0x258, coords, 3 * sizeof(float));
+	readAddr(base + 0xE8, coords, 3 * sizeof(float));
 
 	return vec3(coords[0], coords[1], coords[2]);
 }

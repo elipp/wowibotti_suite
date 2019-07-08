@@ -1144,8 +1144,8 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("pylpyr");
 	ADD_PATCH_SAFE("CTM_main");
 	ADD_PATCH_SAFE("AddInputEvent");
-//	ADD_PATCH_SAFE("SendPacket");
-	//ADD_PATCH_SAFE("RecvPacket");
+	ADD_PATCH_SAFE("SendPacket");
+//	ADD_PATCH_SAFE("RecvPacket");
 	//ADD_PATCH_SAFE("SARC4_encrypt");
 //	ADD_PATCH_SAFE("WS2_send");
 //	ADD_PATCH_SAFE("WS2_recv");

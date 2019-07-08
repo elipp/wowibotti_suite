@@ -764,10 +764,20 @@ static int LOP_tank_face() {
 }
 
 static int LOP_interact_object(const std::string &objname) {
+	
+	// based on testing, the wow client seems to send both these packets,
+	// with opcodes 0xB1 (CMSG_GAMEOBJ_USE) and 0x4B1 (CMSG_GAMEOBJ_REPORT_USE)
+	
 	BYTE sockbuf[14] = {
 		0x00, 0x0C, 0xB1, 0x00, 0x00, 0x00,
 		0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8
 	};
+
+	BYTE sockbuf2[14] = {
+	0x00, 0x0C, 0x81, 0x04, 0x00, 0x00,
+	0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8
+	};
+
 
 	ObjectManager OM;
 	WowObject o;
@@ -782,18 +792,24 @@ static int LOP_interact_object(const std::string &objname) {
 	vec3 diff = o.GO_get_pos() - p.get_pos();
 	float dist = diff.length();
 
-	if (dist > 2.5) {
+	if (dist > 5.0) {
 		PRINT("LOP_interact_object: too far from object \"%s\" (dist = %.2f)\n", objname.c_str(), dist);
 		return 0;
 	}
 
 	GUID_t oGUID = o.get_GUID();
 	memcpy(sockbuf + 6, &oGUID, sizeof(GUID_t));
-	
-	encrypt_packet_header(sockbuf);
-
+	memcpy(sockbuf2 + 6, &oGUID, sizeof(GUID_t));
+		
 	SOCKET s = get_wow_socket_handle();
+	
+	dump_packet(sockbuf, sizeof(sockbuf));
+	encrypt_packet_header(sockbuf);
 	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+
+	dump_packet(sockbuf2, sizeof(sockbuf2));
+	encrypt_packet_header(sockbuf2);
+	send(s, (const char*)sockbuf2, sizeof(sockbuf2), 0);
 
 }
 
@@ -1059,14 +1075,6 @@ void disable_noclip() {
 	writeAddr(noclip_dgo, &noclip_disabled_dgo, sizeof(DWORD));
 	writeAddr(noclip_go, &noclip_disabled_go, sizeof(DWORD));
 	noclip_enabled = 0;
-}
-
-static void dump_packet(BYTE *packet, size_t len) {
-	for (int i = 0; i < len; ++i) {
-		PRINT("%02X ", packet[i]);
-	}
-
-	PRINT("\n");
 }
 
 void LOP_cast_gtaoe(DWORD spellID, const vec3 &coords) {
@@ -1739,7 +1747,7 @@ static int dump_wowobjects_to_log() {
 		}
 		else if (type == OBJECT_TYPE_GAMEOBJECT) {
 			vec3 GO_pos = o.GO_get_pos();
-		//	fprintf(fp, "name: %s, position: (%.1f, %.1f, %.1f)\n\n", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
+			fprintf(stdout, "name: %s, position: (%.2f, %.2f, %.2f)\n\n", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
 		}
 
 		fprintf(stdout, "----------------------------------------------------------------------------\n");

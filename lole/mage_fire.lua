@@ -50,6 +50,7 @@ combat_mage_fire = function()
 			return
 	end
 
+-- FOR JARAXXUS :D
 	if has_buff("target", "Nether Power") then
 		local t = GetTime()
 		if (t - spellsteal_lock > 12) then

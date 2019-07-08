@@ -30,12 +30,8 @@ SOCKET get_wow_socket_handle() {
 	DWORD sockobj = get_sockobj();
 	if (!sockobj) return NULL;
 
-	PRINT("sockobj = 0x%X\n", sockobj);
-
 	SOCKET s;
 	readAddr(sockobj + 0x4, &s, sizeof(s));
-
-//	PRINT("socket = %X\n", S);
 
 	return s;
 }

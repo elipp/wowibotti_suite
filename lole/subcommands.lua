@@ -995,19 +995,19 @@ local function SPREAD_MADOT()
 	local v = TOC_CENTER:subtract(opos):unit_scaled(RADIUS) -- 563, 140, 393 is middle of TOC arena
 
 	local V = opos:add(v:rotated2d(-2*(3.14)/8))
-	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_CLEAR_HOLD)
 
 	V = opos:add(v:rotated2d(-1*(3.14)/8))
-	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_CLEAR_HOLD)
 
 	V = opos:add(v:rotated2d(0*(3.14)/8))
-	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_CLEAR_HOLD)
 
 	V = opos:add(v:rotated2d(1*(3.14)/8))
-	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_CLEAR_HOLD)
 
 	V = opos:add(v:rotated2d(2*(3.14)/8))
-	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_CLEAR_HOLD)
 end
 
 local function lole_spread_those_cheeks()
