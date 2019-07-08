@@ -476,7 +476,7 @@ local function lole_cc(state, marker, spellID)
 
 end
 
-local function lole_object_interact(...)
+local function lole_interact_object(...)
 	interact_with_object(...)
 end
 
@@ -1074,7 +1074,7 @@ lole_subcommands = {
 	sendmacro_to = lole_sendmacro_to,
 
 	cast_gtaoe = lole_cast_gtaoe,
-	object_interact = lole_object_interact,
+	interact_object = lole_interact_object,
 
 	cc = lole_cc,
 
