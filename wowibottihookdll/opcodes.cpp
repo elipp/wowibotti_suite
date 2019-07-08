@@ -1253,7 +1253,7 @@ static void do_boss_action(const std::string &bossname) {
 	ObjectManager OM;
 	
 	if (bossname == "Gormok_reset") {
-		PRINT("Running gormok reset\n", bossname.c_str());
+		PRINT("Running gormok angle reset\n");
 
 		initial_angle_set = 0;
 		return;
