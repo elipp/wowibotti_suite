@@ -1237,7 +1237,11 @@ static void do_boss_action(const std::string &bossname) {
 	
 	ObjectManager OM;
 	
-	if (bossname == "Gormok") {
+	if (bossname == "Gormok_reset") {
+		initial_angle_set = 0;
+	}
+		
+	else if (bossname == "Gormok") {
 
 		if (ctm_queue_get_top_prio() == CTM_PRIO_NOOVERRIDE) return;
 

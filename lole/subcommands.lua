@@ -964,10 +964,12 @@ local function lole_console_print(msg)
 end
 
 local function lole_spread_those_cheeks()
-	local opos = vec3:create(-10.6, -219.4, -87.7)
-	local v = vec3:create(14, 0, 0)
+	--local opos = vec3:create(-10.6, -219.4, -87.7) -- THIS IS FOR ONYXIA
+	local opos = vec3:create(-218.7, -288.6, 91.5)
+	local RADIUS = 14
+	local v = vec3:create(RADIUS, 0, 0)
 
-	local V = opos:add(v:rotated2d(-2.5*(3.14)/8))
+	local V = vec3:create(0, 0, 0)
 
 	V = opos:add(v:rotated2d(-2*(3.14)/8))
 	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
@@ -975,15 +977,19 @@ local function lole_spread_those_cheeks()
 	V = opos:add(v:rotated2d(-1*(3.14)/8))
 	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
-	V = opos
+	V = opos:add(v:rotated2d(0*(3.14)/8))
 	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
-	V = opos
+	V = opos:add(v:rotated2d(1*(3.14)/8))
 	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
 	V = opos:add(v:rotated2d(2*(3.14)/8))
 	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
+end
+
+local function lole_boss_action(arg)
+	boss_action(arg)
 end
 
 lole_subcommands = {
@@ -1059,6 +1065,7 @@ lole_subcommands = {
 	getbiscuit = lole_getbiscuit,
 	loot_badge = lole_loot_badge,
 	invite_guild = lole_invite_guild,
+	boss_action = lole_boss_action,
 
 	cast_spell = lole_cast_spell;
 

@@ -1,7 +1,5 @@
 -- globals
 
---UNCOMMENT THIS FOR ICK!
-
 vec3 = {}
 vec3.__index = vec3
 
@@ -49,12 +47,13 @@ function vec3:scale(s)
 end
 
 
-
 local REMOVE_THIS_FRAME = CreateFrame("frame",nil, UIParent)
 REMOVE_THIS_FRAME:SetScript("OnUpdate",
 function()
-  if UnitCastingInfo("target") == "Poison Nova" then
-    walk_to(814, 92, 509, CTM_PRIO_FOLLOW)
+  if UnitCastingInfo("target") == "Lightning Nova" then
+    walk_to(-219, -235, 97)
+    --if UnitCastingInfo("target") == "Poison Nova" then
+    --  walk_to(814, 92, 509, CTM_PRIO_FOLLOW)
   end
 
   if lole_get("playermode") == 0 then
