@@ -803,14 +803,15 @@ static int LOP_interact_object(const std::string &objname) {
 		
 	SOCKET s = get_wow_socket_handle();
 	
-	dump_packet(sockbuf, sizeof(sockbuf));
 	encrypt_packet_header(sockbuf);
 	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
 
-	dump_packet(sockbuf2, sizeof(sockbuf2));
 	encrypt_packet_header(sockbuf2);
 	send(s, (const char*)sockbuf2, sizeof(sockbuf2), 0);
 
+	PRINT("LOP_interact_object: interacted with object %s (GUID: 0x%llX)!\n", objname.c_str(), oGUID);
+
+	return 1;
 }
 
 static void LOPDBG_dump(const std::string &arg) {
