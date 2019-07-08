@@ -870,6 +870,21 @@ static int LOP_get_unit_position(const std::string &name, vec3 *pos_out, double 
 
 		return 1;
 	}
+	else if (name == "focus") { // useful for blast target
+		WowObject t;
+		GUID_t focus_GUID = get_focus_GUID();
+
+		if (!focus_GUID) { return 0; }
+
+		if (!OM.get_object_by_GUID(focus_GUID, &t)) {
+			return 0;
+		}
+
+		*pos_out = t.get_pos();
+		*rot = t.get_rot();
+
+		return 1;
+	}
 	else {
 		WowObject u;
 		if (!OM.get_unit_by_name(name, &u)) { return 0; }
@@ -1237,8 +1252,11 @@ static void do_boss_action(const std::string &bossname) {
 	
 	ObjectManager OM;
 	
+	PRINT("Running boss_action %s\n", bossname.c_str());
+
 	if (bossname == "Gormok_reset") {
 		initial_angle_set = 0;
+		return;
 	}
 		
 	else if (bossname == "Gormok") {
@@ -1288,6 +1306,10 @@ static void do_boss_action(const std::string &bossname) {
 	}
 	else if (bossname == "Icehowl") {
 
+	}
+	
+	else {
+		PRINT("Unknown boss action %s\n", bossname.c_str());
 	}
 
 }

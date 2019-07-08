@@ -963,15 +963,15 @@ local function lole_console_print(msg)
 
 end
 
-local function lole_spread_those_cheeks()
-	--local opos = vec3:create(-10.6, -219.4, -87.7) -- THIS IS FOR ONYXIA
-	local opos = vec3:create(-218.7, -288.6, 91.5)
+local function SPREAD_ONYXIA()
+
+	-- local opos = vec3:create(-218.7, -288.6, 91.5)  -- THIS IS FOR THUNDER BOSS IN VOA
+
+	local opos = vec3:create(-10.6, -219.4, -87.7) -- THIS IS FOR ONYXIA
 	local RADIUS = 14
 	local v = vec3:create(RADIUS, 0, 0)
 
-	local V = vec3:create(0, 0, 0)
-
-	V = opos:add(v:rotated2d(-2*(3.14)/8))
+	local V = opos:add(v:rotated2d(-2*(3.14)/8))
 	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
 	V = opos:add(v:rotated2d(-1*(3.14)/8))
@@ -985,11 +985,38 @@ local function lole_spread_those_cheeks()
 
 	V = opos:add(v:rotated2d(2*(3.14)/8))
 	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+end
 
+local function SPREAD_MADOT()
+	--local opos = vec3:create(563, 152, 394)
+	local opos = vec3:create(get_unit_position("focus"))
+	local RADIUS = 30
+	local TOC_CENTER = vec3:create(563, 140, 393)
+	local v = TOC_CENTER:subtract(opos):unit_scaled(RADIUS) -- 563, 140, 393 is middle of TOC arena
+
+	local V = opos:add(v:rotated2d(-2*(3.14)/8))
+	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+
+	V = opos:add(v:rotated2d(-1*(3.14)/8))
+	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+
+	V = opos:add(v:rotated2d(0*(3.14)/8))
+	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+
+	V = opos:add(v:rotated2d(1*(3.14)/8))
+	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+
+	V = opos:add(v:rotated2d(2*(3.14)/8))
+	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+end
+
+local function lole_spread_those_cheeks()
+	SPREAD_MADOT()
 end
 
 local function lole_boss_action(arg)
-	boss_action(arg)
+		boss_action(tostring(arg))
+		echo("Boss action " .. tostring(arg) .. " done!")
 end
 
 lole_subcommands = {

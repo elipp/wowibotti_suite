@@ -30,6 +30,7 @@
 //#define PLAYER_TARGET_ADDR 0xC6E960 // <-- tbc
 
 #define PLAYER_TARGET_ADDR 0xBD07B0
+#define PLAYER_FOCUS_ADDR 0xBD07D0
 
 #define pylpyr_patchaddr 0x4F6F90
 

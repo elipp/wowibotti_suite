@@ -37,6 +37,10 @@ function vec3:unit()
   return vec3:create(self.x / len, self.y / len, self.z / len)
 end
 
+function vec3:unit_scaled(s)
+  return self:unit():scale(s)
+end
+
 function vec3:direction_angle()
   local u = self:unit()
   return math.atan2(u.y, u.x);

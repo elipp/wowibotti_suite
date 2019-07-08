@@ -108,6 +108,10 @@ GUID_t get_target_GUID() {
 	return *(GUID_t*)PLAYER_TARGET_ADDR;
 }
 
+GUID_t get_focus_GUID() {
+	return *(GUID_t*)PLAYER_FOCUS_ADDR;
+}
+
 
 static const std::string wowobject_type_names[] = {
 	"0 : OBJECT",
@@ -762,8 +766,4 @@ int get_reaction(const WowObject &A, const WowObject &B) {
 	}
 
 	return R + 1;
-}
-
-GUID_t get_focus_GUID() {
-	return *(GUID_t*)0xBD07D0;
 }
