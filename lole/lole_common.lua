@@ -55,7 +55,7 @@ local ESSENCE_CLICK_TIME = 0
 function run_to_essenceportal_and_click(name)
 
   if lole_get("playermode") == 1 then return true end
-  
+
   if GetTime() - ESSENCE_CLICK_TIME < 1.5 then
     return true
   end
@@ -73,18 +73,20 @@ function run_to_essenceportal_and_click(name)
   end
 end
 
-local REMOVE_THIS_FRAME = CreateFrame("frame",nil, UIParent)
+local REMOVE_THIS_FRAME = CreateFrame("frame", nil, UIParent)
 REMOVE_THIS_FRAME:SetScript("OnUpdate",
 function()
+  if lole_get("playermode") == 0 then
   if UnitCastingInfo("target") == "Lightning Nova" then
-    walk_to(-219, -235, 97)
-    --if UnitCastingInfo("target") == "Poison Nova" then
-    --  walk_to(814, 92, 509, CTM_PRIO_FOLLOW)
+      walk_to(-219, -235, 97, CTM_PRIO_CLEAR_HOLD)
+      --if UnitCastingInfo("target") == "Poison Nova" then
+      --  walk_to(814, 92, 509, CTM_PRIO_FOLLOW)
+    end
   end
 
-  if lole_get("playermode") == 0 then
-    boss_action("Gormok")
-  end
+  -- if lole_get("playermode") == 0 then
+  --   --boss_action("Gormok")
+  -- end
 
 end
 )

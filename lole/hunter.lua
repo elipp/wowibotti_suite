@@ -30,6 +30,33 @@ local function change_aspect(aspectname)
 end
 
 
+local FROST_SPHERE_TARGET = nil
+
+local function FROST_TARGET_STUFF()
+
+  if FROST_SPHERE_TARGET then
+    target_unit_with_GUID(FROST_SPHERE_TARGET)
+  else
+    L_ClearTarget()
+  end
+
+  if not UnitExists("target") then
+    FROST_SPHERE_TARGET = nil
+  end
+
+  if not FROST_SPHERE_TARGET then
+    for i, g in pairs({get_combat_targets()}) do
+      target_unit_with_GUID(g)
+      if UnitName("target") == "Frost Sphere" and not UnitIsDead("target") then
+        FROST_SPHERE_TARGET = g
+        echo("setting frost sphere target to " .. g)
+        break
+      end
+    end
+  end
+
+end
+
 function combat_hunter()
 
   if not petframe_dummy then
@@ -53,8 +80,16 @@ function combat_hunter()
     end
   end
 
-  if not validate_target() then return end
-  -- L_RunMacroText("/lole target 0xF1300027C8000007") -- FOR ONYXIA, REPLACE GUID OFC
+  if not validate_target() then return end -- DEFAULT
+
+-------------- THIS STUFF IS FOR ANUB ARAK ------------------------
+  -- if (UnitExists("focus") and UnitName("focus") == "Anub'arak" and health_percentage("focus") < 30) then
+  --     if not validate_target() then return end
+  -- else
+  --   FROST_TARGET_STUFF()
+  -- end
+
+  ----------------------------------------------------------------
 
   caster_range_check(9,35)
 

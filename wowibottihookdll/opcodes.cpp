@@ -1434,7 +1434,8 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LOP_TARGET_GUID:
-		LOP_target_GUID(lua_tolstring(L, 2, &len));
+		const char* arg = lua_tolstring(L, 2, &len);
+		if (arg) { LOP_target_GUID(arg); }
 		break;
 
 	case LOP_FOCUS:
