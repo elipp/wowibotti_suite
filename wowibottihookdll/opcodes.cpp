@@ -87,6 +87,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_GET_AOE_FEASIBILITY, 1, 1, 1),
 	 LOPFUNC(LOP_AVOID_NPC_WITH_NAME, 1, 1, 0),
 	 LOPFUNC(LOP_BOSS_ACTION, 1, 1, 0),
+	 LOPFUNC(LOP_INTERACT_SPELLNPC, 1, 1, 0),
 };
 
 
@@ -763,13 +764,57 @@ static int LOP_tank_face() {
 
 }
 
+static int LOP_interact_spellnpc(const std::string &objname) {
+
+	ObjectManager OM;
+	WowObject o, p;
+
+	OM.get_local_object(&p);
+
+	auto n = OM.get_NPCs_by_name(objname);
+	if (n.size() == 0) {
+		PRINT("LOP_interact_spellnpc: error: couldn't find NPC with name \"%s\"!\n", objname.c_str());
+		return 0;
+	}
+	
+	vec3 ppos = p.get_pos();
+	o = OM.get_closest_NPC_by_name(n, ppos);
+	GUID_t oGUID = o.get_GUID();
+	float dist = (o.get_pos() - ppos).length();
+
+	if (dist > 5) {
+		PRINT("LOP_interact_spellnpc: too far from object %s (0x%llX)\n", objname.c_str(), oGUID);
+		return 0;
+	}
+
+	else {
+		BYTE sockbuf[14] = {
+			0x00, 0x0C, 0xF8, 0x03, 0x00, 0x00, // 0x3F8 == CMSG_SPELLCLICK
+			0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8
+		};
+
+		GUID_t oGUID = o.get_GUID();
+		memcpy(sockbuf + 6, &oGUID, sizeof(oGUID));
+
+		SOCKET s = get_wow_socket_handle();
+		encrypt_packet_header(sockbuf);
+		send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+		//dump_packet(sockbuf, 14);
+
+	}
+
+}
+
+
 static int LOP_interact_object(const std::string &objname) {
 	
-	// based on testing, the wow client seems to send both these packets,
+	// for Meeting Stones, the game sends two opcodes:
 	// with opcodes 0xB1 (CMSG_GAMEOBJ_USE) and 0x4B1 (CMSG_GAMEOBJ_REPORT_USE)
+	// BUT! for Light/Dark essence in twin val'kyr, the object is actually a NPC (type 3) and not a "GAMEOBJECT"
 	
+
 	BYTE sockbuf[14] = {
-		0x00, 0x0C, 0xB1, 0x00, 0x00, 0x00,
+		0x00, 0x0C, 0xB1, 0x00, 0x00, 0x00, 
 		0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8
 	};
 
@@ -781,10 +826,12 @@ static int LOP_interact_object(const std::string &objname) {
 
 	ObjectManager OM;
 	WowObject o;
+
 	if (!OM.get_GO_by_name(objname, &o)) {
 		PRINT("LOP_interact_object: error: couldn't find gobject with name \"%s\"!\n", objname.c_str());
 		return 0;
 	}
+
 
 	WowObject p;
 	OM.get_local_object(&p);
@@ -798,6 +845,7 @@ static int LOP_interact_object(const std::string &objname) {
 	}
 
 	GUID_t oGUID = o.get_GUID();
+
 	memcpy(sockbuf + 6, &oGUID, sizeof(GUID_t));
 	memcpy(sockbuf2 + 6, &oGUID, sizeof(GUID_t));
 		
@@ -1579,14 +1627,16 @@ int lop_exec(lua_State *L) {
 	}
 
 	case LOP_AVOID_NPC_WITH_NAME: {
-
-
 		return 0;
-
+		break;
 	}
 
 	case LOP_BOSS_ACTION:
 		do_boss_action(lua_tolstring(L, 2, &len));
+		break;
+
+	case LOP_INTERACT_SPELLNPC:
+		LOP_interact_spellnpc(lua_tolstring(L, 2, &len));
 		break;
 
 	case LDOP_CAPTURE_FRAME_RENDER_STAGES:

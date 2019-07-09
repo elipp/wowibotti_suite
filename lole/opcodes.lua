@@ -32,6 +32,7 @@ local LOP_GET_COMBAT_TARGETS = 0x1E
 local LOP_GET_AOE_FEASIBILITY = 0x1F
 local LOP_AVOID_NPC_WITH_NAME = 0x20
 local LOP_BOSS_ACTION = 0x21
+local LOP_INTERACT_SPELLNPC = 0x22
 
 local LOP_EXT_NOP = 0x70
 local LOP_SL_RESETCAMERA = 0x71
@@ -202,6 +203,22 @@ function interact_with_object(...)
 	return lop_exec(LOP_INTERACT_GOBJECT, name_concatenated)
 end
 
+function interact_with_spellnpc(...)
+	if select('#', ...) < 1 then
+		lole_error("interact_with_spellnpc: no argument!")
+		return
+	end
+
+	local name_concatenated = select(1, ...)
+
+	for i = 2, select('#', ...) do
+			local arg = select(i, ...);
+			name_concatenated = name_concatenated .. " " .. arg
+	end
+
+	return lop_exec(LOP_INTERACT_SPELLNPC, name_concatenated)
+end
+
 function loot_badge(corpse_GUID)
 	-- unitexists and stuff has already been checked in subcommands.lole_loot_badge
 		lop_exec(LOP_LOOT_BADGE, corpse_GUID)
@@ -369,6 +386,8 @@ function boss_action(name)
 	lop_exec(LOP_BOSS_ACTION, name)
 end
 
+
+
 function capture_render_stages()
 	lop_exec(LDOP_CAPTURE_FRAME_RENDER_STAGES)
 end
@@ -381,6 +400,7 @@ end
 function console_print(msg)
 	lop_exec(LDOP_CONSOLE_PRINT, msg)
 end
+
 
 function unload_DLL()
 	lop_exec(LDOP_UNLOAD_DLL)

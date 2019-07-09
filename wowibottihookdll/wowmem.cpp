@@ -623,6 +623,21 @@ std::vector<WowObject> ObjectManager::get_NPCs_by_name(const std::string &name) 
 	return ret;
 }
 
+WowObject ObjectManager::get_closest_NPC_by_name(const std::vector<WowObject> &objs, const vec3 &other) {
+	const WowObject *closest = NULL;
+	float cdist = 0;
+
+	for (const auto &o : objs) {
+		float dist = (o.get_pos() - other).length();
+		if (!closest || (dist < cdist)) { // should work like this :D
+			closest = &o;
+			cdist = dist;
+		}
+	}
+
+	return *closest;
+}
+
 
 int ObjectManager::get_GO_by_name(const std::string &name, WowObject *o) const {
 	WowObject n;

@@ -480,6 +480,10 @@ local function lole_interact_object(...)
 	interact_with_object(...)
 end
 
+local function lole_interact_spellnpc(...)
+	interact_with_spellnpc(...)
+end
+
 local function lole_dscript(...)
 
 		local usage = "dscript: usage: /lole dscript {run SCRIPTNAME | stop}";
@@ -1075,6 +1079,7 @@ lole_subcommands = {
 
 	cast_gtaoe = lole_cast_gtaoe,
 	interact_object = lole_interact_object,
+	interact_spellnpc = lole_interact_spellnpc,
 
 	cc = lole_cc,
 

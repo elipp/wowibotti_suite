@@ -186,7 +186,7 @@ public:
 
 	std::vector<WowObject> get_spell_objects_with_spellID(long spellID);
 	std::vector<WowObject> get_NPCs_by_name(const std::string &name);
-
+	WowObject get_closest_NPC_by_name(const std::vector<WowObject> &objs, const vec3 &other);
 
 };
 
