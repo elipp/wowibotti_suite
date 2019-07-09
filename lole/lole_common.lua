@@ -53,6 +53,9 @@ end
 local ESSENCE_CLICK_TIME = 0
 
 function run_to_essenceportal_and_click(name)
+
+  if lole_get("playermode") == 1 then return true end
+  
   if GetTime() - ESSENCE_CLICK_TIME < 1.5 then
     return true
   end
