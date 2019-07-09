@@ -87,7 +87,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_GET_AOE_FEASIBILITY, 1, 1, 1),
 	 LOPFUNC(LOP_AVOID_NPC_WITH_NAME, 1, 1, 0),
 	 LOPFUNC(LOP_BOSS_ACTION, 1, 1, 0),
-	 LOPFUNC(LOP_INTERACT_SPELLNPC, 1, 1, 0),
+	 LOPFUNC(LOP_INTERACT_SPELLNPC, 1, 1, 1),
 };
 
 
@@ -764,7 +764,7 @@ static int LOP_tank_face() {
 
 }
 
-static int LOP_interact_spellnpc(const std::string &objname) {
+static GUID_t LOP_interact_spellnpc(const std::string &objname, GUID_t *outGUID) {
 
 	ObjectManager OM;
 	WowObject o, p;
@@ -774,7 +774,7 @@ static int LOP_interact_spellnpc(const std::string &objname) {
 	auto n = OM.get_NPCs_by_name(objname);
 	if (n.size() == 0) {
 		PRINT("LOP_interact_spellnpc: error: couldn't find NPC with name \"%s\"!\n", objname.c_str());
-		return 0;
+		return -1;
 	}
 	
 	vec3 ppos = p.get_pos();
@@ -783,7 +783,8 @@ static int LOP_interact_spellnpc(const std::string &objname) {
 	float dist = (o.get_pos() - ppos).length();
 
 	if (dist > 5) {
-		PRINT("LOP_interact_spellnpc: too far from object %s (0x%llX)\n", objname.c_str(), oGUID);
+		PRINT("LOP_interact_spellnpc: too far from object %s (0x%llX), dist = %f\n", objname.c_str(), oGUID, dist);
+		*outGUID = oGUID;
 		return 0;
 	}
 
@@ -793,14 +794,14 @@ static int LOP_interact_spellnpc(const std::string &objname) {
 			0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8
 		};
 
-		GUID_t oGUID = o.get_GUID();
 		memcpy(sockbuf + 6, &oGUID, sizeof(oGUID));
 
 		SOCKET s = get_wow_socket_handle();
 		encrypt_packet_header(sockbuf);
 		send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
 		//dump_packet(sockbuf, 14);
-
+		*outGUID = oGUID;
+		return 1;
 	}
 
 }
@@ -910,8 +911,18 @@ static int LOPDBG_pull_test() {
 
 static int LOP_get_unit_position(const std::string &name, vec3 *pos_out, double *rot) {
 	ObjectManager OM;
+
+	if (name.rfind("0x", 0) == 0) {
+		// we're dealing with a GUID
+		GUID_t GUID = convert_str_to_GUID(name);
+		WowObject o;
+		if (!OM.get_object_by_GUID(GUID, &o)) { return 0; }
+		*pos_out = o.get_pos(); // THIS ASSUMES THAT OBJECT TYPE == UNIT
+		*rot = o.get_rot(); 
+		return 1;
+	}
 	
-	if (name == "player") {
+	else if (name == "player") {
 		WowObject p;
 		if (!OM.get_local_object(&p)) return 0;
 
@@ -1636,8 +1647,29 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LOP_INTERACT_SPELLNPC:
-		LOP_interact_spellnpc(lua_tolstring(L, 2, &len));
+	{
+		GUID_t g = 0;
+		int r = LOP_interact_spellnpc(lua_tolstring(L, 2, &len), &g);
+		std::string GUIDstr = convert_GUID_to_str(g);
+
+		switch (r) {
+			case -1:
+				return 0;
+				break;
+			case 0:
+				lua_pushlstring(L, GUIDstr.c_str(), GUIDstr.length());
+				lua_pushboolean(L, 0);
+				return 2;
+				break;
+
+			case 1:
+				lua_pushlstring(L, GUIDstr.c_str(), GUIDstr.length());
+				lua_pushboolean(L, 1);
+				return 2;
+				break;
+			}
 		break;
+	}
 
 	case LDOP_CAPTURE_FRAME_RENDER_STAGES:
 		enable_capture_render();

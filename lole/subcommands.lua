@@ -1018,6 +1018,12 @@ local function lole_spread_those_cheeks()
 	SPREAD_MADOT()
 end
 
+local function lole_click_essence_portal(type)
+	-- TYPE == either "Dark" or "Light"
+	run_to_essenceportal_and_click(type .. " Essence")
+
+end
+
 local function lole_boss_action(arg)
 		boss_action(tostring(arg))
 		echo("Boss action " .. tostring(arg) .. " done!")
@@ -1099,9 +1105,10 @@ lole_subcommands = {
 	invite_guild = lole_invite_guild,
 	boss_action = lole_boss_action,
 
-	cast_spell = lole_cast_spell;
+	cast_spell = lole_cast_spell,
 
-	spread = lole_spread_those_cheeks;
+	spread = lole_spread_those_cheeks,
+	click_essence_portal = lole_click_essence_portal,
 
 	setselection = lole_setselection;
 	clearselection = lole_clearselection;

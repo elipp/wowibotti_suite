@@ -50,6 +50,25 @@ function vec3:scale(s)
   return vec3:create(s * self.x, s * self.y, s * self.z)
 end
 
+local ESSENCE_CLICK_TIME = 0
+
+function run_to_essenceportal_and_click(name)
+  if GetTime() - ESSENCE_CLICK_TIME < 1.5 then
+    return true
+  end
+
+  local GUID, success = interact_with_spellnpc(name)
+  if not GUID then return false end
+
+  if not success then
+    local x, y, z = get_unit_position(GUID)
+    echo("spellnpc interaction: walking to object " .. GUID .. ' at (' .. tostring(x) .. ", " .. tostring(y) .. ", " .. tostring(z) .. ")")
+    walk_to(x, y, z, CTM_PRIO_CLEAR_HOLD)
+  else
+    echo("successfully clicked " .. name .. "!")
+    ESSENCE_CLICK_TIME = GetTime()
+  end
+end
 
 local REMOVE_THIS_FRAME = CreateFrame("frame",nil, UIParent)
 REMOVE_THIS_FRAME:SetScript("OnUpdate",
@@ -67,7 +86,7 @@ function()
 end
 )
 
-TOC_middle = vec3:create(562, 137, 395)
+local TOC_middle = vec3:create(562, 137, 395)
 
 REMOVE_THIS_FRAME:RegisterEvent("MINIMAP_PING")
 REMOVE_THIS_FRAME:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
