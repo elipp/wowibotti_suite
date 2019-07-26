@@ -85,6 +85,13 @@ function()
   end
 
   if lole_get("playermode") == 0 then
+
+    if has_debuff("player", "Legion Flame") then
+      local pos1 = TOC_middle:subtract(get_unit_position("player"))
+      local final = TOC_middle:add(pos1:rotated2d(6.28/6))
+      walk_to(final.x, final.y, final.z)
+    end
+
     boss_action("Gormok")
   end
 
