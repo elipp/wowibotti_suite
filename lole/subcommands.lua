@@ -995,8 +995,8 @@ local function SPREAD_MADOT()
 	--local opos = vec3:create(563, 152, 394)
 	local opos = vec3:create(get_unit_position("focus"))
 	local RADIUS = 30
-	local TOC_CENTER = vec3:create(563, 140, 393)
-	local v = TOC_CENTER:subtract(opos):unit_scaled(RADIUS) -- 563, 140, 393 is middle of TOC arena
+
+	local v = TOC_middle:subtract(opos):unit_scaled(RADIUS) -- 563, 140, 393 is middle of TOC arena
 
 	local V = opos:add(v:rotated2d(-2*(3.14)/8))
 	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_CLEAR_HOLD)
@@ -1014,9 +1014,38 @@ local function SPREAD_MADOT()
 	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_CLEAR_HOLD)
 end
 
+local function SPREAD_TORAVON()
+
+	local opos = vec3:create(get_unit_position("focus"))
+	local RADIUS = 27
+	local v = vec3:create(0, -1, 0):unit_scaled(RADIUS)
+
+	local FACTOR = 6.28/6.0
+
+	local V = opos:add(v:rotated2d(-2*FACTOR))
+	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = opos:add(v:rotated2d(-1*FACTOR))
+	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = opos:add(v:rotated2d(0*FACTOR))
+	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = opos:add(v:rotated2d(1*FACTOR))
+	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = opos:add(v:rotated2d(2*FACTOR))
+	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = opos:add(v:rotated2d(3*FACTOR))
+	lole_sendmacro_to("Teilor", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+end
+
 local function lole_spread_those_cheeks()
+	-- REMEMBER TO CHANGE THIS ACCORDINGLY :DDDDDDDDD
 	SPREAD_MADOT()
 end
+
 
 local function lole_click_essence_portal(type)
 	-- TYPE == either "Dark" or "Light"

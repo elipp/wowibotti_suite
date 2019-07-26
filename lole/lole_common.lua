@@ -78,7 +78,7 @@ REMOVE_THIS_FRAME:SetScript("OnUpdate",
 function()
   if lole_get("playermode") == 0 then
   if UnitCastingInfo("target") == "Lightning Nova" then
-      walk_to(-219, -235, 97, CTM_PRIO_CLEAR_HOLD)
+      walk_to(-219, -235, 97, CTM_PRIO_CLEAR_HOLD) -- the coords are for emalon :D
       --if UnitCastingInfo("target") == "Poison Nova" then
       --  walk_to(814, 92, 509, CTM_PRIO_FOLLOW)
     end
@@ -91,7 +91,7 @@ function()
 end
 )
 
-local TOC_middle = vec3:create(562, 137, 395)
+TOC_middle = vec3:create(562, 137, 395) -- not "local" because lole.lua needs this
 
 REMOVE_THIS_FRAME:RegisterEvent("MINIMAP_PING")
 REMOVE_THIS_FRAME:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
