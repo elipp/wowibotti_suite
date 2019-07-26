@@ -378,8 +378,8 @@ function reset_camera()
 	lop_exec(LOP_SL_RESETCAMERA)
 end
 
-function avoid_npc_with_name(name)
-	lop_exec(LOP_AVOID_NPC_WITH_NAME, name)
+function avoid_npc_with_name(name, radius)
+	lop_exec(LOP_AVOID_NPC_WITH_NAME, name, radius)
 end
 
 function boss_action(name)
