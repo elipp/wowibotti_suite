@@ -85,7 +85,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_CAST_SPELL, 2, 2, 0),
 	 LOPFUNC(LOP_GET_COMBAT_TARGETS, 0, 0, 0),
 	 LOPFUNC(LOP_GET_AOE_FEASIBILITY, 1, 1, 1),
-	 LOPFUNC(LOP_AVOID_NPC_WITH_NAME, 1, 1, 0),
+	 LOPFUNC(LOP_AVOID_NPC_WITH_NAME, 2, 2, 1),
 	 LOPFUNC(LOP_BOSS_ACTION, 1, 1, 0),
 	 LOPFUNC(LOP_INTERACT_SPELLNPC, 1, 1, 1),
 };
@@ -1382,6 +1382,24 @@ static void do_boss_action(const std::string &bossname) {
 
 }
 
+static int avoid_npc_with_name(const std::string &name, float radius) {
+	ObjectManager OM;
+	WowObject P;
+	OM.get_local_object(&P);
+	vec3 ppos = P.get_pos();
+	auto n = OM.get_NPCs_by_name("Legion Flame");
+
+	for (auto i : n) {
+		if (i.get_type() == OBJECT_TYPE_NPC) {
+			if ((ppos - i.get_pos()).length() < radius) {
+				return 1;
+			}
+		}
+	}
+
+	return 0;
+}
+
 
 int lop_exec(lua_State *L) {
 
@@ -1433,10 +1451,11 @@ int lop_exec(lua_State *L) {
 		LOP_execute(lua_tolstring(L, 2, &len));
 		break;
 
-	case LOP_TARGET_GUID:
+	case LOP_TARGET_GUID: {
 		const char* arg = lua_tolstring(L, 2, &len);
 		if (arg) { LOP_target_GUID(arg); }
 		break;
+	}
 
 	case LOP_FOCUS:
 		LOP_focus(lua_tolstring(L, 2, &len));
@@ -1639,6 +1658,11 @@ int lop_exec(lua_State *L) {
 	}
 
 	case LOP_AVOID_NPC_WITH_NAME: {
+		int r = avoid_npc_with_name(lua_tolstring(L, 2, &len), lua_tonumber(L, 3));
+		if (r) {
+			lua_pushnumber(L, 1);
+			return 1;
+		}
 		return 0;
 		break;
 	}

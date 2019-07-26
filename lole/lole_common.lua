@@ -73,6 +73,17 @@ function run_to_essenceportal_and_click(name)
   end
 end
 
+local LEGION_FLAME_AVOID()
+  if avoid_npc_with_name("Legion Flame", 8) then
+    local dpos = TOC_middle:subtract(get_unit_position("player"))
+    if dpos:length() < 10 then
+      dpos = dpos:unit_scaled(15)
+    end
+    local walk_pos = TOC_middle:add(dpos:rotated2d(6.28/6))
+    walk_to(walk_pos.x, walk_pos.y, walk_pos.z, CTM_PRIO_FOLLOW)
+  end
+end
+
 local REMOVE_THIS_FRAME = CreateFrame("frame", nil, UIParent)
 REMOVE_THIS_FRAME:SetScript("OnUpdate",
 function()
@@ -86,13 +97,9 @@ function()
 
   if lole_get("playermode") == 0 then
 
-    if has_debuff("player", "Legion Flame") then
-      local pos1 = TOC_middle:subtract(get_unit_position("player"))
-      local final = TOC_middle:add(pos1:rotated2d(6.28/6))
-      walk_to(final.x, final.y, final.z)
-    end
-
+    LEGION_FLAME_AVOID()
     boss_action("Gormok")
+
   end
 
 end
