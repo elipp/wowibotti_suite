@@ -85,7 +85,7 @@ function()
   end
 
   if lole_get("playermode") == 0 then
-    --boss_action("Gormok")
+    boss_action("Gormok")
   end
 
 end
