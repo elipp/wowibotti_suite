@@ -73,7 +73,7 @@ function run_to_essenceportal_and_click(name)
   end
 end
 
-local LEGION_FLAME_AVOID()
+local function LEGION_FLAME_AVOID()
   if avoid_npc_with_name("Legion Flame", 8) then
     local dpos = TOC_middle:subtract(get_unit_position("player"))
     if dpos:length() < 10 then
