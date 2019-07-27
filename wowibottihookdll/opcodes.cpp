@@ -1392,6 +1392,7 @@ static int avoid_npc_with_name(const std::string &name, float radius) {
 	for (auto i : n) {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
 			if ((ppos - i.get_pos()).length() < radius) {
+				PRINT("Should avoid %s with GUID 0x%llX\n", i.get_GUID());
 				return 1;
 			}
 		}

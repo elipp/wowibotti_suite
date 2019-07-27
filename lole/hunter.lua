@@ -80,18 +80,22 @@ function combat_hunter()
     end
   end
 
-  if not validate_target() then return end -- DEFAULT
+
+--  if not validate_target() then return end -- DEFAULT
 
 -------------- THIS STUFF IS FOR ANUB ARAK ------------------------
-  -- if (UnitExists("focus") and UnitName("focus") == "Anub'arak" and health_percentage("focus") < 30) then
-  --     if not validate_target() then return end
-  -- else
-  --   FROST_TARGET_STUFF()
-  -- end
+-- MUTUALLY EXCLUSIVE WITH DEFAULT VALIDATE TARGET
+  if (UnitExists("focus") and UnitName("focus") == "Anub'arak") then
+      if health_percentage("focus") < 30 then
+        if not validate_target() then return end
+      else
+        FROST_TARGET_STUFF()
+      end
+  elseif not validate_target() then return end
 
   ----------------------------------------------------------------
 
-  caster_range_check(9,35)
+  caster_range_check(9.5,35)
 
   if UnitMana("player") > 4000 and (not has_buff("player", "Aspect of the Dragonhawk")) then
     if change_aspect("Aspect of the Dragonhawk") then return end

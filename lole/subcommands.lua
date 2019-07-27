@@ -573,13 +573,8 @@ local function lole_sendscript(to, ...)
         return false;
     end
 
-    local atab = {};
-	for i = 1, select('#', ...) do
-        local arg = select(i, ...);
-        table.insert(atab, arg);
-	end
-
-	local script_text = "";
+    local atab = get_arg_table(...)
+		local script_text = "";
 
     if to == "WHISPER" or to == "w" then
     	local recipients = {strsplit(",", atab[1])};
@@ -607,12 +602,7 @@ local function lole_sendmacro(to, ...)
         return false;
     end
 
-    local atab = {};
-    for i = 1, select('#', ...) do
-        local arg = select(i, ...);
-        table.insert(atab, arg);
-    end
-
+    local atab = get_arg_table(...)
     local script_text = "";
 
     if to == "WHISPER" or to == "w" then
@@ -645,11 +635,8 @@ local function lole_override(name, ...)
         echo(usage);
         return false;
     end
-    local atab = {};
-    for i = 1, select('#', ...) do
-        local arg = select(i, ...);
-        table.insert(atab, arg);
-    end
+    local atab = get_arg_table(...)
+
     script_text = table.concat(atab, " ");
     if name == "RAID" then
         SendAddonMessage("lole_override", script_text, "RAID");
@@ -782,11 +769,9 @@ local function lole_manage_healers(...)
         restore = restore_healer_targets,
 		info = echo_healer_target_info,
 	};
-	local atab = {};
-    for i = 1, select('#', ...) do
-        local arg = select(i, ...);
-        table.insert(atab, arg);
-    end
+
+	local atab = get_arg_table(...)
+
 	local _, func = next(atab);
     table.remove(atab, 1);
     if not funcs[func] then
@@ -813,10 +798,6 @@ local function lole_echo(msg)
     SendAddonMessage("lole_echo", msg, "RAID");
 end
 
-local function lole_debug_test_blast_target()
-		lole_subcommands.setall("blast", 1);
-		update_target()
-end
 
 local function lole_invite_guild()
     GuildRoster()
@@ -841,15 +822,10 @@ local function lole_cast_spell(spellID_str)
 end
 
 local function lole_execute(...)
-
-	local arg_concatd = select(1, ...)
-
-	for i = 2, select('#', ...) do
-			local arg = select(i, ...);
-			arg_concatd = arg_concatd .. " " .. arg
+	local arg_concatd = concatenate_args(" ", ...)
+	if arg_concatd then
+		execute_script(arg_concatd)
 	end
-
-	execute_script(arg_concatd)
 end
 
 
@@ -913,13 +889,8 @@ local function lole_broadcast_getbiscuits()
 	lole_subcommands.sendmacro("GUILD", "/lole getbiscuit")
 end
 
-local function lole_broadcast_loot_badge(target_GUID)
-	if not target_GUID then
-		lole_error("lole_broadcast_loot_badge: no target_GUID specified!")
-		return false
-	end
-
-	lole_subcommands.sendmacro("GUILD", "/lole loot_badge " .. target_GUID)
+local function lole_broadcast_reloadui()
+	lole_subcommands.sendscript("GUILD", "ConsoleExec(\"reloadui\")")
 end
 
 local lole_broadcast_commands = {
@@ -934,8 +905,8 @@ local lole_broadcast_commands = {
 	attack = lole_broadcast_attack;
 	leavegroup = lole_broadcast_leavegroup;
 	getbiscuits = lole_broadcast_getbiscuits;
-	loot_badge = lole_broadcast_loot_badge;
 	hold = lole_broadcast_hold;
+	reloadui = lole_broadcast_reloadui;
 }
 
 local function lole_broadcast(funcname, ...)
@@ -959,11 +930,14 @@ local function lole_broadcast(funcname, ...)
 end
 
 local function lole_console_print(msg)
-	for k,v in pairs(_G) do
-		--if string.find(k, "LFD") then
-			console_print(k)
-		--end
-	end
+
+	console_print(msg)
+
+	-- for k,v in pairs(_G) do
+	-- 	--if string.find(k, "LFD") then
+	-- 		console_print(k)
+	-- 	--end
+	-- end
 
 end
 
@@ -1058,6 +1032,10 @@ local function lole_boss_action(arg)
 		echo("Boss action " .. tostring(arg) .. " done!")
 end
 
+local function lole_debug_test(arg)
+	avoid_npc_with_name(arg)
+end
+
 lole_subcommands = {
 	lbuffcheck = lole_leaderbuffcheck,
 	buffcheck = lole_buffcheck,
@@ -1121,7 +1099,6 @@ lole_subcommands = {
 	dump = lole_debug_dump_wowobjects,
 	loot = lole_debug_loot_all,
 	de_greeniez = lole_disenchant_greeniez,
-	test_blast_target = lole_debug_test_blast_target,
 	dscript = lole_dscript,
 
 	register = lole_debug_lua_register,

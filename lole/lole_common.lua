@@ -50,6 +50,28 @@ function vec3:scale(s)
   return vec3:create(s * self.x, s * self.y, s * self.z)
 end
 
+function get_arg_table(...)
+  local atab = {};
+  if select('#', ...) < 1 then
+    return atab;
+  end
+
+  for i = 1, select('#', ...) do
+      local arg = select(i, ...);
+      table.insert(atab, arg);
+  end
+  return atab
+end
+
+function concatenate_args(separator, ...)
+  local atab = get_arg_table(...)
+  if tablelength(atab) < 1 then
+    return nil
+  else
+    return table.concat(atab, separator);
+  end
+end
+
 local ESSENCE_CLICK_TIME = 0
 
 function run_to_essenceportal_and_click(name)

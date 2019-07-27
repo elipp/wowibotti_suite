@@ -188,32 +188,22 @@ end
 
 function interact_with_object(...)
 
-	if select('#', ...) < 1 then
+	local name_concatenated = concatenate_args(" ", ...)
+
+	if not name_conatenated then
 		lole_error("interact_with_object: no argument!")
 		return
-	end
-
-	local name_concatenated = select(1, ...)
-
-	for i = 2, select('#', ...) do
-			local arg = select(i, ...);
-			name_concatenated = name_concatenated .. " " .. arg
 	end
 
 	return lop_exec(LOP_INTERACT_GOBJECT, name_concatenated)
 end
 
 function interact_with_spellnpc(...)
-	if select('#', ...) < 1 then
+	local name_concatenated = concatenate_args(" ", ...)
+
+	if not name_conatenated then
 		lole_error("interact_with_spellnpc: no argument!")
 		return
-	end
-
-	local name_concatenated = select(1, ...)
-
-	for i = 2, select('#', ...) do
-			local arg = select(i, ...);
-			name_concatenated = name_concatenated .. " " .. arg
 	end
 
 	return lop_exec(LOP_INTERACT_SPELLNPC, name_concatenated)
