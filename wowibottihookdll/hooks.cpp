@@ -152,34 +152,32 @@ static void __stdcall call_pylpyr() {
 }
 
 
-static void __cdecl unload_DLL(LPVOID lpParameter) {
-
+static DWORD WINAPI eject_DLL(LPVOID lpParameter) {
 	close_console();
-	//FreeLibraryAndExitThread(inj_hModule, 0);
-	FreeLibrary(inj_hModule);
+	FreeLibraryAndExitThread(inj_hModule, 0);
 }
 
 extern time_t in_world; // from opcodes.cpp
 
-static int report_client_status() {
-
-	// this only reports login screen and char select, world status is coming from LOLE (the addon)
-
-	if (time(NULL) - in_world > 15) {
-		const lua_rvals_t R = dostring_getrvals("IsConnectedToServer()");
-		if (R.size() < 1 || R[0] == "nil") {
-			const char* msg = "status STATUS_LOGIN_SCREEN";
-			send_to_governor(msg, strlen(msg) + 1);
-			return 1;
-		}
-		else {
-			const lua_rvals_t R2 = dostring_getrvals("GetCharacterInfo(1)");
-			std::string msg("status STATUS_CHAR_SELECT:" + R2[0]);
-			send_to_governor(msg.c_str(), msg.length() + 1);
-			return 2;
-		}
-	}
-}
+//static int report_client_status() {
+//
+//	// this only reports login screen and char select, world status is coming from LOLE (the addon)
+//
+//	if (time(NULL) - in_world > 15) {
+//		const lua_rvals_t R = dostring_getrvals("IsConnectedToServer()");
+//		if (R.size() < 1 || R[0] == "nil") {
+//			const char* msg = "status STATUS_LOGIN_SCREEN";
+//			send_to_governor(msg, strlen(msg) + 1);
+//			return 1;
+//		}
+//		else {
+//			const lua_rvals_t R2 = dostring_getrvals("GetCharacterInfo(1)");
+//			std::string msg("status STATUS_CHAR_SELECT:" + R2[0]);
+//			send_to_governor(msg.c_str(), msg.length() + 1);
+//			return 2;
+//		}
+//	}
+//}
 
 
 static int dbg_shown = 0;
@@ -238,7 +236,7 @@ static void __stdcall Present_hook() {
 	}
 
 	if (fifteen_seconds.passed()) {
-		report_client_status(); //
+//		report_client_status(); //
 		fifteen_seconds.reset();
 	}
 
@@ -255,8 +253,8 @@ static void __stdcall Present_hook() {
 		unpatch_all();
 		DoString("ConsoleExec(\"reloadui\")");
 		should_unpatch = 0;
-		unload_DLL(NULL);
-		//PIPE = create_pipe(); // for the next round of injecting :D
+		
+		CreateThread(NULL, 0, eject_DLL, NULL, 0, 0);
 	}
 
 }

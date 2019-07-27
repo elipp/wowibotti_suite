@@ -50,7 +50,7 @@ local LDOP_TEST = 0xE7
 local LDOP_CAPTURE_FRAME_RENDER_STAGES = 0xE8
 local LDOP_CONSOLE_PRINT = 0xE9
 local LDOP_REPORT_CONNECTED = 0xEA
-local LDOP_UNLOAD_DLL = 0xEB
+local LDOP_EJECT_DLL = 0xEB
 
 
 ----------------------------
@@ -395,6 +395,6 @@ function console_print(msg)
 end
 
 
-function unload_DLL()
-	lop_exec(LDOP_UNLOAD_DLL)
+function eject_DLL()
+	lop_exec(LDOP_EJECT_DLL)
 end

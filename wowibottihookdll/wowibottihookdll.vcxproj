@@ -162,7 +162,6 @@
     <ClInclude Include="packet.h" />
     <ClInclude Include="patch.h" />
     <ClInclude Include="ps.h" />
-    <ClInclude Include="govconn.h" />
     <ClInclude Include="vs.h" />
     <ClInclude Include="wc3mode.h" />
     <ClInclude Include="wowmem.h" />
@@ -183,7 +182,6 @@
     <ClCompile Include="lua.cpp" />
     <ClCompile Include="packet.cpp" />
     <ClCompile Include="patch.cpp" />
-    <ClCompile Include="govconn.cpp" />
     <ClCompile Include="wc3mode.cpp" />
     <ClCompile Include="wowmem.cpp" />
     <ClCompile Include="opcodes.cpp" />

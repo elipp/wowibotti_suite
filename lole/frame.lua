@@ -334,7 +334,7 @@ local getbiscuit_button =
 create_simple_button("getbiscuit_button", lole_frame, 310, -130, "Biscuit", 68, 27, function() lole_subcommands.broadcast("getbiscuits") end);
 
 local loot_badge_button =
-create_simple_button("unload_dll_button", lole_frame, 310, -160, "Eject DLL", 68, 27, function() unload_DLL() end);
+create_simple_button("eject_dll_button", lole_frame, 310, -160, "Eject DLL", 68, 27, function() eject_DLL() end);
 
 
 local mode_attrib_title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
@@ -729,10 +729,10 @@ lole_frame:SetScript("OnUpdate", function()
 	every_4th_frame = every_4th_frame >= 4 and 0 or (every_4th_frame + 1)
 	every_30th_frame = every_30th_frame >= 30 and 0 or (every_30th_frame + 1)
 
-	if GetTime() - last_status_sent > 15 then
-		report_status_to_governor()
-		last_status_sent = GetTime()
-	end
+	-- if GetTime() - last_status_sent > 15 then
+	-- 	report_status_to_governor()
+	-- 	last_status_sent = GetTime()
+	-- end
 
 end);
 

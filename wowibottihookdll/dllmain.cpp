@@ -195,10 +195,9 @@ void __cdecl DO_STUFF(void *args) {
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
 
-	inj_hModule = hModule;
-
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH: {
+		inj_hModule = hModule;
 		prepare_pipe_data();
 		_beginthread(DO_STUFF, 0, NULL);
 		break;

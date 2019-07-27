@@ -1033,7 +1033,7 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
 		button_launch_hWnd = create_button("Launch!", 250, 37, 100, 30, hWnd);
 		button_affinity_hWnd = create_button("Set CPU affinities", 30, 80, 100, 30, hWnd);
-		button_assign_hWnd = create_button("Eject DLL", 30, 120, 100, 30, hWnd);
+		//button_assign_hWnd = create_button("Eject DLL", 30, 120, 100, 30, hWnd);
 		button_inject_hWnd = create_button("Inject DLL", 150, 80, 100, 30, hWnd);
 
 		button_refresh_hWnd = create_button("Refresh + set hotkeys", 500, 65, 115, 30, hWnd);

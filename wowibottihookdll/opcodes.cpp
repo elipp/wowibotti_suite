@@ -1736,15 +1736,15 @@ int lop_exec(lua_State *L) {
 		break;
 	}
 
-	case LDOP_REPORT_CONNECTED: {
-		// this is sent by the addon, so if we're getting this, we're most definitely in world
-		std::string msg = "status " + std::string(lua_tolstring(L, 2, &len));
-		send_to_governor(msg.c_str(), msg.length() + 1);
-		in_world = time(NULL);
-		return 0;
-	}
+	//case LDOP_REPORT_CONNECTED: {
+	//	// this is sent by the addon, so if we're getting this, we're most definitely in world
+	//	std::string msg = "status " + std::string(lua_tolstring(L, 2, &len));
+	//	send_to_governor(msg.c_str(), msg.length() + 1);
+	//	in_world = time(NULL);
+	//	return 0;
+	//}
 
-	case LDOP_UNLOAD_DLL: {
+	case LDOP_EJECT_DLL: {
 		should_unpatch = 1;
 		return 0;
 	}

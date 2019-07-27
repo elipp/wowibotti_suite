@@ -893,6 +893,10 @@ local function lole_broadcast_reloadui()
 	lole_subcommands.sendscript("GUILD", "ConsoleExec(\"reloadui\")")
 end
 
+local function lole_broadcast_eject()
+	lole_subcommands.sendmacro("GUILD", "/lole eject")
+end
+
 local lole_broadcast_commands = {
 	ctm = lole_broadcast_ctm;
 	drink = lole_broadcast_drink;
@@ -907,6 +911,7 @@ local lole_broadcast_commands = {
 	getbiscuits = lole_broadcast_getbiscuits;
 	hold = lole_broadcast_hold;
 	reloadui = lole_broadcast_reloadui;
+	eject = lole_broadcast_eject;
 }
 
 local function lole_broadcast(funcname, ...)
@@ -1032,6 +1037,10 @@ local function lole_boss_action(arg)
 		echo("Boss action " .. tostring(arg) .. " done!")
 end
 
+local function lole_eject()
+	eject_DLL()
+end
+
 local function lole_debug_test(...)
 	local args = concatenate_args(" ", ...)
 	echo(avoid_npc_with_name(args, 8))
@@ -1125,6 +1134,8 @@ lole_subcommands = {
 
 	wc3mode = lole_wc3mode;
 	hold = lole_hold;
+
+	eject = lole_eject;
 
 	console_print = lole_console_print;
 
