@@ -26,6 +26,7 @@
 #include "input.h"
 #include "patch.h"
 #include "govconn.h"
+#include "dllmain.h"
 
 extern void close_console();
 
@@ -154,7 +155,8 @@ static void __stdcall call_pylpyr() {
 static void __cdecl unload_DLL(LPVOID lpParameter) {
 
 	close_console();
-	FreeLibraryAndExitThread(inj_hModule, 0);
+	//FreeLibraryAndExitThread(inj_hModule, 0);
+	FreeLibrary(inj_hModule);
 }
 
 extern time_t in_world; // from opcodes.cpp
@@ -253,6 +255,8 @@ static void __stdcall Present_hook() {
 		unpatch_all();
 		DoString("ConsoleExec(\"reloadui\")");
 		should_unpatch = 0;
+		unload_DLL(NULL);
+		//PIPE = create_pipe(); // for the next round of injecting :D
 	}
 
 }
