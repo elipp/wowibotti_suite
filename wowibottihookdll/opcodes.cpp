@@ -1387,12 +1387,12 @@ static int avoid_npc_with_name(const std::string &name, float radius) {
 	WowObject P;
 	OM.get_local_object(&P);
 	vec3 ppos = P.get_pos();
-	auto n = OM.get_NPCs_by_name("Legion Flame");
+	auto n = OM.get_NPCs_by_name(name);
 
-	for (auto i : n) {
+	for (auto &i : n) {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
 			if ((ppos - i.get_pos()).length() < radius) {
-				PRINT("Should avoid %s with GUID 0x%llX\n", i.get_GUID());
+				PRINT("Should avoid %s with GUID 0x%llX\n", name.c_str(), i.get_GUID());
 				return 1;
 			}
 		}

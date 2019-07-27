@@ -1032,8 +1032,9 @@ local function lole_boss_action(arg)
 		echo("Boss action " .. tostring(arg) .. " done!")
 end
 
-local function lole_debug_test(arg)
-	avoid_npc_with_name(arg)
+local function lole_debug_test(...)
+	local args = concatenate_args(" ", ...)
+	echo(avoid_npc_with_name(args, 8))
 end
 
 lole_subcommands = {

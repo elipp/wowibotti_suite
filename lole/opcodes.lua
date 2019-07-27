@@ -369,7 +369,10 @@ function reset_camera()
 end
 
 function avoid_npc_with_name(name, radius)
-	lop_exec(LOP_AVOID_NPC_WITH_NAME, name, radius)
+	local RADIUS = 0
+	if not radius then RADIUS = 8 else RADIUS = radius end
+
+	return lop_exec(LOP_AVOID_NPC_WITH_NAME, name, RADIUS)
 end
 
 function boss_action(name)
