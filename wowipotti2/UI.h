@@ -9,7 +9,7 @@
 #define ID_BUTTON_INJECT						0x430
 #define ID_BUTTON_ASSIGN						0x440
 #define ID_BUTTON_UPDATE_REALMLIST				0x450
-#define ID_EDIT_WOWPATH							0x460
+#define ID_EDIT_WOWDIR							0x460
 #define ID_BUTTON_REFRESH						0x470
 
 #define ID_CHECK_ADIEUX							0x501

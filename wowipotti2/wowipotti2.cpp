@@ -150,7 +150,7 @@ static int find_stuff_between(const std::string &in_str, char c, std::string &ou
 
 
 struct potti_config {
-	std::string client_exe_path;
+	std::string client_exe_dir;
 	std::vector<wowaccount_t> accounts;
 
 	int read_from_file(const char* filename) {
@@ -177,12 +177,12 @@ struct potti_config {
 				return FALSE;
 			}
 
-			if (tokens[0] == "WOWPATH") {
-				if (!find_stuff_between(tokens[1], '"', this->client_exe_path)) {
+			if (tokens[0] == "WOWDIR") {
+				if (!find_stuff_between(tokens[1], '"', this->client_exe_dir)) {
 					return 0;
 				}
 
-				printf("Client path: %s\n", this->client_exe_path.c_str());
+				printf("Client path: %s\n", this->client_exe_dir.c_str());
 			}
 			else if (tokens[0] == "ACCOUNTS") {
 				std::string acc_str;
@@ -785,7 +785,7 @@ static int launch_clients() {
 
 	char textbuf[512];
 	LRESULT result = SendMessage(pathedit_hWnd, WM_GETTEXT, sizeof(textbuf), LPARAM(textbuf));
-	config_state.client_exe_path = std::string(textbuf);
+	config_state.client_exe_dir = std::string(textbuf);
 
 	long value;
 	char *endptr;
@@ -797,7 +797,7 @@ static int launch_clients() {
 	STARTUPINFO info = { sizeof(info) };
 	PROCESS_INFORMATION processInfo;
 
-	std::string cpath = config_state.client_exe_path + "\\Wow.exe";
+	std::string cpath = config_state.client_exe_dir + "\\Wow.exe";
 
 	for (int i = 0; i < value; ++i) {
 		if (CreateProcess(cpath.c_str(), NULL, NULL, NULL, TRUE, 0, NULL, NULL, &info, &processInfo) == 0) {
@@ -1040,8 +1040,8 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
 		HWND num_clients_static = create_static_text("Number of clients to launch:", 25, 45, hWnd);
 
-		HWND wowpath_static = create_static_text("Wow path:", 25, 15, hWnd);
-		pathedit_hWnd = create_textedit(config_state.client_exe_path, 100, 15, 300, ID_EDIT_WOWPATH, hWnd);
+		HWND wowpath_static = create_static_text("Wow directory:", 25, 15, hWnd);
+		pathedit_hWnd = create_textedit(config_state.client_exe_dir, 110, 15, 300, ID_EDIT_WOWDIR, hWnd);
 
 		button_launch_hWnd = create_button("Launch!", 250, 37, 100, 30, hWnd);
 		button_affinity_hWnd = create_button("Set CPU affinities", 30, 80, 100, 30, hWnd);
