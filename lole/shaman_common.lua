@@ -19,8 +19,7 @@ local totem_name_type_map = {
 
 	["Mana Spring Totem"] = totem_type_id_map["water"],
 	["Mana Tide Totem"] = totem_type_id_map["water"],
-	["Poison Cleansing Totem"] = totem_type_id_map["water"],
-	["Disease Cleansing Totem"] = totem_type_id_map["water"],
+	["Cleansing Totem"] = totem_type_id_map["water"],
 
 	["Wrath of Air Totem"] = totem_type_id_map["air"],
 	["Windfury Totem"] = totem_type_id_map["air"],
@@ -62,6 +61,7 @@ function get_active_multicast_summonspell()
 end
 
 local function should_recast_totem(arg_totem)
+	echo(arg_totem)
 	local totemslot = totem_name_type_map[arg_totem]
 	local _, totemName, startTime, duration = GetTotemInfo(totemslot);
 

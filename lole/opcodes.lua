@@ -33,6 +33,7 @@ local LOP_GET_AOE_FEASIBILITY = 0x1F
 local LOP_AVOID_NPC_WITH_NAME = 0x20
 local LOP_BOSS_ACTION = 0x21
 local LOP_INTERACT_SPELLNPC = 0x22
+local LOP_GET_LAST_SPELL_ERRMSG = 0x23
 
 local LOP_EXT_NOP = 0x70
 local LOP_SL_RESETCAMERA = 0x71
@@ -190,7 +191,7 @@ function interact_with_object(...)
 
 	local name_concatenated = concatenate_args(" ", ...)
 
-	if not name_conatenated then
+	if not name_concatenated then
 		lole_error("interact_with_object: no argument!")
 		return
 	end
@@ -201,7 +202,7 @@ end
 function interact_with_spellnpc(...)
 	local name_concatenated = concatenate_args(" ", ...)
 
-	if not name_conatenated then
+	if not name_concatenated then
 		lole_error("interact_with_spellnpc: no argument!")
 		return
 	end
@@ -249,10 +250,6 @@ end
 
 function lole_debug_pull_test()
 	lop_exec(LDOP_PULL_TEST)
-end
-
-function noclip()
-	lop_exec(LDOP_NOCLIP)
 end
 
 function cast_spell_packet(spellID)
@@ -370,15 +367,20 @@ end
 
 function avoid_npc_with_name(name, radius)
 	local RADIUS = 0
-	if not radius then RADIUS = 8 else RADIUS = radius end
+
+	if not radius then RADIUS = 8
+	else RADIUS = radius end
 
 	return lop_exec(LOP_AVOID_NPC_WITH_NAME, name, RADIUS)
+end
+
+function get_last_spell_error()
+	return lop_exec(LOP_GET_LAST_SPELL_ERRMSG)
 end
 
 function boss_action(name)
 	lop_exec(LOP_BOSS_ACTION, name)
 end
-
 
 
 function capture_render_stages()
@@ -393,7 +395,6 @@ end
 function console_print(msg)
 	lop_exec(LDOP_CONSOLE_PRINT, msg)
 end
-
 
 function eject_DLL()
 	lop_exec(LDOP_EJECT_DLL)

@@ -223,3 +223,17 @@ float get_distance3(const WowObject &a, const WowObject &b);
 float get_distance2(const WowObject &a, const WowObject &b);
 
 int get_reaction(const WowObject &A, const WowObject &B);
+
+
+typedef struct ERRMSG_t {
+	int code;
+	std::string text;
+};
+
+typedef struct last_spellerror {
+	const ERRMSG_t *msg;
+	LONG timestamp;
+	int err_id;
+};
+
+extern last_spellerror last_errmsg;

@@ -88,6 +88,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_AVOID_NPC_WITH_NAME, 2, 2, 1),
 	 LOPFUNC(LOP_BOSS_ACTION, 1, 1, 0),
 	 LOPFUNC(LOP_INTERACT_SPELLNPC, 1, 1, 1),
+	 LOPFUNC(LOP_GET_LAST_SPELL_ERRMSG, 0, 0, 3),
 };
 
 
@@ -1401,7 +1402,6 @@ static int avoid_npc_with_name(const std::string &name, float radius) {
 	return 0;
 }
 
-
 int lop_exec(lua_State *L) {
 
 	// NOTE: the return value of this function --> number of values returned to caller in LUA
@@ -1694,6 +1694,20 @@ int lop_exec(lua_State *L) {
 				return 2;
 				break;
 			}
+		break;
+	}
+
+	case LOP_GET_LAST_SPELL_ERRMSG: {
+
+		if (last_errmsg.msg) {
+			lua_pushnumber(L, last_errmsg.msg->code);
+			lua_pushlstring(L, last_errmsg.msg->text.c_str(), last_errmsg.msg->text.length());
+			lua_pushnumber(L, last_errmsg.err_id);
+			return 3;
+		}
+		
+		else return 0;
+
 		break;
 	}
 

@@ -51,6 +51,7 @@ function vec3:scale(s)
 end
 
 function get_arg_table(...)
+  -- NOTE: THIS CONVERTS EVERYTHING TO STRINGS!
   local atab = {};
   if select('#', ...) < 1 then
     return atab;
@@ -58,12 +59,13 @@ function get_arg_table(...)
 
   for i = 1, select('#', ...) do
       local arg = select(i, ...);
-      table.insert(atab, arg);
+      table.insert(atab, tostring(arg));
   end
   return atab
 end
 
 function concatenate_args(separator, ...)
+  -- NOTE: this assumes that all the elements are actually strings
   local atab = get_arg_table(...)
   if tablelength(atab) < 1 then
     return nil
@@ -76,7 +78,7 @@ local ESSENCE_CLICK_TIME = 0
 
 function run_to_essenceportal_and_click(name)
 
-  if lole_get("playermode") == 1 then return true end
+  if playermode() then return true end
 
   if GetTime() - ESSENCE_CLICK_TIME < 1.5 then
     return true
@@ -109,7 +111,7 @@ end
 local REMOVE_THIS_FRAME = CreateFrame("frame", nil, UIParent)
 REMOVE_THIS_FRAME:SetScript("OnUpdate",
 function()
-  if lole_get("playermode") == 0 then
+  if not playermode() then
   --if UnitCastingInfo("target") == "Lightning Nova" then
     --  walk_to(-219, -235, 97, CTM_PRIO_CLEAR_HOLD) -- the coords are for emalon :D
     if UnitCastingInfo("target") == "Poison Nova" then
@@ -117,7 +119,7 @@ function()
     end
   end
 
-  if lole_get("playermode") == 0 then
+  if not playermode() then
 
     LEGION_FLAME_AVOID()
     boss_action("Gormok")
@@ -126,6 +128,11 @@ function()
 
 end
 )
+
+LAST_SPELL_ERROR = nil
+LAST_SPELL_ERROR_TIME = 0
+LAST_SPELL_ERROR_TEXT = ""
+LAST_SPELL_ERROR_ID = 0
 
 TOC_middle = vec3:create(562, 137, 395) -- not "local" because lole.lua needs this
 
@@ -312,12 +319,14 @@ function get_CC_spellname(spellID)
 	return CC_spellnames[tonumber(spellID)];
 end
 
-function echo(text)
-    DEFAULT_CHAT_FRAME:AddMessage("lole: " .. tostring(text))
+function echo_noprefix(...)
+    local t = concatenate_args(", ", ...)
+    DEFAULT_CHAT_FRAME:AddMessage(t)
 end
 
-function echo_noprefix(text)
-    DEFAULT_CHAT_FRAME:AddMessage(tostring(text))
+function echo(...)
+    local t = concatenate_args(", ", ...)
+    DEFAULT_CHAT_FRAME:AddMessage("lole: " .. t)
 end
 
 function lole_error(text)

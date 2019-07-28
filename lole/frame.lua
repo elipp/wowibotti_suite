@@ -697,9 +697,22 @@ local function gui_set_injected_status()
 end
 
 
+local function update_spell_error_status()
+	local err, text, id = get_last_spell_error()
+	if (id and id > LAST_SPELL_ERROR_ID) then
+		LAST_SPELL_ERROR = err
+		LAST_SPELL_ERROR_TIME = GetTime() -- this instead of GetTickCount() on the C-side of things to keep timestamps comparable
+		LAST_SPELL_ERROR_TEXT = text
+		LAST_SPELL_ERROR_ID = id
+	end
+end
+
+
 lole_frame:SetScript("OnUpdate", function()
 
 	if query_injected() == 0 then return end
+
+	update_spell_error_status()
 
 	if every_4th_frame == 0 then
 
@@ -716,6 +729,8 @@ lole_frame:SetScript("OnUpdate", function()
 	end
 
 	if every_30th_frame == 0 then
+
+
 		set_button_states()
 		check_durability()
 

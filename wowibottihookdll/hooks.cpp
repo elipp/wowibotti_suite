@@ -1083,6 +1083,57 @@ static const trampoline_t *prepare_WS2recv_patch(patch_t *p) {
 	return &tr;
 }
 
+last_spellerror last_errmsg = { 0 };
+
+static void __stdcall SpellErrMsg_hook(DWORD *args) {
+
+	static const ERRMSG_t errmsgs[]{
+		{0xB, "You have no target"},
+		{0xC, "Invalid target"},
+		{0x28, "Interrupted"},
+		{0x2F, "Target not in line of sight"},
+		{0x33, "Can't do that while moving"},
+		{0x34, "Padit loppu"},
+		{0x40, "Can't attack while mounted"},
+
+		// just disable the following two because of spam :D
+
+		//{0x43, "Spell is not ready yet"}, 
+		//{0x55, "Not enough mana"}, // energy, runic power etc
+
+
+		{0x61, "Out of range"},
+		{0x86, "Target needs to be in front of you"},
+		{0x93, "Can't do that while silenced/stunned/incapacitated etc."}, // silenced/stunned, and probably the rest of them too
+	};
+
+	for (const auto &e : errmsgs) {
+		if (*args == e.code) {
+			++last_errmsg.err_id;
+			last_errmsg.msg = &e;
+			last_errmsg.timestamp = GetTickCount();
+			return;
+		}
+	}
+
+}
+
+static const trampoline_t *prepare_SpellErrMsg_patch(patch_t *p) {
+	static trampoline_t tr;
+
+	tr << PUSHAD;
+	tr.append_hexstring("8D5C242C53"); // lea ebx, [esp + 0x10]; push ebx (to get all the four arguments)
+	tr.append_CALL((DWORD)SpellErrMsg_hook);
+	tr << POPAD;
+	
+	tr.append_original_opcodes(p);
+
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
+	tr << RET;
+
+	return &tr;
+}
+
 static hookable_t hookable_functions[] = {
 	//{ "EndScene", 0x0, EndScene_original, EndScene_patch, EndScene_original, prepare_EndScene_patch },
 	//{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, ClosePetStables_original, prepare_ClosePetStables_patch },
@@ -1111,6 +1162,7 @@ static hookable_t hookable_functions[] = {
 	{ "SARC4_encrypt", patch_t(SARC4_encrypt, 6, prepare_SARC4_patch)},
 	{ "WS2_send", patch_t((DWORD)&send, 5, prepare_WS2send_patch)}, 
 	{ "WS2_recv", patch_t(((DWORD)&recv) + 0x18A, 6, prepare_WS2recv_patch) },
+	{ "SpellErrMsg", patch_t(SpellErrMsg, 9, prepare_SpellErrMsg_patch) },
 
 };
 
@@ -1147,6 +1199,7 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("pylpyr");
 	ADD_PATCH_SAFE("CTM_main");
 	ADD_PATCH_SAFE("AddInputEvent");
+	ADD_PATCH_SAFE("SpellErrMsg");
 //	ADD_PATCH_SAFE("SendPacket");
 //	ADD_PATCH_SAFE("RecvPacket");
 	//ADD_PATCH_SAFE("SARC4_encrypt");

@@ -78,3 +78,4 @@ typedef struct inpevent_t {
 hookable_t *find_hookable(const std::string &funcname);
 
 int unpatch_all();
+

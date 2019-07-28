@@ -39,7 +39,8 @@
 //#define SelectUnit_addr 0x4A6690 // <-- tbc
 #define SelectUnit_addr 0x524BF0
 #define GetOSTickCount 0x749850
-#define SpellErrMsg 0x6F0B70
+
+#define SpellErrMsg 0x808200 // WOTLK
 
 // these are for wotlk!
 #define LastHardwareAction 0x00B499A4   

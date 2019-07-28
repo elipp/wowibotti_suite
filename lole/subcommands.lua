@@ -418,7 +418,7 @@ function set_target(target_GUID)
 	L_FocusUnit("target")
 	update_target_text(UnitName("target"), UnitGUID("target"));
 
-	if lole_subcommands.get("playermode") == 1 and current_target_GUID then
+	if playermode() and current_target_GUID then
 		target_unit_with_GUID(current_target_GUID)
 	end
 
