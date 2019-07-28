@@ -14,6 +14,19 @@
 #include <unordered_map>
 #include <thread>
 
+#include <algorithm>
+#include <cctype>
+#include <string>
+
+static std::string make_lower(const std::string &s) {
+	std::string lower = s;
+	std::transform(lower.begin(), lower.end(), lower.begin(),
+		[](unsigned char c) { return std::tolower(c); });
+
+	return lower;
+}
+
+
 #include "UI.h"
 
 static HINSTANCE hInst;
@@ -191,7 +204,8 @@ struct potti_config {
 						return 0;
 					}
 
-					this->accounts.push_back(wowaccount_t(L2_tokens[0], L2_tokens[1], L2_tokens[2], L2_tokens[3]));
+					this->accounts.push_back(wowaccount_t(L2_tokens[0], L2_tokens[1], L2_tokens[2], make_lower(L2_tokens[3])));
+					//printf("Added account %s\n", L2_tokens[0].c_str());
 				}
 
 			}
@@ -960,9 +974,7 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 				return TRUE;
 			}
 			else if ((HWND)lParam == button_assign_hWnd) {
-				//create_account_assignments2();
-				uninject_all();
-				// just disable this since it's obsolete
+				create_account_assignments2();
 				return TRUE;
 			}
 			else if ((HWND)lParam == button_refresh_hWnd) {
@@ -1033,7 +1045,7 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
 		button_launch_hWnd = create_button("Launch!", 250, 37, 100, 30, hWnd);
 		button_affinity_hWnd = create_button("Set CPU affinities", 30, 80, 100, 30, hWnd);
-		//button_assign_hWnd = create_button("Eject DLL", 30, 120, 100, 30, hWnd);
+		button_assign_hWnd = create_button("Assign credentials", 30, 120, 100, 30, hWnd);
 		button_inject_hWnd = create_button("Inject DLL", 150, 80, 100, 30, hWnd);
 
 		button_refresh_hWnd = create_button("Refresh + set hotkeys", 500, 65, 115, 30, hWnd);
@@ -1084,7 +1096,8 @@ static int setup_char_checkboxes(const potti_config &c) {
 		{ "rogue", 5 },
 		{ "shaman", 6 },
 		{ "warlock", 7 },
-		{ "warrior", 8 }
+		{ "warrior", 8 },
+		{ "dk", 9 },
 	};
 
 
@@ -1097,7 +1110,8 @@ static int setup_char_checkboxes(const potti_config &c) {
 		{ "rogue", 0 },
 		{ "shaman", 0 },
 		{ "warlock", 0 },
-		{ "warrior", 0 }
+		{ "warrior", 0 },
+		{ "dk", 0 },
 	};
 
 	for (auto &k : c.accounts) {
@@ -1121,10 +1135,10 @@ static int setup_char_checkboxes(const potti_config &c) {
 		HWND static_frame = CreateWindow("STATIC", (cl.first + "_staticframe").c_str(), WS_CHILD | WS_VISIBLE | SS_ETCHEDFRAME,
 			pos_x, pos_y, width, height, main_window_hWnd, NULL, (HINSTANCE)GetWindowLongPtr(main_window_hWnd, GWLP_HINSTANCE), NULL);
 
-		std::string image_filename = "images\\" + cl.first + ".bmp";
-		HBITMAP class_image = (HBITMAP)LoadImage(GetModuleHandle(NULL), image_filename.c_str(), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+		std::string image_filename = "..\\images\\" + cl.first + ".bmp";
+		HBITMAP class_image = (HBITMAP)LoadImage(GetModuleHandle(NULL), image_filename.c_str(), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_SHARED);
 
-		//	printf("image_filename = %s, class_image: %X\n", image_filename.c_str(), (int)class_image);
+		//printf("image_filename = %s, class_image: %X\n", image_filename.c_str(), (int)class_image);
 
 		if (class_image != NULL) {
 			HWND class_icon_hWnd = CreateWindow("STATIC", (cl.first + "_staticicon").c_str(), WS_CHILD | WS_VISIBLE | SS_BITMAP | SS_CENTERIMAGE,
@@ -1146,7 +1160,7 @@ static int setup_char_checkboxes(const potti_config &c) {
 
 BOOL InitInstance(HINSTANCE hInstance, int nShowCmd) {
 
-	if (!config_state.read_from_file("potti.conf")) return FALSE;
+	if (!config_state.read_from_file("..\\potti.conf")) return FALSE;
 
 	hInst = hInstance; // Store instance handle in our global variable
 
@@ -1177,7 +1191,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nShowCmd) {
 		WS_OVERLAPPEDWINDOW,
 		200,
 		200,
-		750,
+		850,
 		480,
 		NULL,
 		NULL,

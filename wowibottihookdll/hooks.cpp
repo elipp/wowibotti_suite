@@ -251,9 +251,10 @@ static void __stdcall Present_hook() {
 	if (should_unpatch) {
 		PRINT("should unpatch! unpatching!\n");
 		unpatch_all();
-		DoString("ConsoleExec(\"reloadui\")");
+		DoString("ConsoleExec(\"reloadui\")"); // this gets rid of all the registered funcs
 		should_unpatch = 0;
 		
+		// might be grounds for a race condition here
 		CreateThread(NULL, 0, eject_DLL, NULL, 0, 0);
 	}
 
