@@ -712,7 +712,7 @@ lole_frame:SetScript("OnUpdate", function()
 
 	if query_injected() == 0 then return end
 
-	update_spell_error_status()
+	--update_spell_error_status()
 
 	if every_4th_frame == 0 then
 

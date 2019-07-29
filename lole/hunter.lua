@@ -81,21 +81,23 @@ function combat_hunter()
   end
 
 
---  if not validate_target() then return end -- DEFAULT
 
 -------------- THIS STUFF IS FOR ANUB ARAK ------------------------
--- MUTUALLY EXCLUSIVE WITH DEFAULT VALIDATE TARGET
-  if (UnitExists("focus") and UnitName("focus") == "Anub'arak") then
-      if health_percentage("focus") < 30 then
-        if not validate_target() then return end
-      else
-        FROST_TARGET_STUFF()
-      end
-  elseif not validate_target() then return end
+-- -- MUTUALLY EXCLUSIVE WITH DEFAULT VALIDATE TARGET
+--   if (UnitExists("focus") and UnitName("focus") == "Anub'arak") then
+--       if health_percentage("focus") < 30 then
+--         if not validate_target() then return end
+--       else
+--         FROST_TARGET_STUFF()
+--       end
+--   elseif not validate_target() then return end
 
   ----------------------------------------------------------------
 
-  caster_range_check(9.5,35)
+  --  if not validate_target() then return end -- DEFAULT
+  L_RunMacroText("/lole target 0xF1300027C8000007") -- FOR ONYXIA, REPLACE GUID OFC
+
+  caster_range_check(9.7,35)
 
   if UnitMana("player") > 4000 and (not has_buff("player", "Aspect of the Dragonhawk")) then
     if change_aspect("Aspect of the Dragonhawk") then return end

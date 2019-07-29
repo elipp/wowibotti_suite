@@ -26,7 +26,7 @@ int noclip_enabled;
 
 time_t in_world = 0;
 
-static int dump_wowobjects_to_log();
+static int dump_wowobjects_to_log(const std::string &namefilter, const std::string &typefilter);
 
 struct cast_msg_t previous_cast_msg;
 
@@ -862,10 +862,6 @@ static int LOP_interact_object(const std::string &objname) {
 	PRINT("LOP_interact_object: interacted with object %s (GUID: 0x%llX)!\n", objname.c_str(), oGUID);
 
 	return 1;
-}
-
-static void LOPDBG_dump(const std::string &arg) {
-	dump_wowobjects_to_log();
 }
 
 static int LOPDBG_loot(const std::string &arg) {
@@ -1719,9 +1715,12 @@ int lop_exec(lua_State *L) {
 		lua_registered = 1;
 		break;
 
-	case LDOP_DUMP:
-		dump_wowobjects_to_log();
+	case LDOP_DUMP: {
+		const char *namefilter = lua_tolstring(L, 2, &len);
+		const char *typefilter = lua_tolstring(L, 3, &len);
+		dump_wowobjects_to_log(namefilter ? namefilter : "", typefilter ? typefilter : "");
 		break;
+	}
 
 	case LDOP_TEST: {
 		PRINT("resetting initial angle\n");
@@ -1805,7 +1804,7 @@ void refollow_if_needed() {
 	if (!follow_state.close_enough) LOP_follow_unit(follow_state.target_name);
 }
 
-static int dump_wowobjects_to_log() {
+static int dump_wowobjects_to_log(const std::string &name_filter, const std::string &type_filter) {
 
 	ObjectManager OM;
 
@@ -1817,63 +1816,39 @@ static int dump_wowobjects_to_log() {
 		uint type = o.get_type();
 		if (type == OBJECT_TYPE_ITEM || type == OBJECT_TYPE_CONTAINER) { continue; }  
 		
-		fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-
-		if (type == OBJECT_TYPE_NPC || type == OBJECT_TYPE_UNIT) {
+		if (type == OBJECT_TYPE_NPC && (type_filter == "" || type_filter == "NPC")) {
 			vec3 pos = o.get_pos();
-			fprintf(stdout, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, o.get_rot());
-
-			if (type == OBJECT_TYPE_NPC) {
+			std::string name = o.NPC_get_name();
+			if (name_filter == "" || (name_filter != "" && name.find(name_filter) != std::string::npos)) {
+				fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+				fprintf(stdout, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, o.get_rot());
 				fprintf(stdout, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", o.NPC_get_name().c_str(), o.NPC_get_health(), o.NPC_get_health_max(), o.NPC_get_target_GUID(), o.in_combat());
-				//fprintf(fp, "--- buffs (by spellID): ---\n");
-				//for (int n = 1; n <= 16; ++n) { // the maximum is actually 40, but..
-				//	uint spellID = o.NPC_get_buff(n);
-				//	if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
-				//	else break;
-				//}
-
-				//fprintf(fp, "--- debuffs (by spellID): ---\n");
-
-				//for (int n = 1; n <= 16; ++n) {
-				//	uint spellID = o.NPC_get_debuff(n);
-				//	if (spellID != 0) {
-				//		uint duration = o.NPC_get_debuff_duration(n, spellID);
-				//		fprintf(fp, "%d: %u, duration = %u\n", n, spellID, duration);
-				//	}
-				//	else break;
-				//}
-
-				//fprintf(fp, "\n");
-				
+				fprintf(stdout, "----------------------------------------------------------------------------\n");
 			}
-			else if (type == OBJECT_TYPE_UNIT) {
+		}
+		else if (type == OBJECT_TYPE_UNIT && (type_filter == "" || type_filter == "UNIT")) {
+			vec3 pos = o.get_pos();
+			std::string name = o.unit_get_name();
+			if (name_filter == "" || (name_filter != "" && name.find(name_filter) != std::string::npos)) {
+				fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+				fprintf(stdout, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, o.get_rot());
 				fprintf(stdout, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", o.unit_get_name().c_str(), o.unit_get_health(), o.unit_get_health_max(), o.unit_get_target_GUID(), o.in_combat());
-				//fprintf(fp, "--- buffs (by spellID): ---\n");
-				//for (int n = 1; n <= 16; ++n) {
-				//	uint spellID = o.unit_get_buff(n);
-				//	if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
-				//}
-
-				//fprintf(fp, "--- debuffs (by spellID): ---\n");
-
-				//for (int n = 1; n <= 16; ++n) {
-				//	uint spellID = o.unit_get_debuff(n);
-				//	if (spellID != 0) fprintf(fp, "%d: %u\n", n, spellID);
-				//}
-
-				//fprintf(fp, "\n");
+				fprintf(stdout, "----------------------------------------------------------------------------\n");
 			}
 		}
-		else if (type == OBJECT_TYPE_DYNAMICOBJECT) {
+		else if (type == OBJECT_TYPE_DYNAMICOBJECT && (type_filter == "" || type_filter == "DYNAMICOBJECT")) {
 			vec3 DO_pos = o.DO_get_pos();
+			fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
 			fprintf(stdout, "position: (%.1f, %.1f, %.1f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, o.DO_get_spellID());
+			fprintf(stdout, "----------------------------------------------------------------------------\n");
 		}
-		else if (type == OBJECT_TYPE_GAMEOBJECT) {
+		else if (type == OBJECT_TYPE_GAMEOBJECT && (type_filter == "" || type_filter == "GAMEOBJECT")) {
 			vec3 GO_pos = o.GO_get_pos();
+			fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
 			fprintf(stdout, "name: %s, position: (%.2f, %.2f, %.2f)\n\n", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
+			fprintf(stdout, "----------------------------------------------------------------------------\n");
 		}
 
-		fprintf(stdout, "----------------------------------------------------------------------------\n");
 
 	}
 	

@@ -22,6 +22,10 @@ int get_window_height() {
 	return window_rect.bottom - window_rect.top;
 }
 
+float get_aspect_ratio() {
+	return (float)get_window_width() / (float)get_window_height();
+}
+
 static int rect_active = 0;
 static int buffers_initialized = 0;
 static POINT rect_begin;
@@ -636,6 +640,9 @@ static IDirect3DVertexShader9 *vs;
 static IDirect3DPixelShader9 *ps;
 static IDirect3DVertexDeclaration9 *vd;
 
+static IDirect3DVertexBuffer9 *lol_vbuffer;
+static IDirect3DIndexBuffer9 *lol_ibuffer;
+
 static D3DVERTEXELEMENT9 vdecl[] = {
 	{0, 0, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
 	D3DDECL_END()
@@ -663,6 +670,167 @@ void rect_to_vertices(const RECT &r, float *in) {
 	memcpy(in, vertices, sizeof(vertices));
 }
 
+typedef struct vec2_t {
+	float x; float y;
+} vec2_t;
+
+vec2_t vec2(float x, float y) {
+	vec2_t v;
+	v.x = x;
+	v.y = y;
+	return v;
+}
+
+static const float ARENA_SIZE = 104;
+
+static const vec2_t MIDDLE { -390, 2210 };
+
+vec2_t wow2normal(float x, float y) {
+	return vec2(1.0 / (ARENA_SIZE) * (-y + (MIDDLE.y + ARENA_SIZE/2.0)), (1.0 / ARENA_SIZE) * (x - (MIDDLE.x - ARENA_SIZE/2.0)));
+}
+
+vec2_t wow2screen(float x, float y) {
+
+	vec2_t n = wow2normal(x, y);
+
+	float as = get_aspect_ratio();
+
+	vec2_t R = vec2((n.x * 2 - 1)/as, (n.y * 2 - 1));
+	vec2_t r = vec2(R.x / 5.0 - 0.8, R.y / 5.0);
+	return r;
+}
+
+#define MAX_NUM_QUADS 64
+#define SIZEOF_LOLVBUFFER (MAX_NUM_QUADS * 4 * 2) // 4 vertices per quad, 2 components per vertex
+#define SIZEOF_LOLIBUFFER (MAX_NUM_QUADS * 3 * 2) // 3 indices per triangle, 2 triangles per quad
+
+typedef struct tuple_t {
+	vec2_t pos;
+	float rot;
+} tuple_t;
+
+typedef struct quad_t {
+	vec2_t v[4];
+} quad_t;
+
+quad_t pointtoquad(const tuple_t &t) {
+	// ignore rot for now :D
+	quad_t q;
+	float as = get_aspect_ratio();
+	static const float rectsize = 0.01;
+	static const float hsx = rectsize;
+	static const float hsy = rectsize*as;
+
+	q.v[0] = vec2(t.pos.x - hsx, t.pos.y - hsy);
+	q.v[1] = vec2(t.pos.x + hsx, t.pos.y - hsy);
+	q.v[2] = vec2(t.pos.x + hsx, t.pos.y + hsy);
+	q.v[3] = vec2(t.pos.x - hsx, t.pos.y + hsy);
+
+	return q;
+
+}
+
+static int num_flames_to_render = 0;
+
+static int update_lolbuffers() {
+	ObjectManager OM;
+	if (!OM.valid()) return 0;
+	
+	WowObject i;
+	if (!OM.get_first_object(&i)) return 0;
+
+	std::vector<tuple_t> flames;
+
+	while (i.valid()) {
+		if (i.get_type() == OBJECT_TYPE_NPC) {
+			if (i.NPC_get_name() == "Coldflame") {
+				vec3 ipos = i.get_pos();
+				vec2_t pos = wow2screen(ipos.x, ipos.y);
+				flames.push_back({ pos, i.get_rot() });
+			}
+		}
+		else if (i.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
+			if (i.DO_get_spellID() == 69146) {
+				vec3 ipos = i.DO_get_pos();
+				vec2_t pos = wow2screen(ipos.x, ipos.y);
+				flames.push_back({ pos, i.get_rot() });
+			}
+		}
+		i = i.next();
+	}
+
+	if (flames.size() < 1) { 
+		num_flames_to_render = 0;
+		return 1; 
+	}
+
+	quad_t *mem;
+	lol_vbuffer->Lock(0, 0, (void**)&mem, 0);
+
+	WowObject p;
+	OM.get_local_object(&p);
+	vec3 ppos = p.get_pos();
+	
+	vec2_t Ppos = wow2screen(ppos.x, ppos.y);
+	quad_t pq = pointtoquad({ Ppos, 0 });
+	mem[0] = pq;
+
+	int n = 1;
+	for (auto &f : flames) {
+		quad_t q = pointtoquad(f);
+		mem[n] = q;
+		++n;
+	}
+	lol_vbuffer->Unlock();
+	num_flames_to_render = n;
+
+	return 1;
+
+}
+
+static int create_lolbuffers(IDirect3DDevice9 *d) {
+	
+	HRESULT hr;
+
+	hr = d->CreateVertexBuffer(SIZEOF_LOLVBUFFER * sizeof(float), D3DUSAGE_WRITEONLY | D3DUSAGE_DYNAMIC, 0, D3DPOOL_DEFAULT, &lol_vbuffer, NULL);
+	hr = d->CreateIndexBuffer(SIZEOF_LOLIBUFFER * sizeof(UINT16), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &lol_ibuffer, NULL);
+
+	void *mem;
+
+	quad_t testbuffer = {
+		wow2screen(-417, 2237),
+		wow2screen(-417, 2183),
+		wow2screen(-363, 2183),
+		wow2screen(-363, 2237),
+	};
+
+	lol_vbuffer->Lock(0, 0, &mem, 0);
+	memset(mem, 0, SIZEOF_LOLVBUFFER * sizeof(float));
+	memcpy(mem, &testbuffer, sizeof(quad_t));
+	lol_vbuffer->Unlock();
+
+	static const int num_lolindices = SIZEOF_LOLIBUFFER;
+	static UINT16 lol_indices[num_lolindices];
+	int N = 0;
+	for (int i = 0; i < num_lolindices; i += 6) {
+		lol_indices[i] = N;
+		lol_indices[i + 1] = N + 1;
+		lol_indices[i + 2] = N + 2;
+
+		lol_indices[i + 3] = N + 2;
+		lol_indices[i + 4] = N;
+		lol_indices[i + 5] = N + 3;
+		N += 4;
+	}
+
+	lol_ibuffer->Lock(0, 0, &mem, 0);
+	memcpy(mem, lol_indices, sizeof(lol_indices));
+	lol_ibuffer->Unlock();
+
+	return 1;
+
+}
+
 static int create_d3d9buffers(IDirect3DDevice9 *d) {
 	HRESULT hr;
 
@@ -678,6 +846,8 @@ static int create_d3d9buffers(IDirect3DDevice9 *d) {
 		return 0;
 	}
 
+	create_lolbuffers(d);
+
 	buffers_initialized = 1;
 	return 1;
 }
@@ -688,6 +858,8 @@ static void populate_d3d9buffers() {
 
 	float vertices[2 * 4];
 	rect_to_vertices(get_selection_rect(), vertices);
+
+	float *V = &vertices[0];
 
 	void *mem;
 	vbuffer->Lock(0, 0, &mem, 0);
@@ -701,6 +873,7 @@ static void populate_d3d9buffers() {
 	ibuffer->Lock(0, 0, &mem, 0);
 	memcpy(mem, indices, sizeof(indices));
 	ibuffer->Unlock();
+
 }
 
 static void free_d3d9buffers() {
@@ -715,18 +888,12 @@ static void free_d3d9buffers() {
 	buffers_initialized = 0;
 }
 
-void draw_custom_d3d() {
+void draw_lolstuffXD() {
+	
 	if (!customd3d_initialized) return;
-	if (!rect_active) return;
 
 	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
 	if (!d) return;
-	
-	if (!buffers_initialized) {
-		create_d3d9buffers(d);
-	}
-
-	populate_d3d9buffers();
 
 	d->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
 	d->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
@@ -735,13 +902,42 @@ void draw_custom_d3d() {
 	d->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 
 	d->SetVertexDeclaration(vd);
-	d->SetStreamSource(0, vbuffer, 0, 2 * sizeof(float));
-	d->SetIndices(ibuffer);
 	d->SetVertexShader(vs);
 	d->SetPixelShader(ps);
 
+	if (!update_lolbuffers()) return;
+	static const float playercolor[] = { 1, 1, 0, 1 };
+	static const float flamecolor[] = { 1, 0, 0, 1 };
+	
+	d->SetStreamSource(0, lol_vbuffer, 0, 2 * sizeof(float));
+	d->SetIndices(lol_ibuffer);
+	
+	d->SetPixelShaderConstantF(0, playercolor, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 4, 0, 2);
+
+	d->SetPixelShaderConstantF(0, flamecolor, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_flames_to_render * 4, 6, 2 * num_flames_to_render);
+}
+
+void draw_custom_d3d() {
+	if (!customd3d_initialized) return;
+	if (!rect_active) return;
+
+	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
+	if (!d) return;
+	
+	populate_d3d9buffers();
+
+	d->SetStreamSource(0, vbuffer, 0, 2 * sizeof(float));
+	d->SetIndices(ibuffer);
+
+	
+	static const float rcolor [] = { 0, 1, 0, 1 };
+	d->SetPixelShaderConstantF(0, rcolor, 1);
+
 	//PRINT("drawing shit:)\n");
 	d->DrawIndexedPrimitive(D3DPT_LINESTRIP, 0, 0, 4, 0, 4);
+
 	//d->DrawPrimitive(D3DPT_LINESTRIP, 0, 4);
 }
 
@@ -761,7 +957,6 @@ int init_custom_d3d() {
 	}
 	
 
-
 	hr = d->CreatePixelShader((DWORD*)PSbuf, &ps);
 	if (FAILED(hr)) {
 		PRINT("CreatePixelShader failed: %X\n", hr);
@@ -776,6 +971,10 @@ int init_custom_d3d() {
 	}
 
 	// having these two (Create[Vertex|Index]Buffer) calls here in the init function cause a hang when resizing the window
+
+	if (!buffers_initialized) {
+		create_d3d9buffers(d);
+	}
 
 	customd3d_initialized = 1;
 

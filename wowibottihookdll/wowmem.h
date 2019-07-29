@@ -36,6 +36,12 @@ enum {
 	OBJECT_TYPE_SCENEOBJECT = 9
 };
 
+typedef struct type_string_mapentry {
+	std::string typestring;
+	int index;
+} type_string_mapentry;
+
+int get_type_index_from_string(const std::string &type);
 
 class WowObject {
 private:
@@ -228,12 +234,12 @@ int get_reaction(const WowObject &A, const WowObject &B);
 typedef struct ERRMSG_t {
 	int code;
 	std::string text;
-};
+} ERRMSG_t;
 
 typedef struct last_spellerror {
 	const ERRMSG_t *msg;
 	LONG timestamp;
 	int err_id;
-};
+} last_spellerror;
 
 extern last_spellerror last_errmsg;

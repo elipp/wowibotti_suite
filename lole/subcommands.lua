@@ -948,26 +948,24 @@ end
 
 local function SPREAD_ONYXIA()
 
-	-- local opos = vec3:create(-218.7, -288.6, 91.5)  -- THIS IS FOR THUNDER BOSS IN VOA
-
 	local opos = vec3:create(-10.6, -219.4, -87.7) -- THIS IS FOR ONYXIA
 	local RADIUS = 14
 	local v = vec3:create(RADIUS, 0, 0)
 
-	local V = opos:add(v:rotated2d(-2*(3.14)/8))
-	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+-- local V = opos:add(v:rotated2d(-2*(3.14)/8))
+-- lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+--
+-- V = opos:add(v:rotated2d(-1*(3.14)/8))
+-- lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
 	V = opos:add(v:rotated2d(-1*(3.14)/8))
-	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
-
-	V = opos:add(v:rotated2d(0*(3.14)/8))
 	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
 	V = opos:add(v:rotated2d(1*(3.14)/8))
 	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
-	V = opos:add(v:rotated2d(2*(3.14)/8))
-	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+	-- V = opos:add(v:rotated2d(2*(3.14)/8))
+	-- lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 end
 
 local function SPREAD_MADOT()
@@ -1022,7 +1020,7 @@ end
 
 local function lole_spread_those_cheeks()
 	-- REMEMBER TO CHANGE THIS ACCORDINGLY :DDDDDDDDD
-	SPREAD_MADOT()
+	SPREAD_ONYXIA()
 end
 
 

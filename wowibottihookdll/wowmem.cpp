@@ -765,7 +765,7 @@ float get_distance2(const WowObject &a, const WowObject &b) {
 	vec3 ap = a.get_pos();
 	vec3 bp = b.get_pos();
 	return vec3(ap.x - bp.x, ap.y - bp.y, 0).length();
-}
+}	
 
 int get_reaction(const WowObject &A, const WowObject &B) {
 	DWORD UnitReaction = 0x7251C0;
@@ -785,4 +785,24 @@ int get_reaction(const WowObject &A, const WowObject &B) {
 	}
 
 	return R + 1;
+}
+
+static const type_string_mapentry typestring_index_map[] = {
+	{ "OBJECT", OBJECT_TYPE_OBJECT },
+	{ "ITEM", OBJECT_TYPE_ITEM },
+	{ "CONTAINER", OBJECT_TYPE_CONTAINER },
+	{ "NPC", OBJECT_TYPE_NPC },
+	{ "UNIT", OBJECT_TYPE_UNIT },
+	{ "GAMEOBJECT", OBJECT_TYPE_GAMEOBJECT },
+	{ "DYNAMICOBJECT", OBJECT_TYPE_DYNAMICOBJECT},
+	{"CORPSE", OBJECT_TYPE_CORPSE },
+	{ "AREATRIGGER", OBJECT_TYPE_AREATRIGGER },
+	{ "SCENEOBJECT", OBJECT_TYPE_SCENEOBJECT },
+};
+
+int get_type_index_from_string(const std::string &type) {
+	for (const auto &t : typestring_index_map) {
+		if (type == t.typestring) return t.index;
+	}
+	return -1;
 }

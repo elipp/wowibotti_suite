@@ -352,6 +352,9 @@ static DWORD WINAPI create_warden_socket() {
 
 static void __stdcall EndScene_hook() {
 	draw_custom_d3d();
+
+	draw_lolstuffXD();
+
 }
 
 enum {

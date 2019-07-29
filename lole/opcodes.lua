@@ -143,8 +143,8 @@ function get_unit_position(unitname)
 	return lop_exec(LOP_GET_UNIT_POSITION, unitname)
 end
 
-function lole_debug_dump_wowobjects()
-	lop_exec(LDOP_DUMP);
+function lole_debug_dump_wowobjects(name_filter, type_filter)
+	lop_exec(LDOP_DUMP, name_filter, type_filter);
 	echo("|cFF00FF96Dumped WowObjects to <DESKTOPDIR>\\wodump.log (if you're injected!) ;)")
 	return true;
 end
