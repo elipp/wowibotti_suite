@@ -634,17 +634,35 @@ void wc3_draw_pylpyrs() {
 #include "vs.h"
 #include "ps.h"
 
+#include "qvs.h"
+#include "qps.h"
+
 static IDirect3DVertexBuffer9 *vbuffer;
 static IDirect3DIndexBuffer9 *ibuffer;
 static IDirect3DVertexShader9 *vs;
 static IDirect3DPixelShader9 *ps;
+static IDirect3DVertexShader9 *quad_vs;
+static IDirect3DPixelShader9 *quad_ps;
 static IDirect3DVertexDeclaration9 *vd;
+static IDirect3DVertexDeclaration9 *quad_vd;
 
-static IDirect3DVertexBuffer9 *lol_vbuffer;
+
+static LPDIRECT3DTEXTURE9 rendertex;
+static LPDIRECT3DSURFACE9 rendertex_surf, back_buffer, depthstencil;
+static D3DVIEWPORT9 viewport_original;
+
+
+static IDirect3DVertexBuffer9 *lol_vbuffer, *lol_quadbuffer;
 static IDirect3DIndexBuffer9 *lol_ibuffer;
 
 static D3DVERTEXELEMENT9 vdecl[] = {
 	{0, 0, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
+	D3DDECL_END()
+};
+
+static D3DVERTEXELEMENT9 quad_vdecl[] = {
+	{ 0, 0, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
+	{ 0, 8, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
 	D3DDECL_END()
 };
 
@@ -788,6 +806,11 @@ static int update_lolbuffers() {
 
 }
 
+typedef struct texquad_vertex {
+	float pos[2];
+	float uv[2];
+} texquad_vertex;
+
 static int create_lolbuffers(IDirect3DDevice9 *d) {
 	
 	HRESULT hr;
@@ -797,16 +820,8 @@ static int create_lolbuffers(IDirect3DDevice9 *d) {
 
 	void *mem;
 
-	quad_t testbuffer = {
-		wow2screen(-417, 2237),
-		wow2screen(-417, 2183),
-		wow2screen(-363, 2183),
-		wow2screen(-363, 2237),
-	};
-
 	lol_vbuffer->Lock(0, 0, &mem, 0);
 	memset(mem, 0, SIZEOF_LOLVBUFFER * sizeof(float));
-	memcpy(mem, &testbuffer, sizeof(quad_t));
 	lol_vbuffer->Unlock();
 
 	static const int num_lolindices = SIZEOF_LOLIBUFFER;
@@ -826,6 +841,23 @@ static int create_lolbuffers(IDirect3DDevice9 *d) {
 	lol_ibuffer->Lock(0, 0, &mem, 0);
 	memcpy(mem, lol_indices, sizeof(lol_indices));
 	lol_ibuffer->Unlock();
+
+
+	hr = d->CreateVertexBuffer(4 * sizeof(texquad_vertex), D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &lol_quadbuffer, NULL);
+	
+	const float as = 1440.0 / 900.0;
+	const float size = 0.3;
+	vec2_t mp_llc = vec2(-0.8, -size);
+
+	texquad_vertex tq[4] = {
+		{mp_llc.x, mp_llc.y, 1, 0},
+		{mp_llc.x + size, mp_llc.y, 1, 1},
+		{mp_llc.x + size, mp_llc.y + size*as, 0, 1},
+		{mp_llc.x, mp_llc.y + size*as, 0, 0}
+	};
+	lol_quadbuffer->Lock(0, 0, &mem, 0);
+	memcpy(mem, &tq, sizeof(tq));
+	lol_quadbuffer->Unlock();
 
 	return 1;
 
@@ -888,6 +920,15 @@ static void free_d3d9buffers() {
 	buffers_initialized = 0;
 }
 
+void reset_renderstate() {
+	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
+	if (!d) return;
+
+	//d->SetRenderState(D3DRS_ZENABLE, TRUE);
+	d->SetRenderTarget(0, back_buffer);
+	d->SetDepthStencilSurface(depthstencil); // for  some reason, this is required
+}
+
 void draw_lolstuffXD() {
 	
 	if (!customd3d_initialized) return;
@@ -895,10 +936,20 @@ void draw_lolstuffXD() {
 	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
 	if (!d) return;
 
+	//d->SetRenderTarget(0, rendertex_surf);
+	//d->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(1, 1, 1), 1.0f, 0);
+	//d->Clear(0, NULL, D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
+
+	//d->SetRenderTarget(0, back_buffer);
+	//d->SetDepthStencilSurface(depthstencil);
+
 	d->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
 	d->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+	// TODO: SET BLENDING MODES!
 	d->SetRenderState(D3DRS_LIGHTING, FALSE);
+	//d->SetRenderState(D3DRS_ZENABLE, FALSE);
 	d->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+
 	d->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 
 	d->SetVertexDeclaration(vd);
@@ -917,7 +968,24 @@ void draw_lolstuffXD() {
 
 	d->SetPixelShaderConstantF(0, flamecolor, 1);
 	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_flames_to_render * 4, 6, 2 * num_flames_to_render);
+
+	/* d->SetRenderTarget(0, back_buffer);
+	d->SetDepthStencilSurface(depthstencil);
+	
+	d->SetVertexDeclaration(quad_vd);
+	d->SetVertexShader(quad_vs);
+	d->SetPixelShader(quad_ps);
+
+	d->SetStreamSource(0, lol_quadbuffer, 0, 4 * sizeof(float));
+	
+	d->SetTexture(0, rendertex);
+	
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 4, 0, 2); */
+
+	reset_renderstate();
+
 }
+
 
 void draw_custom_d3d() {
 	if (!customd3d_initialized) return;
@@ -925,20 +993,22 @@ void draw_custom_d3d() {
 
 	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
 	if (!d) return;
-	
+
 	populate_d3d9buffers();
 
 	d->SetStreamSource(0, vbuffer, 0, 2 * sizeof(float));
 	d->SetIndices(ibuffer);
 
-	
-	static const float rcolor [] = { 0, 1, 0, 1 };
+	// we're drawing the selection rectangle onto the back buffer
+	d->SetRenderTarget(0, back_buffer);
+	d->SetDepthStencilSurface(depthstencil);
+
+	static const float rcolor[] = { 0, 1, 0, 1 };
 	d->SetPixelShaderConstantF(0, rcolor, 1);
 
-	//PRINT("drawing shit:)\n");
 	d->DrawIndexedPrimitive(D3DPT_LINESTRIP, 0, 0, 4, 0, 4);
 
-	//d->DrawPrimitive(D3DPT_LINESTRIP, 0, 4);
+	//d->SetViewport(&viewport_original);
 }
 
 int init_custom_d3d() {
@@ -970,11 +1040,28 @@ int init_custom_d3d() {
 		return 0;
 	}
 
+	hr = d->CreateVertexDeclaration(quad_vdecl, &quad_vd);
+	hr = d->CreateVertexShader((DWORD*)g_vs30_main, &quad_vs);
+	hr = d->CreatePixelShader((DWORD*)g_ps30_main, &quad_ps);
+
 	// having these two (Create[Vertex|Index]Buffer) calls here in the init function cause a hang when resizing the window
 
 	if (!buffers_initialized) {
 		create_d3d9buffers(d);
 	}
+
+	hr = d->GetRenderTarget(0, &back_buffer);
+	assert(SUCCEEDED(hr));
+
+	hr = d->GetDepthStencilSurface(&depthstencil);
+	assert(SUCCEEDED(hr));
+
+	hr = d->CreateTexture(512, 512, 0, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &rendertex, NULL);
+	assert(SUCCEEDED(hr));
+
+	hr = rendertex->GetSurfaceLevel(0, &rendertex_surf);
+	assert(SUCCEEDED(hr));
+
 
 	customd3d_initialized = 1;
 
