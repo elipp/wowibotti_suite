@@ -2,12 +2,14 @@
 #include <Windows.h>
 #include <unordered_map>
 #include <string>
+#include <fstream>
 
 #include "wc3mode.h"
 #include "wowmem.h"
 #include "linalg.h"
 #include "hooks.h"
 #include "input.h"
+#include "dllmain.h"
 
 static POINT cursor_pos;
 
@@ -37,6 +39,24 @@ static void free_d3d9buffers();
 #define SMAX 0.7
 #define SMIN 0.4
 
+static BYTE* read_shader_object(const std::string& filename) {
+
+	auto fullfilename = DLL_base_path + filename;
+	FILE *fp = fopen(fullfilename.c_str(), "rb");
+	PRINT("%s\n", fullfilename.c_str());
+	assert(fp);
+	fseek(fp, 0, SEEK_END);
+	size_t size = ftell(fp);
+
+	rewind(fp);
+
+	BYTE *buf = new BYTE[size];
+	fread(buf, 1, size, fp);
+
+	fclose(fp);
+
+	return buf;
+}
 glm::vec4 customcamera_t::get_cameraoffset() {
 	// y = z^2
 	return maxdistance*glm::vec4(0, 2 * s*s, s, 1.0);
@@ -631,21 +651,19 @@ void wc3_draw_pylpyrs() {
 // for the vertex shader: FXC /Fh /T vs_3_0 vs.hlsl
 // pixel shader: FXC /Fh /T ps_3_0 vs.hlsl
 
-#include "vs.h"
-#include "ps.h"
-
-#include "qvs.h"
-#include "qps.h"
-
 static IDirect3DVertexBuffer9 *vbuffer;
 static IDirect3DIndexBuffer9 *ibuffer;
 static IDirect3DVertexShader9 *vs;
 static IDirect3DPixelShader9 *ps;
+static IDirect3DVertexDeclaration9 *vd;
+
 static IDirect3DVertexShader9 *quad_vs;
 static IDirect3DPixelShader9 *quad_ps;
-static IDirect3DVertexDeclaration9 *vd;
 static IDirect3DVertexDeclaration9 *quad_vd;
 
+static IDirect3DVertexShader9 *gradient_vs;
+static IDirect3DPixelShader9 *gradient_ps;
+static IDirect3DPixelShader9 *rgradient_ps;
 
 static LPDIRECT3DTEXTURE9 rendertex;
 static LPDIRECT3DSURFACE9 rendertex_surf, back_buffer, depthstencil;
@@ -756,18 +774,17 @@ quad_t pointtoquad(const tuple_t &t) {
 	return q;
 }
 
-ngon_t pointtongon(const tuple_t &t) {
+ngon_t pointtongon(const tuple_t &t, float size) {
 	ngon_t n;
 
 	n.v[0] = t.pos;
 	static const float STEP = (2 * M_PI) / NGONS;
-	static const float size = 0.06;
 
 	for (int i = 1; i < NGONS + 1; ++i) {
 		float T = (i - 1) * STEP;
-		float c = cos(T);
-		float s = sin(T);
-		n.v[i] = vec2(t.pos.x + size*c, t.pos.y + size*s);
+		float C = cos(T);
+		float S = sin(T);
+		n.v[i] = vec2(t.pos.x + size*C, t.pos.y + size*S);
 	}
 
 	return n;
@@ -775,15 +792,23 @@ ngon_t pointtongon(const tuple_t &t) {
 
 static int num_flames_to_render = 0;
 
+static vec2_t PLAYER_POSITION;
+static vec2_t BOSS_POSITION;
+
 static int update_lolbuffers();
 
 static void render_flames(IDirect3DDevice9* d) {
 	
+	d->SetSamplerState(
+		0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+	d->SetSamplerState(
+		0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+
 	d->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
 	d->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
 	d->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
 	d->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCCOLOR);
-	d->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_DESTCOLOR);
+	d->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_ONE);
 
 	d->SetRenderState(D3DRS_LIGHTING, FALSE);
 	d->SetRenderState(D3DRS_ZENABLE, FALSE);
@@ -791,23 +816,36 @@ static void render_flames(IDirect3DDevice9* d) {
 	d->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 
 	d->SetVertexDeclaration(vd);
-	d->SetVertexShader(vs);
-	d->SetPixelShader(ps);
+
 
 	if (!update_lolbuffers()) return;
 	static const float playercolor[] = { 0, 1, 0, 1.0 };
+	static const float bosscolor[] = { 0.5, 0.5, 1.0, 1.0 };
 	static const float flamecolor[] = { 1, 0, 0, 1.0 };
-
+	
 	d->SetStreamSource(0, lol_vbuffer, 0, 2 * sizeof(float));
 	d->SetIndices(lol_ibuffer);
 
-	d->SetPixelShaderConstantF(0, playercolor, 1);
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS+1, 0, NGONS);
-
+	d->SetVertexShader(vs);
+	d->SetPixelShader(ps);
 	d->SetPixelShaderConstantF(0, flamecolor, 1);
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_flames_to_render * (NGONS+1), NGONS*3, NGONS * num_flames_to_render);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_flames_to_render * (NGONS + 1), 2 * NGONS * 3, NGONS * num_flames_to_render);
+
+	d->SetVertexShader(gradient_vs);
+
+	float pp[4] = { PLAYER_POSITION.x, PLAYER_POSITION.y, 0, 1.0 };
+	float bossp[4] = { BOSS_POSITION.x, BOSS_POSITION.y, 0, 1.0 };
+	
+	d->SetPixelShader(rgradient_ps);
+	d->SetPixelShaderConstantF(0, pp, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 0, NGONS);
+	
+	d->SetPixelShader(gradient_ps);
+	d->SetPixelShaderConstantF(0, bossp, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 1*NGONS*3, NGONS);
 
 }
+
 
 static int update_lolbuffers() {
 	ObjectManager OM;
@@ -815,6 +853,12 @@ static int update_lolbuffers() {
 	
 	WowObject i;
 	if (!OM.get_first_object(&i)) return 0;
+
+	auto boss = OM.get_NPCs_by_name("Lord Marrowgar");
+	if (boss.size() < 1) {
+		num_flames_to_render = 0;
+		return 0;
+	}
 
 	std::vector<tuple_t> flames;
 
@@ -847,19 +891,28 @@ static int update_lolbuffers() {
 	WowObject p;
 	OM.get_local_object(&p);
 	vec3 ppos = p.get_pos();
-
 	vec2_t Ppos = wow2screen(ppos.x, ppos.y);
-	ngon_t pn = pointtongon({ Ppos, 0 });
+	PLAYER_POSITION = Ppos;
+
+	ngon_t pn = pointtongon({ Ppos, 0 }, 3.0);
 	mem[0] = pn;
 
-	int n = 1;
+	WowObject B = OM.get_closest_NPC_by_name(boss, ppos);
+
+	vec3 bpos = B.get_pos();
+	vec2_t Bpos = wow2screen(bpos.x, bpos.y);
+	BOSS_POSITION = Bpos;
+
+	mem[1] = pointtongon({ Bpos, 0 }, 3.0);
+
+	int n = 2;
 	for (auto &f : flames) {
-		ngon_t g = pointtongon(f);
+		ngon_t g = pointtongon(f, 0.06);
 		mem[n] = g;
 		++n;
 	}
 	lol_vbuffer->Unlock();
-	num_flames_to_render = n;
+	num_flames_to_render = n - 2;
 
 	return 1;
 
@@ -894,10 +947,6 @@ static int create_lolbuffers(IDirect3DDevice9 *d) {
 		}
 		li[i + 3 * (NGONS - 1) + 2] = N + 1;
 		N += NGONS+1;
-	}
-
-	for (int i = 0; i < num_lolindices; i += 3) {
-		PRINT("%u %u %u\n", li[i], li[i + 1], li[i + 2]);
 	}
 
 	lol_ibuffer->Lock(0, 0, &mem, 0);
@@ -1021,7 +1070,10 @@ void draw_lolstuffXD() {
 
 	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
 	if (!d) return;
-
+	
+	/*IDirect3DStateBlock9* pStateBlock = NULL;
+	d->CreateStateBlock(D3DSBT_ALL, &pStateBlock);
+*/
 	//d->SetRenderTarget(0, rendertex_surf);
 	//d->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(1, 1, 1), 1.0f, 0);
 	//d->Clear(0, NULL, D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
@@ -1053,7 +1105,7 @@ void draw_lolstuffXD() {
 	d->DrawPrimitive(D3DPT_TRIANGLEFAN, 0, 2);
 
 	reset_renderstate();
-
+	//pStateBlock->Apply();
 }
 
 
@@ -1090,19 +1142,26 @@ int init_custom_d3d() {
 	if (!d) return 0;
 
 	HRESULT hr;
-	hr = d->CreateVertexShader((DWORD*)VSbuf, &vs);
+
+	BYTE *shaderbuf = read_shader_object("shaders\\vs.o");
+	assert(shaderbuf);
+
+	hr = d->CreateVertexShader((DWORD*)shaderbuf, &vs);
 	if (FAILED(hr)) {
 		PRINT("CreateVertexShader failed: %X\n", hr);
 		return 0;
 	}
 	
+	delete[] shaderbuf;
 
-	hr = d->CreatePixelShader((DWORD*)PSbuf, &ps);
+	shaderbuf = read_shader_object("shaders\\ps.o");
+	hr = d->CreatePixelShader((DWORD*)shaderbuf, &ps);
 	if (FAILED(hr)) {
 		PRINT("CreatePixelShader failed: %X\n", hr);
 		return 0;
 	}
-
+	
+	delete[] shaderbuf;
 
 	hr = d->CreateVertexDeclaration(vdecl, &vd);
 	if (FAILED(hr)) {
@@ -1111,8 +1170,27 @@ int init_custom_d3d() {
 	}
 
 	hr = d->CreateVertexDeclaration(quad_vdecl, &quad_vd);
-	hr = d->CreateVertexShader((DWORD*)g_vs30_main, &quad_vs);
-	hr = d->CreatePixelShader((DWORD*)g_ps30_main, &quad_ps);
+
+	shaderbuf = read_shader_object("shaders\\quad_vs.o");
+	hr = d->CreateVertexShader((DWORD*)shaderbuf, &quad_vs);
+	delete[] shaderbuf;
+
+	shaderbuf = read_shader_object("shaders\\quad_ps.o");
+	hr = d->CreatePixelShader((DWORD*)shaderbuf, &quad_ps);
+	delete[] shaderbuf;
+
+	shaderbuf = read_shader_object("shaders\\gradient_vs.o");
+	hr = d->CreateVertexShader((DWORD*)shaderbuf, &gradient_vs);
+	delete[] shaderbuf;
+
+	shaderbuf = read_shader_object("shaders\\gradient_ps.o");
+	hr = d->CreatePixelShader((DWORD*)shaderbuf, &gradient_ps);
+	delete[] shaderbuf;
+	
+	shaderbuf = read_shader_object("shaders\\rgradient_ps.o");
+	hr = d->CreatePixelShader((DWORD*)shaderbuf, &rgradient_ps);
+	delete[] shaderbuf;
+
 
 	// having these two (Create[Vertex|Index]Buffer) calls here in the init function cause a hang when resizing the window
 
@@ -1126,7 +1204,7 @@ int init_custom_d3d() {
 	hr = d->GetDepthStencilSurface(&depthstencil);
 	assert(SUCCEEDED(hr));
 
-	hr = d->CreateTexture(512, 512, 0, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &rendertex, NULL);
+	hr = d->CreateTexture(64, 64, 0, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &rendertex, NULL);
 	assert(SUCCEEDED(hr));
 
 	hr = rendertex->GetSurfaceLevel(0, &rendertex_surf);

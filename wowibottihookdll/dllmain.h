@@ -57,3 +57,8 @@ PPIPE_t *create_pipe();
 void destroy_pipe(PPIPE_t *p);
 
 extern PPIPE_t *PIPE;
+
+extern HINSTANCE inj_hModule;
+
+extern std::string DLL_path;
+extern std::string DLL_base_path;

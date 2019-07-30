@@ -30,6 +30,9 @@ HINSTANCE inj_hModule;          // HANDLE for injected module
 HANDLE glhProcess;
 HWND wow_hWnd;
 
+std::string DLL_path;
+std::string DLL_base_path;
+
 #include <process.h>
 
 int afkjump_keyup_queued = 0;
@@ -181,10 +184,25 @@ int handle_patching() {
 void __cdecl DO_STUFF(void *args) {
 	glhProcess = GetCurrentProcess();
 
+	char path[512];
+	GetModuleFileName(inj_hModule, path, 512);
+
+	DLL_path = std::string(path);
+	auto c = DLL_path.find("\\Debug");
+	if (c == std::string::npos) {
+		c = DLL_path.find("\\Release");
+	}
+
+	assert(c != std::string::npos);
+
+	DLL_base_path = DLL_path.substr(0, c) + "\\";
+
 #ifdef DEBUG_CONSOLE
 	AllocConsole();
 	freopen_s(&out, "CONOUT$", "wb", stdout);
 #endif
+
+	PRINT("DLL_path: %s\nbase_path: %s\n", DLL_path.c_str(), DLL_base_path.c_str());
 
 	handle_patching();
 	//dscript_read_all();
