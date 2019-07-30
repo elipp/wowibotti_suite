@@ -721,9 +721,10 @@ vec2_t wow2screen(float x, float y) {
 	return n;
 }
 
-#define MAX_NUM_QUADS 64
-#define SIZEOF_LOLVBUFFER (MAX_NUM_QUADS * 4 * 2) // 4 vertices per quad, 2 components per vertex
-#define SIZEOF_LOLIBUFFER (MAX_NUM_QUADS * 3 * 2) // 3 indices per triangle, 2 triangles per quad
+#define NGONS 12
+#define MAX_NUM_ITEMS 128
+#define SIZEOF_LOLVBUFFER (MAX_NUM_ITEMS * (NGONS + 1) * 2)
+#define SIZEOF_LOLIBUFFER (MAX_NUM_ITEMS * (NGONS + 1) * 3)
 
 typedef struct tuple_t {
 	vec2_t pos;
@@ -733,6 +734,10 @@ typedef struct tuple_t {
 typedef struct quad_t {
 	vec2_t v[4];
 } quad_t;
+
+typedef struct ngon_t {
+	vec2_t v[NGONS + 1];
+} ngon_t;
 
 quad_t pointtoquad(const tuple_t &t) {
 	// ignore rot for now :D
@@ -749,7 +754,23 @@ quad_t pointtoquad(const tuple_t &t) {
 	q.v[3] = vec2(t.pos.x - hsx, t.pos.y + hsy);
 
 	return q;
+}
 
+ngon_t pointtongon(const tuple_t &t) {
+	ngon_t n;
+
+	n.v[0] = t.pos;
+	static const float STEP = (2 * M_PI) / NGONS;
+	static const float size = 0.06;
+
+	for (int i = 1; i < NGONS + 1; ++i) {
+		float T = (i - 1) * STEP;
+		float c = cos(T);
+		float s = sin(T);
+		n.v[i] = vec2(t.pos.x + size*c, t.pos.y + size*s);
+	}
+
+	return n;
 }
 
 static int num_flames_to_render = 0;
@@ -781,10 +802,10 @@ static void render_flames(IDirect3DDevice9* d) {
 	d->SetIndices(lol_ibuffer);
 
 	d->SetPixelShaderConstantF(0, playercolor, 1);
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 4, 0, 2);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS+1, 0, NGONS);
 
 	d->SetPixelShaderConstantF(0, flamecolor, 1);
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_flames_to_render * 4, 6, 2 * num_flames_to_render);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_flames_to_render * (NGONS+1), NGONS*3, NGONS * num_flames_to_render);
 
 }
 
@@ -820,21 +841,21 @@ static int update_lolbuffers() {
 		return 1; 
 	}
 
-	quad_t *mem;
+	ngon_t *mem;
 	lol_vbuffer->Lock(0, 0, (void**)&mem, 0);
 
 	WowObject p;
 	OM.get_local_object(&p);
 	vec3 ppos = p.get_pos();
-	
+
 	vec2_t Ppos = wow2screen(ppos.x, ppos.y);
-	quad_t pq = pointtoquad({ Ppos, 0 });
-	mem[0] = pq;
+	ngon_t pn = pointtongon({ Ppos, 0 });
+	mem[0] = pn;
 
 	int n = 1;
 	for (auto &f : flames) {
-		quad_t q = pointtoquad(f);
-		mem[n] = q;
+		ngon_t g = pointtongon(f);
+		mem[n] = g;
 		++n;
 	}
 	lol_vbuffer->Unlock();
@@ -863,21 +884,24 @@ static int create_lolbuffers(IDirect3DDevice9 *d) {
 	lol_vbuffer->Unlock();
 
 	static const int num_lolindices = SIZEOF_LOLIBUFFER;
-	static UINT16 lol_indices[num_lolindices];
+	static UINT16 li[num_lolindices];
 	int N = 0;
-	for (int i = 0; i < num_lolindices; i += 6) {
-		lol_indices[i] = N;
-		lol_indices[i + 1] = N + 1;
-		lol_indices[i + 2] = N + 2;
+	for (int i = 0; i < num_lolindices; i += NGONS*3) {
+		for (int j = 0; j < NGONS; ++j) {
+			li[i + 3 * j] = N;
+			li[i + 3 * j + 1] = N + 1 + j;
+			li[i + 3 * j + 2] = N + 2 + j;
+		}
+		li[i + 3 * (NGONS - 1) + 2] = N + 1;
+		N += NGONS+1;
+	}
 
-		lol_indices[i + 3] = N + 2;
-		lol_indices[i + 4] = N;
-		lol_indices[i + 5] = N + 3;
-		N += 4;
+	for (int i = 0; i < num_lolindices; i += 3) {
+		PRINT("%u %u %u\n", li[i], li[i + 1], li[i + 2]);
 	}
 
 	lol_ibuffer->Lock(0, 0, &mem, 0);
-	memcpy(mem, lol_indices, sizeof(lol_indices));
+	memcpy(mem, li, sizeof(li));
 	lol_ibuffer->Unlock();
 
 
@@ -1006,7 +1030,7 @@ void draw_lolstuffXD() {
 	//d->SetDepthStencilSurface(depthstencil);
 	
 	d->SetRenderTarget(0, rendertex_surf);
-	d->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(200, 0, 0, 0), 1.0f, 0);
+	d->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(255, 0, 0, 0), 1.0f, 0);
 	render_flames(d);
 
 	//d->SetRenderTarget(0, back_buffer);
@@ -1023,7 +1047,10 @@ void draw_lolstuffXD() {
 	
 	d->SetTexture(0, rendertex);
 	
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 4, 0, 2); 
+	d->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+	//	d->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+	//d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 4, 0, 2); 
+	d->DrawPrimitive(D3DPT_TRIANGLEFAN, 0, 2);
 
 	reset_renderstate();
 
@@ -1099,7 +1126,7 @@ int init_custom_d3d() {
 	hr = d->GetDepthStencilSurface(&depthstencil);
 	assert(SUCCEEDED(hr));
 
-	hr = d->CreateTexture(128, 128, 0, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &rendertex, NULL);
+	hr = d->CreateTexture(512, 512, 0, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &rendertex, NULL);
 	assert(SUCCEEDED(hr));
 
 	hr = rendertex->GetSurfaceLevel(0, &rendertex_surf);
