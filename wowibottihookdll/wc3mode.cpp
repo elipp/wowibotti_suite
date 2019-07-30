@@ -651,6 +651,8 @@ void wc3_draw_pylpyrs() {
 // for the vertex shader: FXC /Fh /T vs_3_0 vs.hlsl
 // pixel shader: FXC /Fh /T ps_3_0 vs.hlsl
 
+#define MAP_SIZE 64
+
 static IDirect3DVertexBuffer9 *vbuffer;
 static IDirect3DIndexBuffer9 *ibuffer;
 static IDirect3DVertexShader9 *vs;
@@ -666,7 +668,7 @@ static IDirect3DPixelShader9 *gradient_ps;
 static IDirect3DPixelShader9 *rgradient_ps;
 
 static LPDIRECT3DTEXTURE9 rendertex;
-static LPDIRECT3DSURFACE9 rendertex_surf, back_buffer, depthstencil;
+static LPDIRECT3DSURFACE9 rendertex_surf, back_buffer, depthstencil, throwaway_surf;
 static D3DVIEWPORT9 viewport_original;
 
 
@@ -791,9 +793,13 @@ ngon_t pointtongon(const tuple_t &t, float size) {
 }
 
 static int num_flames_to_render = 0;
+static int num_units_to_render = 0;
 
 static vec2_t PLAYER_POSITION;
 static vec2_t BOSS_POSITION;
+static std::vector<vec2_t> UNIT_POSITIONS;
+
+static vec2_t BEST_PIXEL;
 
 static int update_lolbuffers();
 
@@ -817,32 +823,48 @@ static void render_flames(IDirect3DDevice9* d) {
 
 	d->SetVertexDeclaration(vd);
 
-
 	if (!update_lolbuffers()) return;
 	static const float playercolor[] = { 0, 1, 0, 1.0 };
 	static const float bosscolor[] = { 0.5, 0.5, 1.0, 1.0 };
+	static const float best[] = { 0, 1, 0, 1 };
+	static const float player[] = { 0, 0, 1, 1 };
 	static const float flamecolor[] = { 1, 0, 0, 1.0 };
 	
 	d->SetStreamSource(0, lol_vbuffer, 0, 2 * sizeof(float));
 	d->SetIndices(lol_ibuffer);
 
+	float pp[4] = { PLAYER_POSITION.x, PLAYER_POSITION.y, 0, 1.0 };
+
 	d->SetVertexShader(vs);
 	d->SetPixelShader(ps);
 	d->SetPixelShaderConstantF(0, flamecolor, 1);
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_flames_to_render * (NGONS + 1), 2 * NGONS * 3, NGONS * num_flames_to_render);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_flames_to_render * (NGONS + 1), 4 * NGONS * 3, NGONS * num_flames_to_render);
+
+	d->SetPixelShaderConstantF(0, best, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 1 * (NGONS + 1), 3 * NGONS * 3, NGONS * 1);
+
+	d->SetPixelShaderConstantF(0, player, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 1 * NGONS * 3, NGONS);
 
 	d->SetVertexShader(gradient_vs);
 
-	float pp[4] = { PLAYER_POSITION.x, PLAYER_POSITION.y, 0, 1.0 };
-	float bossp[4] = { BOSS_POSITION.x, BOSS_POSITION.y, 0, 1.0 };
+	float bossp[4] = { BOSS_POSITION.x, BOSS_POSITION.y, 1.5, 1.0 }; // Z COMPONENT HAS RADIUS
 	
 	d->SetPixelShader(rgradient_ps);
 	d->SetPixelShaderConstantF(0, pp, 1);
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 0, NGONS);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 0*NGONS*3, NGONS);
 	
 	d->SetPixelShader(gradient_ps);
 	d->SetPixelShaderConstantF(0, bossp, 1);
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 1*NGONS*3, NGONS);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 2*NGONS*3, NGONS);
+
+	for (int i = 0; i < num_units_to_render; ++i) {
+		float upos[4] = { UNIT_POSITIONS[i].x, UNIT_POSITIONS[i].y, 0.25, 1 }; // Z COMPONENT HAS RADIUS VALUE
+		d->SetPixelShaderConstantF(0, upos, 1);
+		//PRINT("rendering unit %d at %f, %f\n", i, upos[0], upos[1]);
+
+		d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_units_to_render * (NGONS + 1), (i + 4 + num_flames_to_render) * NGONS * 3, NGONS);
+	}
 
 }
 
@@ -896,23 +918,45 @@ static int update_lolbuffers() {
 
 	ngon_t pn = pointtongon({ Ppos, 0 }, 3.0);
 	mem[0] = pn;
+	
+	pn = pointtongon({ Ppos, 0 }, 0.03);
+	mem[1] = pn;
 
-	WowObject B = OM.get_closest_NPC_by_name(boss, ppos);
+	WowObject B = OM.get_closest_NPC_by_name(boss, ppos); // yes this is pretty bad
 
 	vec3 bpos = B.get_pos();
 	vec2_t Bpos = wow2screen(bpos.x, bpos.y);
 	BOSS_POSITION = Bpos;
 
-	mem[1] = pointtongon({ Bpos, 0 }, 3.0);
+	mem[2] = pointtongon({ Bpos, 0 }, 3.0);
 
-	int n = 2;
+	mem[3] = pointtongon({ BEST_PIXEL, 0 }, 0.03);
+
+	int n = 4;
 	for (auto &f : flames) {
-		ngon_t g = pointtongon(f, 0.06);
+		ngon_t g = pointtongon(f, 0.06); // the value 0.06 turns out to be pretty accurate!
 		mem[n] = g;
 		++n;
 	}
+
+	num_flames_to_render = n - 4;
+
+	UNIT_POSITIONS = std::vector<vec2_t>();
+
+	auto &units = OM.get_all_units();
+	for (auto &u : units) {
+		if (u.get_GUID() == OM.get_local_GUID()) { continue;  }
+		vec3 upos = u.get_pos();
+		vec2_t Upos = wow2screen(upos.x, upos.y);
+		UNIT_POSITIONS.push_back(Upos);
+		ngon_t g = pointtongon({ Upos, 0 }, 0.25);
+		mem[n] = g;
+		++n;
+	}
+
+	num_units_to_render = n - num_flames_to_render - 4;
+
 	lol_vbuffer->Unlock();
-	num_flames_to_render = n - 2;
 
 	return 1;
 
@@ -1038,15 +1082,19 @@ static void free_d3d9buffers() {
 
 	rendertex_surf->Release();
 	rendertex->Release();
+	throwaway_surf->Release();
 
 	vs->Release();
 	ps->Release();
+	vd->Release();
 
 	quad_vs->Release();
 	quad_ps->Release();
-
-	vd->Release();
 	quad_vd->Release();
+
+	gradient_vs->Release();
+	gradient_ps->Release();
+	rgradient_ps->Release();
 
 	buffers_initialized = 0;
 }
@@ -1062,6 +1110,43 @@ void reset_renderstate() {
 	d->SetRenderState(D3DRS_ZENABLE, TRUE);
 	d->SetRenderTarget(0, back_buffer);
 	d->SetDepthStencilSurface(depthstencil); // for  some reason, this is required
+
+	// TODO: put something like this here
+	//d->SetSamplerState(
+	//	0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+	//d->SetSamplerState(
+	//	0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+}
+
+vec2_t tex2screen(int x, int y) {
+	// assume square texture
+	float fx = (float(x)) / (float)MAP_SIZE;
+	float fy = (float(y)) / (float)MAP_SIZE;
+
+	return vec2(2 * fx - 1, -2 * fy + 1);
+}
+
+void find_lowest_pixel(D3DLOCKED_RECT *r) {
+
+	BYTE *b = (BYTE*)r->pBits;
+	BYTE smallest = 255;
+	int smallestindex = 0;
+	for (int i = 0; i < MAP_SIZE*MAP_SIZE; ++i) { // assuming 32 bit buffer
+		BYTE value = b[4 * i + 2]; // the format is ARGB (in reverse) so i + 2
+		if (value < smallest) { 
+			smallest = value;
+			smallestindex = i;
+		}
+
+	}
+
+	int sx = smallestindex % (r->Pitch/4);
+	int sy = smallestindex / (r->Pitch/4);
+
+	//PRINT("PITCH: %d, found smallest value %u at %i -> (%i, %i)\n", r->Pitch, smallest, smallestindex, sx, sy);
+
+	BEST_PIXEL = tex2screen(sx, sy);
+
 }
 
 void draw_lolstuffXD() {
@@ -1071,22 +1156,25 @@ void draw_lolstuffXD() {
 	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
 	if (!d) return;
 	
-	/*IDirect3DStateBlock9* pStateBlock = NULL;
-	d->CreateStateBlock(D3DSBT_ALL, &pStateBlock);
-*/
-	//d->SetRenderTarget(0, rendertex_surf);
-	//d->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(1, 1, 1), 1.0f, 0);
-	//d->Clear(0, NULL, D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
+	// A THING LIKE THIS WOULD MOST LIKELY BE A VERY CAPITAL IDEA :D
+	// IDirect3DStateBlock9* pStateBlock = NULL;
+	// d->CreateStateBlock(D3DSBT_ALL, &pStateBlock);
+	// pStateBlock->Apply();
 
-	//d->SetRenderTarget(0, back_buffer);
-	//d->SetDepthStencilSurface(depthstencil);
 	
 	d->SetRenderTarget(0, rendertex_surf);
 	d->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(255, 0, 0, 0), 1.0f, 0);
 	render_flames(d);
 
-	//d->SetRenderTarget(0, back_buffer);
-	//render_flames(d);
+	D3DLOCKED_RECT R;
+
+	HRESULT hr = d->GetRenderTargetData(rendertex_surf, throwaway_surf);
+	assert(SUCCEEDED(hr));
+
+	assert(SUCCEEDED(throwaway_surf->LockRect(&R, 0, 0)));
+	find_lowest_pixel(&R);
+
+	throwaway_surf->UnlockRect();
 
 	d->SetRenderTarget(0, back_buffer);
 	d->SetDepthStencilSurface(depthstencil);
@@ -1105,7 +1193,6 @@ void draw_lolstuffXD() {
 	d->DrawPrimitive(D3DPT_TRIANGLEFAN, 0, 2);
 
 	reset_renderstate();
-	//pStateBlock->Apply();
 }
 
 
@@ -1204,12 +1291,16 @@ int init_custom_d3d() {
 	hr = d->GetDepthStencilSurface(&depthstencil);
 	assert(SUCCEEDED(hr));
 
-	hr = d->CreateTexture(64, 64, 0, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &rendertex, NULL);
+	hr = d->CreateTexture(MAP_SIZE, MAP_SIZE, 0, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &rendertex, NULL);
 	assert(SUCCEEDED(hr));
 
 	hr = rendertex->GetSurfaceLevel(0, &rendertex_surf);
 	assert(SUCCEEDED(hr));
 
+	D3DSURFACE_DESC desc;
+	rendertex_surf->GetDesc(&desc);
+	hr = d->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &throwaway_surf, NULL);
+	assert(SUCCEEDED(hr));
 
 	customd3d_initialized = 1;
 

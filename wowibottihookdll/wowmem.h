@@ -188,7 +188,9 @@ public:
 	GUID_t get_local_GUID() const;
 	int get_local_object(WowObject *o) const;
 	uint get_base_address() const { return base_addr; }
-	std::vector<WowObject> find_all_NPCs_at(const vec3 &pos, float radius);
+	std::vector<WowObject> find_all_NPCs_at(const vec3 &pos, float radius) const;
+
+	std::vector<WowObject> get_all_units() const;
 
 	std::vector<WowObject> get_spell_objects_with_spellID(long spellID);
 	std::vector<WowObject> get_NPCs_by_name(const std::string &name);

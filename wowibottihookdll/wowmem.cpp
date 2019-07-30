@@ -687,7 +687,7 @@ std::vector<WowObject> ObjectManager::get_spell_objects_with_spellID(long spellI
 	return matches;
 }
 
-std::vector<WowObject> ObjectManager::find_all_NPCs_at(const vec3 &pos, float radius) {
+std::vector<WowObject> ObjectManager::find_all_NPCs_at(const vec3 &pos, float radius) const {
 	std::vector<WowObject> NPCs;
 
 	WowObject o;
@@ -704,6 +704,22 @@ std::vector<WowObject> ObjectManager::find_all_NPCs_at(const vec3 &pos, float ra
 
 	return NPCs;
 }
+
+std::vector<WowObject> ObjectManager::get_all_units() const {
+	
+	std::vector<WowObject> units;
+	WowObject i;
+	if (!get_first_object(&i)) return units;
+
+	while (i.valid()) {
+		if (i.get_type() == OBJECT_TYPE_UNIT) {
+			units.push_back(i);
+		}
+		i = i.next();
+	}
+	return units;
+}
+
 
 DWORD get_wow_d3ddevice() {
 #define STATIC_335_DIRECT3DDEVICE 0xC5DF88 
