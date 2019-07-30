@@ -59,7 +59,7 @@ local function set_button_states()
 
 end
 
-lole_frame:SetHeight(240)
+lole_frame:SetHeight(250)
 lole_frame:SetWidth(290)
 lole_frame:SetPoint("RIGHT", -25, 0)
 
