@@ -798,6 +798,7 @@ static int num_units_to_render = 0;
 static vec2_t PLAYER_POSITION;
 static vec2_t BOSS_POSITION;
 static std::vector<vec2_t> UNIT_POSITIONS;
+static std::vector<vec2_t> FLAME_POSITIONS;
 
 static vec2_t BEST_PIXEL;
 
@@ -833,12 +834,11 @@ static void render_flames(IDirect3DDevice9* d) {
 	d->SetStreamSource(0, lol_vbuffer, 0, 2 * sizeof(float));
 	d->SetIndices(lol_ibuffer);
 
-	float pp[4] = { PLAYER_POSITION.x, PLAYER_POSITION.y, 0, 1.0 };
+	float pp[4] = { PLAYER_POSITION.x, PLAYER_POSITION.y, 0.6, 1.0 }; // Z HAS RADIUS
 
 	d->SetVertexShader(vs);
 	d->SetPixelShader(ps);
-	d->SetPixelShaderConstantF(0, flamecolor, 1);
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_flames_to_render * (NGONS + 1), 4 * NGONS * 3, NGONS * num_flames_to_render);
+
 
 	d->SetPixelShaderConstantF(0, best, 1);
 	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 1 * (NGONS + 1), 3 * NGONS * 3, NGONS * 1);
@@ -846,9 +846,12 @@ static void render_flames(IDirect3DDevice9* d) {
 	d->SetPixelShaderConstantF(0, player, 1);
 	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 1 * NGONS * 3, NGONS);
 
+	float bossp[4] = { BOSS_POSITION.x, BOSS_POSITION.y, 1.5, 1.0 }; // Z COMPONENT HAS RADIUS
+
 	d->SetVertexShader(gradient_vs);
 
-	float bossp[4] = { BOSS_POSITION.x, BOSS_POSITION.y, 1.5, 1.0 }; // Z COMPONENT HAS RADIUS
+	//d->SetPixelShaderConstantF(0, flamecolor, 1);
+	//d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_flames_to_render * (NGONS + 1), 4 * NGONS * 3, NGONS * num_flames_to_render);
 	
 	d->SetPixelShader(rgradient_ps);
 	d->SetPixelShaderConstantF(0, pp, 1);
@@ -858,12 +861,20 @@ static void render_flames(IDirect3DDevice9* d) {
 	d->SetPixelShaderConstantF(0, bossp, 1);
 	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 2*NGONS*3, NGONS);
 
+	for (int i = 0; i < FLAME_POSITIONS.size(); ++i) {
+		vec2_t &v = FLAME_POSITIONS[i];
+		float fpos[4] = { v.x, v.y, 0.33, 1.0 };
+		d->SetPixelShaderConstantF(0, fpos, 1);
+		d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, (i + 4) * NGONS * 3, NGONS);
+	}
+
+
 	for (int i = 0; i < num_units_to_render; ++i) {
 		float upos[4] = { UNIT_POSITIONS[i].x, UNIT_POSITIONS[i].y, 0.25, 1 }; // Z COMPONENT HAS RADIUS VALUE
 		d->SetPixelShaderConstantF(0, upos, 1);
 		//PRINT("rendering unit %d at %f, %f\n", i, upos[0], upos[1]);
 
-		d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_units_to_render * (NGONS + 1), (i + 4 + num_flames_to_render) * NGONS * 3, NGONS);
+		d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, (NGONS + 1), (i + 4 + num_flames_to_render) * NGONS * 3, NGONS);
 	}
 
 }
@@ -932,10 +943,13 @@ static int update_lolbuffers() {
 
 	mem[3] = pointtongon({ BEST_PIXEL, 0 }, 0.03);
 
+	FLAME_POSITIONS = std::vector<vec2_t>();
+
 	int n = 4;
 	for (auto &f : flames) {
-		ngon_t g = pointtongon(f, 0.06); // the value 0.06 turns out to be pretty accurate!
+		ngon_t g = pointtongon(f, 0.15); // the value 0.06 turns out to be pretty accurate!
 		mem[n] = g;
+		FLAME_POSITIONS.push_back(g.v[0]);
 		++n;
 	}
 
