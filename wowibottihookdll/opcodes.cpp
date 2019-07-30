@@ -60,7 +60,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_CTM, 4, 4, 0),
 	 LOPFUNC(LOP_DUNGEON_SCRIPT, 1, 2, 0),
 	 LOPFUNC(LOP_TARGET_MARKER, 1, 1, 0),
-	 LOPFUNC(LOP_MELEE_BEHIND, 0, 0, 0),
+	 LOPFUNC(LOP_MELEE_BEHIND, 1, 1, 0),
 	 LOPFUNC(LOP_AVOID_SPELL_OBJECT, 1, 2, 0),
 	 LOPFUNC(LOP_HUG_SPELL_OBJECT, 1, 1, 0),
 	 LOPFUNC(LOP_SPREAD, 0, 0, 0),
@@ -178,7 +178,7 @@ static void face_posthook(void *a) {
 	LOP_execute("RunMacroText(\"/startattack\")");
 }
 
-static int LOP_melee_behind() {
+static int LOP_melee_behind(float minrange) {
 	
 	ObjectManager OM;
 
@@ -226,7 +226,7 @@ static int LOP_melee_behind() {
 	vec3 prot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
 
 	//vec3 point_behind(tc.x - std::cos(target_rot), tc.y - std::sin(target_rot), tc.z);
-	vec3 point_behind_actual = tpos + 3 * trot_unit.rotated_2d(0.8*M_PI); // this should put us into a nice "dragon slaying position" :D
+	vec3 point_behind_actual = tpos + (minrange > 2 ? minrange - 2 : minrange) * trot_unit.rotated_2d(0.85*M_PI); // this should put us into a nice "dragon slaying position" :D
 	vec3 point_behind_ctm = point_behind_actual + 0.5*prot_unit;
 	vec3 diff = point_behind_ctm - ppos;
 	diff.z = 0;
@@ -235,7 +235,7 @@ static int LOP_melee_behind() {
 	float newa = atan2(face.y, face.x);
 
 	float dl = diff.length();
-	if (dl > 1.5) {
+	if (dl > minrange) {
 		CTM_t act = CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_REPLACE, 0, 0.5);
 
 		act.add_posthook(CTM_posthook_t(face_posthook, &newa, sizeof(newa), 50));
@@ -1502,7 +1502,7 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LOP_MELEE_BEHIND:
-		LOP_melee_behind();
+		LOP_melee_behind(lua_tonumber(L, 2));
 		break;
 
 	case LOP_AVOID_SPELL_OBJECT: {

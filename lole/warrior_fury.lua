@@ -2,7 +2,7 @@ function combat_warrior_fury()
 
   if not validate_target() then return end
 
-  melee_attack_behind()
+  melee_attack_behind(8) -- 8 FOR THE RUBY SANCTUM GUY, 1.5 for magic
   L_StartAttack()
 
   L_RunMacroText("/cast [nostance:3] Berserker Stance");
@@ -15,7 +15,7 @@ function combat_warrior_fury()
     L_CastSpellByName("Intercept")
   end
 
-  if UnitCastingInfo("target") or UnitChannelInfo("target") then
+  if unit_castorchannel("target") then
     L_CastSpellByName("Pummel")
   end
 

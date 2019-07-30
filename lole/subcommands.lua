@@ -993,6 +993,41 @@ local function SPREAD_MADOT()
 	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_CLEAR_HOLD)
 end
 
+local function SPREAD_SAVIANA(dist)
+	local opos = vec3:create(get_unit_position("player")) -- these are the real coords
+--	local opos = vec3:create(3220, 607, 79)
+	local incr_y = vec3:create(0, dist, 0)
+	local incr_x = vec3:create(dist, 0, 0)
+
+	local V = opos:add(incr_y)
+	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = opos:add(incr_y:scale2d(2))
+	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	opos = opos:add(incr_x)
+	V = opos
+	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = opos:add(incr_y)
+	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = opos:add(incr_y:scale2d(2))
+	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	opos = opos:add(incr_x)
+	V = opos
+	lole_sendmacro_to("Teilor", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = opos:add(incr_y)
+	lole_sendmacro_to("Iijj", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = opos:add(incr_y:scale2d(2))
+	lole_sendmacro_to("Spobodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+
+end
+
 local function SPREAD_TORAVON()
 
 	local opos = vec3:create(get_unit_position("focus"))
@@ -1020,9 +1055,10 @@ local function SPREAD_TORAVON()
 	lole_sendmacro_to("Teilor", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
 end
 
-local function lole_spread_those_cheeks()
+local function lole_spread_those_cheeks(dist)
 	-- REMEMBER TO CHANGE THIS ACCORDINGLY :DDDDDDDDD
-	SPREAD_MADOT()
+	if not dist then dist = 15 end
+	SPREAD_SAVIANA(dist)
 end
 
 
