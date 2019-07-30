@@ -34,6 +34,8 @@ void wc3_draw_pylpyrs();
 int init_custom_d3d();
 void draw_custom_d3d();
 
+void cleanup_custom_d3d();
+
 void draw_lolstuffXD();
 
 int get_window_width();

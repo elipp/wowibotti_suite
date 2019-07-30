@@ -704,7 +704,9 @@ static const float ARENA_SIZE = 104;
 static const vec2_t MIDDLE { -390, 2210 };
 
 vec2_t wow2normal(float x, float y) {
-	return vec2(1.0 / (ARENA_SIZE) * (-y + (MIDDLE.y + ARENA_SIZE/2.0)), (1.0 / ARENA_SIZE) * (x - (MIDDLE.x - ARENA_SIZE/2.0)));
+	float nx = 1.0 / (ARENA_SIZE) * (-y + (MIDDLE.y + ARENA_SIZE / 2.0));
+	float ny = 1.0 / (ARENA_SIZE) * (x - (MIDDLE.x - ARENA_SIZE / 2.0));
+	return vec2(nx * 2 - 1, ny * 2 - 1);
 }
 
 vec2_t wow2screen(float x, float y) {
@@ -713,9 +715,10 @@ vec2_t wow2screen(float x, float y) {
 
 	float as = get_aspect_ratio();
 
-	vec2_t R = vec2((n.x * 2 - 1)/as, (n.y * 2 - 1));
-	vec2_t r = vec2(R.x / 5.0 - 0.8, R.y / 5.0);
-	return r;
+	////vec2_t R = vec2((n.x * 2 - 1)/as, (n.y * 2 - 1));
+	//vec2_t R = vec2(n.x * 2 - 1, n.y * 2 - 1);
+	//vec2_t r = vec2(R.x / 5.0 - 0.8, R.y / 5.0);
+	return n;
 }
 
 #define MAX_NUM_QUADS 64
@@ -735,9 +738,10 @@ quad_t pointtoquad(const tuple_t &t) {
 	// ignore rot for now :D
 	quad_t q;
 	float as = get_aspect_ratio();
-	static const float rectsize = 0.01;
+	static const float rectsize = 0.06;
 	static const float hsx = rectsize;
-	static const float hsy = rectsize*as;
+	//static const float hsy = rectsize*as; // use this if rendering on the 16:9 back buffer
+	static const float hsy = hsx;
 
 	q.v[0] = vec2(t.pos.x - hsx, t.pos.y - hsy);
 	q.v[1] = vec2(t.pos.x + hsx, t.pos.y - hsy);
@@ -749,6 +753,40 @@ quad_t pointtoquad(const tuple_t &t) {
 }
 
 static int num_flames_to_render = 0;
+
+static int update_lolbuffers();
+
+static void render_flames(IDirect3DDevice9* d) {
+	
+	d->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
+	d->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+	d->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
+	d->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCCOLOR);
+	d->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_DESTCOLOR);
+
+	d->SetRenderState(D3DRS_LIGHTING, FALSE);
+	d->SetRenderState(D3DRS_ZENABLE, FALSE);
+
+	d->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+
+	d->SetVertexDeclaration(vd);
+	d->SetVertexShader(vs);
+	d->SetPixelShader(ps);
+
+	if (!update_lolbuffers()) return;
+	static const float playercolor[] = { 0, 1, 0, 1.0 };
+	static const float flamecolor[] = { 1, 0, 0, 1.0 };
+
+	d->SetStreamSource(0, lol_vbuffer, 0, 2 * sizeof(float));
+	d->SetIndices(lol_ibuffer);
+
+	d->SetPixelShaderConstantF(0, playercolor, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 4, 0, 2);
+
+	d->SetPixelShaderConstantF(0, flamecolor, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_flames_to_render * 4, 6, 2 * num_flames_to_render);
+
+}
 
 static int update_lolbuffers() {
 	ObjectManager OM;
@@ -846,13 +884,13 @@ static int create_lolbuffers(IDirect3DDevice9 *d) {
 	hr = d->CreateVertexBuffer(4 * sizeof(texquad_vertex), D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &lol_quadbuffer, NULL);
 	
 	const float as = 1440.0 / 900.0;
-	const float size = 0.3;
-	vec2_t mp_llc = vec2(-0.8, -size);
+	const float size = 0.5;
+	vec2_t mp_llc = vec2(-0.92, -0.4);
 
 	texquad_vertex tq[4] = {
-		{mp_llc.x, mp_llc.y, 1, 0},
+		{mp_llc.x, mp_llc.y, 0, 1 },
 		{mp_llc.x + size, mp_llc.y, 1, 1},
-		{mp_llc.x + size, mp_llc.y + size*as, 0, 1},
+		{mp_llc.x + size, mp_llc.y + size*as, 1, 0},
 		{mp_llc.x, mp_llc.y + size*as, 0, 0}
 	};
 	lol_quadbuffer->Lock(0, 0, &mem, 0);
@@ -917,14 +955,38 @@ static void free_d3d9buffers() {
 	ibuffer->Release();
 	ibuffer = NULL;
 
+	lol_vbuffer->Release();
+	lol_vbuffer = NULL;
+	lol_ibuffer->Release();
+	lol_ibuffer = NULL;
+
+	lol_quadbuffer->Release();
+	lol_quadbuffer = NULL;
+
+	rendertex_surf->Release();
+	rendertex->Release();
+
+	vs->Release();
+	ps->Release();
+
+	quad_vs->Release();
+	quad_ps->Release();
+
+	vd->Release();
+	quad_vd->Release();
+
 	buffers_initialized = 0;
+}
+
+void cleanup_custom_d3d() {
+	free_d3d9buffers();
 }
 
 void reset_renderstate() {
 	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
 	if (!d) return;
 
-	//d->SetRenderState(D3DRS_ZENABLE, TRUE);
+	d->SetRenderState(D3DRS_ZENABLE, TRUE);
 	d->SetRenderTarget(0, back_buffer);
 	d->SetDepthStencilSurface(depthstencil); // for  some reason, this is required
 }
@@ -942,34 +1004,15 @@ void draw_lolstuffXD() {
 
 	//d->SetRenderTarget(0, back_buffer);
 	//d->SetDepthStencilSurface(depthstencil);
-
-	d->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-	d->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
-	// TODO: SET BLENDING MODES!
-	d->SetRenderState(D3DRS_LIGHTING, FALSE);
-	//d->SetRenderState(D3DRS_ZENABLE, FALSE);
-	d->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
-
-	d->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-
-	d->SetVertexDeclaration(vd);
-	d->SetVertexShader(vs);
-	d->SetPixelShader(ps);
-
-	if (!update_lolbuffers()) return;
-	static const float playercolor[] = { 1, 1, 0, 1 };
-	static const float flamecolor[] = { 1, 0, 0, 1 };
 	
-	d->SetStreamSource(0, lol_vbuffer, 0, 2 * sizeof(float));
-	d->SetIndices(lol_ibuffer);
-	
-	d->SetPixelShaderConstantF(0, playercolor, 1);
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 4, 0, 2);
+	d->SetRenderTarget(0, rendertex_surf);
+	d->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(200, 0, 0, 0), 1.0f, 0);
+	render_flames(d);
 
-	d->SetPixelShaderConstantF(0, flamecolor, 1);
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_flames_to_render * 4, 6, 2 * num_flames_to_render);
+	//d->SetRenderTarget(0, back_buffer);
+	//render_flames(d);
 
-	/* d->SetRenderTarget(0, back_buffer);
+	d->SetRenderTarget(0, back_buffer);
 	d->SetDepthStencilSurface(depthstencil);
 	
 	d->SetVertexDeclaration(quad_vd);
@@ -980,7 +1023,7 @@ void draw_lolstuffXD() {
 	
 	d->SetTexture(0, rendertex);
 	
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 4, 0, 2); */
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 4, 0, 2); 
 
 	reset_renderstate();
 
@@ -1056,7 +1099,7 @@ int init_custom_d3d() {
 	hr = d->GetDepthStencilSurface(&depthstencil);
 	assert(SUCCEEDED(hr));
 
-	hr = d->CreateTexture(512, 512, 0, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &rendertex, NULL);
+	hr = d->CreateTexture(128, 128, 0, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &rendertex, NULL);
 	assert(SUCCEEDED(hr));
 
 	hr = rendertex->GetSurfaceLevel(0, &rendertex_surf);
