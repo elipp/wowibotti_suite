@@ -1373,6 +1373,21 @@ static void do_boss_action(const std::string &bossname) {
 
 	}
 	
+	else if (bossname == "Marrowgar_toggle") {
+		MARROWGAR_ENABLED = !MARROWGAR_ENABLED;
+	}
+	
+	else if (bossname == "Marrowgar_status") {
+		if (!MARROWGAR_ENABLED) {
+			PRINT("ERROR: Please enable Marrowgar with boss_action Marrowgar_toggle first.\n");
+			return;
+		}
+
+		auto m = get_current_marrowgar_status();
+		PRINT("walking to %f, %f\n", m.best_world_pos.x, m.best_world_pos.y);
+		ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.0));
+	}
+
 	else {
 		PRINT("Unknown boss action %s\n", bossname.c_str());
 	}

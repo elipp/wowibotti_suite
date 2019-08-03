@@ -256,7 +256,7 @@ static void __stdcall Present_hook() {
 
 		cleanup_custom_d3d();
 		
-		// might be grounds for a race condition here
+		// might be race condition territory right here
 		CreateThread(NULL, 0, eject_DLL, NULL, 0, 0);
 	}
 
@@ -353,10 +353,11 @@ static DWORD WINAPI create_warden_socket() {
 }
 
 static void __stdcall EndScene_hook() {
-	draw_custom_d3d();
+//	draw_custom_d3d();
 
-	draw_lolstuffXD();
-
+	if (MARROWGAR_ENABLED) {
+		draw_marrowgar_stuff();
+	}
 }
 
 enum {

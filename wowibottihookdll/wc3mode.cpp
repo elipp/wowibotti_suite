@@ -11,6 +11,8 @@
 #include "input.h"
 #include "dllmain.h"
 
+int MARROWGAR_ENABLED = 0;
+
 static POINT cursor_pos;
 
 static RECT window_rect;
@@ -651,7 +653,8 @@ void wc3_draw_pylpyrs() {
 // for the vertex shader: FXC /Fh /T vs_3_0 vs.hlsl
 // pixel shader: FXC /Fh /T ps_3_0 vs.hlsl
 
-#define MAP_SIZE 64
+#define MAP_SIZE 64	
+// 48 seems very good & stable
 
 static IDirect3DVertexBuffer9 *vbuffer;
 static IDirect3DIndexBuffer9 *ibuffer;
@@ -674,6 +677,8 @@ static D3DVIEWPORT9 viewport_original;
 
 static IDirect3DVertexBuffer9 *lol_vbuffer, *lol_quadbuffer;
 static IDirect3DIndexBuffer9 *lol_ibuffer;
+
+static IDirect3DVertexBuffer9 *unpassable_tribuffer;
 
 static D3DVERTEXELEMENT9 vdecl[] = {
 	{0, 0, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
@@ -712,39 +717,98 @@ typedef struct vec2_t {
 	float x; float y;
 } vec2_t;
 
+// just to keep this "integral"
 vec2_t vec2(float x, float y) {
-	vec2_t v;
-	v.x = x;
-	v.y = y;
-	return v;
+	return { x, y };
 }
 
-static const float ARENA_SIZE = 104;
+vec2_t operator+(const vec2_t &a, const vec2_t &b) {
+	return { a.x + b.x, a.y + b.y };
+}
 
-static const vec2_t MIDDLE { -390, 2210 };
+vec2_t operator-(const vec2_t &a, const vec2_t &b) {
+	return { a.x - b.x, a.y - b.y };
+}
 
-vec2_t wow2normal(float x, float y) {
-	float nx = 1.0 / (ARENA_SIZE) * (-y + (MIDDLE.y + ARENA_SIZE / 2.0));
-	float ny = 1.0 / (ARENA_SIZE) * (x - (MIDDLE.x - ARENA_SIZE / 2.0));
+vec2_t operator*(float d, const vec2_t &v) {
+	return { d * v.x, d * v.y };
+}
+
+vec2_t unit(const vec2_t &v) {
+	float d = sqrt(v.x * v.x + v.y * v.y);
+	return (1.0/d) * v;
+}
+
+vec2_t perp(const vec2_t &v) {
+	// return { v.y, -v.x };
+	return { -v.y, v.x };	
+}
+
+typedef struct vec2i_t {
+	int x; int y;
+} vec2i_t;
+
+vec2i_t vec2i (int x, int y) {
+	return { x, y };
+}
+
+
+static const float ARENA_SIZE = 140;
+
+static const vec2_t MIDDLE { -390, 2215 };
+
+vec2_t screen2world(float x, float y) {
+
+	const float A = (MIDDLE.y + ARENA_SIZE / 2.0);
+	const float B = (MIDDLE.x - ARENA_SIZE / 2.0);
+
+	float nx = B + ARENA_SIZE*(y + 1) / 2.0;
+	float ny = A - ARENA_SIZE*(x + 1) / 2.0;
+
+	PRINT("%f, %f maps to %f, %f\n", x, y, nx, ny);
+
+	return vec2(nx, ny);
+}
+
+vec2_t world2screen(float x, float y) {
+
+	const float A = (MIDDLE.y + ARENA_SIZE / 2.0);
+	const float B = (MIDDLE.x - ARENA_SIZE / 2.0);
+
+	float nx = (-y + A) / ARENA_SIZE;
+	float ny = (x - B) / ARENA_SIZE;
 	return vec2(nx * 2 - 1, ny * 2 - 1);
+
+	//float as = get_aspect_ratio();
+	////vec2_t R = vec2((n.x * 2 - 1)/as, (n.y * 2 - 1));
 }
 
-vec2_t wow2screen(float x, float y) {
+inline vec2_t world2screen(const vec2_t &v) {
+	return world2screen(v.x, v.y);
+}
 
-	vec2_t n = wow2normal(x, y);
+vec2_t tex2screen(int x, int y) {
+	// assume square texture
+	float fx = (float(x)) / (float)MAP_SIZE;
+	float fy = (float(y)) / (float)MAP_SIZE;
 
-	float as = get_aspect_ratio();
+	return vec2(2 * fx - 1, -2 * fy + 1);
+}
 
-	////vec2_t R = vec2((n.x * 2 - 1)/as, (n.y * 2 - 1));
-	//vec2_t R = vec2(n.x * 2 - 1, n.y * 2 - 1);
-	//vec2_t r = vec2(R.x / 5.0 - 0.8, R.y / 5.0);
-	return n;
+vec2i_t screen2tex(float x, float y) {
+	return vec2i((x + 1) * MAP_SIZE / 2.0, -(y - 1) * MAP_SIZE / 2.0);
+}
+
+
+vec2_t tex2world(int x, int y) {
+	vec2_t t = tex2screen(x, y);
+	return screen2world(t.x, t.y);
 }
 
 #define NGONS 12
-#define MAX_NUM_ITEMS 128
-#define SIZEOF_LOLVBUFFER (MAX_NUM_ITEMS * (NGONS + 1) * 2)
-#define SIZEOF_LOLIBUFFER (MAX_NUM_ITEMS * (NGONS + 1) * 3)
+#define MAX_NUM_NGONS 128
+#define SIZEOF_LOLVBUFFER (MAX_NUM_NGONS * (NGONS + 1) * 2)
+#define SIZEOF_LOLIBUFFER (MAX_NUM_NGONS * (NGONS + 1) * 3)
 
 typedef struct tuple_t {
 	vec2_t pos;
@@ -754,6 +818,11 @@ typedef struct tuple_t {
 typedef struct quad_t {
 	vec2_t v[4];
 } quad_t;
+
+// these can be rendered with DrawPrimitive
+typedef struct tri_t {
+	vec2_t v[3];
+} tri_t;
 
 typedef struct ngon_t {
 	vec2_t v[NGONS + 1];
@@ -796,15 +865,18 @@ static int num_flames_to_render = 0;
 static int num_units_to_render = 0;
 
 static vec2_t PLAYER_POSITION;
+static vec3 PLAYER_WORLDPOS;
 static vec2_t BOSS_POSITION;
 static std::vector<vec2_t> UNIT_POSITIONS;
 static std::vector<vec2_t> FLAME_POSITIONS;
 
 static vec2_t BEST_PIXEL;
+static BYTE BEST_UNFAVOURABILITY = 255;
+static BYTE CURRENT_UNFAVOURABILITY = 255;
 
 static int update_lolbuffers();
 
-static void render_flames(IDirect3DDevice9* d) {
+static void marrowgar_render_all(IDirect3DDevice9* d) {
 	
 	d->SetSamplerState(
 		0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
@@ -814,7 +886,7 @@ static void render_flames(IDirect3DDevice9* d) {
 	d->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
 	d->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
 	d->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
-	d->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCCOLOR);
+	d->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_ONE);
 	d->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_ONE);
 
 	d->SetRenderState(D3DRS_LIGHTING, FALSE);
@@ -831,44 +903,52 @@ static void render_flames(IDirect3DDevice9* d) {
 	static const float player[] = { 0, 0, 1, 1 };
 	static const float flamecolor[] = { 1, 0, 0, 1.0 };
 	
-	d->SetStreamSource(0, lol_vbuffer, 0, 2 * sizeof(float));
-	d->SetIndices(lol_ibuffer);
-
-	float pp[4] = { PLAYER_POSITION.x, PLAYER_POSITION.y, 0.6, 1.0 }; // Z HAS RADIUS
 
 	d->SetVertexShader(vs);
 	d->SetPixelShader(ps);
 
+	d->SetStreamSource(0, unpassable_tribuffer, 0, 2 * sizeof(float));
 
-	d->SetPixelShaderConstantF(0, best, 1);
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 1 * (NGONS + 1), 3 * NGONS * 3, NGONS * 1);
+	d->SetPixelShaderConstantF(0, flamecolor, 1);
+	d->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 5);
 
-	d->SetPixelShaderConstantF(0, player, 1);
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 1 * NGONS * 3, NGONS);
-
-	float bossp[4] = { BOSS_POSITION.x, BOSS_POSITION.y, 1.5, 1.0 }; // Z COMPONENT HAS RADIUS
-
+	// set VERTEX shader for gradient stuff
 	d->SetVertexShader(gradient_vs);
+	d->SetStreamSource(0, lol_vbuffer, 0, 2 * sizeof(float));
+	d->SetIndices(lol_ibuffer);
 
 	//d->SetPixelShaderConstantF(0, flamecolor, 1);
 	//d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_flames_to_render * (NGONS + 1), 4 * NGONS * 3, NGONS * num_flames_to_render);
-	
+	float pp[4] = { PLAYER_POSITION.x, PLAYER_POSITION.y, 0.6, 1.0 }; // Z HAS RADIUS
+
+
+	// draw reverse gradient from player
 	d->SetPixelShader(rgradient_ps);
 	d->SetPixelShaderConstantF(0, pp, 1);
 	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 0*NGONS*3, NGONS);
-	
+
+	float bossp[4] = { BOSS_POSITION.x, BOSS_POSITION.y, 0.0, 1.0 }; 
+
+	bossp[2] = 1.1; // THE SHADER KNOWS THE Z COMPONENT AS A RADIUS VALUE
+	// draw reverse gradient from boss
+	d->SetPixelShaderConstantF(0, bossp, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 2 * NGONS * 3, NGONS);
+
+	bossp[2] = 0.5; // increase radius
+	// also draw normal gradient from boss
 	d->SetPixelShader(gradient_ps);
 	d->SetPixelShaderConstantF(0, bossp, 1);
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 2*NGONS*3, NGONS);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 2 * NGONS * 3, NGONS);
 
+	// draw normal gradients from flames
 	for (int i = 0; i < FLAME_POSITIONS.size(); ++i) {
 		vec2_t &v = FLAME_POSITIONS[i];
-		float fpos[4] = { v.x, v.y, 0.33, 1.0 };
+		float fpos[4] = { v.x, v.y, 0.20, 1.0 };
 		d->SetPixelShaderConstantF(0, fpos, 1);
 		d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, (i + 4) * NGONS * 3, NGONS);
 	}
 
-
+	// draw raid members as gradients
 	for (int i = 0; i < num_units_to_render; ++i) {
 		float upos[4] = { UNIT_POSITIONS[i].x, UNIT_POSITIONS[i].y, 0.25, 1 }; // Z COMPONENT HAS RADIUS VALUE
 		d->SetPixelShaderConstantF(0, upos, 1);
@@ -876,6 +956,21 @@ static void render_flames(IDirect3DDevice9* d) {
 
 		d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, (NGONS + 1), (i + 4 + num_flames_to_render) * NGONS * 3, NGONS);
 	}
+
+	//d->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_ONE);
+	//d->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_ZERO);
+	//d->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+
+	d->SetVertexShader(vs);
+	d->SetPixelShader(ps);
+
+	// draw best pixel position with green (maybe disable blending for these?)
+	d->SetPixelShaderConstantF(0, best, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 1 * (NGONS + 1), 3 * NGONS * 3, NGONS * 1);
+
+	// draw player position with blue
+	d->SetPixelShaderConstantF(0, player, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 1 * NGONS * 3, NGONS);
 
 }
 
@@ -899,14 +994,14 @@ static int update_lolbuffers() {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
 			if (i.NPC_get_name() == "Coldflame") {
 				vec3 ipos = i.get_pos();
-				vec2_t pos = wow2screen(ipos.x, ipos.y);
+				vec2_t pos = world2screen(ipos.x, ipos.y);
 				flames.push_back({ pos, i.get_rot() });
 			}
 		}
 		else if (i.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
 			if (i.DO_get_spellID() == 69146) {
 				vec3 ipos = i.DO_get_pos();
-				vec2_t pos = wow2screen(ipos.x, ipos.y);
+				vec2_t pos = world2screen(ipos.x, ipos.y);
 				flames.push_back({ pos, i.get_rot() });
 			}
 		}
@@ -924,8 +1019,9 @@ static int update_lolbuffers() {
 	WowObject p;
 	OM.get_local_object(&p);
 	vec3 ppos = p.get_pos();
-	vec2_t Ppos = wow2screen(ppos.x, ppos.y);
+	vec2_t Ppos = world2screen(ppos.x, ppos.y);
 	PLAYER_POSITION = Ppos;
+	PLAYER_WORLDPOS = ppos;
 
 	ngon_t pn = pointtongon({ Ppos, 0 }, 3.0);
 	mem[0] = pn;
@@ -936,7 +1032,7 @@ static int update_lolbuffers() {
 	WowObject B = OM.get_closest_NPC_by_name(boss, ppos); // yes this is pretty bad
 
 	vec3 bpos = B.get_pos();
-	vec2_t Bpos = wow2screen(bpos.x, bpos.y);
+	vec2_t Bpos = world2screen(bpos.x, bpos.y);
 	BOSS_POSITION = Bpos;
 
 	mem[2] = pointtongon({ Bpos, 0 }, 3.0);
@@ -961,7 +1057,7 @@ static int update_lolbuffers() {
 	for (auto &u : units) {
 		if (u.get_GUID() == OM.get_local_GUID()) { continue;  }
 		vec3 upos = u.get_pos();
-		vec2_t Upos = wow2screen(upos.x, upos.y);
+		vec2_t Upos = world2screen(upos.x, upos.y);
 		UNIT_POSITIONS.push_back(Upos);
 		ngon_t g = pointtongon({ Upos, 0 }, 0.25);
 		mem[n] = g;
@@ -980,6 +1076,12 @@ typedef struct texquad_vertex {
 	float pos[2];
 	float uv[2];
 } texquad_vertex;
+
+tri_t get_unp_tri(const vec2_t &B, const vec2_t &D, const vec2_t &P) {
+	return { world2screen(B + 200 * D),
+		world2screen(B - 200 * D),
+		world2screen(B + 200 * P) };
+}
 
 static int create_lolbuffers(IDirect3DDevice9 *d) {
 	
@@ -1027,6 +1129,41 @@ static int create_lolbuffers(IDirect3DDevice9 *d) {
 	lol_quadbuffer->Lock(0, 0, &mem, 0);
 	memcpy(mem, &tq, sizeof(tq));
 	lol_quadbuffer->Unlock();
+
+	vec2_t v1B = vec2(-401.8, 2170);
+	vec2_t v1D = unit(vec2(-8.4, 9.9));
+	vec2_t v1P = perp(v1D);
+
+	vec2_t v2B = vec2(-422.9, 2200.4);
+	vec2_t v2D = vec2(0, 1);
+	vec2_t v2P = perp(v2D);
+
+	vec2_t v3B = vec2(-412.5, 2241.4);
+	vec2_t v3D = unit(vec2(7.6, 11.5));
+	vec2_t v3P = perp(v3D);
+
+	vec2_t v4B = vec2(-372.9, 2263.8);
+	vec2_t v4D = unit(vec2(5.9, -9.7));
+	vec2_t v4P = perp(v4D);
+
+	vec2_t v5B = vec2(-357.7, 2182.9);
+	vec2_t v5D = unit(vec2(-6.3, -10.2));
+	vec2_t v5P = perp(v5D);
+
+	const tri_t arena_unpassable[] = { 
+
+	get_unp_tri(v1B, v1D, v1P),
+	get_unp_tri(v2B, v2D, v2P),
+	get_unp_tri(v3B, v3D, v3P),
+	get_unp_tri(v4B, v4D, v4P),
+	get_unp_tri(v5B, v5D, v5P),
+	};
+
+	hr = d->CreateVertexBuffer(sizeof(arena_unpassable)/sizeof(tri_t), D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &unpassable_tribuffer, NULL);
+
+	unpassable_tribuffer->Lock(0, 0, &mem, 0);
+	memcpy(mem, arena_unpassable, sizeof(arena_unpassable));
+	unpassable_tribuffer->Unlock();
 
 	return 1;
 
@@ -1094,6 +1231,9 @@ static void free_d3d9buffers() {
 	lol_quadbuffer->Release();
 	lol_quadbuffer = NULL;
 
+	unpassable_tribuffer->Release();
+	unpassable_tribuffer = NULL;
+
 	rendertex_surf->Release();
 	rendertex->Release();
 	throwaway_surf->Release();
@@ -1132,15 +1272,16 @@ void reset_renderstate() {
 	//	0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
 }
 
-vec2_t tex2screen(int x, int y) {
-	// assume square texture
-	float fx = (float(x)) / (float)MAP_SIZE;
-	float fy = (float(y)) / (float)MAP_SIZE;
-
-	return vec2(2 * fx - 1, -2 * fy + 1);
+BYTE get_pixel_value(int x, int y, const D3DLOCKED_RECT *r) {
+	if (x < 0 || y < 0 || x >= MAP_SIZE || y >= MAP_SIZE) {
+		return 0xFF;
+	}
+	BYTE *p = (BYTE*)r->pBits;
+	return p[y * r->Pitch + x * 4 + 2];
 }
 
-void find_lowest_pixel(D3DLOCKED_RECT *r) {
+
+void find_lowest_pixel(const D3DLOCKED_RECT *r) {
 
 	BYTE *b = (BYTE*)r->pBits;
 	BYTE smallest = 255;
@@ -1160,10 +1301,11 @@ void find_lowest_pixel(D3DLOCKED_RECT *r) {
 	//PRINT("PITCH: %d, found smallest value %u at %i -> (%i, %i)\n", r->Pitch, smallest, smallestindex, sx, sy);
 
 	BEST_PIXEL = tex2screen(sx, sy);
+	BEST_UNFAVOURABILITY = smallest;
 
 }
 
-void draw_lolstuffXD() {
+void draw_marrowgar_stuff() {
 	
 	if (!customd3d_initialized) return;
 
@@ -1178,7 +1320,8 @@ void draw_lolstuffXD() {
 	
 	d->SetRenderTarget(0, rendertex_surf);
 	d->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(255, 0, 0, 0), 1.0f, 0);
-	render_flames(d);
+	
+	marrowgar_render_all(d);
 
 	D3DLOCKED_RECT R;
 
@@ -1187,6 +1330,9 @@ void draw_lolstuffXD() {
 
 	assert(SUCCEEDED(throwaway_surf->LockRect(&R, 0, 0)));
 	find_lowest_pixel(&R);
+
+	vec2i_t pt = screen2tex(PLAYER_POSITION.x, PLAYER_POSITION.y);
+	CURRENT_UNFAVOURABILITY = get_pixel_value(pt.x, pt.y, &R);
 
 	throwaway_surf->UnlockRect();
 
@@ -1207,6 +1353,21 @@ void draw_lolstuffXD() {
 	d->DrawPrimitive(D3DPT_TRIANGLEFAN, 0, 2);
 
 	reset_renderstate();
+}
+
+
+marrowgar_status get_current_marrowgar_status() {
+
+	marrowgar_status m;
+	
+	vec2_t bw = screen2world(BEST_PIXEL.x, BEST_PIXEL.y);
+	m.best_world_pos = vec3(bw.x, bw.y, 42.0); // 42 is just the z coord of the arena
+	m.best_unfavourability_level = BEST_UNFAVOURABILITY;
+	m.current_world_pos = PLAYER_WORLDPOS;
+	m.current_unfavourability_level = CURRENT_UNFAVOURABILITY;
+
+	return m;
+
 }
 
 
@@ -1272,6 +1433,8 @@ int init_custom_d3d() {
 
 	hr = d->CreateVertexDeclaration(quad_vdecl, &quad_vd);
 
+	// these .o files are produced by FXC /Fo (it's more convenient when you have a lot of them)
+
 	shaderbuf = read_shader_object("shaders\\quad_vs.o");
 	hr = d->CreateVertexShader((DWORD*)shaderbuf, &quad_vs);
 	delete[] shaderbuf;
@@ -1313,6 +1476,9 @@ int init_custom_d3d() {
 
 	D3DSURFACE_DESC desc;
 	rendertex_surf->GetDesc(&desc);
+
+	// this "offscreen plain surface" is necessary because a RENDERTARGET can't be directly locked & inspected with LockRect() 
+	// (a render target resides in D3DPOOL_DEFAULT, ie. GPU memory)
 	hr = d->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &throwaway_surf, NULL);
 	assert(SUCCEEDED(hr));
 
