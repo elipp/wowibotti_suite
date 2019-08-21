@@ -88,9 +88,9 @@ function target_unit_with_GUID(GUID)
 	lop_exec(LOP_TARGET_GUID, GUID)
 end
 
-function melee_attack_behind()
+function melee_attack_behind(minrange) -- magic value is 1.5
 	if not playermode() then
-		lop_exec(LOP_MELEE_BEHIND);
+		lop_exec(LOP_MELEE_BEHIND, minrange);
 	end
 end
 

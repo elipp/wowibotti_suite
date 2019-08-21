@@ -76,7 +76,7 @@ combat_death_knight_blood = function()
 --         L_CastSpellByName("Mind Freeze")
 --       end
 --     end
-    -- 
+    --
     -- if not DK_DELETE_FRAME then
     --   DK_DELETE_FRAME = CreateFrame("frame", nil, UIParent)
     --   DK_DELETE_FRAME:SetScript("OnUpdate", TORAVON_STUFF)
@@ -84,7 +84,7 @@ combat_death_knight_blood = function()
 
     if not validate_target() then return; end
 
-    melee_attack_behind()
+    melee_attack_behind(5)
 
     if not PetHasActionBar() and GetSpellCooldown("Raise Dead") == 0 then
         L_CastSpellByName("Raise Dead");

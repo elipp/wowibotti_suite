@@ -41,7 +41,7 @@ combat_mage_fire = function()
 
 	caster_range_check(0,36);
 
-	if UnitCastingInfo("target") or UnitChannelInfo("target") then
+	if unit_castorchannel("target") then
 		L_CastSpellByName("Counterspell")
 	end
 

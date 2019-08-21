@@ -41,6 +41,10 @@ function vec3:unit_scaled(s)
   return self:unit():scale(s)
 end
 
+function vec3:scale2d(s)
+  return vec3:create(self.x * s, self.y * s, self.z)
+end
+
 function vec3:direction_angle()
   local u = self:unit()
   return math.atan2(u.y, u.x);
@@ -114,9 +118,14 @@ function()
   if not playermode() then
   --if UnitCastingInfo("target") == "Lightning Nova" then
     --  walk_to(-219, -235, 97, CTM_PRIO_CLEAR_HOLD) -- the coords are for emalon :D
-    if UnitCastingInfo("target") == "Poison Nova" then
-        walk_to(814, 92, 509, CTM_PRIO_FOLLOW) -- these are for ICK
-    end
+    -- if UnitCastingInfo("target") == "Poison Nova" then
+    --     walk_to(814, 92, 509, CTM_PRIO_FOLLOW) -- these are for ICK
+    -- end
+    if ("target") == "Blade Tempest" then
+      -- if get_distance_between("player", "target") < 15 then
+      --    walk_to(3238, 399, 78, CTM_PRIO_FOLLOW) -- these are for BALTHARUS
+      --  end
+     end
   end
 
   if not playermode() then
@@ -334,7 +343,12 @@ function lole_error(text)
 end
 
 function player_casting()
-  return UnitCastingInfo("player") or UnitChannelInfo("player")
+  return unit_castorchannel("player")
+end
+
+
+function unit_castorchannel(unit)
+  return UnitCastingInfo(unit) or UnitChannelInfo(unit)
 end
 
 function shallowcopy(orig)
