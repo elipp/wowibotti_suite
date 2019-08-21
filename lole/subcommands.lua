@@ -1055,12 +1055,10 @@ end
 
 local function lole_spread_those_cheeks(dist)
 	-- REMEMBER TO CHANGE THIS ACCORDINGLY :DDDDDDDDD
-<<<<<<< HEAD
-	SPREAD_ONYXIA()
-=======
+--	SPREAD_ONYXIA()
+
 	if not dist then dist = 15 end
 	SPREAD_SAVIANA(dist)
->>>>>>> a3afcebc623d681912cb1d691827a7f1e9ed68dd
 end
 
 

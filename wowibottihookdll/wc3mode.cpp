@@ -1360,8 +1360,15 @@ marrowgar_status get_current_marrowgar_status() {
 
 	marrowgar_status m;
 	
+	ObjectManager OM;
+	WowObject p;
+	OM.get_local_object(&p);
+	vec3 ppos = p.get_pos();
 	vec2_t bw = screen2world(BEST_PIXEL.x, BEST_PIXEL.y);
-	m.best_world_pos = vec3(bw.x, bw.y, 42.0); // 42 is just the z coord of the arena
+	vec3 t = vec3(bw.x, bw.y, 0);
+	vec3 d = 1.5 * (t - ppos).unit(); // add 1.5 units to actually walk to the best position (CTM mindist)
+
+	m.best_world_pos = vec3(bw.x, bw.y, 42.0) + d; // 42 is just the z coord of the arena
 	m.best_unfavourability_level = BEST_UNFAVOURABILITY;
 	m.current_world_pos = PLAYER_WORLDPOS;
 	m.current_unfavourability_level = CURRENT_UNFAVOURABILITY;
