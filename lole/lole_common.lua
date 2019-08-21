@@ -127,10 +127,13 @@ function()
       --    walk_to(3238, 399, 78, CTM_PRIO_FOLLOW) -- these are for BALTHARUS
       --  end
     -- end
-    local n = UnitName("player")
-    if not (n == "Iijj" or n == "Spobodi") then
-      boss_action("Marrowgar_status")
-    end
+
+    -- THIS IS GOLDEN STUFF: ----------------------
+    -- local n = UnitName("player")
+    -- if not (n == "Iijj" or n == "Spobodi") then
+    --   boss_action("Marrowgar_status")
+    -- end
+    --------------------------------------------
   end
 
   if not playermode() then
