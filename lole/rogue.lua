@@ -43,7 +43,7 @@ function rogue_combat()
     L_CastSpellByName("Sprint")
   end
 
-  melee_attack_behind(5) -- 8 FOR THE RUBY SANCTUM GUY, 1.5 for magic
+  melee_attack_behind(1.5) -- 8 FOR THE RUBY SANCTUM GUY, 1.5 for magic
 
   if health_percentage("player") < 15 then
     L_CastSpellByName("Cloak of Shadows")

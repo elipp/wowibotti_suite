@@ -94,8 +94,8 @@ function combat_hunter()
 
   ----------------------------------------------------------------
 
-  --  if not validate_target() then return end -- DEFAULT
-  L_RunMacroText("/lole target 0xF1300027C8000007") -- FOR ONYXIA, REPLACE GUID OFC
+  if not validate_target() then return end -- DEFAULT
+  --  L_RunMacroText("/lole target 0xF1300027C8000007") -- FOR ONYXIA, REPLACE GUID OFC
 
   caster_range_check(9.7,35)
 
