@@ -121,11 +121,16 @@ function()
     -- if UnitCastingInfo("target") == "Poison Nova" then
     --     walk_to(814, 92, 509, CTM_PRIO_FOLLOW) -- these are for ICK
     -- end
-    if ("target") == "Blade Tempest" then
+
+    --if unit_castorchannel("target") == "Blade Tempest" then
       -- if get_distance_between("player", "target") < 15 then
       --    walk_to(3238, 399, 78, CTM_PRIO_FOLLOW) -- these are for BALTHARUS
       --  end
-     end
+    -- end
+    local n = UnitName("player")
+    if not (n == "Iijj" or n == "Spobodi") then
+      boss_action("Marrowgar_status")
+    end
   end
 
   if not playermode() then

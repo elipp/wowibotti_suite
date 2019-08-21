@@ -982,6 +982,7 @@ static int update_lolbuffers() {
 	WowObject i;
 	if (!OM.get_first_object(&i)) return 0;
 
+	// TODO: Make this focus
 	auto boss = OM.get_NPCs_by_name("Lord Marrowgar");
 	if (boss.size() < 1) {
 		num_flames_to_render = 0;
