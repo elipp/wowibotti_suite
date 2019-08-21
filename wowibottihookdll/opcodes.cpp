@@ -1384,9 +1384,9 @@ static void do_boss_action(const std::string &bossname) {
 		}
 
 		auto m = get_current_marrowgar_status();
-		PRINT("walking to %f, %f (best hotness %u, current %u)\n", m.best_world_pos.x, m.best_world_pos.y, m.best_unfavourability_level, m.current_unfavourability_level);
+		PRINT("walking to %f, %f (best hotness %u, current %u)\n", m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness);
 		
-		if (m.current_unfavourability_level > 130) {
+		if (m.current_hotness > 130) {
 			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.0));
 		}
 	}

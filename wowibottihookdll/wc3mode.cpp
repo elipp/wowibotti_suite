@@ -871,8 +871,8 @@ static std::vector<vec2_t> UNIT_POSITIONS;
 static std::vector<vec2_t> FLAME_POSITIONS;
 
 static vec2_t BEST_PIXEL;
-static BYTE BEST_UNFAVOURABILITY = 255;
-static BYTE CURRENT_UNFAVOURABILITY = 255;
+static BYTE BEST_HOTNESS = 255;
+static BYTE CURRENT_HOTNESS = 255;
 
 static int update_lolbuffers();
 
@@ -1301,7 +1301,7 @@ void find_lowest_pixel(const D3DLOCKED_RECT *r) {
 	//PRINT("PITCH: %d, found smallest value %u at %i -> (%i, %i)\n", r->Pitch, smallest, smallestindex, sx, sy);
 
 	BEST_PIXEL = tex2screen(sx, sy);
-	BEST_UNFAVOURABILITY = smallest;
+	BEST_HOTNESS = smallest;
 
 }
 
@@ -1332,7 +1332,7 @@ void draw_marrowgar_stuff() {
 	find_lowest_pixel(&R);
 
 	vec2i_t pt = screen2tex(PLAYER_POSITION.x, PLAYER_POSITION.y);
-	CURRENT_UNFAVOURABILITY = get_pixel_value(pt.x, pt.y, &R);
+	CURRENT_HOTNESS = get_pixel_value(pt.x, pt.y, &R);
 
 	throwaway_surf->UnlockRect();
 
@@ -1369,9 +1369,9 @@ marrowgar_status get_current_marrowgar_status() {
 	vec3 d = 1.5 * (t - ppos).unit(); // add 1.5 units to actually walk to the best position (CTM mindist)
 
 	m.best_world_pos = vec3(bw.x, bw.y, 42.0) + d; // 42 is just the z coord of the arena
-	m.best_unfavourability_level = BEST_UNFAVOURABILITY;
+	m.best_hotness = BEST_HOTNESS;
 	m.current_world_pos = PLAYER_WORLDPOS;
-	m.current_unfavourability_level = CURRENT_UNFAVOURABILITY;
+	m.current_hotness = CURRENT_HOTNESS;
 
 	return m;
 

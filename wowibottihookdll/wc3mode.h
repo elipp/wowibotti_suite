@@ -18,10 +18,10 @@ typedef struct customcamera_t {
 
 typedef struct marrowgar_status {
 	vec3 best_world_pos;
-	BYTE best_unfavourability_level;
+	BYTE best_hotness;
 	
 	vec3 current_world_pos;
-	BYTE current_unfavourability_level;
+	BYTE current_hotness;
 } marrowgar_status;
 
 void do_wc3mode_stuff();
