@@ -1129,23 +1129,24 @@ static void tocheroic_render_all(IDirect3DDevice9* d) {
 	d->SetPixelShaderConstantF(0, bossp, 1);
 	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 2 * NGONS * 3, NGONS);
 
+	d->SetPixelShader(gradient_ps);
+
 	//bossp[2] = 0.5; // increase radius
 	//// also draw normal gradient from boss
-	//d->SetPixelShader(gradient_ps);
 	//d->SetPixelShaderConstantF(0, bossp, 1);
 	//d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 2 * NGONS * 3, NGONS);
 
 	// draw normal gradients from flames
 	for (int i = 0; i < FLAME_POSITIONS.size(); ++i) {
 		vec2_t &v = FLAME_POSITIONS[i];
-		float fpos[4] = { v.x, v.y, 0.20, 1.0 };
+		float fpos[4] = { v.x, v.y, 0.15, 1.0 };
 		d->SetPixelShaderConstantF(0, fpos, 1);
 		d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, (i + 4) * NGONS * 3, NGONS);
 	}
 
 	// draw raid members as gradients
 	for (int i = 0; i < num_units_to_render; ++i) {
-		float upos[4] = { UNIT_POSITIONS[i].x, UNIT_POSITIONS[i].y, 0.25, 1 }; // Z COMPONENT HAS RADIUS VALUE
+		float upos[4] = { UNIT_POSITIONS[i].x, UNIT_POSITIONS[i].y, 0.20, 1 }; // Z COMPONENT HAS RADIUS VALUE
 		d->SetPixelShaderConstantF(0, upos, 1);
 		//PRINT("rendering unit %d at %f, %f\n", i, upos[0], upos[1]);
 
@@ -1307,7 +1308,7 @@ static int create_lolbuffers(IDirect3DDevice9 *d) {
 	hr = d->CreateVertexBuffer(4 * sizeof(texquad_vertex), D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &lol_quadbuffer, NULL);
 	
 	const float as = 1440.0 / 900.0;
-	const float size = 0.2;
+	const float size = 0.3;
 	vec2_t mp_llc = vec2(-0.92, -0.4);
 
 	texquad_vertex tq[4] = {

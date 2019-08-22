@@ -134,8 +134,9 @@ function()
       if not (n == "Iijj" or n == "Spobodi") then
         boss_action("hotness_status")
       end
-      --------------------------------------------
     end
+    --------------------------------------------
+
   end
 
   if not playermode() then

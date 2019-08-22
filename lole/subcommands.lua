@@ -1159,6 +1159,7 @@ lole_subcommands = {
 	loot_badge = lole_loot_badge,
 	invite_guild = lole_invite_guild,
 	boss_action = lole_boss_action,
+	ba = lole_boss_action,
 
 
 	cast_spell = lole_cast_spell,

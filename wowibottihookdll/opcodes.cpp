@@ -1386,7 +1386,7 @@ static void do_boss_action(const std::string &bossname) {
 		static const float MARROWGAR_Z = 42;
 		static const float TOCHEROIC_Z = 395;
 
-		auto m = get_current_hotness_status(TOCHEROIC_Z); // marrowgar z coordinate is 42
+		auto m = get_current_hotness_status(TOCHEROIC_Z);
 		PRINT("walking to %f, %f (best hotness %u, current %u)\n", m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness);
 		
 		if (m.current_hotness > 80) {
