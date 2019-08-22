@@ -1778,7 +1778,7 @@ int lop_exec(lua_State *L) {
 
 	case LOP_ICCROCKET: {
 		// Goblin Rocket Pack is itemID 49278
-		use_icc_rocket_pack();
+		// use_icc_rocket_pack(); // DISABLED FOR NOW, SENDS A MALFORMED PACKET??
 		break;
 	}
 
