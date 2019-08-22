@@ -54,7 +54,7 @@ local available_configs = {
 	class_config:create("default", {}, {}, "FFFFFF", function() end, {}, 0, "NONE", function() end),
 
   death_knight_blood =
-  class_config:create("death_knight_blood", {}, {"Blood Presence", "Horn of Winter"}, get_class_color("death_knight"), combat_death_knight_blood, {"Hysteria", "Army of the Dead"}, ROLES.melee, "MELEE", survive_death_knight_blood),
+  class_config:create("death_knight_blood", {}, {"Blood Presence", "Horn of Winter"}, get_class_color("death_knight"), combat_death_knight_blood, {"Hysteria", "Army of the Dead"}, ROLES.tank, "TANK", survive_death_knight_blood),
 
   death_knight_uh =
   class_config:create("death_knight_uh", {}, {"Blood Presence", "Bone Shield", "Horn of Winter"}, get_class_color("death_knight"), combat_death_knight_uh, {"Summon Gargoyle", "Army of the Dead"}, ROLES.melee, "MELEE", survive_death_knight_uh),
