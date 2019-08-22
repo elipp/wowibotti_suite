@@ -245,7 +245,7 @@ INSTANT_HEALS = {
     ["Wild Growth"] = true,
 }
 
-ROLES = { healer = 1, caster = 2, warrior_tank = 3, paladin_tank = 4, melee = 5, mana_melee = 6 }
+ROLES = { healer = 1, caster = 2, tank = 3, mana_tank = 4, melee = 5, mana_melee = 6 }
 
 -- http://wowwiki.wikia.com/wiki/Class_colors
 
