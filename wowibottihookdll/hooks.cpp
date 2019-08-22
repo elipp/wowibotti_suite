@@ -22,7 +22,7 @@
 #include "linalg.h"
 #include "patch.h"
 #include "dipcapture.h"
-#include "wc3mode.h"
+#include "custom_d3d.h"
 #include "input.h"
 #include "patch.h"
 #include "govconn.h"
@@ -355,10 +355,8 @@ static DWORD WINAPI create_warden_socket() {
 static void __stdcall EndScene_hook() {
 //	draw_custom_d3d();
 
-	if (HOTNESS_ENABLED) {
-		//draw_marrowgar_stuff();
-		draw_tocheroic_stuff();
-	}
+	execute_current_hconfig_if_active();
+
 }
 
 enum {

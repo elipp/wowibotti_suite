@@ -162,8 +162,7 @@
     <ClInclude Include="packet.h" />
     <ClInclude Include="patch.h" />
     <ClInclude Include="ps.h" />
-    <ClInclude Include="vs.h" />
-    <ClInclude Include="wc3mode.h" />
+    <ClInclude Include="custom_d3d.h" />
     <ClInclude Include="wowmem.h" />
     <ClInclude Include="opcodes.h" />
     <ClInclude Include="stdafx.h" />
@@ -182,7 +181,7 @@
     <ClCompile Include="lua.cpp" />
     <ClCompile Include="packet.cpp" />
     <ClCompile Include="patch.cpp" />
-    <ClCompile Include="wc3mode.cpp" />
+    <ClCompile Include="custom_d3d.cpp" />
     <ClCompile Include="wowmem.cpp" />
     <ClCompile Include="opcodes.cpp" />
     <ClCompile Include="timer.cpp" />

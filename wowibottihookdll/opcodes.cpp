@@ -15,7 +15,7 @@
 #include "packet.h"
 #include "linalg.h"
 #include "dipcapture.h"
-#include "wc3mode.h"
+#include "custom_d3d.h"
 #include "lua.h"
 
 #include "govconn.h"
@@ -1314,20 +1314,20 @@ float randf() {
 }
 static int initial_angle_set = 0;
 
-static void do_boss_action(const std::string &bossname) {
+static void do_boss_action(const std::vector<std::string> &args) {
 	
 	ObjectManager OM;
 	WowObject player;
 	OM.get_local_object(&player);
 	
-	if (bossname == "Gormok_reset") {
+	if (args[0] == "Gormok_reset") {
 		PRINT("Running gormok angle reset\n");
 
 		initial_angle_set = 0;
 		return;
 	}
 		
-	else if (bossname == "Gormok") {
+	else if (args[0] == "Gormok") {
 
 		if (ctm_queue_get_top_prio() == CTM_PRIO_NOOVERRIDE) return;
 
@@ -1372,23 +1372,35 @@ static void do_boss_action(const std::string &bossname) {
 
 		}
 	}
-	else if (bossname == "Icehowl") {
+	else if (args[0] == "Icehowl") {
 
 	}
 	
-	else if (bossname == "hotness_toggle") {
-		HOTNESS_ENABLED = !HOTNESS_ENABLED;
+	else if (args[0] == "hconfig_set") {
+		if (args.size() < 2) {
+			PRINT("hconfig_set called but no argument specified\n");
+		}
+		else {
+			hconfig_set(args[1]);
+		}
+	}
+
+	else if (args[0] == "hconfig_enable") {
+		if (ACTIVE_HCONFIG == "") {
+			PRINT("Error! hconfig_enable called but boss name not set. Use hconfig_set <bossname>\n");
+		}
+		else {
+			HOTNESS_ENABLED = !HOTNESS_ENABLED;
+		}
 	}
 	
-	else if (bossname == "hotness_status") {
+	else if (args[0] == "hconfig_status") {
 		if (!HOTNESS_ENABLED) {
-			PRINT("WARNING: Please enable hotness with \"boss_action hotness_toggle\" first.\n");
+			PRINT("WARNING: Please enable hotness with \"hconfig_enable\" first.\n");
 			return;
 		}
-		static const float MARROWGAR_Z = 42;
-		static const float TOCHEROIC_Z = 395;
 
-		auto m = get_current_hotness_status(TOCHEROIC_Z);
+		auto m = get_current_hotness_status();
 		
 		const BYTE HOTNESS_THRESHOLD = 130;
 
@@ -1399,7 +1411,7 @@ static void do_boss_action(const std::string &bossname) {
 	}
 
 	else {
-		PRINT("Unknown boss action %s\n", bossname.c_str());
+		PRINT("Unknown boss action %s\n", args[0].c_str());
 	}
 
 }
@@ -1739,9 +1751,12 @@ int lop_exec(lua_State *L) {
 		break;
 	}
 
-	case LOP_BOSS_ACTION:
-		do_boss_action(lua_tolstring(L, 2, &len));
+	case LOP_BOSS_ACTION: {
+		std::vector<std::string> tokens;
+		tokenize_string(lua_tolstring(L, 2, &len), " ", tokens);
+		do_boss_action(tokens);
 		break;
+	}
 
 	case LOP_INTERACT_SPELLNPC:
 	{

@@ -1,6 +1,6 @@
 #include "input.h"
 #include "defs.h"
-#include "wc3mode.h"
+#include "custom_d3d.h"
 #include "hooks.h"
 #include "ctm.h"
 

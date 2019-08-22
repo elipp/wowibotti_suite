@@ -1072,9 +1072,9 @@ local function lole_click_essence_portal(type)
 
 end
 
-local function lole_boss_action(arg)
-		boss_action(tostring(arg))
-		echo("Boss action " .. tostring(arg) .. " done!")
+local function lole_boss_action(...)
+	local catd = concatenate_args(" ", ...)
+	boss_action(catd)
 end
 
 local function lole_eject()
