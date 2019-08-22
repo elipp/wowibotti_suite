@@ -1561,8 +1561,9 @@ void draw_tocheroic_stuff() {
 	d->SetRenderTarget(0, rendertex_surf);
 	d->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(255, 0, 0, 0), 1.0f, 0);
 
-	if (!tocheroic_update_buffers()) goto exit;
-	tocheroic_render_all(d);
+	if (tocheroic_update_buffers()) {
+		tocheroic_render_all(d);
+	}
 
 	D3DLOCKED_RECT R;
 
