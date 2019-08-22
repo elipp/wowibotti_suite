@@ -43,14 +43,14 @@ function get_desired_buffs(role)
         "Arcane Intellect",
     };
 
-	local warrior_tank_buffs = {
+	local tank_buffs = {
 		"Blessing of Sanctuary",
         "Blessing of Kings",
         "Blessing of Might",
         "Thorns"
 	}
 
-    local paladin_tank_buffs = {
+    local mana_tank_buffs = {
         "Blessing of Sanctuary",
         "Blessing of Kings",
         "Blessing of Might",
@@ -76,10 +76,10 @@ function get_desired_buffs(role)
         desired_buffs = caster_buffs;
     elseif role == ROLES.healer then
         desired_buffs = healer_buffs;
-    elseif role == ROLES.warrior_tank then
-        desired_buffs = warrior_tank_buffs;
-    elseif role == ROLES.paladin_tank then
-        desired_buffs = paladin_tank_buffs;
+    elseif role == ROLES.tank then
+        desired_buffs = tank_buffs;
+    elseif role == ROLES.mana_tank then
+        desired_buffs = mana_tank_buffs;
     elseif role == ROLES.melee then
         desired_buffs = melee_buffs;
     elseif role == ROLES.mana_melee then

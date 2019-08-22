@@ -54,7 +54,7 @@ local available_configs = {
 	class_config:create("default", {}, {}, "FFFFFF", function() end, {}, 0, "NONE", function() end),
 
   death_knight_blood =
-  class_config:create("death_knight_blood", {}, {"Blood Presence", "Horn of Winter"}, get_class_color("death_knight"), combat_death_knight_blood, {"Hysteria", "Army of the Dead"}, ROLES.melee, "MELEE", survive_death_knight_blood),
+  class_config:create("death_knight_blood", {}, {"Blood Presence", "Horn of Winter"}, get_class_color("death_knight"), combat_death_knight_blood, {"Hysteria", "Army of the Dead"}, ROLES.tank, "TANK", survive_death_knight_blood),
 
   death_knight_uh =
   class_config:create("death_knight_uh", {}, {"Blood Presence", "Bone Shield", "Horn of Winter"}, get_class_color("death_knight"), combat_death_knight_uh, {"Summon Gargoyle", "Army of the Dead"}, ROLES.melee, "MELEE", survive_death_knight_uh),
@@ -69,7 +69,7 @@ local available_configs = {
 	class_config:create("mage_fire", {"Arcane Intellect", "Amplify Magic"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_fire, {"Icy Veins", "Combustion", "Mirror Image"}, ROLES.caster, "RANGED", survive_mage_fire),
 
 	paladin_prot =
-	class_config:create("paladin_prot", {}, {"Devotion Aura", "Righteous Fury", "Seal of Command"}, get_class_color("paladin"), combat_paladin_prot, {}, ROLES.paladin_tank, "TANK", survive_paladin_prot),
+	class_config:create("paladin_prot", {}, {"Devotion Aura", "Righteous Fury", "Seal of Command"}, get_class_color("paladin"), combat_paladin_prot, {}, ROLES.mana_tank, "TANK", survive_paladin_prot),
 
 	paladin_holy =
 	class_config:create("paladin_holy", {}, {"Concentration Aura"}, get_class_color("paladin"), combat_paladin_holy, {"Divine Favor", "Divine Illumination"}, ROLES.healer, "HEALER", survive_paladin_holy),
@@ -96,7 +96,7 @@ local available_configs = {
 	class_config:create("warrior_fury", {}, {"Battle Shout"}, get_class_color("warrior"), combat_warrior_fury, {"Death Wish", "Recklessness"}, ROLES.melee, "MELEE", survive_warrior_fury),
 
 	warrior_prot =
-	class_config:create("warrior_prot", {}, {"Commanding Shout"}, get_class_color("warrior"), combat_warrior_prot, {}, ROLES.warrior_tank, "TANK", survive_warrior_prot),
+	class_config:create("warrior_prot", {}, {"Commanding Shout"}, get_class_color("warrior"), combat_warrior_prot, {}, ROLES.tank, "TANK", survive_warrior_prot),
 
 };
 
