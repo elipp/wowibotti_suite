@@ -355,8 +355,9 @@ static DWORD WINAPI create_warden_socket() {
 static void __stdcall EndScene_hook() {
 //	draw_custom_d3d();
 
-	if (MARROWGAR_ENABLED) {
-		draw_marrowgar_stuff();
+	if (HOTNESS_ENABLED) {
+		//draw_marrowgar_stuff();
+		draw_tocheroic_stuff();
 	}
 }
 

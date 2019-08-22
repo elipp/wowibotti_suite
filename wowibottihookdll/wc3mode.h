@@ -16,13 +16,13 @@ typedef struct customcamera_t {
 
 } customcamera_t;
 
-typedef struct marrowgar_status {
+typedef struct hotness_status {
 	vec3 best_world_pos;
 	BYTE best_hotness;
 	
 	vec3 current_world_pos;
 	BYTE current_hotness;
-} marrowgar_status;
+} hotness_status;
 
 void do_wc3mode_stuff();
 extern customcamera_t customcamera;
@@ -44,6 +44,7 @@ void draw_custom_d3d();
 void cleanup_custom_d3d();
 
 void draw_marrowgar_stuff();
+void draw_tocheroic_stuff();
 
 int get_window_width();
 int get_window_height();
@@ -51,6 +52,6 @@ int get_window_height();
 void wc3mode_assign_cgroup(int index);
 void wc3mode_restore_cgroup(int index);
 
-extern int MARROWGAR_ENABLED;
+extern int HOTNESS_ENABLED;
 
-marrowgar_status get_current_marrowgar_status();
+hotness_status get_current_hotness_status(float arena_z);

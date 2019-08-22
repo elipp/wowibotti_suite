@@ -11,7 +11,7 @@
 #include "input.h"
 #include "dllmain.h"
 
-int MARROWGAR_ENABLED = 0;
+int HOTNESS_ENABLED = 0;
 
 static POINT cursor_pos;
 
@@ -678,7 +678,7 @@ static D3DVIEWPORT9 viewport_original;
 static IDirect3DVertexBuffer9 *lol_vbuffer, *lol_quadbuffer;
 static IDirect3DIndexBuffer9 *lol_ibuffer;
 
-static IDirect3DVertexBuffer9 *unpassable_tribuffer;
+static IDirect3DVertexBuffer9 *marrowgar_unpassable_tribuffer;
 
 static D3DVERTEXELEMENT9 vdecl[] = {
 	{0, 0, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
@@ -752,39 +752,44 @@ vec2i_t vec2i (int x, int y) {
 	return { x, y };
 }
 
+typedef struct arena_t {
+	float size;
+	vec2_t middle;
+	float z;
+} arena_t;
 
-static const float ARENA_SIZE = 140;
+static arena_t marrowgar_arena = { 140, {-390, 2215 }, 42 };
+static arena_t tocheroic_arena = { 140, { 567, 139 }, 395 }; // THIS IS THE REAL ONE
+//static arena_t tocheroic_arena = { 140, {-9614, -297}, 57 };
 
-static const vec2_t MIDDLE { -390, 2215 };
+vec2_t screen2world(float x, float y, arena_t &arena) {
 
-vec2_t screen2world(float x, float y) {
+	const float A = (arena.middle.y + arena.size / 2.0);
+	const float B = (arena.middle.x - arena.size / 2.0);
 
-	const float A = (MIDDLE.y + ARENA_SIZE / 2.0);
-	const float B = (MIDDLE.x - ARENA_SIZE / 2.0);
-
-	float nx = B + ARENA_SIZE*(y + 1) / 2.0;
-	float ny = A - ARENA_SIZE*(x + 1) / 2.0;
+	float nx = B + arena.size*(y + 1) / 2.0;
+	float ny = A - arena.size*(x + 1) / 2.0;
 
 	PRINT("%f, %f maps to %f, %f\n", x, y, nx, ny);
 
 	return vec2(nx, ny);
 }
 
-vec2_t world2screen(float x, float y) {
+vec2_t world2screen(float x, float y, arena_t &arena) {
 
-	const float A = (MIDDLE.y + ARENA_SIZE / 2.0);
-	const float B = (MIDDLE.x - ARENA_SIZE / 2.0);
+	const float A = (arena.middle.y + arena.size / 2.0);
+	const float B = (arena.middle.x - arena.size / 2.0);
 
-	float nx = (-y + A) / ARENA_SIZE;
-	float ny = (x - B) / ARENA_SIZE;
+	float nx = (-y + A) / arena.size;
+	float ny = (x - B) / arena.size;
 	return vec2(nx * 2 - 1, ny * 2 - 1);
 
 	//float as = get_aspect_ratio();
 	////vec2_t R = vec2((n.x * 2 - 1)/as, (n.y * 2 - 1));
 }
 
-inline vec2_t world2screen(const vec2_t &v) {
-	return world2screen(v.x, v.y);
+inline vec2_t world2screen(const vec2_t &v, arena_t &arena) {
+	return world2screen(v.x, v.y, arena);
 }
 
 vec2_t tex2screen(int x, int y) {
@@ -800,9 +805,9 @@ vec2i_t screen2tex(float x, float y) {
 }
 
 
-vec2_t tex2world(int x, int y) {
+vec2_t tex2world(int x, int y, arena_t &arena) {
 	vec2_t t = tex2screen(x, y);
-	return screen2world(t.x, t.y);
+	return screen2world(t.x, t.y, arena);
 }
 
 #define NGONS 12
@@ -874,7 +879,8 @@ static vec2_t BEST_PIXEL;
 static BYTE BEST_HOTNESS = 255;
 static BYTE CURRENT_HOTNESS = 255;
 
-static int update_lolbuffers();
+static int marrowgar_update_buffers();
+static int tocheroic_update_buffers();
 
 static void marrowgar_render_all(IDirect3DDevice9* d) {
 	
@@ -896,7 +902,7 @@ static void marrowgar_render_all(IDirect3DDevice9* d) {
 
 	d->SetVertexDeclaration(vd);
 
-	if (!update_lolbuffers()) return;
+	if (!marrowgar_update_buffers()) return;
 	static const float playercolor[] = { 0, 1, 0, 1.0 };
 	static const float bosscolor[] = { 0.5, 0.5, 1.0, 1.0 };
 	static const float best[] = { 0, 1, 0, 1 };
@@ -907,7 +913,7 @@ static void marrowgar_render_all(IDirect3DDevice9* d) {
 	d->SetVertexShader(vs);
 	d->SetPixelShader(ps);
 
-	d->SetStreamSource(0, unpassable_tribuffer, 0, 2 * sizeof(float));
+	d->SetStreamSource(0, marrowgar_unpassable_tribuffer, 0, 2 * sizeof(float));
 
 	d->SetPixelShaderConstantF(0, flamecolor, 1);
 	d->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 5);
@@ -975,7 +981,7 @@ static void marrowgar_render_all(IDirect3DDevice9* d) {
 }
 
 
-static int update_lolbuffers() {
+static int marrowgar_update_buffers() {
 	ObjectManager OM;
 	if (!OM.valid()) return 0;
 	
@@ -994,14 +1000,14 @@ static int update_lolbuffers() {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
 			if (i.NPC_get_name() == "Coldflame") {
 				vec3 ipos = i.get_pos();
-				vec2_t pos = world2screen(ipos.x, ipos.y);
+				vec2_t pos = world2screen(ipos.x, ipos.y, marrowgar_arena);
 				flames.push_back({ pos, i.get_rot() });
 			}
 		}
 		else if (i.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
 			if (i.DO_get_spellID() == 69146) {
 				vec3 ipos = i.DO_get_pos();
-				vec2_t pos = world2screen(ipos.x, ipos.y);
+				vec2_t pos = world2screen(ipos.x, ipos.y, marrowgar_arena);
 				flames.push_back({ pos, i.get_rot() });
 			}
 		}
@@ -1019,7 +1025,7 @@ static int update_lolbuffers() {
 	WowObject p;
 	OM.get_local_object(&p);
 	vec3 ppos = p.get_pos();
-	vec2_t Ppos = world2screen(ppos.x, ppos.y);
+	vec2_t Ppos = world2screen(ppos.x, ppos.y, marrowgar_arena);
 	PLAYER_POSITION = Ppos;
 	PLAYER_WORLDPOS = ppos;
 
@@ -1032,7 +1038,7 @@ static int update_lolbuffers() {
 	WowObject B = OM.get_closest_NPC_by_name(boss, ppos); // yes this is pretty bad
 
 	vec3 bpos = B.get_pos();
-	vec2_t Bpos = world2screen(bpos.x, bpos.y);
+	vec2_t Bpos = world2screen(bpos.x, bpos.y, marrowgar_arena);
 	BOSS_POSITION = Bpos;
 
 	mem[2] = pointtongon({ Bpos, 0 }, 3.0);
@@ -1057,7 +1063,7 @@ static int update_lolbuffers() {
 	for (auto &u : units) {
 		if (u.get_GUID() == OM.get_local_GUID()) { continue;  }
 		vec3 upos = u.get_pos();
-		vec2_t Upos = world2screen(upos.x, upos.y);
+		vec2_t Upos = world2screen(upos.x, upos.y, marrowgar_arena);
 		UNIT_POSITIONS.push_back(Upos);
 		ngon_t g = pointtongon({ Upos, 0 }, 0.25);
 		mem[n] = g;
@@ -1072,15 +1078,199 @@ static int update_lolbuffers() {
 
 }
 
+static void tocheroic_render_all(IDirect3DDevice9* d) {
+
+	d->SetSamplerState(
+		0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+	d->SetSamplerState(
+		0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+
+	d->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
+	d->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+	d->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
+	d->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_ONE);
+	d->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_ONE);
+
+	d->SetRenderState(D3DRS_LIGHTING, FALSE);
+	d->SetRenderState(D3DRS_ZENABLE, FALSE);
+
+	d->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+
+	d->SetVertexDeclaration(vd);
+
+
+	static const float playercolor[] = { 0, 1, 0, 1.0 };
+	static const float bosscolor[] = { 0.5, 0.5, 1.0, 1.0 };
+	static const float best[] = { 0, 1, 0, 1 };
+	static const float player[] = { 0, 0, 1, 1 };
+	static const float flamecolor[] = { 1, 0, 0, 1.0 };
+
+	d->SetVertexShader(vs);
+	d->SetPixelShader(ps);
+
+	// set VERTEX shader for gradient stuff
+	d->SetVertexShader(gradient_vs);
+	d->SetStreamSource(0, lol_vbuffer, 0, 2 * sizeof(float));
+	d->SetIndices(lol_ibuffer);
+
+	//d->SetPixelShaderConstantF(0, flamecolor, 1);
+	//d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, num_flames_to_render * (NGONS + 1), 4 * NGONS * 3, NGONS * num_flames_to_render);
+	float pp[4] = { PLAYER_POSITION.x, PLAYER_POSITION.y, 0.6, 1.0 }; // Z HAS RADIUS
+	
+	// draw reverse gradient from player
+	d->SetPixelShader(rgradient_ps);
+	d->SetPixelShaderConstantF(0, pp, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 0 * NGONS * 3, NGONS);
+
+	float bossp[4] = { BOSS_POSITION.x, BOSS_POSITION.y, 0.0, 1.0 };
+
+	bossp[2] = 1.1; // THE SHADER KNOWS THE Z COMPONENT AS A RADIUS VALUE
+	// draw reverse gradient from boss
+	d->SetPixelShaderConstantF(0, bossp, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 2 * NGONS * 3, NGONS);
+
+	bossp[2] = 0.5; // increase radius
+	// also draw normal gradient from boss
+	d->SetPixelShader(gradient_ps);
+	d->SetPixelShaderConstantF(0, bossp, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 2 * NGONS * 3, NGONS);
+
+	// draw normal gradients from flames
+	for (int i = 0; i < FLAME_POSITIONS.size(); ++i) {
+		vec2_t &v = FLAME_POSITIONS[i];
+		float fpos[4] = { v.x, v.y, 0.20, 1.0 };
+		d->SetPixelShaderConstantF(0, fpos, 1);
+		d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, (i + 4) * NGONS * 3, NGONS);
+	}
+
+	// draw raid members as gradients
+	for (int i = 0; i < num_units_to_render; ++i) {
+		float upos[4] = { UNIT_POSITIONS[i].x, UNIT_POSITIONS[i].y, 0.25, 1 }; // Z COMPONENT HAS RADIUS VALUE
+		d->SetPixelShaderConstantF(0, upos, 1);
+		//PRINT("rendering unit %d at %f, %f\n", i, upos[0], upos[1]);
+
+		d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, (NGONS + 1), (i + 4 + num_flames_to_render) * NGONS * 3, NGONS);
+	}
+
+	//d->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_ONE);
+	//d->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_ZERO);
+	//d->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+
+	d->SetVertexShader(vs);
+	d->SetPixelShader(ps);
+
+	// draw best pixel position with green (maybe disable blending for these?)
+	d->SetPixelShaderConstantF(0, best, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 1 * (NGONS + 1), 3 * NGONS * 3, NGONS * 1);
+
+	// draw player position with blue
+	d->SetPixelShaderConstantF(0, player, 1);
+	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 1 * NGONS * 3, NGONS);
+
+}
+
+
+static int tocheroic_update_buffers() {
+	ObjectManager OM;
+	if (!OM.valid()) return 0;
+
+	WowObject i;
+	if (!OM.get_first_object(&i)) return 0;
+
+	auto boss = OM.get_NPCs_by_name("Gormok the Impaler");
+	if (boss.size() < 1) {
+		num_flames_to_render = 0;
+		return 0;
+	}
+
+	std::vector<tuple_t> flames;
+
+	while (i.valid()) {
+		if (i.get_type() == OBJECT_TYPE_NPC) {
+			if (i.NPC_get_name() == "Fire Bomb") {
+				vec3 ipos = i.get_pos();
+				vec2_t pos = world2screen(ipos.x, ipos.y, tocheroic_arena);
+				flames.push_back({ pos, i.get_rot() });
+			}
+		}
+		i = i.next();
+	}
+
+	if (flames.size() < 1) {
+		num_flames_to_render = 0;
+		return 1;
+	}
+
+	ngon_t *mem;
+	lol_vbuffer->Lock(0, 0, (void**)&mem, 0);
+
+	WowObject p;
+	OM.get_local_object(&p);
+	vec3 ppos = p.get_pos();
+	vec2_t Ppos = world2screen(ppos.x, ppos.y, tocheroic_arena);
+	PLAYER_POSITION = Ppos;
+	PLAYER_WORLDPOS = ppos;
+
+	ngon_t pn = pointtongon({ Ppos, 0 }, 3.0);
+	mem[0] = pn;
+
+	pn = pointtongon({ Ppos, 0 }, 0.03);
+	mem[1] = pn;
+
+	WowObject B = OM.get_closest_NPC_by_name(boss, ppos); // yes this is pretty bad
+
+	vec3 bpos = B.get_pos();
+	vec2_t Bpos = world2screen(bpos.x, bpos.y, tocheroic_arena);
+	BOSS_POSITION = Bpos;
+
+	mem[2] = pointtongon({ Bpos, 0 }, 3.0);
+
+	mem[3] = pointtongon({ BEST_PIXEL, 0 }, 0.03);
+
+	FLAME_POSITIONS = std::vector<vec2_t>();
+
+	int n = 4;
+	for (auto &f : flames) {
+		ngon_t g = pointtongon(f, 0.15); 
+		mem[n] = g;
+		FLAME_POSITIONS.push_back(g.v[0]);
+		++n;
+	}
+
+	num_flames_to_render = n - 4;
+
+	UNIT_POSITIONS = std::vector<vec2_t>();
+
+	auto &units = OM.get_all_units();
+	for (auto &u : units) {
+		if (u.get_GUID() == OM.get_local_GUID()) { continue; }
+		vec3 upos = u.get_pos();
+		vec2_t Upos = world2screen(upos.x, upos.y, tocheroic_arena);
+		UNIT_POSITIONS.push_back(Upos);
+		ngon_t g = pointtongon({ Upos, 0 }, 0.25);
+		mem[n] = g;
+		++n;
+	}
+
+	num_units_to_render = n - num_flames_to_render - 4;
+
+	lol_vbuffer->Unlock();
+
+	return 1;
+
+}
+
+
+
 typedef struct texquad_vertex {
 	float pos[2];
 	float uv[2];
 } texquad_vertex;
 
-tri_t get_unp_tri(const vec2_t &B, const vec2_t &D, const vec2_t &P) {
-	return { world2screen(B + 200 * D),
-		world2screen(B - 200 * D),
-		world2screen(B + 200 * P) };
+tri_t get_unp_tri(const vec2_t &B, const vec2_t &D, const vec2_t &P, arena_t &arena) {
+	return { world2screen(B + 200 * D, arena),
+		world2screen(B - 200 * D, arena),
+		world2screen(B + 200 * P, arena) };
 }
 
 static int create_lolbuffers(IDirect3DDevice9 *d) {
@@ -1152,18 +1342,18 @@ static int create_lolbuffers(IDirect3DDevice9 *d) {
 
 	const tri_t arena_unpassable[] = { 
 
-	get_unp_tri(v1B, v1D, v1P),
-	get_unp_tri(v2B, v2D, v2P),
-	get_unp_tri(v3B, v3D, v3P),
-	get_unp_tri(v4B, v4D, v4P),
-	get_unp_tri(v5B, v5D, v5P),
+	get_unp_tri(v1B, v1D, v1P, marrowgar_arena),
+	get_unp_tri(v2B, v2D, v2P, marrowgar_arena),
+	get_unp_tri(v3B, v3D, v3P, marrowgar_arena),
+	get_unp_tri(v4B, v4D, v4P, marrowgar_arena),
+	get_unp_tri(v5B, v5D, v5P, marrowgar_arena),
 	};
 
-	hr = d->CreateVertexBuffer(sizeof(arena_unpassable)/sizeof(tri_t), D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &unpassable_tribuffer, NULL);
+	hr = d->CreateVertexBuffer(sizeof(arena_unpassable)/sizeof(tri_t), D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &marrowgar_unpassable_tribuffer, NULL);
 
-	unpassable_tribuffer->Lock(0, 0, &mem, 0);
+	marrowgar_unpassable_tribuffer->Lock(0, 0, &mem, 0);
 	memcpy(mem, arena_unpassable, sizeof(arena_unpassable));
-	unpassable_tribuffer->Unlock();
+	marrowgar_unpassable_tribuffer->Unlock();
 
 	return 1;
 
@@ -1231,8 +1421,8 @@ static void free_d3d9buffers() {
 	lol_quadbuffer->Release();
 	lol_quadbuffer = NULL;
 
-	unpassable_tribuffer->Release();
-	unpassable_tribuffer = NULL;
+	marrowgar_unpassable_tribuffer->Release();
+	marrowgar_unpassable_tribuffer = NULL;
 
 	rendertex_surf->Release();
 	rendertex->Release();
@@ -1356,19 +1546,73 @@ void draw_marrowgar_stuff() {
 }
 
 
-marrowgar_status get_current_marrowgar_status() {
+void draw_tocheroic_stuff() {
 
-	marrowgar_status m;
+	if (!customd3d_initialized) return;
+
+	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
+	if (!d) return;
+
+	// A THING LIKE THIS WOULD MOST LIKELY BE A VERY CAPITAL IDEA :D
+	// IDirect3DStateBlock9* pStateBlock = NULL;
+	// d->CreateStateBlock(D3DSBT_ALL, &pStateBlock);
+	// pStateBlock->Apply();
+
+	d->SetRenderTarget(0, rendertex_surf);
+	d->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(255, 0, 0, 0), 1.0f, 0);
+
+	if (!tocheroic_update_buffers()) goto exit;
+	tocheroic_render_all(d);
+
+	D3DLOCKED_RECT R;
+
+	HRESULT hr = d->GetRenderTargetData(rendertex_surf, throwaway_surf);
+	assert(SUCCEEDED(hr));
+
+	assert(SUCCEEDED(throwaway_surf->LockRect(&R, 0, 0)));
+	find_lowest_pixel(&R);
+
+	vec2i_t pt = screen2tex(PLAYER_POSITION.x, PLAYER_POSITION.y);
+	CURRENT_HOTNESS = get_pixel_value(pt.x, pt.y, &R);
+
+	throwaway_surf->UnlockRect();
+
+	d->SetRenderTarget(0, back_buffer);
+	d->SetDepthStencilSurface(depthstencil);
+
+	d->SetVertexDeclaration(quad_vd);
+	d->SetVertexShader(quad_vs);
+	d->SetPixelShader(quad_ps);
+
+	d->SetStreamSource(0, lol_quadbuffer, 0, 4 * sizeof(float));
+
+	d->SetTexture(0, rendertex);
+
+	d->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+	//	d->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+	//d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 4, 0, 2); 
+	d->DrawPrimitive(D3DPT_TRIANGLEFAN, 0, 2);
+
+exit:
+
+	reset_renderstate();
+}
+
+
+
+hotness_status get_current_hotness_status(float arena_z) {
+
+	hotness_status m;
 	
 	ObjectManager OM;
 	WowObject p;
 	OM.get_local_object(&p);
 	vec3 ppos = p.get_pos();
-	vec2_t bw = screen2world(BEST_PIXEL.x, BEST_PIXEL.y);
+	vec2_t bw = screen2world(BEST_PIXEL.x, BEST_PIXEL.y, tocheroic_arena);
 	vec3 t = vec3(bw.x, bw.y, 0);
-	vec3 d = 1.5 * (t - ppos).unit(); // add 1.5 units to actually walk to the best position (CTM mindist)
+	vec3 d = 1.5 * (t - ppos).unit(); // add 1.5 units to actually walk to the best position (CTM min_dist)
 
-	m.best_world_pos = vec3(bw.x, bw.y, 42.0) + d; // 42 is just the z coord of the arena
+	m.best_world_pos = vec3(bw.x, bw.y, arena_z) + d; // 42 is just the z coord of the arena
 	m.best_hotness = BEST_HOTNESS;
 	m.current_world_pos = PLAYER_WORLDPOS;
 	m.current_hotness = CURRENT_HOTNESS;
