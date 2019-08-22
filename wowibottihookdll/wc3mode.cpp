@@ -1129,11 +1129,11 @@ static void tocheroic_render_all(IDirect3DDevice9* d) {
 	d->SetPixelShaderConstantF(0, bossp, 1);
 	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 2 * NGONS * 3, NGONS);
 
-	bossp[2] = 0.5; // increase radius
-	// also draw normal gradient from boss
-	d->SetPixelShader(gradient_ps);
-	d->SetPixelShaderConstantF(0, bossp, 1);
-	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 2 * NGONS * 3, NGONS);
+	//bossp[2] = 0.5; // increase radius
+	//// also draw normal gradient from boss
+	//d->SetPixelShader(gradient_ps);
+	//d->SetPixelShaderConstantF(0, bossp, 1);
+	//d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, 2 * NGONS * 3, NGONS);
 
 	// draw normal gradients from flames
 	for (int i = 0; i < FLAME_POSITIONS.size(); ++i) {

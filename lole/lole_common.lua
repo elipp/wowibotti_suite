@@ -131,9 +131,9 @@ function()
     -- THIS IS GOLDEN STUFF: ----------------------
     if UnitAffectingCombat("player") then
      local n = UnitName("player")
-      --if not (n == "Iijj" or n == "Spobodi") then
+      if not (n == "Iijj" or n == "Spobodi") then
         boss_action("hotness_status")
-    --  end
+      end
       --------------------------------------------
     end
   end
