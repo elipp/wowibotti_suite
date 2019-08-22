@@ -1380,7 +1380,7 @@ static void do_boss_action(const std::string &bossname) {
 	
 	else if (bossname == "hotness_status") {
 		if (!HOTNESS_ENABLED) {
-			PRINT("ERROR: Please enable hotness with \"boss_action hotness_toggle\" first.\n");
+			PRINT("WARNING: Please enable hotness with \"boss_action hotness_toggle\" first.\n");
 			return;
 		}
 		static const float MARROWGAR_Z = 42;
