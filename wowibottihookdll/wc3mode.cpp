@@ -1144,14 +1144,14 @@ static void tocheroic_render_all(IDirect3DDevice9* d) {
 		d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, NGONS + 1, (i + 4) * NGONS * 3, NGONS);
 	}
 
-	// draw raid members as gradients
-	for (int i = 0; i < num_units_to_render; ++i) {
-		float upos[4] = { UNIT_POSITIONS[i].x, UNIT_POSITIONS[i].y, 0.20, 1 }; // Z COMPONENT HAS RADIUS VALUE
-		d->SetPixelShaderConstantF(0, upos, 1);
-		//PRINT("rendering unit %d at %f, %f\n", i, upos[0], upos[1]);
+	//// draw raid members as gradients
+	//for (int i = 0; i < num_units_to_render; ++i) {
+	//	float upos[4] = { UNIT_POSITIONS[i].x, UNIT_POSITIONS[i].y, 0.20, 1 }; // Z COMPONENT HAS RADIUS VALUE
+	//	d->SetPixelShaderConstantF(0, upos, 1);
+	//	//PRINT("rendering unit %d at %f, %f\n", i, upos[0], upos[1]);
 
-		d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, (NGONS + 1), (i + 4 + num_flames_to_render) * NGONS * 3, NGONS);
-	}
+	//	d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, (NGONS + 1), (i + 4 + num_flames_to_render) * NGONS * 3, NGONS);
+	//}
 
 	//d->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_ONE);
 	//d->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_ZERO);
