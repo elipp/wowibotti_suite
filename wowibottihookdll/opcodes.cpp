@@ -1317,6 +1317,8 @@ static int initial_angle_set = 0;
 static void do_boss_action(const std::string &bossname) {
 	
 	ObjectManager OM;
+	WowObject player;
+	OM.get_local_object(&player);
 	
 	if (bossname == "Gormok_reset") {
 		PRINT("Running gormok angle reset\n");
@@ -1391,7 +1393,7 @@ static void do_boss_action(const std::string &bossname) {
 		const BYTE HOTNESS_THRESHOLD = 130;
 
 		if (m.current_hotness > HOTNESS_THRESHOLD) {
-			PRINT("walking to %f, %f (best hotness %u, current %u, threshold: %u)\n", m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
+			PRINT("%s walking to %f, %f (best hotness %u, current %u, threshold: %u)\n", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
 			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 1.0));
 		}
 	}
