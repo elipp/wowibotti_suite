@@ -1058,7 +1058,8 @@ local function lole_spread_those_cheeks(dist)
 --	SPREAD_ONYXIA()
 
 	if not dist then dist = 15 end
-	SPREAD_SAVIANA(dist)
+--	SPREAD_SAVIANA(dist)
+	SPREAD_MADOT()
 end
 
 local function lole_iccrocket()

@@ -1612,7 +1612,7 @@ hotness_status get_current_hotness_status(float arena_z) {
 	vec3 ppos = p.get_pos();
 	vec2_t bw = screen2world(BEST_PIXEL.x, BEST_PIXEL.y, tocheroic_arena);
 	vec3 t = vec3(bw.x, bw.y, 0);
-	vec3 d = 1.5 * (t - ppos).unit(); // add 1.5 units to actually walk to the best position (CTM min_dist)
+	vec3 d = (t - ppos).unit(); // add 1.5 units to actually walk to the best position (CTM min_dist)
 
 	m.best_world_pos = vec3(bw.x, bw.y, arena_z) + d; // 42 is just the z coord of the arena
 	m.best_hotness = BEST_HOTNESS;

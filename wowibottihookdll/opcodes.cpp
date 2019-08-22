@@ -1394,7 +1394,7 @@ static void do_boss_action(const std::string &bossname) {
 
 		if (m.current_hotness > HOTNESS_THRESHOLD) {
 			PRINT("%s walking to %f, %f (best hotness %u, current %u, threshold: %u)\n", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
-			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 1.0));
+			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
 		}
 	}
 
