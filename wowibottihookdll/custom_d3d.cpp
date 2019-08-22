@@ -654,7 +654,7 @@ void wc3_draw_pylpyrs() {
 // for the vertex shader: FXC /Fh /T vs_3_0 vs.hlsl
 // pixel shader: FXC /Fh /T ps_3_0 vs.hlsl
 
-#define MAP_SIZE 64	
+#define MAP_SIZE 256	
 // 48 seems very good & stable
 
 static IDirect3DVertexBuffer9 *vbuffer;
@@ -1299,7 +1299,7 @@ static int create_lolbuffers(IDirect3DDevice9 *d) {
 	hr = d->CreateVertexBuffer(4 * sizeof(texquad_vertex), D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &lol_quadbuffer, NULL);
 	
 	const float as = 1440.0 / 900.0;
-	const float size = 0.3;
+	const float size = 0.6;
 	vec2_t mp_llc = vec2(-0.92, -0.4);
 
 	texquad_vertex tq[4] = {
@@ -1604,11 +1604,12 @@ hotness_status get_current_hotness_status() {
 
 	OM.get_local_object(&p);
 	vec3 ppos = p.get_pos();
+	ppos.z = 0;
 	vec2_t bw = screen2world(BEST_PIXEL.x, BEST_PIXEL.y, config->arena);
 	vec3 t = vec3(bw.x, bw.y, 0);
 	vec3 d = (t - ppos).unit(); // add a small vector to actually walk to the best position (CTM min_dist)
 
-	m.best_world_pos = vec3(bw.x, bw.y, config->arena.z) + d; 
+	m.best_world_pos = vec3(bw.x, bw.y, config->arena.z) + 1.5 * d; 
 	m.best_hotness = BEST_HOTNESS;
 	m.current_world_pos = PLAYER_WORLDPOS;
 	m.current_hotness = CURRENT_HOTNESS;
