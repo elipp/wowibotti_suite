@@ -34,6 +34,7 @@ local LOP_AVOID_NPC_WITH_NAME = 0x20
 local LOP_BOSS_ACTION = 0x21
 local LOP_INTERACT_SPELLNPC = 0x22
 local LOP_GET_LAST_SPELL_ERRMSG = 0x23
+local LOP_ICCROCKET = 0x24
 
 local LOP_EXT_NOP = 0x70
 local LOP_SL_RESETCAMERA = 0x71
@@ -229,6 +230,10 @@ function query_injected()
 		return 1;
 	end
 
+end
+
+function iccrocket()
+	lop_exec(LOP_ICCROCKET)
 end
 
 function get_biscuits()

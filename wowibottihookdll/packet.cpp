@@ -58,33 +58,6 @@ int call_encrypt_header(BYTE* packet) {
 }
 
 int encrypt_packet_header(BYTE* packet) {
-	DWORD sockobj = get_sockobj();
-
-	//PRINT("sockobj = %X\n", sockobj);
-
-	// for WOTLK, the encryption happens at around 0x774FC3
-	// the increment byte is at [sockobj + 0x1C] + 0x100 and 0x101
-
-	//for (int i = 0; i < 6; ++i) {
-	//
-	//	BYTE *S121 = (BYTE*)(sockobj + 0x121);
-	//	BYTE *S122 = (BYTE*)(sockobj + 0x122);
-
-	//	BYTE EAX1 = *S121;
-	//	BYTE EDX1 = DEREFB(sockobj + EAX1 + 0x127);
-	//	BYTE DLXOR1 = packet[i] ^ EDX1;
-	//	
-	//	DLXOR1 = (DLXOR1 + *S122);
-	//	packet[i] = DLXOR1;
-	//	
-	//	*S121 += 1;
-	//	BYTE DL2 = *S121;
-	//	
-	//	*S122 = packet[i];
-	//	
-	//	*S121 = DL2 % (BYTE)0x14;
-
-	//}
 
 	call_encrypt_header(packet);
 

@@ -89,6 +89,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_BOSS_ACTION, 1, 1, 0),
 	 LOPFUNC(LOP_INTERACT_SPELLNPC, 1, 1, 1),
 	 LOPFUNC(LOP_GET_LAST_SPELL_ERRMSG, 0, 0, 3),
+	 LOPFUNC(LOP_ICCROCKET, 0, 0, 0),
 };
 
 
@@ -1397,6 +1398,56 @@ static void do_boss_action(const std::string &bossname) {
 
 }
 
+static BYTE iccrocketpack_castcount = 0;
+
+static void use_icc_rocket_pack() {
+
+
+	PRINT("hello from icc\n");
+
+	ObjectManager OM;
+	WowObject r;
+
+	if (!OM.get_item_by_itemID(49278, &r)) {
+		return;
+	}
+
+	GUID_t g = r.get_GUID();
+
+	BYTE sockbuf[46] = {
+		0x00, 0x2E, 0xAB, 0x00, 0x00, 0x00, // 0x0AB == CMSG_USE_ITEM
+		0xFF, 0x03, 0xCC, 0x25, 0x0C, 0x01, 0x00, // 0xCC IS THE "CAST COUNT". 
+		0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, // THIS IS GUID
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, // constant data, flags ??
+		0xC1, 0x15, 0xC0, 0x1F, // constant data, flags ??
+		0xCC, 0xCC, 0xCC, 0xCC, // X
+		0xCC, 0xCC, 0xCC, 0xCC, // Y
+		0xCC, 0xCC, 0xCC, 0xCC // Z
+	};
+
+	sockbuf[8] = iccrocketpack_castcount;
+	++iccrocketpack_castcount;
+
+	memcpy(sockbuf + 13, &g, sizeof(g));
+
+	vec3 TEST(20, 0, 35);
+	memcpy(sockbuf + 34, &TEST.x, sizeof(float));
+	memcpy(sockbuf + 38, &TEST.y, sizeof(float));
+	memcpy(sockbuf + 42, &TEST.z, sizeof(float));
+
+	dump_packet(sockbuf, 46);
+	
+	SOCKET s = get_wow_socket_handle();
+
+	encrypt_packet_header(sockbuf);
+
+	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+	PRINT("sent rocket packet eheh\n");
+
+
+}
+
+
 static int avoid_npc_with_name(const std::string &name, float radius) {
 	ObjectManager OM;
 	WowObject P;
@@ -1725,6 +1776,12 @@ int lop_exec(lua_State *L) {
 		break;
 	}
 
+	case LOP_ICCROCKET: {
+		// Goblin Rocket Pack is itemID 49278
+		use_icc_rocket_pack();
+		break;
+	}
+
 	case LDOP_CAPTURE_FRAME_RENDER_STAGES:
 		enable_capture_render();
 		break;
@@ -1832,9 +1889,15 @@ static int dump_wowobjects_to_log(const std::string &name_filter, const std::str
 
 	for (; o.valid(); o = o.next()) {
 		uint type = o.get_type();
-		if (type == OBJECT_TYPE_ITEM || type == OBJECT_TYPE_CONTAINER) { continue; }  
+		if (type == OBJECT_TYPE_CONTAINER) {
+			continue;
+		}
+
+		else if (type == OBJECT_TYPE_ITEM && (type_filter == "ITEM")) {
+			fprintf(stdout, "object GUID: 0x%016llX, base addr: 0x%X, type: %s, itemID: %u\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str(), o.item_get_ID());
+		}
 		
-		if (type == OBJECT_TYPE_NPC && (type_filter == "" || type_filter == "NPC")) {
+		else if (type == OBJECT_TYPE_NPC && (type_filter == "" || type_filter == "NPC")) {
 			vec3 pos = o.get_pos();
 			std::string name = o.NPC_get_name();
 			if (name_filter == "" || (name_filter != "" && name.find(name_filter) != std::string::npos)) {

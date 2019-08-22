@@ -436,6 +436,9 @@ static void __stdcall dump_sendpacket(BYTE *packet) {
 		PRINT("\n");
 		break;
 	default:
+
+		//if (opcode != 0xAB) break;
+
 		PRINT("opcode: 0x%04X (total_length %d)\n", opcode, total_bytes);
 		for (int i = 6; i < total_bytes; ++i) {
 			PRINT("%02X ", packet[i]);
@@ -1206,7 +1209,7 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("CTM_main");
 	ADD_PATCH_SAFE("AddInputEvent");
 	ADD_PATCH_SAFE("SpellErrMsg");
-//	ADD_PATCH_SAFE("SendPacket");
+	//ADD_PATCH_SAFE("SendPacket");
 //	ADD_PATCH_SAFE("RecvPacket");
 	//ADD_PATCH_SAFE("SARC4_encrypt");
 //	ADD_PATCH_SAFE("WS2_send");

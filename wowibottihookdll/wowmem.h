@@ -146,6 +146,8 @@ public:
 	std::string GO_get_name() const;
 	vec3 GO_get_pos() const;
 
+	uint item_get_ID() const;
+
 	WowObject(unsigned int addr);
 	WowObject();
 
@@ -185,6 +187,8 @@ public:
 	int get_object_by_GUID(GUID_t GUID, WowObject *o) const;
 	int get_unit_by_name(const std::string &name, WowObject *o) const;
 	int get_GO_by_name(const std::string &name, WowObject *o) const;
+	int get_item_by_itemID(uint itemID, WowObject *o) const;
+
 	GUID_t get_local_GUID() const;
 	int get_local_object(WowObject *o) const;
 	uint get_base_address() const { return base_addr; }
@@ -195,6 +199,7 @@ public:
 	std::vector<WowObject> get_spell_objects_with_spellID(long spellID);
 	std::vector<WowObject> get_NPCs_by_name(const std::string &name);
 	WowObject get_closest_NPC_by_name(const std::vector<WowObject> &objs, const vec3 &other);
+
 
 };
 

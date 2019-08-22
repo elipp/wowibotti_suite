@@ -1061,6 +1061,9 @@ local function lole_spread_those_cheeks(dist)
 	SPREAD_SAVIANA(dist)
 end
 
+local function lole_iccrocket()
+	iccrocket()
+end
 
 local function lole_click_essence_portal(type)
 	-- TYPE == either "Dark" or "Light"
@@ -1157,6 +1160,7 @@ lole_subcommands = {
 	invite_guild = lole_invite_guild,
 	boss_action = lole_boss_action,
 
+
 	cast_spell = lole_cast_spell,
 
 	spread = lole_spread_those_cheeks,
@@ -1167,6 +1171,8 @@ lole_subcommands = {
 
 	resetcamera = lole_resetcamera;
 	capturerender = lole_capturerender;
+
+	iccrocket = lole_iccrocket,
 
 	wc3mode = lole_wc3mode;
 	hold = lole_hold;

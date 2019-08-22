@@ -484,6 +484,11 @@ int WowObject::in_combat() const {
 	return mask & 0x1;
 }
 
+uint WowObject::item_get_ID() const {
+	uint ID = DEREF(DEREF(base + 0x8) + 0xC);
+	return ID;
+}
+
 
 
 WowObject::WowObject(unsigned int addr) : base(addr) {};
@@ -656,6 +661,24 @@ int ObjectManager::get_GO_by_name(const std::string &name, WowObject *o) const {
 	
 	return 0;
 
+}
+
+int ObjectManager::get_item_by_itemID(uint itemID, WowObject *o) const {
+	WowObject n;
+	if (!get_first_object(&n)) return 0;
+
+	while (n.valid()) {
+		if (n.get_type() == OBJECT_TYPE_ITEM) {
+			if (n.item_get_ID() == itemID) {
+				*o = n;
+				return 1;
+			}
+		}
+
+		n = n.next();
+	}
+
+	return 0;
 }
 
 
