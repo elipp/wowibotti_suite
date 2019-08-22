@@ -140,8 +140,8 @@ function()
 
   if not playermode() then
 
-    LEGION_FLAME_AVOID()
-    boss_action("Gormok")
+  --  LEGION_FLAME_AVOID()
+  --  boss_action("Gormok")
 
   end
 
