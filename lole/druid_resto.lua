@@ -155,8 +155,6 @@ end
 
 combat_druid_resto = function()
 
-  if unit_castorchannel("focus") == "Staggering Stomp" then L_SpellStopCasting(); return; end
-
   if player_casting() then return end
 
     if do_tranquility then

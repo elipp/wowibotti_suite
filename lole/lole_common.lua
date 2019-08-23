@@ -554,6 +554,9 @@ function cast_spell(spellname)
 end
 
 function cast_heal(spellname, target, range)
+
+    if unit_castorchannel("focus") == "Staggering Stomp" then L_SpellStopCasting(); return; end
+
     if range == nil then range = 35; end
     if target then L_TargetUnit(target); end
     if spellname ~= "Prayer of Healing" then
