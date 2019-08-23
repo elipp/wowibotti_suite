@@ -1299,7 +1299,7 @@ static int create_lolbuffers(IDirect3DDevice9 *d) {
 	hr = d->CreateVertexBuffer(4 * sizeof(texquad_vertex), D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &lol_quadbuffer, NULL);
 	
 	const float as = 1440.0 / 900.0;
-	const float size = 0.6;
+	const float size = 0.28;
 	vec2_t mp_llc = vec2(-0.92, -0.4);
 
 	texquad_vertex tq[4] = {
