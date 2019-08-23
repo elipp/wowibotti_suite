@@ -953,9 +953,20 @@ static int LOP_get_unit_position(const std::string &name, vec3 *pos_out, double 
 		if (!OM.get_object_by_GUID(focus_GUID, &t)) {
 			return 0;
 		}
-
-		*pos_out = t.get_pos();
-		*rot = t.get_rot();
+		
+		if (t.get_type() == OBJECT_TYPE_NPC && t.NPC_get_name() == "Snobold Vassal") {
+			// the coordinates for such "mounted" mobs are fucked up...
+			GUID_t totg = t.NPC_get_target_GUID();
+			WowObject tot;
+			OM.get_object_by_GUID(totg, &tot);
+			if (!tot.valid()) return 0;
+			*pos_out = tot.get_pos();
+			*rot = t.get_rot();
+		}
+		else {
+			*pos_out = t.get_pos();
+			*rot = t.get_rot();
+		}
 
 		return 1;
 	}
