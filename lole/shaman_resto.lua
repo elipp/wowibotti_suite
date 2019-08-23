@@ -106,6 +106,8 @@ end
 
 combat_shaman_resto = function()
 
+    if unit_castorchannel("focus") == "Staggering Stomp" then L_SpellStopCasting(); return; end
+
     if player_casting() then return end
 
     check_EL()
