@@ -654,7 +654,7 @@ void wc3_draw_pylpyrs() {
 // for the vertex shader: FXC /Fh /T vs_3_0 vs.hlsl
 // pixel shader: FXC /Fh /T ps_3_0 vs.hlsl
 
-#define MAP_SIZE 256	
+#define MAP_SIZE 64	
 // 48 seems very good & stable
 
 static IDirect3DVertexBuffer9 *vbuffer;
