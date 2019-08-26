@@ -953,20 +953,9 @@ static int LOP_get_unit_position(const std::string &name, vec3 *pos_out, double 
 		if (!OM.get_object_by_GUID(focus_GUID, &t)) {
 			return 0;
 		}
-		
-		if (t.get_type() == OBJECT_TYPE_NPC && t.NPC_get_name() == "Snobold Vassal") {
-			// the coordinates for such "mounted" mobs are fucked up...
-			GUID_t totg = t.NPC_get_target_GUID();
-			WowObject tot;
-			OM.get_object_by_GUID(totg, &tot);
-			if (!tot.valid()) return 0;
-			*pos_out = tot.get_pos();
-			*rot = t.get_rot();
-		}
-		else {
-			*pos_out = t.get_pos();
-			*rot = t.get_rot();
-		}
+	
+		*pos_out = t.get_pos();
+		*rot = t.get_rot();
 
 		return 1;
 	}
@@ -1937,7 +1926,7 @@ static int dump_wowobjects_to_log(const std::string &name_filter, const std::str
 			if (name_filter == "" || (name_filter != "" && name.find(name_filter) != std::string::npos)) {
 				fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
 				fprintf(stdout, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, o.get_rot());
-				fprintf(stdout, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d\n\n", o.NPC_get_name().c_str(), o.NPC_get_health(), o.NPC_get_health_max(), o.NPC_get_target_GUID(), o.in_combat());
+				fprintf(stdout, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d, mounted GUID: 0x%016llX\n\n", o.NPC_get_name().c_str(), o.NPC_get_health(), o.NPC_get_health_max(), o.NPC_get_target_GUID(), o.in_combat(), o.NPC_get_mounted_GUID());
 				fprintf(stdout, "----------------------------------------------------------------------------\n");
 			}
 		}

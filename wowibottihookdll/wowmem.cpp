@@ -144,7 +144,19 @@ float WowObject::get_pos_z() const {
 
 
 vec3 WowObject::get_pos() const {
-	return vec3(get_pos_x(), get_pos_y(), get_pos_z());
+	ObjectManager OM;
+
+	GUID_t mg = 0;
+
+	if (get_type() == OBJECT_TYPE_NPC && (mg = NPC_get_mounted_GUID()) != 0) {
+		// the coordinates for such "mounted" mobs are fucked up (stored relative to the mount), so have a separate block for those ^_^
+		WowObject mt;
+		OM.get_object_by_GUID(mg, &mt);
+		if (!mt.valid()) return vec3();
+		return vec3(get_pos_x(), get_pos_y(), get_pos_z()) + vec3(mt.get_pos_x(), mt.get_pos_y(), mt.get_pos_z());
+	}
+
+	else return vec3(get_pos_x(), get_pos_y(), get_pos_z());
 }
 
 float WowObject::get_rot() const {
@@ -824,6 +836,12 @@ int get_reaction(const WowObject &A, const WowObject &B) {
 	}
 
 	return R + 1;
+}
+
+GUID_t WowObject::NPC_get_mounted_GUID() const {
+	GUID_t g;
+	readAddr((base + 0x790), &g, sizeof(g));
+	return g;
 }
 
 static const type_string_mapentry typestring_index_map[] = {

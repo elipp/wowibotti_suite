@@ -127,6 +127,8 @@ public:
 	int NPC_has_buff(uint spellID) const;
 	int NPC_has_debuff(uint spellID) const;
 
+	GUID_t NPC_get_mounted_GUID() const;
+
 	std::string unit_get_name() const;
 	GUID_t unit_get_target_GUID() const;
 
