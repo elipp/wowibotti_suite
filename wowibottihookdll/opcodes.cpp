@@ -1418,15 +1418,14 @@ static void do_boss_action(const std::vector<std::string> &args) {
 
 }
 
-static BYTE iccrocketpack_castcount = 0;
-
 static void use_icc_rocket_pack() {
-
 
 	PRINT("hello from icc\n");
 
 	ObjectManager OM;
 	WowObject r;
+
+	DoString("RunMacroText(\"/equip Goblin Rocket Pack\")");
 
 	if (!OM.get_item_by_itemID(49278, &r)) {
 		return;
@@ -1442,13 +1441,14 @@ static void use_icc_rocket_pack() {
 	// the packet address appears in 434F99C after a call to 47B0A0 (at 80B293)
 
 	// the cast count is written to the packet at 80B2B5 (stored in [EDI+24], which is [[D3F4E4] + 24])
+	// (D3F4E4 contains used item GUID)
 	// EDI + 8 contains the coordinates apparently (written to the packet at 80B48F)
 	// X coordinate written at 9AB96C, Y coordinate at 9AB97C, etc
 	// the coords are fetched from [ESI+58, 5C, 60]
 
 	// apparently another packet is sent at 467781
 	
-	// FIXED! The problem was that the legit function actually sends two packets, one for 0xAB and one for 0x3D3
+	// FIXED! The problem was that the legit function actually sends two packets, one for 0xAB and one for 0x3D3 (VOICE_CHAT_ something ?????)
 	// If that doesn't happen, the SARC4 encryption gets messed up
 
 	BYTE sockbuf[46] = {
@@ -1463,8 +1463,9 @@ static void use_icc_rocket_pack() {
 		0xCC, 0xCC, 0xCC, 0xCC // Z
 	};
 
-	sockbuf[8] = iccrocketpack_castcount;
-	++iccrocketpack_castcount;
+	// TODO should check if it's pre or post-incremented
+	sockbuf[8] = get_item_usecount();
+	increment_item_usecount();
 
 	memcpy(sockbuf + 13, &g, sizeof(g));
 

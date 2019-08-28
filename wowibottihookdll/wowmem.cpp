@@ -501,7 +501,15 @@ uint WowObject::item_get_ID() const {
 	return ID;
 }
 
+BYTE get_item_usecount() {
+	BYTE *usecount = (BYTE*)(0xD397D5);
+	return *usecount;
+}
 
+void increment_item_usecount() {
+	BYTE *usecount = (BYTE*)(0xD397D5);
+	++*usecount;
+}
 
 WowObject::WowObject(unsigned int addr) : base(addr) {};
 WowObject::WowObject() {};

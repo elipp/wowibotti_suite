@@ -239,6 +239,8 @@ float get_distance2(const WowObject &a, const WowObject &b);
 
 int get_reaction(const WowObject &A, const WowObject &B);
 
+BYTE get_item_usecount();
+void increment_item_usecount();
 
 typedef struct ERRMSG_t {
 	int code;
