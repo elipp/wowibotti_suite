@@ -73,7 +73,13 @@ struct wowcl_t {
 		char *endptr;
 		char c = std::to_string(index + 1)[0]; // this is pretty risque... :D
 		//ShowWindow(main_window_hWnd, SW_HIDE);
-		RegisterHotKey(main_window_hWnd, index, MOD_ALT, c);
+
+		if (index + 1 < 10) {
+			RegisterHotKey(main_window_hWnd, index, MOD_ALT, c);
+		}
+		else {
+			RegisterHotKey(main_window_hWnd, index, MOD_ALT, '0');
+		}
 	}
 
 	~wowcl_t() {
