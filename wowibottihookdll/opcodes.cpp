@@ -1434,8 +1434,26 @@ static void use_icc_rocket_pack() {
 
 	GUID_t g = r.get_GUID();
 
+	// during a legit item cast, the packet is constructed at 46772E (call to 467190)
+	// the data is input at 46720B (call to 40CB10)
+	// copied at (40CBEE)
+	// the actual packet is constructed in 80AC90 (it's LOCAL.7)
+	// first mention at 80B0D1
+	// the packet address appears in 434F99C after a call to 47B0A0 (at 80B293)
+
+	// the cast count is written to the packet at 80B2B5 (stored in [EDI+24], which is [[D3F4E4] + 24])
+	// EDI + 8 contains the coordinates apparently (written to the packet at 80B48F)
+	// X coordinate written at 9AB96C, Y coordinate at 9AB97C, etc
+	// the coords are fetched from [ESI+58, 5C, 60]
+
+	// apparently another packet is sent at 467781
+	
+	// FIXED! The problem was that the legit function actually sends two packets, one for 0xAB and one for 0x3D3
+	// If that doesn't happen, the SARC4 encryption gets messed up
+
 	BYTE sockbuf[46] = {
-		0x00, 0x2E, 0xAB, 0x00, 0x00, 0x00, // 0x0AB == CMSG_USE_ITEM
+		// the size argument is absolute size of packet - 2
+		0x00, 0x2C, 0xAB, 0x00, 0x00, 0x00, // 0x0AB == CMSG_USE_ITEM
 		0xFF, 0x03, 0xCC, 0x25, 0x0C, 0x01, 0x00, // 0xCC IS THE "CAST COUNT". 
 		0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, // THIS IS GUID
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, // constant data, flags ??
@@ -1462,9 +1480,24 @@ static void use_icc_rocket_pack() {
 	encrypt_packet_header(sockbuf);
 
 	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
-	PRINT("sent rocket packet eheh\n");
 
+	// so this is the other packet :D
+	BYTE sockbuf2[11] = {
+		0x00, 0x09, 0xD3, 0x03, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00
+	};
 
+	encrypt_packet_header(sockbuf2);
+	send(s, (const char*)sockbuf2, sizeof(sockbuf2), 0);
+
+}
+
+void packet_test1() {
+	BYTE sockbuf[6] = {
+		0x00, 0x6, 0xF6, 0x04, 0, 0
+	};
+	SOCKET s = get_wow_socket_handle();
+	//encrypt_packet_header(sockbuf);
+	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
 }
 
 
@@ -1801,7 +1834,8 @@ int lop_exec(lua_State *L) {
 
 	case LOP_ICCROCKET: {
 		// Goblin Rocket Pack is itemID 49278
-		// use_icc_rocket_pack(); // DISABLED FOR NOW, SENDS A MALFORMED PACKET??
+		use_icc_rocket_pack(); // DISABLED FOR NOW, SENDS A MALFORMED PACKET??
+		//packet_test1();
 		break;
 	}
 

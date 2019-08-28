@@ -365,6 +365,7 @@ enum {
 };
 
 enum {
+	CMSG_USE_ITEM = 0x0AB,
 	CMSG_CAST_SPELL = 0x12E,
 	CMSG_SET_SELECTION = 0x13D,
 	SMSG_WARDEN_DATA = 0x2E6,
@@ -434,6 +435,13 @@ static void __stdcall dump_sendpacket(BYTE *packet) {
 		//relay_warden_packet(packet, total_bytes, WARDEN_SOURCE_OUT);
 		PRINT("\n");
 		break;
+
+	//case CMSG_USE_ITEM:
+	//	PRINT("GOT CMSG_USE_ITEM, doing a int 3h\n");
+	//	_asm {
+	//		int 3h;
+	//	}
+	//	break;
 	default:
 
 		//if (opcode != 0xAB) break;
@@ -1208,7 +1216,7 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("CTM_main");
 	ADD_PATCH_SAFE("AddInputEvent");
 	ADD_PATCH_SAFE("SpellErrMsg");
-	//ADD_PATCH_SAFE("SendPacket");
+	ADD_PATCH_SAFE("SendPacket");
 //	ADD_PATCH_SAFE("RecvPacket");
 	//ADD_PATCH_SAFE("SARC4_encrypt");
 //	ADD_PATCH_SAFE("WS2_send");
