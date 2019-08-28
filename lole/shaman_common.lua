@@ -61,7 +61,7 @@ function get_active_multicast_summonspell()
 end
 
 local function should_recast_totem(arg_totem)
-	echo(arg_totem)
+	--echo(arg_totem)
 	local totemslot = totem_name_type_map[arg_totem]
 	local _, totemName, startTime, duration = GetTotemInfo(totemslot);
 
