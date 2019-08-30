@@ -164,7 +164,7 @@ inline GUID_t convert_str_to_GUID(const std::string &GUID_str) {
 	GUID_t GUID = strtoull(GUID_numstr.c_str(), &end, 16);
 
 	if (end != GUID_numstr.c_str() + GUID_numstr.length()) {
-		PRINT("[WARNING]: convert_str_to_GUID: couldn't wholly convert GUID string argument (strtoull(\"%s\", &end, 16) failed, bailing out\n", GUID_numstr.c_str());
+		PRINT("[WARNING]: convert_str_to_GUID: couldn't wholly convert GUID string argument (strtoull(\"%s\", &end, 16) failed, bailing out)\n", GUID_numstr.c_str());
 		return 0;
 	}
 

@@ -8,6 +8,13 @@ local mode_attribs = {
 	hold = 0,
 }
 
+local tank_attribs = {
+	active = 0,
+	target = 0,
+	allbut = 0,
+	position = 0,
+	facing = 0,
+}
 
 function get_available_mode_attribs()
 
@@ -1066,6 +1073,82 @@ local function lole_iccrocket()
 	iccrocket()
 end
 
+
+local function tank_set(attrib, value)
+	if tank_attribs[attrib] then
+		if value == "sel" then
+			value = UnitGUID("target") or 0
+		end
+		tank_attribs[attrib] = value
+		echo("tank_attrib " .. attrib .. " set to value " .. tostring(value))
+	else
+		echo("tank_attribs: no such attrib: " .. attrib)
+	end
+end
+
+local function tank_append(attrib, value)
+	if tank_attribs[attrib] then
+		if value == "sel" then
+			value = UnitGUID("target") or 0
+		end
+		tank_attribs[attrib] = tank_attribs[attrib] .. "," .. value
+		echo("tank_attrib " .. attrib .. " is now " .. tostring(tank_attribs[attrib]))
+	else
+		echo("tank_attribs: no such attrib: " .. attrib)
+	end
+end
+
+local function lole_tank(...)
+
+	-- "sel" is a special keyword that is expanded to UnitGUID("target") in tank_set
+
+	local args = get_arg_table_sanitized(...)
+	local cmd = args[1]
+	if not cmd then
+		echo("error: no cmd: usage: /lole tank <cmd> (target [<GUID> | sel | all | allbut <GUID>]) | enable | disable")
+		return
+	end
+	if cmd == "act" then
+		tank_act(tank_attribs)
+
+	elseif cmd == "target" then
+		if not args[2] then
+			echo("error: please provide a target")
+			return
+		end
+		if args[2] == "allbut" then
+			if not args[3] then
+				echo("error: allbut requires a GUID argument (or \"sel\")!")
+				return
+			end
+			tank_set("target", "allbut")
+			tank_set("allbut", args[3])
+			--tank_set("pos")
+		else
+			tank_set("target", args[2])
+			tank_set("allbut", 0)
+		end
+	elseif cmd == "enable" then
+		tank_set("active", 1)
+	elseif cmd == "disable" then
+		tank_set("active", 0)
+	elseif cmd == "position" then
+		if args[2] == "here" then
+			tank_set("position", vec3:create(get_unit_position("player")))
+		else
+			local v = vec3:fromstring(args[2])
+			if not v then
+				echo("tank position: invalid input for position vector (use comma-separated coords and NO WHITESPACE :D)")
+				return
+			else
+				tank_set("position", v)
+			end
+		end
+		echo(tank_attribs["position"].x, tank_attribs["position"].y, tank_attribs["position"].z)
+	end
+end
+
+
 local function lole_click_essence_portal(type)
 	-- TYPE == either "Dark" or "Light"
 	run_to_essenceportal_and_click(type .. " Essence")
@@ -1162,6 +1245,7 @@ lole_subcommands = {
 	boss_action = lole_boss_action,
 	ba = lole_boss_action,
 
+	tank = lole_tank,
 
 	cast_spell = lole_cast_spell,
 

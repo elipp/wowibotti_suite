@@ -35,6 +35,7 @@ local LOP_BOSS_ACTION = 0x21
 local LOP_INTERACT_SPELLNPC = 0x22
 local LOP_GET_LAST_SPELL_ERRMSG = 0x23
 local LOP_ICCROCKET = 0x24
+local LOP_TANK_ACT = 0x25
 
 local LOP_EXT_NOP = 0x70
 local LOP_SL_RESETCAMERA = 0x71
@@ -234,6 +235,11 @@ end
 
 function iccrocket()
 	lop_exec(LOP_ICCROCKET)
+end
+
+function tank_act(config)
+	local action_needed, taunt_GUID = lop_exec(LOP_TANK_ACT, tostring(config["target"]), tostring(config["allbut"]), tostring(config["tankpos"]), tostring(config["facing"]))
+	echo(action_needed, taunt_GUID)
 end
 
 function get_biscuits()

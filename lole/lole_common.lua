@@ -54,6 +54,25 @@ function vec3:scale(s)
   return vec3:create(s * self.x, s * self.y, s * self.z)
 end
 
+function vec3:tostring()
+  return tostring(self.x) + "," + tostring(self.y) + "," + tostring(self.z)
+end
+
+function vec3:fromstring(s) -- so the format is "x,y,z" without whitespace
+  local coords = string_split(s, ",")
+  local x, y, z = tonumber(coords[1]), tonumber(coords[2]), tonumber(coords[3])
+  if (not x or not y or not z) then return nil
+  else return vec3:create(x, y, z) end
+end
+
+function string_split(s, sep)
+    local sep, fields = sep or ":", {}
+    local pattern = string.format("([^ ?%s]+)", sep)
+    s:gsub(pattern, function(c) fields[#fields+1] = c end)
+    return fields
+end
+
+
 function get_arg_table(...)
   -- NOTE: THIS CONVERTS EVERYTHING TO STRINGS!
   local atab = {};
@@ -64,6 +83,22 @@ function get_arg_table(...)
   for i = 1, select('#', ...) do
       local arg = select(i, ...);
       table.insert(atab, tostring(arg));
+  end
+  return atab
+end
+
+function get_arg_table_sanitized(...)
+  local atab = {};
+  if select('#', ...) < 1 then
+    return atab;
+  end
+
+  for i = 1, select('#', ...) do
+      local arg = select(i, ...);
+      arg = string.gsub(arg, "%s+", "")
+      if arg and arg ~= "" then
+        table.insert(atab, tostring(arg));
+      end
   end
   return atab
 end

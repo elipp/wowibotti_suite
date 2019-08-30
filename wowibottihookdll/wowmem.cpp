@@ -702,6 +702,32 @@ int ObjectManager::get_item_by_itemID(uint itemID, WowObject *o) const {
 }
 
 
+std::vector<WowObject> ObjectManager::get_combat_targets() const {
+
+	std::vector<WowObject> o;
+
+	WowObject p;
+	if (!this->get_local_object(&p)) return o;
+	vec3 ppos = p.get_pos();
+
+	WowObject i;
+	if (!this->get_first_object(&i)) return o;
+
+	while (i.valid()) {
+		if (i.get_type() == OBJECT_TYPE_NPC) {
+			int reaction = get_reaction(p, i);
+			if (reaction < 5 && i.in_combat() && !i.NPC_unit_is_dead() && i.NPC_get_health_max() > 2500) {
+				o.push_back(i);
+			}
+		}
+
+		i = i.next();
+	}
+
+	return o;
+}
+
+
 GUID_t ObjectManager::get_local_GUID() const { return localGUID; }
 
 int ObjectManager::valid() const {

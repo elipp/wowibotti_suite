@@ -90,6 +90,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_INTERACT_SPELLNPC, 1, 1, 1),
 	 LOPFUNC(LOP_GET_LAST_SPELL_ERRMSG, 0, 0, 3),
 	 LOPFUNC(LOP_ICCROCKET, 0, 0, 0),
+	 LOPFUNC(LOP_TANK_ACT, 4, 4, 1),
 };
 
 
@@ -975,29 +976,14 @@ static int LOP_get_unit_position(const std::string &name, vec3 *pos_out, double 
 }
 
 static int LOP_get_combat_targets(std::vector <GUID_t> *out) {
+
 	ObjectManager OM;
+	std::vector<WowObject> t = OM.get_combat_targets();
 
-	WowObject p;
-	if (!OM.get_local_object(&p)) return 0; 
-	vec3 ppos = p.get_pos();
+	if (t.size() == 0) return 0;
 
-	WowObject i;
-	if (!OM.get_first_object(&i)) return 0;
-
-	while (i.valid()) {
-		if (i.get_type() == OBJECT_TYPE_NPC) {
-			int reaction = get_reaction(p, i);
-
-			if (reaction < 5 && i.in_combat() && !i.NPC_unit_is_dead() && i.NPC_get_health_max() > 2500) {
-				//float dist = (i.get_pos() - ppos).length();
-				//if (dist < 30) {
-				out->push_back(i.get_GUID());
-				//}
-			}
-			
-		}
-
-		i = i.next();
+	for (auto &o : t) {
+		out->push_back(o.get_GUID());
 	}
 
 	return out->size();
@@ -1492,13 +1478,101 @@ static void use_icc_rocket_pack() {
 
 }
 
-void packet_test1() {
-	BYTE sockbuf[6] = {
-		0x00, 0x6, 0xF6, 0x04, 0, 0
-	};
-	SOCKET s = get_wow_socket_handle();
-	//encrypt_packet_header(sockbuf);
-	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+static std::vector<WowObject> get_loose_mobs(const std::vector<WowObject> &mobs, GUID_t allbut_GUID) {
+	ObjectManager OM;
+	WowObject p;
+	OM.get_local_object(&p);
+	GUID_t pGUID = p.get_GUID();
+
+	std::vector<WowObject> r;
+	for (auto &m : mobs) {
+		GUID_t mg = m.get_GUID();
+		GUID_t tg = m.NPC_get_target_GUID();
+		if (tg != pGUID && ((allbut_GUID != 0) && mg != allbut_GUID)) {
+			r.push_back(m);
+		}
+	}
+
+	return r;
+
+}
+
+static std::vector<WowObject> get_tanked_mobs(const std::vector<WowObject> &mobs) {
+	ObjectManager OM;
+	WowObject p;
+	OM.get_local_object(&p);
+	GUID_t pGUID = p.get_GUID();
+
+	std::vector<WowObject> r;
+	for (auto &m : mobs) {
+		GUID_t tg = m.NPC_get_target_GUID();
+		if (tg == pGUID) { 
+			r.push_back(m);
+		}
+	}
+
+	return r;
+}
+
+static int tank_act(lua_State *L, const std::string &target, const std::string &allbut, const std::string &tankpos, const std::string &facing) {
+	GUID_t target_GUID = 0;
+	GUID_t allbut_GUID = 0;
+	int tank_all = 0;
+	vec3 tank_pos;
+	float f;
+
+	PRINT("%s %s %s %s\n", target.c_str(), allbut.c_str(), tankpos.c_str(), facing.c_str());
+	
+	if (target.find("0x") == 0) {
+		// then we have a simple GUID as target
+		target_GUID = convert_str_to_GUID(target);
+		tank_all = 0;
+	}
+	else if (target == "all") {
+		tank_all = 1;
+	}
+	else if (target == "allbut") {
+		allbut_GUID = convert_str_to_GUID(allbut); // TODO: this could actually have several GUIDs
+		tank_all = 1;
+	}
+
+	else {
+		PRINT("tank_act: ERROR: invalid target argument \"%s\"\n", target.c_str());
+		return 0;
+	}
+	
+	ObjectManager OM;
+	GUID_t pGUID = OM.get_local_GUID();
+
+	std::vector<WowObject> targets = OM.get_combat_targets();
+	auto loose = get_loose_mobs(targets, allbut_GUID);
+	PRINT("loose size: %d, targets size: %d\n", loose.size(), targets.size());
+	
+	if (tank_all) {
+		if (loose.size() > 0) {
+			WowObject &tauntee = loose[0];
+			GUID_t tauntGUID = tauntee.get_GUID();
+			vec3 tp = tauntee.get_pos();
+			std::string fgs = convert_GUID_to_str(tauntGUID);
+			lua_pushboolean(L, 1);
+			lua_pushlstring(L, fgs.c_str(), fgs.length());
+			return 2;
+		}
+	}
+
+	else {
+		WowObject t;
+		OM.get_object_by_GUID(target_GUID, &t);
+		if (t.NPC_get_target_GUID() != pGUID) {
+			lua_pushboolean(L, 1);
+			std::string gstr = convert_GUID_to_str(target_GUID);
+			lua_pushlstring(L, gstr.c_str(), gstr.length());
+			return 2;
+		}
+	}
+
+	return 0;
+
 }
 
 
@@ -1837,6 +1911,11 @@ int lop_exec(lua_State *L) {
 		// Goblin Rocket Pack is itemID 49278
 		use_icc_rocket_pack(); // DISABLED FOR NOW, SENDS A MALFORMED PACKET??
 		//packet_test1();
+		break;
+	}
+
+	case LOP_TANK_ACT: {
+		return tank_act(L, lua_tolstring(L, 2, &len), lua_tolstring(L, 3, &len), lua_tolstring(L, 4, &len), lua_tolstring(L, 5, &len));
 		break;
 	}
 
