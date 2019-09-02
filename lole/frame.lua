@@ -282,9 +282,11 @@ local function update_target_onclick()
 
 	if target_GUID ~= BLAST_TARGET_GUID then
 		-- mob GUIDs always start with 0xF130
-		if string.sub(target_GUID, 1, 6) == "0xF130" or string.sub(target_GUID, 1, 6) == "0xF150" and (not UnitIsDead("target")) and UnitReaction("target", "player") < 5 then
-			set_target(UnitGUID("target"))
-			lole_subcommands.broadcast("target", UnitGUID("target"));
+		if string.sub(target_GUID, 1, 6) == "0xF130" or string.sub(target_GUID, 1, 6) == "0xF150"
+		and (not UnitIsDead("target")) and UnitReaction("target", "player") < 5 then
+
+			set_target(target_GUID)
+			lole_subcommands.broadcast("target", target_GUID);
 			return;
 		else
 			lole_error("Invalid target! Select an attackable NPC mob.")

@@ -1382,7 +1382,7 @@ static void do_boss_action(const std::vector<std::string> &args) {
 	
 	else if (args[0] == "hconfig_status") {
 		if (!HOTNESS_ENABLED) {
-			PRINT("WARNING: Please enable hotness with \"hconfig_enable\" first.\n");
+			//PRINT("WARNING: Please enable hotness with \"hconfig_enable\" first.\n");
 			return;
 		}
 
@@ -1426,55 +1426,55 @@ static void use_icc_rocket_pack() {
 	// first mention at 80B0D1
 	// the packet address appears in 434F99C after a call to 47B0A0 (at 80B293)
 
-	// the cast count is written to the packet at 80B2B5 (stored in [EDI+24], which is [[D3F4E4] + 24])
-	// (D3F4E4 contains used item GUID)
-	// EDI + 8 contains the coordinates apparently (written to the packet at 80B48F)
-	// X coordinate written at 9AB96C, Y coordinate at 9AB97C, etc
-	// the coords are fetched from [ESI+58, 5C, 60]
+// the cast count is written to the packet at 80B2B5 (stored in [EDI+24], which is [[D3F4E4] + 24])
+// (D3F4E4 contains used item GUID)
+// EDI + 8 contains the coordinates apparently (written to the packet at 80B48F)
+// X coordinate written at 9AB96C, Y coordinate at 9AB97C, etc
+// the coords are fetched from [ESI+58, 5C, 60]
 
-	// apparently another packet is sent at 467781
-	
-	// FIXED! The problem was that the legit function actually sends two packets, one for 0xAB and one for 0x3D3 (VOICE_CHAT_ something ?????)
-	// If that doesn't happen, the SARC4 encryption gets messed up
+// apparently another packet is sent at 467781
 
-	BYTE sockbuf[46] = {
-		// the size argument is absolute size of packet - 2
-		0x00, 0x2C, 0xAB, 0x00, 0x00, 0x00, // 0x0AB == CMSG_USE_ITEM
-		0xFF, 0x03, 0xCC, 0x25, 0x0C, 0x01, 0x00, // 0xCC IS THE "CAST COUNT". 
-		0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, // THIS IS GUID
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, // constant data, flags ??
-		0xC1, 0x15, 0xC0, 0x1F, // constant data, flags ??
-		0xCC, 0xCC, 0xCC, 0xCC, // X
-		0xCC, 0xCC, 0xCC, 0xCC, // Y
-		0xCC, 0xCC, 0xCC, 0xCC // Z
-	};
+// FIXED! The problem was that the legit function actually sends two packets, one for 0xAB and one for 0x3D3 (VOICE_CHAT_ something ?????)
+// If that doesn't happen, the SARC4 encryption gets messed up
 
-	// TODO should check if it's pre or post-incremented
-	sockbuf[8] = get_item_usecount();
-	increment_item_usecount();
+BYTE sockbuf[46] = {
+	// the size argument is absolute size of packet - 2
+	0x00, 0x2C, 0xAB, 0x00, 0x00, 0x00, // 0x0AB == CMSG_USE_ITEM
+	0xFF, 0x03, 0xCC, 0x25, 0x0C, 0x01, 0x00, // 0xCC IS THE "CAST COUNT". 
+	0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, // THIS IS GUID
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, // constant data, flags ??
+	0xC1, 0x15, 0xC0, 0x1F, // constant data, flags ??
+	0xCC, 0xCC, 0xCC, 0xCC, // X
+	0xCC, 0xCC, 0xCC, 0xCC, // Y
+	0xCC, 0xCC, 0xCC, 0xCC // Z
+};
 
-	memcpy(sockbuf + 13, &g, sizeof(g));
+// TODO should check if it's pre or post-incremented
+sockbuf[8] = get_item_usecount();
+increment_item_usecount();
 
-	vec3 TEST(20, 0, 35);
-	memcpy(sockbuf + 34, &TEST.x, sizeof(float));
-	memcpy(sockbuf + 38, &TEST.y, sizeof(float));
-	memcpy(sockbuf + 42, &TEST.z, sizeof(float));
+memcpy(sockbuf + 13, &g, sizeof(g));
 
-	dump_packet(sockbuf, 46);
-	
-	SOCKET s = get_wow_socket_handle();
+vec3 TEST(20, 0, 35);
+memcpy(sockbuf + 34, &TEST.x, sizeof(float));
+memcpy(sockbuf + 38, &TEST.y, sizeof(float));
+memcpy(sockbuf + 42, &TEST.z, sizeof(float));
 
-	encrypt_packet_header(sockbuf);
+dump_packet(sockbuf, 46);
 
-	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+SOCKET s = get_wow_socket_handle();
 
-	// so this is the other packet :D
-	BYTE sockbuf2[11] = {
-		0x00, 0x09, 0xD3, 0x03, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00
-	};
+encrypt_packet_header(sockbuf);
 
-	encrypt_packet_header(sockbuf2);
-	send(s, (const char*)sockbuf2, sizeof(sockbuf2), 0);
+send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+
+// so this is the other packet :D
+BYTE sockbuf2[11] = {
+	0x00, 0x09, 0xD3, 0x03, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00
+};
+
+encrypt_packet_header(sockbuf2);
+send(s, (const char*)sockbuf2, sizeof(sockbuf2), 0);
 
 }
 
@@ -1486,15 +1486,36 @@ static std::vector<WowObject> get_loose_mobs(const std::vector<WowObject> &mobs,
 
 	std::vector<WowObject> r;
 	for (auto &m : mobs) {
-		GUID_t mg = m.get_GUID();
-		GUID_t tg = m.NPC_get_target_GUID();
-		if (tg != pGUID && ((allbut_GUID != 0) && mg != allbut_GUID)) {
+		GUID_t tg = m.get_GUID();
+		GUID_t totg = m.NPC_get_target_GUID();
+		if (totg != pGUID && ((allbut_GUID != 0) && tg != allbut_GUID)) {
 			r.push_back(m);
 		}
 	}
 
 	return r;
 
+}
+
+static GUID_t get_fresh_target(const std::vector<WowObject> &mobs, GUID_t current, GUID_t prev_GUID) {
+
+	if (mobs.size() < 1) { return 0; }
+	else if (mobs.size() < 2) {
+		return mobs[0].get_GUID();
+	}
+	else if (mobs.size() == 2) {
+		GUID_t g1 = mobs[0].get_GUID();
+		GUID_t g2 = mobs[1].get_GUID();
+		if (current == g1) return g2;
+		if (current == g2) return g1;
+	}
+
+	for (auto &m : mobs) {
+		GUID_t mg = m.get_GUID();
+		if (mg != current && mg != prev_GUID) {
+			return mg;
+		}
+	}
 }
 
 static std::vector<WowObject> get_tanked_mobs(const std::vector<WowObject> &mobs) {
@@ -1506,7 +1527,7 @@ static std::vector<WowObject> get_tanked_mobs(const std::vector<WowObject> &mobs
 	std::vector<WowObject> r;
 	for (auto &m : mobs) {
 		GUID_t tg = m.NPC_get_target_GUID();
-		if (tg == pGUID) { 
+		if (tg == pGUID) {
 			r.push_back(m);
 		}
 	}
@@ -1514,14 +1535,51 @@ static std::vector<WowObject> get_tanked_mobs(const std::vector<WowObject> &mobs
 	return r;
 }
 
+static int mobs_are_in_front(const std::vector<WowObject> &mobs) {
+	ObjectManager OM;
+	WowObject p;
+	OM.get_local_object(&p);
+
+	vec3 ppos = p.get_pos();
+	float prot = p.get_rot();
+	vec3 prot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
+
+	for (auto &m : mobs) {
+		vec3 pt_unit = (m.get_pos() - ppos).unit();
+		if (dot(pt_unit, prot_unit) < 0.3) {
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
+
+
 static int tank_act(lua_State *L, const std::string &target, const std::string &allbut, const std::string &tankpos, const std::string &facing) {
+	
+	static GUID_t current_tGUID = 0;
+	static GUID_t prev_tGUID = 0;
+	static timer_interval_t interval(3000);
+	
 	GUID_t target_GUID = 0;
 	GUID_t allbut_GUID = 0;
 	int tank_all = 0;
 	vec3 tank_pos;
 	float f;
 
-	PRINT("%s %s %s %s\n", target.c_str(), allbut.c_str(), tankpos.c_str(), facing.c_str());
+	ObjectManager OM;
+	WowObject p;
+	OM.get_local_object(&p);
+	GUID_t pGUID = p.get_GUID();
+	GUID_t tGUID = p.unit_get_target_GUID();
+
+	if (target_GUID != tGUID) {
+		interval.reset();
+		target_GUID = tGUID;
+	}
+
+	//PRINT("%s %s %s %s\n", target.c_str(), allbut.c_str(), tankpos.c_str(), facing.c_str());
 	
 	if (target.find("0x") == 0) {
 		// then we have a simple GUID as target
@@ -1533,6 +1591,7 @@ static int tank_act(lua_State *L, const std::string &target, const std::string &
 	}
 	else if (target == "allbut") {
 		allbut_GUID = convert_str_to_GUID(allbut); // TODO: this could actually have several GUIDs
+		PRINT("using allbut_GUID: 0x%16llX\n", allbut_GUID);
 		tank_all = 1;
 	}
 
@@ -1540,23 +1599,54 @@ static int tank_act(lua_State *L, const std::string &target, const std::string &
 		PRINT("tank_act: ERROR: invalid target argument \"%s\"\n", target.c_str());
 		return 0;
 	}
-	
-	ObjectManager OM;
-	GUID_t pGUID = OM.get_local_GUID();
+
 
 	std::vector<WowObject> targets = OM.get_combat_targets();
 	auto loose = get_loose_mobs(targets, allbut_GUID);
 	PRINT("loose size: %d, targets size: %d\n", loose.size(), targets.size());
 	
+	enum {
+		TANK_ACT_FRESHTARGET = 1,
+		TANK_ACT_TAUNT = 2,
+	};
+
 	if (tank_all) {
 		if (loose.size() > 0) {
 			WowObject &tauntee = loose[0];
 			GUID_t tauntGUID = tauntee.get_GUID();
 			vec3 tp = tauntee.get_pos();
 			std::string fgs = convert_GUID_to_str(tauntGUID);
-			lua_pushboolean(L, 1);
+			lua_pushinteger(L, TANK_ACT_TAUNT); 
 			lua_pushlstring(L, fgs.c_str(), fgs.length());
 			return 2;
+		}
+		else {
+			// backpedal until all the mobs are in front :DDDD
+			target_GUID = tGUID;
+			auto t = get_tanked_mobs(targets);
+			if (!mobs_are_in_front(t)) {
+				DoString("MoveBackwardStart()");
+				return 0;
+			}
+			else {
+				DoString("MoveBackwardStop()");
+			}
+
+			if (interval.passed()) { // this means the target is stale
+				GUID_t fresh = get_fresh_target(t, current_tGUID, prev_tGUID);
+				prev_tGUID = current_tGUID;
+				current_tGUID = fresh;
+
+				lua_pushinteger(L, TANK_ACT_FRESHTARGET);
+				auto fresh_string = convert_GUID_to_str(fresh);
+				lua_pushlstring(L, fresh_string.c_str(), fresh_string.length());
+
+				interval.reset();
+
+				return 2;
+			}
+
+			return 0;
 		}
 	}
 

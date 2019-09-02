@@ -61,6 +61,40 @@ local function TORAVON_STUFF()
   end
 end
 
+
+local TANK_ACTION_SWITCH_TARGET = 1
+local TANK_ACTION_TAUNT = 2
+
+local function dk_taunt()
+
+  -- return value of nil means "continue blast as usual"
+
+  local action_needed, guid = lole_subcommands.tank("act")
+  --echo(action_needed, guid)
+
+  if action_needed == TANK_ACTION_TAUNT then
+    L_CastSpellByName("Frost Presence")
+    set_target(guid)
+    caster_range_check(29)
+    if cast_if_nocd("Dark Command") then
+      return true
+    elseif cast_if_nocd("Death Grip") then
+      return true
+    elseif cast_if_nocd("Icy Touch") then
+      return true
+    else
+      return nil
+    end
+
+  elseif action_needed == TANK_ACTION_SWITCH_TARGET then
+    set_target(guid)
+    return true
+  end
+
+  return nil
+
+end
+
 combat_death_knight_blood = function()
   --
   -- if not MARROWGAR then
@@ -82,9 +116,15 @@ combat_death_knight_blood = function()
     --   DK_DELETE_FRAME:SetScript("OnUpdate", TORAVON_STUFF)
     -- end
 
-    if not validate_target() then return; end
-
-    melee_attack_behind(5)
+    if (tank_get("active") == 1) then
+      -- TODO make a mechanism to also get a new target when the current one dies =D
+      if dk_taunt() then return end
+  --    if not validate_target() then return; end
+      --caster_range_check(8)
+    else
+      if not validate_target() then return; end
+      melee_attack_behind(5)
+    end
 
     if not PetHasActionBar() and GetSpellCooldown("Raise Dead") == 0 then
         L_CastSpellByName("Raise Dead");

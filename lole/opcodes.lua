@@ -238,8 +238,7 @@ function iccrocket()
 end
 
 function tank_act(config)
-	local action_needed, taunt_GUID = lop_exec(LOP_TANK_ACT, tostring(config["target"]), tostring(config["allbut"]), tostring(config["tankpos"]), tostring(config["facing"]))
-	echo(action_needed, taunt_GUID)
+	return lop_exec(LOP_TANK_ACT, tostring(config["target"]), tostring(config["allbut"]), tostring(config["tankpos"]), tostring(config["facing"])) 
 end
 
 function get_biscuits()

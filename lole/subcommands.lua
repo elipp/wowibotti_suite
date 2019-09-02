@@ -1086,6 +1086,10 @@ local function tank_set(attrib, value)
 	end
 end
 
+function tank_get(attrib)
+	return tank_attribs[attrib]
+end
+
 local function tank_append(attrib, value)
 	if tank_attribs[attrib] then
 		if value == "sel" then
@@ -1109,7 +1113,7 @@ local function lole_tank(...)
 		return
 	end
 	if cmd == "act" then
-		tank_act(tank_attribs)
+		return tank_act(tank_attribs)
 
 	elseif cmd == "target" then
 		if not args[2] then

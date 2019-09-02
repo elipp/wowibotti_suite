@@ -242,7 +242,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
                 L_SpellStopCasting();
             end
         else
-            SendChatMessage("lole_runscript: " .. sender .. " doesn't appear to be a member of Uuslapio, not running script!", "GUILD");
+            echo("lole_runscript: " .. sender .. " doesn't appear to be a member of Uuslapio, not running script!");
         end
 
     elseif (prefix == "lole_healers") then
