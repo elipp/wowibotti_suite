@@ -123,6 +123,13 @@ combat_shaman_resto = function()
     if refresh_totems(totems, summonspell) then return; end
     if refresh_ES(get_assigned_hottargets(UnitName("player"))) then return end
 
+    if UnitMana("player") < 20000 then
+      local a, c = GetItemCooldown(50339)
+      if a == 0 then
+        L_UseInventoryItem(14) -- use the mana trinket :DDD
+      end
+    end
+
     if UnitMana("player") < 5000 then
         if cast_if_nocd("Mana Tide Totem") then return end
     end
