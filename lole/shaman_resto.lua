@@ -105,7 +105,7 @@ function check_EL()
 end
 
 local function use_sliver_trinket()
-  if UnitMana("player") < 20000 then
+  if UnitManaMax("player") - UnitMana("player") >= 1625 then
     local a, c = GetItemCooldown(50339)
     if a == 0 then
       L_UseInventoryItem(14) -- use the mana trinket :DDD

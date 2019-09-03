@@ -340,7 +340,7 @@ function L_AcceptTrade()
 end
 
 function L_UseInventoryItem(slotnumber)
-	execute_script("UseInventoryItem(" .. tostring(item) .. ")")
+	execute_script("UseInventoryItem(" .. tostring(slotnumber) .. ")")
 end
 
 function L_SpellStopCasting()
