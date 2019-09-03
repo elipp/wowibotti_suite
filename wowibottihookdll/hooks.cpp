@@ -58,6 +58,32 @@ template <typename T> trampoline_t &trampoline_t::operator << (const T& arg) {
 	return (*this);
 }
 
+int hexstr_to_bytearray(BYTE* bytes, int bytes_max, const char* hexstr) {
+
+	int len = strlen(hexstr);
+	int i = 0;
+	for (; i < bytes_max && i < len/2; ++i) {
+		BYTE r;
+		sscanf(&hexstr[2*i], "%02hhX", &r);
+		bytes[i] = r;
+	}
+
+	return i;
+}
+
+std::string bytearray_to_hexstr(const BYTE *bytes, int num_bytes) {
+	std::string msg;
+	char temp[8];
+
+	for (int i = 0; i < num_bytes; ++i) {
+		sprintf(temp, "%02hhX", bytes[i]);
+		msg.append(temp);
+	}
+
+	return msg;
+}
+
+// TODO: make this also use hexstr_to_bytearray
 trampoline_t & trampoline_t::append_hexstring(const char *hexstr) {
 
 	// this expects the string to be in the format FFEEDDAA3355 etc.
@@ -69,7 +95,7 @@ trampoline_t & trampoline_t::append_hexstring(const char *hexstr) {
 	int i = 0;
 	while (i < length) {
 		BYTE r;
-		sscanf(hexstr + i, "%2hhX", &r);
+		sscanf(hexstr + i, "%02hhX", &r);
 		bytes[this->length] = r;
 		++this->length;
 		i += 2;
@@ -417,40 +443,59 @@ static void __stdcall dump_sendpacket(BYTE *packet) {
 	//PRINT("packet length: total: %d (actual data size without header: %d), opcode: 0x%X\n", length, length - 6, opcode);
 
 	switch (opcode) {
-	case CMSG_CAST_SPELL: {
-		BYTE cast_count = packet[6];
-		DWORD spellID;
-		memcpy(&spellID, &packet[7], 4);
-		BYTE flags = packet[11];
-		PRINT("got CMSG_SPELL_CAST. total bytes: %d, spellID = %d, cast_count = %d, flags = 0x%X\n raw dump:\n", total_bytes, spellID, cast_count, flags);
-		for (int i = 0; i < total_bytes; ++i) {
-			PRINT("%02X ", packet[i]);
+	//case CMSG_CAST_SPELL: {
+	//	BYTE cast_count = packet[6];
+	//	DWORD spellID;
+	//	memcpy(&spellID, &packet[7], 4);
+	//	BYTE flags = packet[11];
+	//	PRINT("got CMSG_SPELL_CAST. total bytes: %d, spellID = %d, cast_count = %d, flags = 0x%X\n raw dump:\n", total_bytes, spellID, cast_count, flags);
+	//	for (int i = 0; i < total_bytes; ++i) {
+	//		PRINT("%02X ", packet[i]);
+	//	}
+	//	PRINT("\n\n");
+	//	break;
+	//}
+
+	//case CMSG_WARDEN_DATA: 
+	//	PRINT("GOT CMSG_WARDEN_DATA\n\n");
+	//	//relay_warden_packet(packet, total_bytes, WARDEN_SOURCE_OUT);
+	//	PRINT("\n");
+	//	break;
+
+	case CMSG_USE_ITEM: {
+
+		if (total_bytes != 47) break; // for the exact skybreaker scenario, we want a packet of size 47. explanation below
+
+		GUID_t itemguid;
+		memcpy(&itemguid, packet + 13, sizeof(GUID_t));
+
+		ObjectManager OM;
+		WowObject item;
+		if (!OM.get_object_by_GUID(itemguid, &item)) {
+			return;
 		}
-		PRINT("\n\n");
+
+		if (item.item_get_ID() == 49278) {
+			if (packet[30] == 0xC3) { // C3 means we're jumping on a gameobject (gameobject GUID is right after that)
+				// then we want to relay this packet to the other clients
+				// only use the last 5 + 12 bytes, because those are the important ones
+				std::string msg = bytearray_to_hexstr(&packet[47 - 17], 17);
+				PRINT("ICC rocket! Sending mirror data %s to clients\n", msg.c_str());
+				print_bytes("legit packet", packet, total_bytes, total_bytes);
+				DoString("RunMacroText(\"/lole run /lole iccrocket %s\")", msg.c_str());
+			}
+		}
+
 		break;
 	}
-
-	case CMSG_WARDEN_DATA: 
-		PRINT("GOT CMSG_WARDEN_DATA\n\n");
-		//relay_warden_packet(packet, total_bytes, WARDEN_SOURCE_OUT);
-		PRINT("\n");
-		break;
-
-	//case CMSG_USE_ITEM:
-	//	PRINT("GOT CMSG_USE_ITEM, doing a int 3h\n");
-	//	_asm {
-	//		int 3h;
-	//	}
-	//	break;
 	default:
+		////if (opcode != 0xAB) break;
 
-		//if (opcode != 0xAB) break;
-
-		PRINT("opcode: 0x%04X (total_length %d)\n", opcode, total_bytes);
-		for (int i = 6; i < total_bytes; ++i) {
-			PRINT("%02X ", packet[i]);
-		}
-		PRINT("\n\n");
+		//PRINT("opcode: 0x%04X (total_length %d)\n", opcode, total_bytes);
+		//for (int i = 0; i < total_bytes; ++i) {
+		//	PRINT("%02X ", packet[i]);
+		//}
+		//PRINT("\n\n");
 		break;
 	}
 }
@@ -1216,7 +1261,7 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("CTM_main");
 	ADD_PATCH_SAFE("AddInputEvent");
 	ADD_PATCH_SAFE("SpellErrMsg");
-	//ADD_PATCH_SAFE("SendPacket");
+	ADD_PATCH_SAFE("SendPacket");
 //	ADD_PATCH_SAFE("RecvPacket");
 	//ADD_PATCH_SAFE("SARC4_encrypt");
 //	ADD_PATCH_SAFE("WS2_send");

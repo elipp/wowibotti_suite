@@ -104,9 +104,17 @@ function check_EL()
 
 end
 
+local function use_sliver_trinket()
+  if UnitMana("player") < 20000 then
+    local a, c = GetItemCooldown(50339)
+    if a == 0 then
+      L_UseInventoryItem(14) -- use the mana trinket :DDD
+    end
+  end
+end
+
 combat_shaman_resto = function()
 
-    if unit_castorchannel("focus") == "Staggering Stomp" then L_SpellStopCasting(); return; end
 
     if player_casting() then return end
 
@@ -117,18 +125,15 @@ combat_shaman_resto = function()
         return;
     end
 
+    use_sliver_trinket()
+
     local totems = get_active_multicast_totems()
     local summonspell = get_active_multicast_summonspell()
 
     if refresh_totems(totems, summonspell) then return; end
     if refresh_ES(get_assigned_hottargets(UnitName("player"))) then return end
 
-    if UnitMana("player") < 20000 then
-      local a, c = GetItemCooldown(50339)
-      if a == 0 then
-        L_UseInventoryItem(14) -- use the mana trinket :DDD
-      end
-    end
+
 
     if UnitMana("player") < 5000 then
         if cast_if_nocd("Mana Tide Totem") then return end

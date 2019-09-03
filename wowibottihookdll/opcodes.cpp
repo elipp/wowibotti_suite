@@ -89,7 +89,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_BOSS_ACTION, 1, 1, 0),
 	 LOPFUNC(LOP_INTERACT_SPELLNPC, 1, 1, 1),
 	 LOPFUNC(LOP_GET_LAST_SPELL_ERRMSG, 0, 0, 3),
-	 LOPFUNC(LOP_ICCROCKET, 0, 0, 0),
+	 LOPFUNC(LOP_ICCROCKET, 1, 1, 0),
 };
 
 
@@ -907,71 +907,56 @@ static int LOPDBG_pull_test() {
 	ctm_add(pull);
 }
 
-static int LOP_get_unit_position(const std::string &name, vec3 *pos_out, double *rot) {
+static int LOP_get_unit_position(lua_State *L, const std::string &name) {
 	ObjectManager OM;
+
+	GUID_t object_GUID = 0;
 
 	if (name.rfind("0x", 0) == 0) {
 		// we're dealing with a GUID
-		GUID_t GUID = convert_str_to_GUID(name);
-		WowObject o;
-		if (!OM.get_object_by_GUID(GUID, &o)) { return 0; }
-		*pos_out = o.get_pos(); // THIS ASSUMES THAT OBJECT TYPE == UNIT
-		*rot = o.get_rot(); 
-		return 1;
+		object_GUID = convert_str_to_GUID(name);
 	}
 	
 	else if (name == "player") {
-		WowObject p;
-		if (!OM.get_local_object(&p)) return 0;
-
-		*pos_out = p.get_pos();
-		*rot = p.get_rot();
-
-		return 1;
+		object_GUID = OM.get_local_GUID();
 	}
+
 	else if (name == "target") {
-		WowObject t;
 		GUID_t target_GUID = get_target_GUID();
-
 		if (!target_GUID) { return 0; }
-
-		if (!OM.get_object_by_GUID(target_GUID, &t)) {
-			return 0;
-		}
-		
-		*pos_out = t.get_pos();
-		*rot = t.get_rot();
-
-		return 1;
+	
+		object_GUID = target_GUID;
 	}
-	else if (name == "focus") { // useful for blast target
-		WowObject t;
-		GUID_t focus_GUID = get_focus_GUID();
 
+	else if (name == "focus") { // useful for blast target
+		GUID_t focus_GUID = get_focus_GUID();
 		if (!focus_GUID) { return 0; }
 
-		if (!OM.get_object_by_GUID(focus_GUID, &t)) {
-			return 0;
-		}
-	
-		*pos_out = t.get_pos();
-		*rot = t.get_rot();
-
-		return 1;
+		object_GUID = focus_GUID;
 	}
+
 	else {
 		WowObject u;
 		if (!OM.get_unit_by_name(name, &u)) { return 0; }
-
-		*pos_out = u.get_pos();
-		*rot = u.get_rot();
-		
-		return 1;
-		
+		object_GUID = u.get_GUID();
 	}
 
-	return 0;
+	vec3 pos;
+	double rot;
 
+	WowObject o;
+
+	if (!OM.get_object_by_GUID(object_GUID, &o)) { return 0; }
+
+	pos = o.get_pos(); 
+	rot = o.get_rot();
+
+	lua_pushnumber(L, pos.x);
+	lua_pushnumber(L, pos.y);
+	lua_pushnumber(L, pos.z);
+	lua_pushnumber(L, rot);
+
+	return 4;
 }
 
 static int LOP_get_combat_targets(std::vector <GUID_t> *out) {
@@ -1395,8 +1380,13 @@ static void do_boss_action(const std::vector<std::string> &args) {
 	}
 	
 	else if (args[0] == "hconfig_status") {
+		static timer_interval_t warning_time(5000);
+
 		if (!HOTNESS_ENABLED) {
-			PRINT("WARNING: Please enable hotness with \"hconfig_enable\" first.\n");
+			if (warning_time.passed()) {
+				PRINT("WARNING: hconfig_status called, but hotness not enabled with \"hconfig_enable\"!\n");
+				warning_time.reset();
+			}
 			return;
 		}
 
@@ -1418,20 +1408,18 @@ static void do_boss_action(const std::vector<std::string> &args) {
 
 }
 
-static void use_icc_rocket_pack() {
-
-	PRINT("hello from icc\n");
+static void use_icc_rocket_pack(const std::string& packet_hexstr) {
 
 	ObjectManager OM;
-	WowObject r;
+	WowObject rocket_pack;
 
 	DoString("RunMacroText(\"/equip Goblin Rocket Pack\")");
 
-	if (!OM.get_item_by_itemID(49278, &r)) {
+	if (!OM.get_item_by_itemID(49278, &rocket_pack)) {
 		return;
 	}
 
-	GUID_t g = r.get_GUID();
+	GUID_t g = rocket_pack.get_GUID();
 
 	// during a legit item cast, the packet is constructed at 46772E (call to 467190)
 	// the data is input at 46720B (call to 40CB10)
@@ -1451,30 +1439,33 @@ static void use_icc_rocket_pack() {
 	// FIXED! The problem was that the legit function actually sends two packets, one for 0xAB and one for 0x3D3 (VOICE_CHAT_ something ?????)
 	// If that doesn't happen, the SARC4 encryption gets messed up
 
-	BYTE sockbuf[46] = {
+#define PACKET_LATER 0xCC
+#define PL PACKET_LATER
+
+	BYTE sockbuf[47] = {
 		// the size argument is absolute size of packet - 2
-		0x00, 0x2C, 0xAB, 0x00, 0x00, 0x00, // 0x0AB == CMSG_USE_ITEM
-		0xFF, 0x03, 0xCC, 0x25, 0x0C, 0x01, 0x00, // 0xCC IS THE "CAST COUNT". 
-		0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, // THIS IS GUID
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, // constant data, flags ??
-		0xC1, 0x15, 0xC0, 0x1F, // constant data, flags ??
-		0xCC, 0xCC, 0xCC, 0xCC, // X
-		0xCC, 0xCC, 0xCC, 0xCC, // Y
-		0xCC, 0xCC, 0xCC, 0xCC // Z
+		0x00, 0x2D, 0xAB, 0x00, 0x00, 0x00, // 0x0AB == CMSG_USE_ITEM
+		0xFF, 0x03, PL, 0x25, 0x0C, 0x01, 0x00, // PACKET_LATER IS THE "CAST COUNT". 
+		PL, PL, PL, PL, PL, PL, PL, PL, // THIS IS ITEM GUID
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 
+		PL, PL, PL, PL, PL, // if the first byte is 0x00, then our jumping destination is not a game object - if 0xC3, we're on a gameobject. In that case the last 4 bytes of this is the shortened GUID of the gameobject on which we're jumping!
+		PL, PL, PL, PL, // X
+		PL, PL, PL, PL, // Y
+		PL, PL, PL, PL // Z
 	};
 
-	// TODO should check if it's pre or post-incremented
+
 	sockbuf[8] = get_item_usecount();
 	increment_item_usecount();
 
 	memcpy(sockbuf + 13, &g, sizeof(g));
 
-	vec3 TEST(20, 0, 35);
-	memcpy(sockbuf + 34, &TEST.x, sizeof(float));
-	memcpy(sockbuf + 38, &TEST.y, sizeof(float));
-	memcpy(sockbuf + 42, &TEST.z, sizeof(float));
+	BYTE bytes[17];
+	hexstr_to_bytearray(bytes, sizeof(bytes), packet_hexstr.c_str());
 
-	dump_packet(sockbuf, 46);
+	memcpy(&sockbuf[47 - 17], bytes, 17);
+	PRINT("sending following iccpacket:\n");
+	dump_packet(sockbuf, 47);
 	
 	SOCKET s = get_wow_socket_handle();
 
@@ -1483,12 +1474,18 @@ static void use_icc_rocket_pack() {
 	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
 
 	// so this is the other packet :D
-	BYTE sockbuf2[11] = {
-		0x00, 0x09, 0xD3, 0x03, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00
+	// ON WARMANE, A 0x101 IS SENT! (total length 10, content 0 0 0 0)
+	//BYTE sockbuf2[11] = {
+	//	0x00, 0x09, 0xD3, 0x03, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00
+	//};
+
+	BYTE sockbuf2[10] = {
+		0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00
 	};
 
 	encrypt_packet_header(sockbuf2);
 	send(s, (const char*)sockbuf2, sizeof(sockbuf2), 0);
+
 
 }
 
@@ -1666,19 +1663,7 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LOP_GET_UNIT_POSITION: {
-		vec3 pos;
-		double rot;
-		int r = LOP_get_unit_position(lua_tolstring(L, 2, &len), &pos, &rot);
-
-		if (!r) { return 0; }
-		else {
-			lua_pushnumber(L, pos.x);
-			lua_pushnumber(L, pos.y);
-			lua_pushnumber(L, pos.z);
-			lua_pushnumber(L, rot);
-			return 4;
-		}
-		break;
+		return LOP_get_unit_position(L, lua_tolstring(L, 2, &len));
 	}
 
 	case LOP_GET_WALKING_STATE:
@@ -1834,9 +1819,7 @@ int lop_exec(lua_State *L) {
 	}
 
 	case LOP_ICCROCKET: {
-		// Goblin Rocket Pack is itemID 49278
-		use_icc_rocket_pack(); // DISABLED FOR NOW, SENDS A MALFORMED PACKET??
-		//packet_test1();
+		use_icc_rocket_pack(lua_tolstring(L, 2, &len)); 
 		break;
 	}
 

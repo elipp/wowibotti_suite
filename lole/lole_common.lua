@@ -114,8 +114,12 @@ end
 
 local REMOVE_THIS_FRAME = CreateFrame("frame", nil, UIParent)
 REMOVE_THIS_FRAME:SetScript("OnUpdate",
+
 function()
   if not playermode() then
+
+    if unit_castorchannel("focus") == "Staggering Stomp" then L_SpellStopCasting(); return; end
+
   --if UnitCastingInfo("target") == "Lightning Nova" then
     --  walk_to(-219, -235, 97, CTM_PRIO_CLEAR_HOLD) -- the coords are for emalon :D
     -- if UnitCastingInfo("target") == "Poison Nova" then
@@ -131,11 +135,19 @@ function()
     -- THIS IS GOLDEN STUFF: ----------------------
     if UnitAffectingCombat("player") then
      local n = UnitName("player")
+     -- the following two blocks are completely unrelated, but hehe
       if not (n == "Iijj" or n == "Spobodi") then
         boss_action("hconfig_status")
+
+      else
+        if UnitInVehicle("player") then
+          L_RunScript("if VehicleMenuBarPowerBar.currValue > 95 then VehicleMenuBarActionButton2:Click() else VehicleMenuBarActionButton1:Click() end")
+        end
       end
+
     end
     --------------------------------------------
+
 
   end
 
@@ -554,8 +566,6 @@ function cast_spell(spellname)
 end
 
 function cast_heal(spellname, target, range)
-
-    if unit_castorchannel("focus") == "Staggering Stomp" then L_SpellStopCasting(); return; end
 
     if range == nil then range = 35; end
     if target then L_TargetUnit(target); end

@@ -1062,8 +1062,10 @@ local function lole_spread_those_cheeks(dist)
 	--SPREAD_MADOT()
 end
 
-local function lole_iccrocket()
-	iccrocket()
+local function lole_iccrocket(mirror_data)
+	if not playermode() then
+		iccrocket(mirror_data)
+	end
 end
 
 local function lole_click_essence_portal(type)

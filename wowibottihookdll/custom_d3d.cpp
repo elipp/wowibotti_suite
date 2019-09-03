@@ -1737,8 +1737,8 @@ int init_custom_d3d() {
 
 
 static const hotness_config_t hconfigs[] = {
-	{"marrowgar", marrowgar_arena, draw_marrowgar_stuff },
-	{"tocheroic", tocheroic_arena, draw_tocheroic_stuff },
+	{"Marrowgar", marrowgar_arena, draw_marrowgar_stuff },
+	{"TOC_heroic", tocheroic_arena, draw_tocheroic_stuff },
 	{"", {}, NULL }
 };
 

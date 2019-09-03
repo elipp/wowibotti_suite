@@ -232,8 +232,8 @@ function query_injected()
 
 end
 
-function iccrocket()
-	lop_exec(LOP_ICCROCKET)
+function iccrocket(mirror_data)
+	lop_exec(LOP_ICCROCKET, mirror_data)
 end
 
 function get_biscuits()
