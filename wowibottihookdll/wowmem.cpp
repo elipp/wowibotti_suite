@@ -146,17 +146,20 @@ float WowObject::get_pos_z() const {
 vec3 WowObject::get_pos() const {
 	ObjectManager OM;
 
-	GUID_t mg = 0;
-
-	if (get_type() == OBJECT_TYPE_NPC && (mg = NPC_get_mounted_GUID()) != 0) {
+	GUID_t mg = NPC_get_mounted_GUID();
+	WowObject mount;
+	if (mg == 0 || !OM.get_object_by_GUID(mg, &mount)) goto normal;
+	
+	int mount_type = mount.get_type();
+	if (this->get_type() == OBJECT_TYPE_NPC && 
+		(mount_type == OBJECT_TYPE_NPC || mount_type == OBJECT_TYPE_UNIT)) {
 		// the coordinates for such "mounted" mobs are fucked up (stored relative to the mount), so have a separate block for those ^_^
-		WowObject mt;
-		OM.get_object_by_GUID(mg, &mt);
-		if (!mt.valid()) return vec3();
-		return vec3(get_pos_x(), get_pos_y(), get_pos_z()) + vec3(mt.get_pos_x(), mt.get_pos_y(), mt.get_pos_z());
+		// eg. vassals in Gormok (TOC)
+		return vec3(get_pos_x(), get_pos_y(), get_pos_z()) + vec3(mount.get_pos_x(), mount.get_pos_y(), mount.get_pos_z());
 	}
 
-	else return vec3(get_pos_x(), get_pos_y(), get_pos_z());
+normal:
+	return vec3(get_pos_x(), get_pos_y(), get_pos_z());
 }
 
 float WowObject::get_rot() const {

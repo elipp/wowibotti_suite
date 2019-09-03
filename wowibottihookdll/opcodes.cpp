@@ -1832,9 +1832,9 @@ int lop_exec(lua_State *L) {
 		break;
 
 	case LDOP_DUMP: {
-		const char *namefilter = lua_tolstring(L, 2, &len);
-		const char *typefilter = lua_tolstring(L, 3, &len);
-		dump_wowobjects_to_log(namefilter ? namefilter : "", typefilter ? typefilter : "");
+		const char *typefilter = lua_tolstring(L, 2, &len);
+		const char *namefilter = lua_tolstring(L, 3, &len);
+		dump_wowobjects_to_log(typefilter ? typefilter : "", namefilter ? namefilter : "");
 		break;
 	}
 
@@ -1920,7 +1920,7 @@ void refollow_if_needed() {
 	if (!follow_state.close_enough) LOP_follow_unit(follow_state.target_name);
 }
 
-static int dump_wowobjects_to_log(const std::string &name_filter, const std::string &type_filter) {
+static int dump_wowobjects_to_log(const std::string &type_filter, const std::string &name_filter) {
 
 	ObjectManager OM;
 
