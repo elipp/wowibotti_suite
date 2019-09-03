@@ -150,7 +150,7 @@ vec3 WowObject::get_pos() const {
 	WowObject mount;
 	if (mg == 0 || !OM.get_object_by_GUID(mg, &mount)) goto normal;
 	
-	int mount_type = mount.get_type();
+	int mount_type = mount.get_type(); // this business is needed in order not to bug out in Skybreaker fight (the "mounted GUID" is also set for mobs on the skybreaker :D)
 	if (this->get_type() == OBJECT_TYPE_NPC && 
 		(mount_type == OBJECT_TYPE_NPC || mount_type == OBJECT_TYPE_UNIT)) {
 		// the coordinates for such "mounted" mobs are fucked up (stored relative to the mount), so have a separate block for those ^_^
