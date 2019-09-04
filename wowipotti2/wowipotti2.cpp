@@ -71,10 +71,10 @@ struct wowcl_t {
 		: window_handle(hWnd), window_title(title), valid(1), index(client_index) {
 		tid = GetWindowThreadProcessId(hWnd, &pid);
 		char *endptr;
-		char c = std::to_string(index + 1)[0]; // this is pretty risque... :D
 		//ShowWindow(main_window_hWnd, SW_HIDE);
 
 		if (index + 1 < 10) {
+			char c = std::to_string(index + 1)[0]; // this is pretty risque... :D
 			RegisterHotKey(main_window_hWnd, index, MOD_ALT, c);
 		}
 		else {
@@ -1065,7 +1065,7 @@ INT_PTR CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 		char c[2] = { HIWORD(lParam), '\0' };
 		char *endptr;
 		int index = strtol(c, &endptr, 10);
-		SetForegroundWindow(wow_handles[index - 1]->window_handle);
+		SetForegroundWindow(wow_handles[index == 0 ? 9 : index - 1]->window_handle);
 		break;
 	}
 
