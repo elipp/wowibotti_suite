@@ -116,6 +116,11 @@ local REMOVE_THIS_FRAME = CreateFrame("frame", nil, UIParent)
 REMOVE_THIS_FRAME:SetScript("OnUpdate",
 
 function()
+
+  if UnitInVehicle("player") then
+    L_RunScript("if VehicleMenuBarPowerBar.currValue > 95 then VehicleMenuBarActionButton2:Click() else VehicleMenuBarActionButton1:Click() end")
+  end
+
   if not playermode() then
 
     if unit_castorchannel("focus") == "Staggering Stomp" then L_SpellStopCasting(); return; end
@@ -136,13 +141,8 @@ function()
     if UnitAffectingCombat("player") then
      local n = UnitName("player")
      -- the following two blocks are completely unrelated, but hehe
-      if not (n == "Iijj" or n == "Spobodi") then
+      if not (n == "Iijj" or n == "Spobodi") then -- or n == "Kuratorn") then
         boss_action("hconfig_status")
-
-      else
-        if UnitInVehicle("player") then
-          L_RunScript("if VehicleMenuBarPowerBar.currValue > 95 then VehicleMenuBarActionButton2:Click() else VehicleMenuBarActionButton1:Click() end")
-        end
       end
 
     end

@@ -84,7 +84,7 @@ combat_death_knight_blood = function()
 
     if not validate_target() then return; end
 
-    melee_attack_behind(5)
+    melee_attack_behind(1.5)
 
     if not PetHasActionBar() and GetSpellCooldown("Raise Dead") == 0 then
         L_CastSpellByName("Raise Dead");

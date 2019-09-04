@@ -1,3 +1,17 @@
+local function cleanse_priest()
+  local debuffs = get_raid_debuffs_by_type("Magic")
+  if table_empty(debuffs) then return nil end
+
+-- TODO: cleansing totem is a very powerful spell tho...
+  local char = table_getkey_any(debuffs)
+    -- we dont really care about the actual debuff, just cleanse, don't ask questions :D
+  L_TargetUnit(char)
+  caster_range_check(0, 40)
+  L_CastSpellByName("Cleanse")
+  return true
+
+end
+
 function combat_priest_shadow()
 
   if not UnitAffectingCombat("player") and UnitMana("player") < 10000 then
@@ -13,6 +27,9 @@ function combat_priest_shadow()
     L_CastSpellByName("Inner Fire")
     return
   end
+
+
+  if cleanse_priest() then return end
 
 --  if not validate_target() then return end
 -- L_RunMacroText("/lole target 0xF1300027C8000007") -- FOR ONYXIA, REPLACE GUID OFC

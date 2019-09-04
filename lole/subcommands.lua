@@ -1053,13 +1053,41 @@ local function SPREAD_TORAVON()
 	lole_sendmacro_to("Teilor", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
 end
 
+local function SPREAD_FESTERGUT()
+	local mid = vec3:create(4267.9, 3137.3, 360.4)
+	local RADIUS = 28
+	local v = vec3:create(0, -RADIUS, 0)
+
+	local FACTOR = 6.28/8.0
+
+	local V = mid:add(v:rotated2d(-2*FACTOR))
+	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = mid:add(v:rotated2d(-1*FACTOR))
+	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = mid:add(v:rotated2d(0*FACTOR))
+	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = mid:add(v:rotated2d(1*FACTOR))
+	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = mid:add(v:rotated2d(2*FACTOR))
+	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+	V = mid:add(v:rotated2d(3*FACTOR))
+	lole_sendmacro_to("Teilor", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+
+end
+
 local function lole_spread_those_cheeks(dist)
 	-- REMEMBER TO CHANGE THIS ACCORDINGLY :DDDDDDDDD
 --	SPREAD_ONYXIA()
 
 	if not dist then dist = 15 end
-	SPREAD_SAVIANA(dist)
+--	SPREAD_SAVIANA(dist)
 	--SPREAD_MADOT()
+	SPREAD_FESTERGUT()
 end
 
 local function lole_iccrocket(mirror_data)
