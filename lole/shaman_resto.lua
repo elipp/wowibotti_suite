@@ -113,6 +113,20 @@ local function use_sliver_trinket()
   end
 end
 
+local function cleanse_shaman()
+  local debuffs = get_raid_debuffs_by_type("Poison,Disease,Curse")
+  if table_empty(debuffs) then return nil end
+
+-- TODO: cleansing totem is a very powerful spell tho...
+  local char = table_getkey_any(debuffs)
+    -- we dont really care about the actual debuff, just cleanse, don't ask questions :D
+  L_TargetUnit(char)
+  caster_range_check(40)
+  L_CastSpellByName("Cleanse Spirit")
+  return true
+
+end
+
 combat_shaman_resto = function()
 
 

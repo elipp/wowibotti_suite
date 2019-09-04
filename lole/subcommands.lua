@@ -1084,8 +1084,12 @@ local function lole_eject()
 end
 
 local function lole_debug_test(...)
-	local args = concatenate_args(" ", ...)
-	echo(avoid_npc_with_name(args, 8))
+	local debuffs = get_raid_debuffs_by_type("Poison,Curse,Disease")
+	for k,v in pairs(debuffs) do
+		for k2, v2 in pairs(v) do
+			print(k, v2)
+		end
+	end
 end
 
 lole_subcommands = {

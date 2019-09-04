@@ -88,7 +88,7 @@ combat_mage_fire = function()
 
 	if not validate_target() then return end -- this is to re-target the main nuke target
 
-	if not has_debuff("target", "Living Bomb") then
+	if UnitHealth("target") > 50000 and not has_debuff("target", "Living Bomb") then
 			L_CastSpellByName("Living Bomb")
 			return;
 	end

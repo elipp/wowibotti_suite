@@ -153,6 +153,30 @@ local function raid_heal()
 
 end
 
+local function cleanse_druid()
+  local poisons = get_raid_debuffs_by_type("Poison")
+  if not table_empty(poisons) then
+      -- we dont really care about the actual debuff, just cleanse, don't ask questions :D
+      local char = table_getkey_any(poisons)
+      L_TargetUnit(char)
+      caster_range_check(40)
+      L_CastSpellByName("Abolish Poison")
+  end
+
+  local curses = get_raid_debuffs_by_type("Curse")
+  if not table_empty(curses) then
+      -- we dont really care about the actual debuff, just cleanse, don't ask questions :D
+      local char = table_getkey_any(curse)
+      L_TargetUnit(char)
+      caster_range_check(40)
+      L_CastSpellByName("Remove Curse")
+  end
+
+  return nil
+
+end
+
+
 combat_druid_resto = function()
 
   if player_casting() then return end

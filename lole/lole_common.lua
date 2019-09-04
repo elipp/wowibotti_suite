@@ -845,6 +845,57 @@ function has_debuff_by_self(targetname, debuff_name)
 	return false;
 end
 
+function table_empty(t)
+  if t == nil then return true end
+  return next(t) == nil
+end
+
+function match_any(tab, string)
+  for k,v in pairs(tab) do
+    if string == v then
+      return true
+    end
+  end
+
+  return nil
+end
+
+function get_raid_debuffs_by_type(debuff_types)
+
+  local matching_debuffs = {}
+
+  local UA = UnitAura -- apparently gives more speed?
+  local RM = GetRealNumRaidMembers()
+
+  local dtypes = tokenize_string(debuff_types, ", ")
+
+  for i=1,RM,1 do
+    local rname = "raid" .. tostring(i)
+    local debuffs = {}
+
+    local a = 1
+    local name,rank,_,_,type = UA(rname, a, "HARMFUL")
+    while name do
+      if match_any(dtypes, type) then
+        table.insert(debuffs, name)
+      end
+      a = a + 1
+      name,rank,_,_,type = UA(rname, a, "HARMFUL")
+    end
+
+    if not table_empty(debuffs) then
+      matching_debuffs[UnitName(rname)] = debuffs
+    end
+  end
+
+  return matching_debuffs
+
+end
+
+function table_getkey_any(t)
+  for k,_ in pairs(t) do return k end -- yeah this is so great :DDD
+end
+
 function get_self_debuff_expiration(targetname, debuff_name)
 
     for i=1,40,1 do name, rank, icon, count, debuffType, duration, expirationTime = UnitDebuff(targetname,i)
