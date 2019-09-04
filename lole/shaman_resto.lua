@@ -121,7 +121,7 @@ local function cleanse_shaman()
   local char = table_getkey_any(debuffs)
     -- we dont really care about the actual debuff, just cleanse, don't ask questions :D
   L_TargetUnit(char)
-  caster_range_check(40)
+  caster_range_check(0, 40)
   L_CastSpellByName("Cleanse Spirit")
   return true
 

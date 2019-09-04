@@ -159,7 +159,7 @@ local function cleanse_druid()
       -- we dont really care about the actual debuff, just cleanse, don't ask questions :D
       local char = table_getkey_any(poisons)
       L_TargetUnit(char)
-      caster_range_check(40)
+      caster_range_check(0, 40)
       L_CastSpellByName("Abolish Poison")
   end
 
@@ -168,7 +168,7 @@ local function cleanse_druid()
       -- we dont really care about the actual debuff, just cleanse, don't ask questions :D
       local char = table_getkey_any(curse)
       L_TargetUnit(char)
-      caster_range_check(40)
+      caster_range_check(0, 40)
       L_CastSpellByName("Remove Curse")
   end
 
@@ -176,6 +176,17 @@ local function cleanse_druid()
 
 end
 
+local function faeriefire()
+
+      if not validate_target() then return end
+      if not has_debuff("target", "Faerie Fire") then
+        caster_range_check(0, 30)
+        L_CastSpellByName("Faerie Fire")
+        return true
+      end
+
+      return nil
+end
 
 combat_druid_resto = function()
 
@@ -214,6 +225,9 @@ combat_druid_resto = function()
     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
     if heal_targets[1] == nil or heal_targets[1] == "raid" then
         raid_heal();
+
+        faeriefire();
+
         return;
     end
 
@@ -302,5 +316,8 @@ combat_druid_resto = function()
     if heal_raid then
         raid_heal();
     end
+
+    faeriefire()
+
 
 end
