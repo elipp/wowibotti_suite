@@ -1747,10 +1747,12 @@ int hconfig_set(const std::string &name) {
 		if (name == c.bossname) {
 			ACTIVE_HCONFIG = name;
 			PRINT("hconfig_set: set hconfig to %s\n", name.c_str());
+			echo_wow("hconfig_set: set hconfig to %s", name.c_str());
 			return 1;
 		}
 	}
 	PRINT("hconfig_set: no hconfig with name %s found\n", name.c_str());
+	echo_wow("hconfig_set: no hconfig with name %s found", name.c_str());
 
 	return 0;
 }

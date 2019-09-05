@@ -11,6 +11,7 @@ extern int const (*LUA_DoString)(const char*, const char*, const char*);
 extern int const (*SelectUnit)(GUID_t);
 
 void DoString(const char* format, ...); 
+void echo_wow(const char* format, ...);
 
 void set_taint_caller_zero();
 void reset_taint_caller();

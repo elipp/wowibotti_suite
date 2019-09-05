@@ -1109,6 +1109,7 @@ end
 
 local function lole_boss_action(...)
 	local catd = concatenate_args(" ", ...)
+	if not catd then return end
 	boss_action(catd)
 end
 

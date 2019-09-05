@@ -1363,16 +1363,16 @@ static void do_boss_action(const std::vector<std::string> &args) {
 	
 	else if (args[0] == "hconfig_set") {
 		if (args.size() < 2) {
-			PRINT("hconfig_set called but no argument specified\n");
+			echo_wow("hconfig_set called but no argument specified!");
 		}
 		else {
 			hconfig_set(args[1]);
 		}
 	}
 
-	else if (args[0] == "hconfig_enable") {
+	else if (args[0] == "hconfig_toggle") {
 		if (ACTIVE_HCONFIG == "") {
-			PRINT("Error! hconfig_enable called but boss name not set. Use hconfig_set <bossname>\n");
+			echo_wow("Error! hconfig_toggle called but boss name not set. Use hconfig_set <bossname>");
 		}
 		else {
 			HOTNESS_ENABLED = !HOTNESS_ENABLED;
@@ -1384,7 +1384,7 @@ static void do_boss_action(const std::vector<std::string> &args) {
 
 		if (!HOTNESS_ENABLED) {
 			if (warning_time.passed()) {
-				PRINT("WARNING: hconfig_status called, but hotness not enabled with \"hconfig_enable\"!\n");
+				echo_wow("WARNING: hconfig_status called, but hotness not enabled with \"hconfig_enable\"!");
 				warning_time.reset();
 			}
 			return;
