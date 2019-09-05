@@ -946,6 +946,11 @@ local function lole_console_print(msg)
 
 end
 
+-- just a "macro"
+local function send_spread_ctm(to, v3)
+	lole_sendmacro_to(to, "/lole ctm", tostring(v3.x), tostring(v3.y), tostring(v3.z))
+end
+
 local function SPREAD_ONYXIA()
 
 	local opos = vec3:create(-10.6, -219.4, -87.7) -- THIS IS FOR ONYXIA
@@ -959,10 +964,10 @@ local function SPREAD_ONYXIA()
 -- lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
 
 	V = opos:add(v:rotated2d(-1*(3.14)/8))
-	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+	send_spread_ctm("Printf", V)
 
 	V = opos:add(v:rotated2d(1*(3.14)/8))
-	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
+	send_spread_ctm("Ghospodi", V)
 
 	-- V = opos:add(v:rotated2d(2*(3.14)/8))
 	-- lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z))
@@ -976,19 +981,19 @@ local function SPREAD_MADOT()
 	local v = TOC_middle:subtract(opos):unit_scaled(RADIUS) -- 563, 140, 393 is middle of TOC arena
 
 	local V = opos:add(v:rotated2d(-2*(3.14)/8))
-	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_CLEAR_HOLD)
+	send_spread_ctm("Briit", V)
 
 	V = opos:add(v:rotated2d(-1*(3.14)/8))
-	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_CLEAR_HOLD)
+	send_spread_ctm("Eino", V)
 
 	V = opos:add(v:rotated2d(0*(3.14)/8))
-	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_CLEAR_HOLD)
+	send_spread_ctm("Printf", V)
 
 	V = opos:add(v:rotated2d(1*(3.14)/8))
-	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_CLEAR_HOLD)
+	send_spread_ctm("Ghospodi", V)
 
 	V = opos:add(v:rotated2d(2*(3.14)/8))
-	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_CLEAR_HOLD)
+	send_spread_ctm("Robins", V)
 end
 
 local function SPREAD_SAVIANA(dist)
@@ -998,30 +1003,30 @@ local function SPREAD_SAVIANA(dist)
 	local incr_x = vec3:create(dist, 0, 0)
 
 	local V = opos:add(incr_y)
-	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Briit", V)
 
 	V = opos:add(incr_y:scale2d(2))
-	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Eino", V)
 
 	opos = opos:add(incr_x)
 	V = opos
-	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Printf", V)
 
 	V = opos:add(incr_y)
-	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Ghospodi", V)
 
 	V = opos:add(incr_y:scale2d(2))
-	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Robins", V)
 
 	opos = opos:add(incr_x)
 	V = opos
-	lole_sendmacro_to("Teilor", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Teilor", V)
 
 	V = opos:add(incr_y)
-	lole_sendmacro_to("Iijj", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Iijj", V)
 
 	V = opos:add(incr_y:scale2d(2))
-	lole_sendmacro_to("Spobodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Spobodi", V)
 
 
 end
@@ -1035,22 +1040,22 @@ local function SPREAD_TORAVON()
 	local FACTOR = 6.28/6.0
 
 	local V = opos:add(v:rotated2d(-2*FACTOR))
-	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Briit", V)
 
 	V = opos:add(v:rotated2d(-1*FACTOR))
-	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Eino", V)
 
 	V = opos:add(v:rotated2d(0*FACTOR))
-	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Printf", V)
 
 	V = opos:add(v:rotated2d(1*FACTOR))
-	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Ghospodi", V)
 
 	V = opos:add(v:rotated2d(2*FACTOR))
-	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Robins", V)
 
 	V = opos:add(v:rotated2d(3*FACTOR))
-	lole_sendmacro_to("Teilor", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Teilor", V)
 end
 
 local function SPREAD_FESTERGUT()
@@ -1061,22 +1066,22 @@ local function SPREAD_FESTERGUT()
 	local FACTOR = 6.28/8.0
 
 	local V = mid:add(v:rotated2d(-2*FACTOR))
-	lole_sendmacro_to("Briit", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Briit", V)
 
 	V = mid:add(v:rotated2d(-1*FACTOR))
-	lole_sendmacro_to("Eino", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Eino", V)
 
 	V = mid:add(v:rotated2d(0*FACTOR))
-	lole_sendmacro_to("Printf", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Printf", V)
 
 	V = mid:add(v:rotated2d(1*FACTOR))
-	lole_sendmacro_to("Ghospodi", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Ghospodi", V)
 
 	V = mid:add(v:rotated2d(2*FACTOR))
-	lole_sendmacro_to("Robins", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Robins", V)
 
 	V = mid:add(v:rotated2d(3*FACTOR))
-	lole_sendmacro_to("Teilor", "/lole ctm", tostring(V.x), tostring(V.y), tostring(V.z), CTM_PRIO_FOLLOW)
+	send_spread_ctm("Teilor", V)
 
 end
 
