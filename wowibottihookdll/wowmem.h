@@ -12,6 +12,7 @@ extern int const (*SelectUnit)(GUID_t);
 
 void DoString(const char* format, ...); 
 void echo_wow(const char* format, ...);
+void dual_echo(const char* format, ...); // echo to both console and wow chat
 
 void set_taint_caller_zero();
 void reset_taint_caller();

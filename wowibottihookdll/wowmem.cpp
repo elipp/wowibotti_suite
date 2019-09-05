@@ -20,7 +20,11 @@ void DoString(const char* format, ...) {
 	//sprintf_s(cmd2, "getrvals(\"%s\")", cmd); // TODO decide if this is necessary
 
 	LUA_DoString(cmd, cmd, NULL); // the last argument actually MUST be null :D otherwise taint->blocked
-	PRINT("(DoString: executed script \"%s\")\n", cmd);
+//	PRINT("(DoString: executed script \"%s\")\n", cmd);
+}
+
+static void echo(const char* msg) {
+	DoString("print(\"(C):%s\")", msg);
 }
 
 void echo_wow(const char* format, ...) {
@@ -31,8 +35,22 @@ void echo_wow(const char* format, ...) {
 	vsprintf_s(msg, format, args);
 	va_end(args);
 
-	DoString("print(\"(C):%s\")", msg);
+	echo(msg);
 }
+
+void dual_echo(const char* format, ...) {
+	char msg[1024];
+
+	va_list args;
+	va_start(args, format);
+	vsprintf_s(msg, format, args);
+	va_end(args);
+
+	PRINT("%s\n", msg);
+	echo(msg);
+
+}
+
 
 static const char* taint_caller;
 static const char **taint_addr = (const char**)0xD4139C;
