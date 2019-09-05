@@ -106,13 +106,13 @@ combat_death_knight_blood = function()
     local unholy_rdy = uh1_rdy or uh2_rdy;
     local frost_rdy = f1_rdy or f2_rdy;
 
-    local frost_fever_expires = get_self_debuff_expiration("target", "Frost Fever");
+    local frost_fever_timeleft = get_self_debuff_expiration("target", "Frost Fever");
 
     if IsUsableSpell("Rune Strike") then
       L_CastSpellByName("Rune Strike")
     end
 
-    if blood_rdy == true and frost_fever_expires and frost_fever_expires - GetTime() < 8 and has_debuff_by_self("target", "Blood Plague") then
+    if blood_rdy == true and frost_fever_expires and frost_fever_timeleft < 8 and has_debuff_by_self("target", "Blood Plague") then
         L_CastSpellByName("Pestilence");
     elseif not has_debuff_by_self("target", "Frost Fever") and frost_rdy == true then
         L_CastSpellByName("Icy Touch");

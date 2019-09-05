@@ -306,7 +306,12 @@ combat_druid_resto = function()
         raid_heal();
     end
 
+    if lole_get("dispelmode") == 1 then
+      if cleanse_druid() then return end
+    end
+
     faeriefire()
+
 
 
 end

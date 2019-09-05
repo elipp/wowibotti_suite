@@ -1,6 +1,11 @@
 local spellsteal_lock = 0
 local scorch_lock = 0
 
+local function cleanse_mage()
+	local debuffs = get_raid_debuffs_by_type("Curse")
+  return cast_dispel(debuffs, "Remove Curse")
+end
+
 combat_mage_fire = function()
 
 	-- L_TargetUnit("Ghostly Priest")
@@ -32,6 +37,10 @@ combat_mage_fire = function()
 		if GetSpellCooldown("Evocation") == 0 then
 			L_CastSpellByName("Evocation");
 		end
+	end
+
+	if lole_get("dispelmode") == 1 then
+		if cleanse_mage() then return end
 	end
 
 	--if cleanse_raid("Curse of the Plaguebringer") then return end

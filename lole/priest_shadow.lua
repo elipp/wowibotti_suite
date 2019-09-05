@@ -42,6 +42,10 @@ function combat_priest_shadow()
 
   L_CastSpellByName("Dispel Magic")
 
+  if lole_get("dispelmode") == 1 then
+    if cleanse_priest() then return end
+  end
+
   if UnitMana("player") < 10000 then
     if GetSpellCooldown("Shadowfiend") == 0 and UnitHealth("target") > 70000 then
       L_CastSpellByName("Shadowfiend")

@@ -139,7 +139,6 @@ combat_shaman_resto = function()
     if refresh_ES(get_assigned_hottargets(UnitName("player"))) then return end
 
 
-
     if UnitMana("player") < 5000 then
         if cast_if_nocd("Mana Tide Totem") then return end
     end
@@ -185,6 +184,10 @@ combat_shaman_resto = function()
 
     elseif table.contains(heal_targets, "raid") then
         raid_heal();
+    end
+
+    if lole_get("dispelmode") == 1 then
+      if cleanse_shaman() then return end
     end
 
 end

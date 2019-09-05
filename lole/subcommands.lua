@@ -6,6 +6,7 @@ local mode_attribs = {
 	combatbuffmode = 0,
 	aoemode = 0,
 	hold = 0,
+	dispelmode = 0,
 }
 
 
@@ -1118,12 +1119,12 @@ local function lole_eject()
 end
 
 local function lole_debug_test(...)
-	local debuffs = get_raid_debuffs_by_type("Poison,Curse,Disease")
-	for k,v in pairs(debuffs) do
-		for k2, v2 in pairs(v) do
-			print(k, v2)
-		end
-	end
+	local a,b,c = has_buff("player", "Hellscream's Warsong")
+	print(a,b,c)
+
+	local d,e,f = has_debuff_by_self("target", "Corruption")
+	print(d,e,f)
+
 end
 
 lole_subcommands = {

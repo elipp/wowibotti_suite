@@ -819,31 +819,6 @@ function decurse_party(debuffname)
     return false;
 end
 
-function has_debuff(targetname, debuff_name)
-	local fnd = nil;
-	local timeleft = nil;
-	for i=1,40,1 do name, rank, icon, count, debuffType, duration, expirationTime = UnitDebuff(targetname,i)
-		if (name ~= nil and string.find(name, debuff_name)) then
-			fnd=true;
-      timeleft = expirationTime - GetTime()
-			break;
-		end
-	end
-	return fnd, timeleft, count;
-end
-
-function has_debuff_by_self(targetname, debuff_name)
-
-	for i=1,40,1 do name, rank, icon, count, debuffType, duration, expirationTime = UnitDebuff(targetname,i)
-		if (name ~= nil and string.find(name, debuff_name)) then
-			if duration then	-- in this version of the wow lua api, duration and timeleft == nil for debuffs cast by others
-				return true;
-			end
-		end
-	end
-
-	return false;
-end
 
 function table_empty(t)
   if t == nil then return true end
@@ -909,59 +884,69 @@ function table_getkey_any(t)
   for k,_ in pairs(t) do return k end -- yeah this is so great :DDD
 end
 
+
+
+function has_buff(targetname, buff_name)
+
+  local UB = UnitBuff
+
+  local i = 1
+	local name, _, _, count, _, duration, timeleft = UB(targetname, i)
+	while name do
+    if string.find(name, buff_name) then
+      return true, timeleft, stacks
+		end
+    i = i + 1
+    name, _, _, count, _, duration, timeleft = UB(targetname, i)
+	end
+
+  return nil
+
+end
+
+
+function has_debuff(targetname, debuff_name)
+
+  local UD = UnitDebuff
+  local i = 1
+  local name, _, _, count, _, duration, expirationTime = UD(targetname,i)
+	while name do
+		if string.find(name, debuff_name) then
+      local timeleft = expirationTime - GetTime()
+      return true, timeleft, count, duration
+		end
+    i = i + 1
+    name, _, _, count, _, duration, expirationTime = UD(targetname,i)
+	end
+
+	return nil
+
+end
+
+function has_debuff_by_self(targetname, debuff_name)
+  local has, timeleft, count, duration = has_debuff(targetname, debuff_name)
+
+  if has and duration then -- duration is nil for debuffs cast by others
+    return true, timeleft, count
+  end
+
+  return nil
+end
+
+
 function get_self_debuff_expiration(targetname, debuff_name)
-
-    for i=1,40,1 do name, rank, icon, count, debuffType, duration, expirationTime = UnitDebuff(targetname,i)
-        if (name ~= nil and string.find(name, debuff_name)) then
-            if duration then    -- in this version of the wow lua api, duration and timeleft == nil for debuffs cast by others
-                return expirationTime;
-            end
-        end
-    end
-
-    return nil;
+  local h, timeleft, count = has_debuff_by_self(targetname, debuff_name)
+  if h then return timeleft end
+  return nil
 end
 
 function get_num_debuff_stacks(targetname, debuff_name)
 
-	for i=1,40,1 do name, _, _, count, _, _, timeleft = UnitDebuff(targetname, i)
-		if (name ~= nil and string.find(name, debuff_name)) then
-			return count, timeleft;
-		end
-	end
+  local h, timeleft, count = has_debuff(targetname, debuff_name)
+
+  if h then return count, timeleft end
 	-- not debuffed with debuff_name
 	return 0, 999;
-
-end
-
-
-function has_buff(targetname, buff_name)
-	local fnd = nil;
-	local timeleft = nil;
-	local stacks = nil;
-	for i=1,60,1 do name, rank, icon, count, debuffType, duration, expirationTime = UnitBuff(targetname, i)
-		if(name ~= nil and string.find(name, buff_name)) then
-			fnd=true;
-      timeleft = expirationTime;
-      stacks = count;
-			break;
-		end
-	end
-	return fnd, timeleft, stacks;
-
-end
-
-function has_debuff_of_type(targetname, typename)
-	local fnd = false;
-
-	for i=1,40,1 do _, _, _, _, debuffType, timeleft = UnitDebuff(targetname,i)
-		if(debuffType ~= nil and string.find(debuffType, typename)) then
-			fnd = true;
-			break;
-		end
-	end
-
-	return fnd,timeleft;
 
 end
 
@@ -982,6 +967,8 @@ end
 function unset_all_CC_jobs()
 	CC_jobs = nil
 end
+
+
 
 function do_CC_jobs()
 
