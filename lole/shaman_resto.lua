@@ -115,16 +115,7 @@ end
 
 local function cleanse_shaman()
   local debuffs = get_raid_debuffs_by_type("Poison,Disease,Curse")
-  if table_empty(debuffs) then return nil end
-
--- TODO: cleansing totem is a very powerful spell tho...
-  local char = table_getkey_any(debuffs)
-    -- we dont really care about the actual debuff, just cleanse, don't ask questions :D
-  L_TargetUnit(char)
-  caster_range_check(0, 40)
-  L_CastSpellByName("Cleanse Spirit")
-  return true
-
+  return cast_dispel(debuffs, "Cleanse Spirit")
 end
 
 combat_shaman_resto = function()

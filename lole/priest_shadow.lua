@@ -1,14 +1,11 @@
 local function cleanse_priest()
-  local debuffs = get_raid_debuffs_by_type("Magic")
-  if table_empty(debuffs) then return nil end
+  local magicks = get_raid_debuffs_by_type("Magic")
+  if cast_dispel(magicks, "Dispel Magic") then return true end
 
--- TODO: cleansing totem is a very powerful spell tho...
-  local char = table_getkey_any(debuffs)
-    -- we dont really care about the actual debuff, just cleanse, don't ask questions :D
-  L_TargetUnit(char)
-  caster_range_check(0, 40)
-  L_CastSpellByName("Cleanse")
-  return true
+  local diseases = get_raid_debuffs_by_type("Disease")
+  if cast_dispel(diseases, "Abolish Disease") then return true end
+
+  return nil
 
 end
 

@@ -892,7 +892,20 @@ function get_raid_debuffs_by_type(debuff_types)
 
 end
 
+function cast_dispel(debuff_table, spellname)
+-- TODO: cleansing totem is a very powerful spell tho...
+  local charname = table_getkey_any(debuff_table)
+  if not charname then return nil end
+    -- we dont really care about the actual debuff, just cleanse, don't ask questions :D
+  L_TargetUnit(charname)
+  caster_range_check(0, 40) -- most dispel spells have a 40 yd range?
+  L_CastSpellByName(spellname)
+  return true
+
+end
+
 function table_getkey_any(t)
+  if not t or table_empty(t) then return nil end
   for k,_ in pairs(t) do return k end -- yeah this is so great :DDD
 end
 
