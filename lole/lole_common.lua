@@ -882,6 +882,7 @@ function cast_dispel(debuff_table, spellname)
   L_TargetUnit(charname)
   caster_range_check(0, 40) -- most dispel spells have a 40 yd range?
   L_CastSpellByName(spellname)
+
   return true
 
 end

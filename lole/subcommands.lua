@@ -1119,11 +1119,8 @@ local function lole_eject()
 end
 
 local function lole_debug_test(...)
-	local a,b,c = has_buff("player", "Hellscream's Warsong")
-	print(a,b,c)
 
-	local d,e,f = has_debuff_by_self("target", "Corruption")
-	print(d,e,f)
+	print(lole_get("dispelmode"))
 
 end
 
