@@ -901,7 +901,7 @@ function has_buff(targetname, buff_name)
 	local name, _, _, count, _, duration, timeleft = UB(targetname, i)
 	while name do
     if string.find(name, buff_name) then
-      return true, timeleft, stacks
+      return true, timeleft, count
 		end
     i = i + 1
     name, _, _, count, _, duration, timeleft = UB(targetname, i)

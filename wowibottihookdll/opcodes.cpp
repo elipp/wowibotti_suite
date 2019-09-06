@@ -1384,7 +1384,7 @@ static void do_boss_action(const std::vector<std::string> &args) {
 
 		if (!HOTNESS_ENABLED) {
 			if (warning_time.passed()) {
-				echo_wow("WARNING: hconfig_status called, but hotness not enabled with \"hconfig_enable\"!");
+				echo_wow("WARNING: hconfig_status called, but hotness not enabled with hconfig_enable!");
 				warning_time.reset();
 			}
 			return;
