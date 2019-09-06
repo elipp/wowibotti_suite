@@ -825,6 +825,13 @@ function table_empty(t)
   return next(t) == nil
 end
 
+function update_table(target, source)
+  -- only update values, don't destroy keys that already exist
+  for k,v in pairs(source) do
+    target[k] = v
+  end
+end
+
 function match_any(tab, string)
   for k,v in pairs(tab) do
     if string == v then

@@ -14,7 +14,7 @@ function get_available_mode_attribs()
 
 	local r = "|cFFFFFF00"
 
-	for k,v in mode_attribs do
+	for k,v in pairs(mode_attribs) do
 		 r = r .. " " .. k
 	end
 
@@ -40,15 +40,15 @@ local function lole_setconfig(arg, modes)
 
 		set_visible_dropdown_config(arg) -- gui stuff
 
+		-- This patch is there so that adding mode attribs would be easier
 		if modes then
-			mode_attribs = shallowcopy(modes);
-			LOLE_CLASS_CONFIG_ATTRIBS_SAVED = shallowcopy(modes);
-
-		else -- copy defaults
-			LOLE_CLASS_CONFIG_ATTRIBS_SAVED = shallowcopy(mode_attribs);
+			update_table(mode_attribs, modes)
 		end
 
+		LOLE_CLASS_CONFIG_ATTRIBS_SAVED = shallowcopy(mode_attribs);
+
 		echo("lole_setconfig: config set to " .. get_current_config().name .. ".");
+
 	end
 
 	return true;
