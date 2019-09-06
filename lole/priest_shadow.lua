@@ -26,7 +26,9 @@ function combat_priest_shadow()
   end
 
 
-  if cleanse_priest() then return end
+  if lole_get("dispelmode") == 1 then
+    if cleanse_priest() then return end
+  end
 
 --  if not validate_target() then return end
 -- L_RunMacroText("/lole target 0xF1300027C8000007") -- FOR ONYXIA, REPLACE GUID OFC
