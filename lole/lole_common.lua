@@ -112,16 +112,57 @@ local function LEGION_FLAME_AVOID()
   end
 end
 
+
+local green_warn_sent = 0
+local red_warn_sent = 0
+
+local function putricide_stuff()
+
+  if UnitName("player") == "Kuratorn" then
+    if not UnitAffectingCombat("Kuratorn") then
+      red_warn_sent = 0
+      green_warn_sent = 0
+      return
+    end
+
+    L_ClearTarget()
+    L_TargetUnit("Gas Cloud")
+    if UnitExists("target") then
+      if red_warn_sent == 0 then
+        SendChatMessage("RED slimu is targetting " .. tostring(UnitName("targettarget")) .. ". RUN!!!", "GUILD")
+        red_warn_sent = 1
+        green_warn_sent = 0
+        return
+      end
+    end
+
+    L_ClearTarget()
+    L_TargetUnit("Volatile Ooze")
+    if UnitExists("target") then
+      if green_warn_sent == 0 then
+        SendChatMessage("GREEN slimu is targetting " .. tostring(UnitName("targettarget")) .. "!", "GUILD")
+        green_warn_sent = 1
+        red_warn_sent = 0
+        return
+      end
+    end
+
+    L_TargetUnit("focus")
+  end
+end
+
 local REMOVE_THIS_FRAME = CreateFrame("frame", nil, UIParent)
 REMOVE_THIS_FRAME:SetScript("OnUpdate",
 
 function()
 
-  if UnitInVehicle("player") then
-    L_RunScript("if VehicleMenuBarPowerBar.currValue > 95 then VehicleMenuBarActionButton2:Click() else VehicleMenuBarActionButton1:Click() end")
-  end
+  --putricide_stuff()
 
   if not playermode() then
+    -- this is for gunship
+    if UnitInVehicle("player") then
+      L_RunScript("if VehicleMenuBarPowerBar.currValue > 95 then VehicleMenuBarActionButton2:Click() else VehicleMenuBarActionButton1:Click() end")
+    end
 
     if unit_castorchannel("focus") == "Staggering Stomp" then L_SpellStopCasting(); return; end
 
@@ -139,10 +180,13 @@ function()
 
     -- THIS IS GOLDEN STUFF: ----------------------
     if UnitAffectingCombat("player") then
-     local n = UnitName("player")
-     -- the following two blocks are completely unrelated, but hehe
+      local n = UnitName("player")
       if not (n == "Iijj" or n == "Spobodi") then -- or n == "Kuratorn") then
         boss_action("hconfig_status")
+      end
+
+      if has_debuff("player", "Gaseous Bloat") then
+        walk_to(4404.2, 3224.8, 389.4, CTM_PRIO_FOLLOW)
       end
 
     end

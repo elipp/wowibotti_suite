@@ -872,6 +872,8 @@ static int tocheroic_update_buffers();
 
 static arena_t marrowgar_arena = { 140, {-390, 2215 }, 42 };
 static arena_t tocheroic_arena = { 140, { 567, 139 }, 395 }; // THIS IS THE REAL ONE
+static arena_t rotface_arena = { 140, {4446, 3137 }, 360.4 };
+static arena_t putricide_arena = { 140, {4357, 3211}, 389.4 };
 
 static void marrowgar_render_all(IDirect3DDevice9* d) {
 	
@@ -1252,6 +1254,90 @@ static int tocheroic_update_buffers() {
 
 }
 
+static int putricide_update_buffers() {
+	ObjectManager OM;
+	if (!OM.valid()) return 0;
+
+	WowObject i;
+	if (!OM.get_first_object(&i)) return 0;
+
+	std::vector<tuple_t> puddles;
+
+	while (i.valid()) {
+		if (i.get_type() == OBJECT_TYPE_NPC) {
+			if (i.NPC_get_name() == "Coldflame") {
+				vec3 ipos = i.get_pos();
+				vec2_t pos = world2screen(ipos.x, ipos.y, marrowgar_arena);
+				puddles.push_back({ pos, i.get_rot() });
+			}
+		}
+		i = i.next();
+	}
+
+	if (puddles.size() < 1) {
+		num_flames_to_render = 0;
+		return 1;
+	}
+
+	ngon_t* mem;
+	lol_vbuffer->Lock(0, 0, (void**)& mem, 0);
+
+	WowObject p;
+	OM.get_local_object(&p);
+	vec3 ppos = p.get_pos();
+	vec2_t Ppos = world2screen(ppos.x, ppos.y, marrowgar_arena);
+	PLAYER_POSITION = Ppos;
+	PLAYER_WORLDPOS = ppos;
+
+	ngon_t pn = pointtongon({ Ppos, 0 }, 3.0);
+	mem[0] = pn;
+
+	pn = pointtongon({ Ppos, 0 }, 0.03);
+	mem[1] = pn;
+
+	//WowObject B = OM.get_closest_NPC_by_name(boss, ppos); // yes this is pretty bad
+
+	//vec3 bpos = B.get_pos();
+	//vec2_t Bpos = world2screen(bpos.x, bpos.y, marrowgar_arena);
+	//BOSS_POSITION = Bpos;
+
+	//mem[2] = pointtongon({ Bpos, 0 }, 3.0);
+
+	mem[3] = pointtongon({ BEST_PIXEL, 0 }, 0.03);
+
+	FLAME_POSITIONS = std::vector<vec2_t>();
+
+	int n = 4;
+	for (auto& f : puddles) {
+		ngon_t g = pointtongon(f, 0.15); // the value 0.06 turns out to be pretty accurate!
+		mem[n] = g;
+		FLAME_POSITIONS.push_back(g.v[0]);
+		++n;
+	}
+
+	num_flames_to_render = n - 4;
+
+	UNIT_POSITIONS = std::vector<vec2_t>();
+
+	auto& units = OM.get_all_units();
+	for (auto& u : units) {
+		if (u.get_GUID() == OM.get_local_GUID()) { continue; }
+		vec3 upos = u.get_pos();
+		vec2_t Upos = world2screen(upos.x, upos.y, marrowgar_arena);
+		UNIT_POSITIONS.push_back(Upos);
+		ngon_t g = pointtongon({ Upos, 0 }, 0.25);
+		mem[n] = g;
+		++n;
+	}
+
+	num_units_to_render = n - num_flames_to_render - 4;
+
+	lol_vbuffer->Unlock();
+
+	return 1;
+
+}
+
 
 
 typedef struct texquad_vertex {
@@ -1591,6 +1677,63 @@ exit:
 	reset_renderstate();
 }
 
+void draw_rotface_stuff() {
+
+
+}
+
+void draw_putricide_stuff() {
+	if (!customd3d_initialized) return;
+
+	IDirect3DDevice9* d = (IDirect3DDevice9*)get_wow_d3ddevice();
+	if (!d) return;
+
+	// A THING LIKE THIS WOULD MOST LIKELY BE A VERY CAPITAL IDEA :D
+	// IDirect3DStateBlock9* pStateBlock = NULL;
+	// d->CreateStateBlock(D3DSBT_ALL, &pStateBlock);
+	// pStateBlock->Apply();
+
+	d->SetRenderTarget(0, rendertex_surf);
+	d->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(255, 0, 0, 0), 1.0f, 0);
+
+	if (tocheroic_update_buffers()) {
+		tocheroic_render_all(d);
+	}
+
+	D3DLOCKED_RECT R;
+
+	HRESULT hr = d->GetRenderTargetData(rendertex_surf, throwaway_surf);
+	assert(SUCCEEDED(hr));
+
+	assert(SUCCEEDED(throwaway_surf->LockRect(&R, 0, 0)));
+	find_lowest_pixel(&R);
+
+	vec2i_t pt = screen2tex(PLAYER_POSITION.x, PLAYER_POSITION.y);
+	CURRENT_HOTNESS = get_pixel_value(pt.x, pt.y, &R);
+
+	throwaway_surf->UnlockRect();
+
+	d->SetRenderTarget(0, back_buffer);
+	d->SetDepthStencilSurface(depthstencil);
+
+	d->SetVertexDeclaration(quad_vd);
+	d->SetVertexShader(quad_vs);
+	d->SetPixelShader(quad_ps);
+
+	d->SetStreamSource(0, lol_quadbuffer, 0, 4 * sizeof(float));
+
+	d->SetTexture(0, rendertex);
+
+	d->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+	//	d->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+	//d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 4, 0, 2); 
+	d->DrawPrimitive(D3DPT_TRIANGLEFAN, 0, 2);
+
+exit:
+
+	reset_renderstate();
+
+}
 
 hotness_status get_current_hotness_status() {
 
@@ -1739,6 +1882,8 @@ int init_custom_d3d() {
 static const hotness_config_t hconfigs[] = {
 	{"Marrowgar", marrowgar_arena, draw_marrowgar_stuff },
 	{"TOC_heroic", tocheroic_arena, draw_tocheroic_stuff },
+	{"Rotface", rotface_arena, draw_rotface_stuff },
+	{"Putricide", putricide_arena, draw_putricide_stuff },
 	{"", {}, NULL }
 };
 
