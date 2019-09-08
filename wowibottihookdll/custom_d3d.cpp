@@ -1265,7 +1265,7 @@ static int putricide_update_buffers() {
 
 	while (i.valid()) {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
-			if (i.NPC_get_name() == "Coldflame") {
+			if (i.NPC_get_name() == "Growing Ooze Puzzle") {
 				vec3 ipos = i.get_pos();
 				vec2_t pos = world2screen(ipos.x, ipos.y, marrowgar_arena);
 				puddles.push_back({ pos, i.get_rot() });
@@ -1438,6 +1438,11 @@ static int create_lolbuffers(IDirect3DDevice9 *d) {
 }
 
 static int create_d3d9buffers(IDirect3DDevice9 *d) {
+
+	// THIS CAUSES A HANG :))
+	// return value of function called at 6A3584 (it's Present, actually :D)
+	// sets a flag ([C5DF88] + 0x5F8) to 0 and that causes everything to go to shit
+	
 	HRESULT hr;
 
 	hr = d->CreateVertexBuffer(4 * 2 * sizeof(float), D3DUSAGE_WRITEONLY | D3DUSAGE_DYNAMIC, 0, D3DPOOL_DEFAULT, &vbuffer, NULL);
@@ -1787,10 +1792,13 @@ void draw_custom_d3d() {
 }
 
 int init_custom_d3d() {
- 
+
+	// something in this causes some weird hangs
+
 	if (customd3d_initialized) return 1;
 
 	IDirect3DDevice9 *d = (IDirect3DDevice9*)get_wow_d3ddevice();
+	//IDirect3DDevice9 *d = 
 
 	if (!d) return 0;
 
@@ -1804,6 +1812,7 @@ int init_custom_d3d() {
 		PRINT("CreateVertexShader failed: %X\n", hr);
 		return 0;
 	}
+
 	
 	delete[] shaderbuf;
 
@@ -1848,16 +1857,29 @@ int init_custom_d3d() {
 
 
 	// having these two (Create[Vertex|Index]Buffer) calls here in the init function cause a hang when resizing the window
+	// for some reason, the client stops calling Present
+	
+	//CALL STACK FOR PRESENT, when it works normally
+	// 6A3450
+	// 682A00
+	// 4A8720
+	// 480AD0
+	// 47EFF0
+	// 4F7230
+	// 47F2D0
 
 	if (!buffers_initialized) {
 		create_d3d9buffers(d);
 	}
+
 
 	hr = d->GetRenderTarget(0, &back_buffer);
 	assert(SUCCEEDED(hr));
 
 	hr = d->GetDepthStencilSurface(&depthstencil);
 	assert(SUCCEEDED(hr));
+	customd3d_initialized = 1; return 1;
+
 
 	hr = d->CreateTexture(MAP_SIZE, MAP_SIZE, 0, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &rendertex, NULL);
 	assert(SUCCEEDED(hr));

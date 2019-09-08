@@ -11,6 +11,7 @@
 
 #include <d3d9.h>
 
+#include "aux_window.h"
 #include "hooks.h"
 #include "addrs.h"
 #include "defs.h"
@@ -205,16 +206,28 @@ extern time_t in_world; // from opcodes.cpp
 //	}
 //}
 
-
 static int dbg_shown = 0;
+
+static void __stdcall EndScene_hook() {
+	//	draw_custom_d3d();
+
+
+
+}
+
 
 static void __stdcall Present_hook() {
 
+	if (!create_aux_window()) {
+		MessageBoxA(NULL, "LOL", "SDXD", 0);
+	}
+	return;
+
 	init_custom_d3d(); // this doesn't do anything if it's already initialized
-	
+
 	if (!dbg_shown) {
-		IDirect3DDevice9 *d = get_wow_ID3D9();
-		PRINT("Present: %X, BeginScene: %X, EndScene: %X, DrawIndexedPrimitive: %X\n", get_Present(), get_BeginScene(), get_EndScene(), get_DrawIndexedPrimitive());
+		IDirect3DDevice9* d = get_wow_ID3D9();
+		PRINT("Device: %X Present: %X, BeginScene: %X, EndScene: %X, DrawIndexedPrimitive: %X\n", d, get_Present(), get_BeginScene(), get_EndScene(), get_DrawIndexedPrimitive());
 		dbg_shown = 1;
 		srand(time(NULL));
 		//connect_to_governor();
@@ -262,7 +275,7 @@ static void __stdcall Present_hook() {
 	}
 
 	if (fifteen_seconds.passed()) {
-//		report_client_status(); //
+		//		report_client_status(); //
 		fifteen_seconds.reset();
 	}
 
@@ -273,7 +286,7 @@ static void __stdcall Present_hook() {
 	//else if (capture.need_to_stop) {
 	//	capture.finish();
 	//}
-	
+
 	if (should_unpatch) {
 		PRINT("should unpatch! unpatching!\n");
 		unpatch_all();
@@ -281,10 +294,14 @@ static void __stdcall Present_hook() {
 		should_unpatch = 0;
 
 		cleanup_custom_d3d();
-		
+
 		// might be race condition territory right here
 		CreateThread(NULL, 0, eject_DLL, NULL, 0, 0);
 	}
+
+
+	execute_current_hconfig_if_active();
+
 
 }
 
@@ -378,12 +395,6 @@ static DWORD WINAPI create_warden_socket() {
 	return 0;
 }
 
-static void __stdcall EndScene_hook() {
-//	draw_custom_d3d();
-
-	execute_current_hconfig_if_active();
-
-}
 
 enum {
 	WARDEN_SOURCE_IN = 0,
