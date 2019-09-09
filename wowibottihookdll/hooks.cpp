@@ -218,9 +218,12 @@ static void __stdcall EndScene_hook() {
 
 static void __stdcall Present_hook() {
 
-	if (!create_aux_window()) {
-		MessageBoxA(NULL, "LOL", "SDXD", 0);
+	if (!create_aux_window("the hotness :D", 256, 256)) {
+
 	}
+
+	aux_draw();
+
 	return;
 
 	init_custom_d3d(); // this doesn't do anything if it's already initialized
