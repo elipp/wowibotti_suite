@@ -4,6 +4,9 @@
 
 #include "defs.h"
 #include "dllmain.h"
+#include "aux_window.h"
+#include "shader.h"
+#include "wowmem.h"
 
 #pragma comment (lib, "opengl32.lib")
 
@@ -13,248 +16,52 @@ static HWND hWnd;
 static HDC hDC;
 static HGLRC hRC;
 
-#define GL_ARRAY_BUFFER                   0x8892
-#define GL_ELEMENT_ARRAY_BUFFER           0x8893
-#define GL_STATIC_DRAW                    0x88E4
-#define GL_DYNAMIC_DRAW                   0x88E8
-#define GL_FRAGMENT_SHADER                0x8B30
-#define GL_VERTEX_SHADER                  0x8B31
-#define GL_GEOMETRY_SHADER                0x8DD9
-#define GL_GEOMETRY_VERTICES_OUT          0x8916
-#define GL_GEOMETRY_INPUT_TYPE            0x8917
-#define GL_GEOMETRY_OUTPUT_TYPE           0x8918
-#define GL_TESS_EVALUATION_SHADER         0x8E87
-#define GL_TESS_CONTROL_SHADER            0x8E88
-
-#define GL_COMPILE_STATUS                 0x8B81
-#define GL_LINK_STATUS                    0x8B82
-#define GL_VALIDATE_STATUS                0x8B83
-#define GL_INFO_LOG_LENGTH                0x8B84
-
-
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 
-
-typedef char GLchar;
-typedef unsigned int GLsizeiptr;
-typedef void (APIENTRY *fp_glGenVertexArrays )(GLsizei n, GLuint* arrays);
-typedef void (APIENTRY *fp_glBindVertexArray)(GLuint array);
-typedef void (APIENTRY *fp_glGenBuffers)(GLsizei n, GLuint* buffers);
-typedef void (APIENTRY *fp_glBindBuffer)(GLenum target, GLuint buffer);
-typedef void (APIENTRY *fp_glEnableVertexAttribArray)(GLuint index);
-typedef void (APIENTRY *fp_glDisableVertexAttribArray)(GLuint index);
-typedef void (APIENTRY *fp_glVertexAttribPointer)(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer);
-typedef void (APIENTRY *fp_glShaderSource)(GLuint shader, GLsizei count, const GLchar* const* string, const GLint* length);
-typedef void (APIENTRY *fp_glCompileShader)(GLuint shader);
-typedef void (APIENTRY *fp_glGetShaderiv)(GLuint shader, GLenum pname, GLint* params);
-typedef void (APIENTRY *fp_glCompileShader)(GLuint shader);
-typedef void (APIENTRY *fp_glGetShaderiv)(GLuint shader, GLenum pname, GLint* params);
-typedef void (APIENTRY *fp_glGetShaderInfoLog)(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar* infoLog);
-typedef void (APIENTRY *fp_glAttachShader)(GLuint program, GLuint shader);
-typedef void (APIENTRY *fp_glLinkProgram)(GLuint program);
-typedef void (APIENTRY *fp_glGetProgramiv)(GLuint program, GLenum pname, GLint* params);
-typedef void (APIENTRY *fp_glGetProgramInfoLog)(GLuint program, GLsizei bufSize, GLsizei* length, GLchar* infoLog);
-typedef void (APIENTRY *fp_glDetachShader)(GLuint program, GLuint shader);
-typedef void (APIENTRY *fp_glDeleteShader)(GLuint shader);
-typedef void (APIENTRY *fp_glUseProgram)(GLuint program);
-typedef void (APIENTRY *fp_glBufferData)(GLenum target, GLsizeiptr size, const void* data, GLenum usage);
-typedef GLuint (APIENTRY *fp_glCreateProgram)(void);
-typedef GLuint (APIENTRY *fp_glCreateShader)(GLenum type);
-
-typedef void (APIENTRY *fp_glUniform1f) (GLint location, GLfloat v0);
-typedef void (APIENTRY *fp_glUniform2f) (GLint location, GLfloat v0, GLfloat v1);
-typedef void (APIENTRY *fp_glUniform3f) (GLint location, GLfloat v0, GLfloat v1, GLfloat v2);
-typedef void (APIENTRY *fp_glUniform4f) (GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3);
-typedef void (APIENTRY *fp_glUniform1fv) (GLint location, GLsizei count, const GLfloat* value);
-typedef void (APIENTRY *fp_glUniform2fv) (GLint location, GLsizei count, const GLfloat* value);
-typedef void (APIENTRY *fp_glUniform3fv) (GLint location, GLsizei count, const GLfloat* value);
-typedef void (APIENTRY *fp_glUniform4fv) (GLint location, GLsizei count, const GLfloat* value);
-
-static fp_glGenVertexArrays glGenVertexArrays;
-static fp_glBindVertexArray glBindVertexArray;
-static fp_glGenBuffers glGenBuffers;
-static fp_glBindBuffer glBindBuffer;
-static fp_glEnableVertexAttribArray glEnableVertexAttribArray;
-static fp_glDisableVertexAttribArray glDisableVertexAttribArray;
-static fp_glVertexAttribPointer glVertexAttribPointer;
-static fp_glCreateShader glCreateShader;
-static fp_glShaderSource glShaderSource;
-static fp_glGetShaderiv glGetShaderiv;
-static fp_glCompileShader glCompileShader;
-static fp_glGetShaderInfoLog glGetShaderInfoLog;
-static fp_glAttachShader glAttachShader;
-static fp_glLinkProgram glLinkProgram;
-static fp_glGetProgramiv glGetProgramiv;
-static fp_glGetProgramInfoLog glGetProgramInfoLog;
-static fp_glDetachShader glDetachShader;
-static fp_glDeleteShader glDeleteShader;
-static fp_glBufferData glBufferData;
-static fp_glUseProgram glUseProgram;
-static fp_glCreateProgram glCreateProgram;
-
-static fp_glUniform1f glUniform1f;
-static fp_glUniform2f glUniform2f;
-static fp_glUniform3f glUniform3f;
-static fp_glUniform4f glUniform4f;
-static fp_glUniform1fv glUniform1fv;
-static fp_glUniform2fv glUniform2fv;
-static fp_glUniform3fv glUniform3fv;
-static fp_glUniform4fv glUniform4fv;
-
-
 class ShaderProgram;
 
-static GLuint VAOid, VBOid;
+static GLuint avoid_VAOid, avoid_VBOid;
 static ShaderProgram *shader;
 
-namespace Shader {
-
-	static GLint checkShaderCompileStatus(GLuint shaderId);
-	static const std::string logfilename("shader.log");
-
-};
-
-class ShaderProgram {
-
-	GLuint programHandle_;
-	bool error;
-
-public:
-
-	GLint checkLinkStatus();
-	ShaderProgram(const std::string& vs_filename, const std::string& fs_filename, const std::string& gs_filename);
-
-	bool valid() const;
-
-	GLuint programHandle() const { return programHandle_; }
-};
-
-static std::string read_shader(const std::string& fname) {
-	std::ifstream input(fname);
-	if (!input.is_open()) {
-		PRINT("ShaderProgram: couldn't open file %s!", fname.c_str());
-		return "ERROR";
-	}
-
-	std::stringstream buffer;
-	buffer << input.rdbuf();
-	return buffer.str();
-
-}
-
-static GLuint load_shader(GLenum stype, const std::string &filename) {
-
-	const std::string source = read_shader(filename);
-
-	if (source == "ERROR") {
-		throw std::exception(("unable to open " + filename).c_str());
-		return 0;
-	}
-
-	GLuint sid = glCreateShader(stype);
-	GLint sslen = source.length();
-	const GLchar* s = source.c_str();
-	glShaderSource(sid, 1, &s, &sslen);
-	glCompileShader(sid);
-
-	if (!Shader::checkShaderCompileStatus(sid)) {
-		throw std::exception(("shader compilation failed! filename: " + filename).c_str());
-		return 0;
-	}
-
-	return sid;
-
-}
-
-ShaderProgram::ShaderProgram(const std::string& VS_filename, const std::string& FS_filename, const std::string& GS_filename) {
-
-	//std::ofstream logfile(Shader::logfilename, std::ios::ate);
-	//logfile << "";
-	//logfile.close();
-
-	GLuint VSid, FSid, GSid;
-
-	auto vs_fullname = DLL_base_path + VS_filename;
-	auto gs_fullname = DLL_base_path + GS_filename;
-	auto fs_fullname = DLL_base_path + FS_filename;
-
-	try {
-		VSid = load_shader(GL_VERTEX_SHADER, vs_fullname);
-		GSid = load_shader(GL_GEOMETRY_SHADER, gs_fullname);
-		FSid = load_shader(GL_FRAGMENT_SHADER, fs_fullname);
-	}
-	
-	catch (...) {
-		throw;
-		return;
-	}
-
-	programHandle_ = glCreateProgram();
-
-	glAttachShader(programHandle_, VSid);
-	glAttachShader(programHandle_, GSid);
-	glAttachShader(programHandle_, FSid);
-
-	glLinkProgram(programHandle_);
-
-	if (!checkLinkStatus()) {
-		throw std::exception("program link error!");
-		return;
-	}
-
-}
-
-
-
-GLint ShaderProgram::checkLinkStatus() {
-
-	GLint succeeded;
-	glGetProgramiv(programHandle_, GL_LINK_STATUS, &succeeded);
-
-	if (!succeeded) {
-		char logbuf[1024];
-		int len = 1024;
-		glGetProgramInfoLog(programHandle_, sizeof(logbuf), &len, logbuf);
-		PRINT("[shader status: program %d LINK ERROR!]\n%s\n", programHandle_, logbuf);
-		throw std::exception("shader link error");
-		return 0;
-	}
-
-	else {
-		return 1;
-	}
-}
-
-bool ShaderProgram::valid() const {
-	return error ? false : true;
-}
-
-
-
-GLint Shader::checkShaderCompileStatus(GLuint shaderId) {
-
-	GLint succeeded;
-	glGetShaderiv(shaderId, GL_COMPILE_STATUS, &succeeded);
-
-	if (!succeeded)
-	{
-		char log[1024];
-		int len = 1024;
-		glGetShaderInfoLog(shaderId, len, &len, log);
-		PRINT("[shader status: compile error]\n%s\n", log);
-
-		return 0;
-	}
-
-	else { return 1; }
-
-}
-
+static hconfig_t Marrowgar;
+static int num_avoid_points;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
+fp_glGenVertexArrays glGenVertexArrays;
+fp_glBindVertexArray glBindVertexArray;
+fp_glGenBuffers glGenBuffers;
+fp_glBindBuffer glBindBuffer;
+fp_glEnableVertexAttribArray glEnableVertexAttribArray;
+fp_glDisableVertexAttribArray glDisableVertexAttribArray;
+fp_glVertexAttribPointer glVertexAttribPointer;
+fp_glCreateShader glCreateShader;
+fp_glShaderSource glShaderSource;
+fp_glGetShaderiv glGetShaderiv;
+fp_glCompileShader glCompileShader;
+fp_glGetShaderInfoLog glGetShaderInfoLog;
+fp_glAttachShader glAttachShader;
+fp_glLinkProgram glLinkProgram;
+fp_glGetProgramiv glGetProgramiv;
+fp_glGetProgramInfoLog glGetProgramInfoLog;
+fp_glDetachShader glDetachShader;
+fp_glDeleteShader glDeleteShader;
+fp_glBufferData glBufferData;
+fp_glUseProgram glUseProgram;
+fp_glCreateProgram glCreateProgram;
+fp_glBufferSubData glBufferSubData;
+
+fp_glUniform1f glUniform1f;
+fp_glUniform2f glUniform2f;
+fp_glUniform3f glUniform3f;
+fp_glUniform4f glUniform4f;
+fp_glUniform1fv glUniform1fv;
+fp_glUniform2fv glUniform2fv;
+fp_glUniform3fv glUniform3fv;
+fp_glUniform4fv glUniform4fv;
+fp_glGetUniformLocation glGetUniformLocation;
 
 static int initialize_gl_extensions() {
 	glGenVertexArrays = (fp_glGenVertexArrays)wglGetProcAddress("glGenVertexArrays"); assert(glGenVertexArrays);
@@ -288,36 +95,82 @@ static int initialize_gl_extensions() {
 	glUniform3fv = (fp_glUniform3fv)wglGetProcAddress("glUniform3fv"); assert(glUniform3fv);
 	glUniform4fv = (fp_glUniform4fv)wglGetProcAddress("glUniform4fv"); assert(glUniform4fv);
 
+	glGetUniformLocation = (fp_glGetUniformLocation)wglGetProcAddress("glGetUniformLocation"); assert(glGetUniformLocation);
+	glBufferSubData = (fp_glBufferSubData)wglGetProcAddress("glBufferSubData"); assert(glBufferSubData);
+
 	return 1;
 
 }
 
 
+std::vector<avoid_point_t> avoid_npc_t::get_points() const {
+	std::vector<avoid_point_t> p;
+	ObjectManager OM;
+	WowObject iter;
+	if (!OM.get_first_object(&iter)) return p;
+	
+	while (iter.valid()) {
+
+		if (iter.get_type() == OBJECT_TYPE_NPC) {
+			if (iter.NPC_get_name() == this->name) {
+				vec3 pos = iter.get_pos();
+				avoid_point_t point = { pos.x, pos.y, this->radius };
+				p.push_back(point);
+			}
+		}
+
+		iter = iter.next();
+	}
+
+	return p;
+}
+
+std::vector<avoid_point_t> avoid_spellobject_t::get_points() const {
+	std::vector<avoid_point_t> p;
+
+	ObjectManager OM;
+	WowObject iter;
+	if (!OM.get_first_object(&iter)) return p;
+
+	while (iter.valid()) {
+
+		if (iter.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
+			if (iter.DO_get_spellID() == this->spellID) {
+				vec3 pos = iter.DO_get_pos();
+				avoid_point_t point = { pos.x, pos.y, this->radius };
+				p.push_back(point);
+			}
+		}
+
+		iter = iter.next();
+	}
+
+	return p;
+}
 
 static int initialize_buffers() {
 
-	glGenVertexArrays(1, &VAOid);
-	glBindVertexArray(VAOid);
+	glGenVertexArrays(1, &avoid_VAOid);
+	glBindVertexArray(avoid_VAOid);
 
-	//static const GLfloat g_vertex_buffer_data[] = {
- //  -1.0f, -1.0f, 0.0f,
- //  1.0f, -1.0f, 0.0f,
- //  0.0f,  1.0f, 0.0f,
+	//static const std::vector<GLfloat> vbuf_data = {
+	//	-0, 0, 0.5,
+	//	0.5, 0, 0.5,
+	//	0.25, 0.25, 0.30,
 	//};
 
-	static const GLfloat g_vertex_buffer_data[] = {
-		-0.5, 0, 0.5,
-		0.5, 0, 0.5,
+	static const std::vector<GLfloat> vbuf_data = {
+		-390, 2215, 8
 	};
 
-	glGenBuffers(1, &VBOid);
-	glBindBuffer(GL_ARRAY_BUFFER, VBOid);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_DYNAMIC_DRAW);
+	glGenBuffers(1, &avoid_VBOid);
+	glBindBuffer(GL_ARRAY_BUFFER, avoid_VBOid);
+	glBufferData(GL_ARRAY_BUFFER, 512 * 3 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, vbuf_data.size() * sizeof(float), &vbuf_data[0]);
 
 	glEnableVertexAttribArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, VBOid);
 	glVertexAttribPointer(
-		0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
+		0,                  // attribute 0
 		3,                  // size
 		GL_FLOAT,           // type
 		GL_FALSE,           // normalized?
@@ -327,23 +180,54 @@ static int initialize_buffers() {
 
 	glBindVertexArray(0);
 
-	glEnable(GL_DEPTH_TEST);
-
 	return 1;
+}
+
+static void update_buffers() {
+	ObjectManager OM;
+	WowObject p;
+	
+	std::vector<avoid_point_t> avoid_points;
+	avoid_points.reserve(256 * sizeof(avoid_point_t));
+
+	if (!OM.get_local_object(&p)) return;
+
+	const hconfig_t* conf = &Marrowgar;
+	
+	for (const auto& a : conf->avoid) {
+		auto v = a->get_points();
+		avoid_points.insert(std::end(avoid_points), std::begin(v), std::end(v));
+	}
+
+	num_avoid_points = avoid_points.size();
+	if (num_avoid_points == 0) return;
+
+	glBindBuffer(GL_ARRAY_BUFFER, avoid_VBOid);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, avoid_points.size() * sizeof(avoid_point_t), &avoid_points[0]);
+
 }
 
 void aux_draw() {
 	glClearColor(0, 0, 0, 1);
+
+	update_buffers();
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	if (num_avoid_points == 0) return;
+
 	glUseProgram(shader->programHandle());
-	glBindVertexArray(VAOid);
-	glDrawArrays(GL_POINTS, 0, 2);
+	GLfloat scr[2] = { HMAP_SIZE, HMAP_SIZE };
+	glUniform2fv(shader->get_uniform_location("target_size"), 1, scr);
+
+	glBindVertexArray(avoid_VAOid);
+	glDrawArrays(GL_POINTS, 0, num_avoid_points);
 	SwapBuffers(hDC);
 }
 
 
 int create_aux_window(const char* title, int width, int height) {
-	
+
 	if (created) return 1;
 
 	GLuint PixelFormat;
@@ -386,7 +270,7 @@ int create_aux_window(const char* title, int width, int height) {
 
 	dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE;
 	dwStyle = (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
-	
+
 
 	AdjustWindowRectEx(&WindowRect, dwStyle, FALSE, dwExStyle);
 
@@ -463,14 +347,23 @@ int create_aux_window(const char* title, int width, int height) {
 	initialize_gl_extensions();
 	initialize_buffers();
 
+	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_ONE, GL_ONE);
+
 	try {
 		shader = new ShaderProgram("shaders\\vs.glsl", "shaders\\fs.glsl", "shaders\\gs.glsl");
 	}
 
-	catch (const std::exception &ex) {
+	catch (const std::exception& ex) {
 		PRINT("A shader error occurred: %s\n", ex.what());
 		return FALSE;
 	}
+
+	shader->cache_uniform_location("target_size");
+
+	Marrowgar = 
+		hconfig_t(true, { new avoid_npc_t(25, "Lord Marrowgar"), new avoid_npc_t(8, "Coldflame"), new avoid_spellobject_t(8, 69146) }, { 140, {-390, 2215 }, 42 });
 
 	PRINT("Aux. OGL window successfully created!\n");
 

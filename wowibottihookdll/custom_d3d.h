@@ -1,6 +1,7 @@
 #pragma once
 
 #include "linalg.h"
+#include "aux_window.h"
 
 typedef struct customcamera_t {
 	float s;
@@ -24,20 +25,6 @@ typedef struct hotness_status {
 	BYTE current_hotness;
 } hotness_status;
 
-typedef struct vec2_t {
-	float x; float y;
-} vec2_t;
-
-
-typedef struct vec2i_t {
-	int x; int y;
-} vec2i_t;
-
-typedef struct arena_t {
-	float size;
-	vec2_t middle;
-	float z;
-} arena_t;
 
 typedef struct hotness_config_t {
 	std::string bossname;

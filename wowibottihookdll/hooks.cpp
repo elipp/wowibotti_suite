@@ -218,7 +218,7 @@ static void __stdcall EndScene_hook() {
 
 static void __stdcall Present_hook() {
 
-	if (!create_aux_window("the hotness :D", 512, 512)) {
+	if (!create_aux_window("the hotness :D", HMAP_SIZE, HMAP_SIZE)) {
 
 	}
 
@@ -236,15 +236,15 @@ static void __stdcall Present_hook() {
 		//connect_to_governor();
 	}
 
-	do_wc3mode_stuff();
+	//do_wc3mode_stuff();
 
-	if (wc3mode_enabled()) {
-		if (mouse_pressed) {
-			need_mouseup = 1;
-			add_mouseup();
-			need_mouseup = 0;
-		}
-	}
+	//if (wc3mode_enabled()) {
+	//	if (mouse_pressed) {
+	//		need_mouseup = 1;
+	//		add_mouseup();
+	//		need_mouseup = 0;
+	//	}
+	//}
 
 	if (!ctm_check_direction()) {
 		ctm_cancel();

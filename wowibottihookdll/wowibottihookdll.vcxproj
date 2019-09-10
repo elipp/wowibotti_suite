@@ -151,6 +151,7 @@
     <ClInclude Include="addrs.h" />
     <ClInclude Include="creds.h" />
     <ClInclude Include="ctm.h" />
+    <ClInclude Include="custom_d3d.h" />
     <ClInclude Include="defs.h" />
     <ClInclude Include="dipcapture.h" />
     <ClInclude Include="dllmain.h" />
@@ -163,7 +164,7 @@
     <ClInclude Include="packet.h" />
     <ClInclude Include="patch.h" />
     <ClInclude Include="ps.h" />
-    <ClInclude Include="custom_d3d.h" />
+    <ClInclude Include="shader.h" />
     <ClInclude Include="wowmem.h" />
     <ClInclude Include="opcodes.h" />
     <ClInclude Include="stdafx.h" />
@@ -174,6 +175,7 @@
     <ClCompile Include="aux_window.cpp" />
     <ClCompile Include="creds.cpp" />
     <ClCompile Include="ctm.cpp" />
+    <ClCompile Include="custom_d3d.cpp" />
     <ClCompile Include="dipcapture.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="dungeon_script.cpp" />
@@ -183,7 +185,7 @@
     <ClCompile Include="lua.cpp" />
     <ClCompile Include="packet.cpp" />
     <ClCompile Include="patch.cpp" />
-    <ClCompile Include="custom_d3d.cpp" />
+    <ClCompile Include="shader.cpp" />
     <ClCompile Include="wowmem.cpp" />
     <ClCompile Include="opcodes.cpp" />
     <ClCompile Include="timer.cpp" />

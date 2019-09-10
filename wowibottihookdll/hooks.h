@@ -7,6 +7,8 @@
 
 #include "patch.h"
 
+#define HMAP_SIZE 512
+
 struct hookable_t;
 struct trampoline_t;
 struct patch_t;
