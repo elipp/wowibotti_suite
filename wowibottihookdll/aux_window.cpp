@@ -34,6 +34,7 @@ static HGLRC hRC;
 
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 
 
 typedef char GLchar;
@@ -130,91 +131,79 @@ public:
 	GLuint programHandle() const { return programHandle_; }
 };
 
-
-ShaderProgram::ShaderProgram(const std::string& VS_filename, const std::string& FS_filename, const std::string& GS_filename) {
-
-	std::ofstream logfile(Shader::logfilename, std::ios::ate);
-	logfile << "";
-	logfile.close();
-
-	GLuint VSid, FSid; //, GSid;
-
-	auto vs_fullname = DLL_base_path + VS_filename;
-
-	std::ifstream input(vs_fullname);
+static std::string read_shader(const std::string& fname) {
+	std::ifstream input(fname);
 	if (!input.is_open()) {
-		PRINT("ShaderProgram: couldn't open file %s!", vs_fullname.c_str());
-		error = true;
-		return;
+		PRINT("ShaderProgram: couldn't open file %s!", fname.c_str());
+		return "ERROR";
 	}
 
 	std::stringstream buffer;
 	buffer << input.rdbuf();
-	std::string VS_contents(buffer.str());
-	input.close();
-	input.clear();
+	return buffer.str();
 
-	buffer.str("");
-	buffer.clear();
+}
 
+static GLuint load_shader(GLenum stype, const std::string &filename) {
+
+	const std::string source = read_shader(filename);
+
+	if (source == "ERROR") {
+		throw std::exception(("unable to open " + filename).c_str());
+		return 0;
+	}
+
+	GLuint sid = glCreateShader(stype);
+	GLint sslen = source.length();
+	const GLchar* s = source.c_str();
+	glShaderSource(sid, 1, &s, &sslen);
+	glCompileShader(sid);
+
+	if (!Shader::checkShaderCompileStatus(sid)) {
+		throw std::exception(("shader compilation failed! filename: " + filename).c_str());
+		return 0;
+	}
+
+	return sid;
+
+}
+
+ShaderProgram::ShaderProgram(const std::string& VS_filename, const std::string& FS_filename, const std::string& GS_filename) {
+
+	//std::ofstream logfile(Shader::logfilename, std::ios::ate);
+	//logfile << "";
+	//logfile.close();
+
+	GLuint VSid, FSid, GSid;
+
+	auto vs_fullname = DLL_base_path + VS_filename;
+	auto gs_fullname = DLL_base_path + GS_filename;
 	auto fs_fullname = DLL_base_path + FS_filename;
 
-	input.open(fs_fullname);
-	if (!input.is_open()) {
-		PRINT("ShaderProgram: couldn't open file %s!", fs_fullname.c_str());
-		error = true;
+	try {
+		VSid = load_shader(GL_VERTEX_SHADER, vs_fullname);
+		GSid = load_shader(GL_GEOMETRY_SHADER, gs_fullname);
+		FSid = load_shader(GL_FRAGMENT_SHADER, fs_fullname);
+	}
+	
+	catch (...) {
+		throw;
 		return;
-	}
-	buffer << input.rdbuf();
-	std::string FS_contents(buffer.str());
-
-	//PRINT("%s", fs_contents.c_str());
-	if (GS_filename != "") {
-		PRINT("ShaderProgram: geometry shaders not supported yet.\n");
-		// do something. don't know how to use geometry shaders yet, so :P
-	}
-
-	VSid = glCreateShader(GL_VERTEX_SHADER);
-	FSid = glCreateShader(GL_FRAGMENT_SHADER);
-
-	const char* VS_p = VS_contents.c_str();
-	const char* FS_p = FS_contents.c_str();
-
-	const GLint VS_len = VS_contents.length(),
-		FS_len = FS_contents.length();
-
-
-	//PRINT("%d, %d", vs_len, fs_len);
-
-	glShaderSource(VSid, 1, &VS_p, &VS_len);
-	glShaderSource(FSid, 1, &FS_p, &FS_len);
-
-	glCompileShader(VSid);
-	glCompileShader(FSid);
-
-	if (!Shader::checkShaderCompileStatus(VSid)) {
-		PRINT("Vertex shader compilation failed.\n");
-		error = true; return;
-	}
-
-	if (!Shader::checkShaderCompileStatus(FSid)) {
-		PRINT("Fragment shader compilation failed.\n");
-		error = true; return;
 	}
 
 	programHandle_ = glCreateProgram();
 
-
 	glAttachShader(programHandle_, VSid);
+	glAttachShader(programHandle_, GSid);
 	glAttachShader(programHandle_, FSid);
 
 	glLinkProgram(programHandle_);
 
 	if (!checkLinkStatus()) {
-		error = true; return;
+		throw std::exception("program link error!");
+		return;
 	}
 
-	error = false;
 }
 
 
@@ -225,11 +214,12 @@ GLint ShaderProgram::checkLinkStatus() {
 	glGetProgramiv(programHandle_, GL_LINK_STATUS, &succeeded);
 
 	if (!succeeded) {
-
-		PRINT("[shader status: program %d LINK ERROR!]\n\n", programHandle_);
-		error = true;
+		char logbuf[1024];
+		int len = 1024;
+		glGetProgramInfoLog(programHandle_, sizeof(logbuf), &len, logbuf);
+		PRINT("[shader status: program %d LINK ERROR!]\n%s\n", programHandle_, logbuf);
+		throw std::exception("shader link error");
 		return 0;
-
 	}
 
 	else {
@@ -243,26 +233,17 @@ bool ShaderProgram::valid() const {
 
 
 
-GLint Shader::checkShaderCompileStatus(GLuint shaderId)
-{
+GLint Shader::checkShaderCompileStatus(GLuint shaderId) {
 
-	GLint maxLength = 512;
 	GLint succeeded;
 	glGetShaderiv(shaderId, GL_COMPILE_STATUS, &succeeded);
 
 	if (!succeeded)
 	{
-		glGetShaderiv(shaderId, GL_INFO_LOG_LENGTH, &maxLength);
-		char* log = new char[maxLength];
-		log[maxLength - 1] = '\0';
-
-		glGetShaderInfoLog(shaderId, maxLength, &maxLength, log);
-		PRINT("[shader status: compile error] see shader.log.\n\n");
-
-		std::ofstream logfile(Shader::logfilename, std::ios::out | std::ios::app);
-		logfile.write(log, maxLength);
-		logfile.close();
-		delete[] log;
+		char log[1024];
+		int len = 1024;
+		glGetShaderInfoLog(shaderId, len, &len, log);
+		PRINT("[shader status: compile error]\n%s\n", log);
 
 		return 0;
 	}
@@ -318,15 +299,20 @@ static int initialize_buffers() {
 	glGenVertexArrays(1, &VAOid);
 	glBindVertexArray(VAOid);
 
+	//static const GLfloat g_vertex_buffer_data[] = {
+ //  -1.0f, -1.0f, 0.0f,
+ //  1.0f, -1.0f, 0.0f,
+ //  0.0f,  1.0f, 0.0f,
+	//};
+
 	static const GLfloat g_vertex_buffer_data[] = {
-   -1.0f, -1.0f, 0.0f,
-   1.0f, -1.0f, 0.0f,
-   0.0f,  1.0f, 0.0f,
+		-0.5, 0, 0.5,
+		0.5, 0, 0.5,
 	};
 
 	glGenBuffers(1, &VBOid);
 	glBindBuffer(GL_ARRAY_BUFFER, VBOid);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_DYNAMIC_DRAW);
 
 	glEnableVertexAttribArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, VBOid);
@@ -338,9 +324,6 @@ static int initialize_buffers() {
 		0,                  // stride
 		(void*)0            // array buffer offset
 	);
-	// Draw the triangle !
-	//glDrawArrays(GL_TRIANGLES, 0, 3); // Starting from vertex 0; 3 vertices total -> 1 triangle
-//	glDisableVertexAttribArray(0);
 
 	glBindVertexArray(0);
 
@@ -354,13 +337,13 @@ void aux_draw() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(shader->programHandle());
 	glBindVertexArray(VAOid);
-	glDrawArrays(GL_TRIANGLES, 0, 3);
+	glDrawArrays(GL_POINTS, 0, 2);
 	SwapBuffers(hDC);
 }
 
 
-int create_aux_window(const char* title, int width, int height)
-{
+int create_aux_window(const char* title, int width, int height) {
+	
 	if (created) return 1;
 
 	GLuint PixelFormat;
@@ -380,8 +363,8 @@ int create_aux_window(const char* title, int width, int height)
 	wc.cbClsExtra = 0;
 	wc.cbWndExtra = 0;
 	wc.hInstance = NULL;
-	wc.hIcon = LoadIcon(NULL, IDI_WINLOGO);
-	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wc.hIcon = NULL;// LoadIcon(NULL, IDI_WINLOGO);
+	wc.hCursor = NULL; // LoadCursor(NULL, IDC_ARROW);
 	wc.hbrBackground = NULL;
 	wc.lpszMenuName = NULL;
 	wc.lpszClassName = "OpenGL";
@@ -480,7 +463,16 @@ int create_aux_window(const char* title, int width, int height)
 	initialize_gl_extensions();
 	initialize_buffers();
 
-	shader = new ShaderProgram("shaders\\vs.glsl", "shaders\\fs.glsl", "");
+	try {
+		shader = new ShaderProgram("shaders\\vs.glsl", "shaders\\fs.glsl", "shaders\\gs.glsl");
+	}
+
+	catch (const std::exception &ex) {
+		PRINT("A shader error occurred: %s\n", ex.what());
+		return FALSE;
+	}
+
+	PRINT("Aux. OGL window successfully created!\n");
 
 	created = 1;
 
@@ -492,13 +484,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	switch (message)
 	{
 	case WM_CREATE:
-	{
-
-
-	}
-	break;
+		break;
+	
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
+		break;
 	}
 	return 0;
 

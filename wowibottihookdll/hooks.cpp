@@ -218,7 +218,7 @@ static void __stdcall EndScene_hook() {
 
 static void __stdcall Present_hook() {
 
-	if (!create_aux_window("the hotness :D", 256, 256)) {
+	if (!create_aux_window("the hotness :D", 512, 512)) {
 
 	}
 
