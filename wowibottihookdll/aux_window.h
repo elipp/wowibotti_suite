@@ -70,14 +70,19 @@ public:
 	std::vector<avoid_point_t> get_points() const;
 };
 
+class avoid_units_t : public avoid_t {
+public:
+	avoid_units_t(float radius) : avoid_t(radius) {}
+	std::vector<avoid_point_t> get_points() const;
+};
+
 class hconfig_t {
 public:
-	int avoid_friends;
 	std::vector<avoid_t*> avoid;
 	arena_t arena;
-	hconfig_t() : avoid_friends(0), arena({}) {};
+	hconfig_t() : arena({}) {};
 	hconfig_t(int avoid_f, const std::vector<avoid_t*>& avoid_stuff, arena_t arena_bounds)
-		: avoid_friends(avoid_f), avoid(avoid_stuff), arena(arena_bounds) {};
+		: avoid(avoid_stuff), arena(arena_bounds) {};
 };
 
 

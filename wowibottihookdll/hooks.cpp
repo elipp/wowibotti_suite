@@ -224,28 +224,6 @@ static void __stdcall Present_hook() {
 
 	aux_draw();
 
-	return;
-
-	init_custom_d3d(); // this doesn't do anything if it's already initialized
-
-	if (!dbg_shown) {
-		IDirect3DDevice9* d = get_wow_ID3D9();
-		PRINT("Device: %X Present: %X, BeginScene: %X, EndScene: %X, DrawIndexedPrimitive: %X\n", d, get_Present(), get_BeginScene(), get_EndScene(), get_DrawIndexedPrimitive());
-		dbg_shown = 1;
-		srand(time(NULL));
-		//connect_to_governor();
-	}
-
-	//do_wc3mode_stuff();
-
-	//if (wc3mode_enabled()) {
-	//	if (mouse_pressed) {
-	//		need_mouseup = 1;
-	//		add_mouseup();
-	//		need_mouseup = 0;
-	//	}
-	//}
-
 	if (!ctm_check_direction()) {
 		ctm_cancel();
 	}
@@ -303,7 +281,7 @@ static void __stdcall Present_hook() {
 	}
 
 
-	execute_current_hconfig_if_active();
+	//execute_current_hconfig_if_active();
 
 
 }

@@ -25,6 +25,7 @@ class ShaderProgram;
 static GLuint avoid_VAOid, avoid_VBOid;
 static ShaderProgram *shader;
 
+static hconfig_t* current_hconfig;
 static hconfig_t Marrowgar;
 static int num_avoid_points;
 
@@ -148,6 +149,29 @@ std::vector<avoid_point_t> avoid_spellobject_t::get_points() const {
 	return p;
 }
 
+std::vector<avoid_point_t> avoid_units_t::get_points() const {
+	std::vector<avoid_point_t> p;
+
+	ObjectManager OM;
+	WowObject iter;
+	if (!OM.get_first_object(&iter)) return p;
+	GUID_t player_guid = OM.get_local_GUID();
+
+	while (iter.valid()) {
+		if (iter.get_type() == OBJECT_TYPE_UNIT) {
+			if (iter.get_GUID() != player_guid) {
+				vec3 pos = iter.get_pos();
+				avoid_point_t point = { pos.x, pos.y, this->radius };
+				p.push_back(point);
+			}
+		}
+
+		iter = iter.next();
+	}
+
+	return p;
+}
+
 static int initialize_buffers() {
 
 	glGenVertexArrays(1, &avoid_VAOid);
@@ -192,9 +216,9 @@ static void update_buffers() {
 
 	if (!OM.get_local_object(&p)) return;
 
-	const hconfig_t* conf = &Marrowgar;
+	current_hconfig = &Marrowgar;
 	
-	for (const auto& a : conf->avoid) {
+	for (const auto& a : current_hconfig->avoid) {
 		auto v = a->get_points();
 		avoid_points.insert(std::end(avoid_points), std::begin(v), std::end(v));
 	}
@@ -219,6 +243,8 @@ void aux_draw() {
 	glUseProgram(shader->programHandle());
 	GLfloat scr[2] = { HMAP_SIZE, HMAP_SIZE };
 	glUniform2fv(shader->get_uniform_location("target_size"), 1, scr);
+	glUniform2fv(shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
+	glUniform1f(shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
 
 	glBindVertexArray(avoid_VAOid);
 	glDrawArrays(GL_POINTS, 0, num_avoid_points);
@@ -361,9 +387,12 @@ int create_aux_window(const char* title, int width, int height) {
 	}
 
 	shader->cache_uniform_location("target_size");
+	shader->cache_uniform_location("arena_middle");
+	shader->cache_uniform_location("arena_size");
 
-	Marrowgar = 
-		hconfig_t(true, { new avoid_npc_t(25, "Lord Marrowgar"), new avoid_npc_t(8, "Coldflame"), new avoid_spellobject_t(8, 69146) }, { 140, {-390, 2215 }, 42 });
+	Marrowgar = hconfig_t(true, 
+		{ new avoid_npc_t(25, "Lord Marrowgar"), new avoid_npc_t(10, "Coldflame"), new avoid_spellobject_t(10, 69146), new avoid_units_t(8) }, 
+		{ 140, {-390, 2215 }, 42 });
 
 	PRINT("Aux. OGL window successfully created!\n");
 
