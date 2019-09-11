@@ -5,16 +5,18 @@ in gsout {
 	float radius;
 } FSIN;
 
-uniform vec2 target_size;
+uniform vec2 render_target_size; // as in "render target" size
 
 out vec3 color;
 
-float sigmoid(float x) {
-	return (1. / (1. + exp(-x)));
+vec2 map_to_dc(vec2 screenpos) {
+	return vec2(screenpos.x / (0.5 * render_target_size.x) - 1, screenpos.y / (0.5 * render_target_size.y) - 1);
 }
 
-vec2 map_to_dc(vec2 screenpos) {
-	return vec2(screenpos.x / (0.5 * target_size.x) - 1, screenpos.y / (0.5 * target_size.y) - 1);
+// different options for falloff 
+
+float sigmoid(float x) {
+	return (1. / (1. + exp(-x)));
 }
 
 float linear(float x) {

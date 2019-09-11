@@ -99,3 +99,8 @@ typedef struct tri_t {
 typedef struct vec2i_t {
 	int x; int y;
 } vec2i_t;
+
+typedef struct pixinfo_t {
+	vec2i_t pos;
+	BYTE value;
+} pixinfo_t;

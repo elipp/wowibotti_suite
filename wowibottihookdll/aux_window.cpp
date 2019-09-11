@@ -24,11 +24,13 @@ class ShaderProgram;
 
 static GLuint avoid_VAOid, avoid_VBOid;
 static GLuint imp_VAOid, imp_VBOid;
-static GLuint imp_VAOid, imp_VBOid;
+static GLuint rev_VAOid, rev_VBOid;
 
 static ShaderProgram *point_shader;
 static ShaderProgram *imp_shader;
 static ShaderProgram *rev_shader;
+
+static BYTE* pixbuf;
 
 static hconfig_t* current_hconfig;
 static hconfig_t Marrowgar;
@@ -183,8 +185,34 @@ arena_impassable_t::arena_impassable_t(vec2_t p, vec2_t n) {
 	vec2_t v1 = p + 1000 * perp1;
 	vec2_t v2 = p - 1000 * perp1;
 	vec2_t v3 = p + 1500 * n;
-	PRINT("(%f, %f), (%f, %f), (%f, %f)\n", v1.x, v1.y, v2.x, v2.y, v3.x, v3.y);
 	this->tri = { v1, v2, v3 };
+}
+
+std::vector<rev_target_t> hconfig_t::get_rev_targets() const {
+	ObjectManager OM;
+	WowObject p;
+	OM.get_local_object(&p);
+
+	std::vector<rev_target_t> r;
+
+	vec3 ppos = p.get_pos();
+	r.push_back({ ppos.x, ppos.y, 25 });
+	
+	auto b = OM.get_NPCs_by_name(bossname);
+
+	if (b.size() == 0) {
+		return r;
+	}
+	if (b.size() > 1) {
+		PRINT("warning: more than one targets exist with the bossname \"%s\"\n", bossname.c_str());
+	}
+
+	vec3 bpos = b[0].get_pos();
+
+	r.push_back({ bpos.x, bpos.y, 40 });
+
+	return r;
+
 }
 
 static int initialize_buffers() {
@@ -238,6 +266,25 @@ static int initialize_buffers() {
 
 	glBindVertexArray(0);
 
+	glGenVertexArrays(1, &rev_VAOid);
+	glBindVertexArray(rev_VAOid);
+	glGenBuffers(1, &rev_VBOid);
+	glBindBuffer(GL_ARRAY_BUFFER, rev_VBOid);
+	static const tri_t fullscreen_tri = { vec2(-1, -1), vec2(3, -1), vec2(-1, 3) }; // might want to add a margin
+	glBufferData(GL_ARRAY_BUFFER, 1 * sizeof(tri_t), &fullscreen_tri, GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(
+		0,
+		2,
+		GL_FLOAT,
+		GL_FALSE,
+		0,
+		(void*)0
+	);
+
+	glBindVertexArray(0);
+
 	return 1;
 }
 
@@ -265,12 +312,48 @@ static void update_buffers() {
 
 }
 
+static inline BYTE get_pixel(int x, int y) {
+	return pixbuf[y * HMAP_SIZE + x];
+}
+
+static pixinfo_t get_lowest_pixel() {
+	vec2i_t lowest = { 0,0 };
+	BYTE lowest_val = 255;
+	for (int y = 0; y < HMAP_SIZE; ++y) {
+		for (int x = 0; x < HMAP_SIZE; ++x) {
+			BYTE p = get_pixel(x, y);
+			if (p < lowest_val) {
+				lowest_val = p;
+				lowest = { x, y };
+			}
+		}
+	}
+	
+	return { lowest, lowest_val };
+}
+
 void aux_draw() {
+
+	static const GLfloat scr[2] = { HMAP_SIZE, HMAP_SIZE };
+
 	glClearColor(0, 0, 0, 1);
 
 	update_buffers();
 
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	glUseProgram(rev_shader->programHandle());
+	glBindVertexArray(rev_VAOid);
+	glUniform2fv(rev_shader->get_uniform_location("render_target_size"), 1, scr);
+	glUniform2fv(rev_shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
+	glUniform1f(rev_shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
+
+	auto rev = current_hconfig->get_rev_targets();
+	for (const auto& r : rev) {
+		glUniform2fv(rev_shader->get_uniform_location("world_pos"), 1, &r.pos.x);
+		glUniform1f(rev_shader->get_uniform_location("radius"), r.radius);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+	}
 
 	if (current_hconfig->impassable.size() > 0) {
 		glUseProgram(imp_shader->programHandle());
@@ -283,8 +366,7 @@ void aux_draw() {
 	
 	if (num_avoid_points > 0) {
 		glUseProgram(point_shader->programHandle());
-		static const GLfloat scr[2] = { HMAP_SIZE, HMAP_SIZE };
-		glUniform2fv(point_shader->get_uniform_location("target_size"), 1, scr);
+		glUniform2fv(point_shader->get_uniform_location("render_target_size"), 1, scr);
 		glUniform2fv(point_shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
 		glUniform1f(point_shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
 
@@ -292,7 +374,12 @@ void aux_draw() {
 		glDrawArrays(GL_POINTS, 0, num_avoid_points);
 	}
 
+	glReadPixels(0, 0, HMAP_SIZE, HMAP_SIZE, GL_RED, GL_UNSIGNED_BYTE, pixbuf);
+	pixinfo_t lowest = get_lowest_pixel();
+	//PRINT("lowest: (%d, %d), value %u\n", lowest.pos.x, lowest.pos.y, lowest.value);
+
 	SwapBuffers(hDC);
+
 }
 
 
@@ -424,6 +511,7 @@ int create_aux_window(const char* title, int width, int height) {
 	try {
 		point_shader = new ShaderProgram("shaders\\vs.glsl", "shaders\\fs.glsl", "shaders\\gs.glsl");
 		imp_shader = new ShaderProgram("shaders\\imp_vs.glsl", "shaders\\imp_fs.glsl", "");
+		rev_shader = new ShaderProgram("shaders\\rev_vs.glsl", "shaders\\rev_fs.glsl", "");
 	}
 
 	catch (const std::exception& ex) {
@@ -431,12 +519,18 @@ int create_aux_window(const char* title, int width, int height) {
 		return FALSE;
 	}
 
-	point_shader->cache_uniform_location("target_size");
+	point_shader->cache_uniform_location("render_target_size");
 	point_shader->cache_uniform_location("arena_middle");
 	point_shader->cache_uniform_location("arena_size");
 
 	imp_shader->cache_uniform_location("arena_middle");
 	imp_shader->cache_uniform_location("arena_size");
+
+	rev_shader->cache_uniform_location("world_pos");
+	rev_shader->cache_uniform_location("radius");
+	rev_shader->cache_uniform_location("render_target_size");
+	rev_shader->cache_uniform_location("arena_middle");
+	rev_shader->cache_uniform_location("arena_size");
 
 	// this is ported from the old 
 
@@ -455,11 +549,10 @@ int create_aux_window(const char* title, int width, int height) {
 	vec2_t v5B = vec2(-357.7, 2182.9);
 	vec2_t v5P = vec2(0.850798, -0.525493);
 
-	Marrowgar = hconfig_t(true, 
+	Marrowgar = hconfig_t("Lord Marrowgar",
 		{ new avoid_npc_t(25, "Lord Marrowgar"), new avoid_npc_t(10, "Coldflame"), new avoid_spellobject_t(10, 69146), new avoid_units_t(8) }, 
 		{ 140, {-390, 2215 }, 42 }, 
-		{
-		arena_impassable_t(v1B, v1P),
+		{ arena_impassable_t(v1B, v1P),
 		arena_impassable_t(v2B, v2P),
 		arena_impassable_t(v3B, v3P),
 		arena_impassable_t(v4B, v4P),
@@ -469,8 +562,12 @@ int create_aux_window(const char* title, int width, int height) {
 	glBindBuffer(GL_ARRAY_BUFFER, imp_VBOid);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, Marrowgar.impassable.size() * sizeof(arena_impassable_t), &Marrowgar.impassable[0]);
 	
+	pixbuf = new BYTE[HMAP_SIZE * HMAP_SIZE]; // apparently we can read only the red channel with glReadPixels so skip the * 4 (= 4 bytes of RGBA)
+	memset(pixbuf, 0, HMAP_SIZE* HMAP_SIZE);
 	//PRINT("imp size: %d\n", Marrowgar.impassable.size() * sizeof(tri_t));
 	PRINT("Aux. OGL window successfully created!\n");
+
+	
 
 	created = 1;
 

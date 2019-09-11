@@ -206,7 +206,7 @@ extern time_t in_world; // from opcodes.cpp
 //	}
 //}
 
-static int dbg_shown = 0;
+static int hello_shown = 0;
 
 static void __stdcall EndScene_hook() {
 	//	draw_custom_d3d();
@@ -229,6 +229,11 @@ static void __stdcall Present_hook() {
 	}
 
 	register_luafunc_if_not_registered();
+
+	if (!hello_shown) {
+		echo_wow("Hello from DLL! ;)");
+		hello_shown = 1;
+	}
 
 	static timer_interval_t fifty_ms(50);
 	static timer_interval_t half_second(500);

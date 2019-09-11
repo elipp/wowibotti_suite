@@ -67,14 +67,21 @@ public:
 	std::vector<avoid_point_t> get_points() const;
 };
 
+typedef struct rev_target_t {
+	vec2_t pos;
+	float radius;
+} rev_target_t;
+
 class hconfig_t {
 public:
 	std::vector<avoid_t*> avoid;
 	arena_t arena;
 	std::vector<arena_impassable_t> impassable;
+	std::string bossname;
 	hconfig_t() : arena({}) {};
-	hconfig_t(int avoid_f, const std::vector<avoid_t*>& avoid_stuff, arena_t arena_bounds, const std::vector<arena_impassable_t> &imp)
-		: avoid(avoid_stuff), arena(arena_bounds), impassable(imp) {};
+	hconfig_t(const std::string &boss_name, const std::vector<avoid_t*>& avoid_stuff, arena_t arena_bounds, const std::vector<arena_impassable_t> &imp)
+		: bossname(boss_name), avoid(avoid_stuff), arena(arena_bounds), impassable(imp) {};
+	std::vector<rev_target_t> get_rev_targets() const;
 };
 
 
