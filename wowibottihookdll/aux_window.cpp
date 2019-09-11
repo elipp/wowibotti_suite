@@ -268,7 +268,7 @@ std::vector<rev_target_t> hconfig_t::get_rev_targets() const {
 
 	vec3 bpos = b[0].get_pos();
 
-	r.push_back({ bpos.x, bpos.y, 40 });
+	r.push_back({ bpos.x, bpos.y, 55 });
 
 	return r;
 
@@ -372,7 +372,6 @@ static void update_buffers() {
 }
 
 static inline BYTE get_pixel(int x, int y) {
-	// NOTE: TODO: no bounds checking =)=)=)=)
 	return pixbuf[y * HMAP_SIZE + x];
 }
 
@@ -704,5 +703,4 @@ void opengl_cleanup() {
 	delete[] pixbuf;
 	DestroyWindow(hWnd);
 	UnregisterClass(CLASSNAME, GetModuleHandle(NULL));
-	//
 }

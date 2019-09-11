@@ -210,7 +210,7 @@ static void __stdcall EndScene_hook() {
 static void __stdcall Present_hook() {
 
 	if (!create_aux_window("the hotness :D", HMAP_SIZE, HMAP_SIZE)) {
-
+		throw std::exception("FATAL ERROR!");
 	}
 
 	aux_draw();
