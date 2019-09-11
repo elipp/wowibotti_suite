@@ -23,8 +23,6 @@
 #include "linalg.h"
 #include "patch.h"
 #include "dipcapture.h"
-#include "custom_d3d.h"
-#include "input.h"
 #include "patch.h"
 #include "govconn.h"
 #include "dllmain.h"
@@ -172,13 +170,6 @@ void unhook_DrawIndexedPrimitive() {
 	h->patch.disable();
 }
 
-
-static void __stdcall call_pylpyr() {
-	if (wc3mode_enabled())
-		wc3_draw_pylpyrs();
-}
-
-
 static DWORD WINAPI eject_DLL(LPVOID lpParameter) {
 	close_console();
 	FreeLibraryAndExitThread(inj_hModule, 0);
@@ -218,11 +209,11 @@ static void __stdcall EndScene_hook() {
 
 static void __stdcall Present_hook() {
 
-	if (!create_aux_window("the hotness :D", HMAP_SIZE, HMAP_SIZE)) {
+	/*if (!create_aux_window("the hotness :D", HMAP_SIZE, HMAP_SIZE)) {
 
 	}
 
-	aux_draw();
+	aux_draw();*/
 
 	if (!ctm_check_direction()) {
 		ctm_cancel();
@@ -279,7 +270,7 @@ static void __stdcall Present_hook() {
 		DoString("ConsoleExec(\"reloadui\")"); // this gets rid of all the registered funcs
 		should_unpatch = 0;
 
-		cleanup_custom_d3d();
+		//cleanup_custom_d3d();
 
 		// might be race condition territory right here
 		CreateThread(NULL, 0, eject_DLL, NULL, 0, 0);
@@ -519,11 +510,6 @@ static void __stdcall dump_recvpacket(BYTE *packet) {
 
 }
 
-static void __stdcall ClosePetStables_hook() {
-	lua_registered = 0;
-	enable_wc3mode(0);
-}
-
 static void __stdcall broadcast_CTM(float *coords, int action) {
 
 	float x, y, z;
@@ -581,7 +567,7 @@ static const trampoline_t *prepare_ClosePetStables_patch(patch_t *p) {
 
 	tr << PUSHAD; 
 
-	tr.append_CALL((DWORD)ClosePetStables_hook);
+	//tr.append_CALL((DWORD)ClosePetStables_hook);
 	tr << POPAD;
 
 	tr.append_bytes(p->original, p->size);
@@ -982,7 +968,7 @@ static const trampoline_t *prepare_pylpyr_patch(patch_t *p) {
 	PRINT("Preparing pylpyr patch...\n");
 
 	tr << PUSHAD;
-	tr.append_CALL((DWORD)call_pylpyr);
+	//tr.append_CALL((DWORD)call_pylpyr);
 
 	tr << POPAD; // POPAD
 	tr.append_bytes(p->original, p->size);
@@ -991,12 +977,6 @@ static const trampoline_t *prepare_pylpyr_patch(patch_t *p) {
 
 	return &tr;
 
-}
-
-static void __stdcall mwheel_hook(DWORD wParam) {
-	int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
-	if (zDelta < 0) customcamera.increment_s();
-	if (zDelta > 0) customcamera.decrement_s();
 }
 
 static void __stdcall SARC4_hook(uint* args) {
@@ -1013,7 +993,7 @@ static const trampoline_t *prepare_mwheel_patch(patch_t *p) {
 	tr << PUSHAD;
 	tr << (BYTE)0x8B << (BYTE)0x45 << (BYTE)0x10; // move wParam to EAX
 	tr << (BYTE)0x50; // push eax
-	tr.append_CALL((DWORD)mwheel_hook);
+	//tr.append_CALL((DWORD)mwheel_hook);
 
 	tr << POPAD; // POPAD
 	tr << (BYTE)0x68 << (DWORD)0x86A8D1; // skip right to return
@@ -1033,7 +1013,7 @@ typedef struct {
 int __stdcall CTM_main_hook(CTM_final_args_t *a) {
 	PRINT("CTM: action %X, s1: %X, coords: %X, s2: %X\n", a->action, a->GUID, (DWORD)a->coords, a->s2);
 	
-	if (!wc3mode_enabled()) return 1;
+	//if (!wc3mode_enabled()) return 1;
 
 	if (a->action == CTM_MOVE) {
 		float *c = a->coords;
@@ -1077,7 +1057,7 @@ static const trampoline_t *prepare_AddInputEvent_patch(patch_t *p) {
 	static trampoline_t tr;
 
 	tr.append_hexstring("608D5C242453"); // pushad; lea ebx, [esp + 0x24]; push ebx
-	tr.append_CALL((DWORD)AddInputEvent_hook);
+	//tr.append_CALL((DWORD)AddInputEvent_hook);
 	tr.append_hexstring("83F800"); // cmp eax, 0
 	tr.append_hexstring("0F840F000000"); // jz branch 2
 
@@ -1253,12 +1233,13 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("EndScene");
 	ADD_PATCH_SAFE("Present");
 	ADD_PATCH_SAFE("CTM_finished");
-	ADD_PATCH_SAFE("ClosePetStables");
-	ADD_PATCH_SAFE("pylpyr");
 	ADD_PATCH_SAFE("CTM_main");
-	ADD_PATCH_SAFE("AddInputEvent");
 	ADD_PATCH_SAFE("SpellErrMsg");
 	ADD_PATCH_SAFE("SendPacket");
+	//ADD_PATCH_SAFE("ClosePetStables");
+	//ADD_PATCH_SAFE("pylpyr");
+	//ADD_PATCH_SAFE("AddInputEvent");
+
 //	ADD_PATCH_SAFE("RecvPacket");
 	//ADD_PATCH_SAFE("SARC4_encrypt");
 //	ADD_PATCH_SAFE("WS2_send");

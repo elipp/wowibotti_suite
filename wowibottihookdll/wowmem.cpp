@@ -24,7 +24,7 @@ void DoString(const char* format, ...) {
 }
 
 static void echo(const char* msg) {
-	DoString("print(\"(C):%s\")", msg);
+	DoString("DEFAULT_CHAT_FRAME:AddMessage(\"|cFFFFFF00(C):%s\")", msg); // yellow text :D
 }
 
 void echo_wow(const char* format, ...) {

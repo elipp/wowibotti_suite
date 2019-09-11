@@ -1120,7 +1120,7 @@ end
 
 local function lole_debug_test(...)
 
-	print(lole_get("dispelmode"))
+	lole_error("XDD")
 
 end
 

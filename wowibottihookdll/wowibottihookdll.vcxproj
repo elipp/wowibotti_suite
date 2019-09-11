@@ -151,14 +151,12 @@
     <ClInclude Include="addrs.h" />
     <ClInclude Include="creds.h" />
     <ClInclude Include="ctm.h" />
-    <ClInclude Include="custom_d3d.h" />
     <ClInclude Include="defs.h" />
     <ClInclude Include="dipcapture.h" />
     <ClInclude Include="dllmain.h" />
     <ClInclude Include="dungeon_script.h" />
     <ClInclude Include="aux_window.h" />
     <ClInclude Include="hooks.h" />
-    <ClInclude Include="input.h" />
     <ClInclude Include="linalg.h" />
     <ClInclude Include="lua.h" />
     <ClInclude Include="packet.h" />
@@ -175,12 +173,10 @@
     <ClCompile Include="aux_window.cpp" />
     <ClCompile Include="creds.cpp" />
     <ClCompile Include="ctm.cpp" />
-    <ClCompile Include="custom_d3d.cpp" />
     <ClCompile Include="dipcapture.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="dungeon_script.cpp" />
     <ClCompile Include="hooks.cpp" />
-    <ClCompile Include="input.cpp" />
     <ClCompile Include="linalg.cpp" />
     <ClCompile Include="lua.cpp" />
     <ClCompile Include="packet.cpp" />

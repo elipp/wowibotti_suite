@@ -15,7 +15,6 @@
 #include "packet.h"
 #include "linalg.h"
 #include "dipcapture.h"
-#include "custom_d3d.h"
 #include "lua.h"
 
 #include "govconn.h"
@@ -1245,14 +1244,6 @@ int LOP_loot_badge(const std::string &GUID_str) {
 
 }
 
-static int LOPSL_reset_camera() {
-	PRINT("resetting camera\n");
-	reset_camera();
-
-	return 1;
-}
-
-
 static void try_wowctm() {
 	// 0xD3F78C
 
@@ -1361,50 +1352,50 @@ static void do_boss_action(const std::vector<std::string> &args) {
 
 	}
 	
-	else if (args[0] == "hconfig_set") {
-		if (args.size() < 2) {
-			echo_wow("hconfig_set called but no argument specified!");
-		}
-		else {
-			hconfig_set(args[1]);
-		}
-	}
+	//else if (args[0] == "hconfig_set") {
+	//	if (args.size() < 2) {
+	//		echo_wow("hconfig_set called but no argument specified!");
+	//	}
+	//	else {
+	//		hconfig_set(args[1]);
+	//	}
+	//}
 
-	else if (args[0] == "hconfig_toggle") {
-		if (ACTIVE_HCONFIG == "") {
-			echo_wow("Error! hconfig_toggle called but boss name not set. Use hconfig_set <bossname>");
-		}
-		else {
-			HOTNESS_ENABLED = !HOTNESS_ENABLED;
-		}
-	}
-	
-	else if (args[0] == "hconfig_status") {
-		static timer_interval_t warning_time(5000);
+	//else if (args[0] == "hconfig_toggle") {
+	//	if (ACTIVE_HCONFIG == "") {
+	//		echo_wow("Error! hconfig_toggle called but boss name not set. Use hconfig_set <bossname>");
+	//	}
+	//	else {
+	//		HOTNESS_ENABLED = !HOTNESS_ENABLED;
+	//	}
+	//}
+	//
+	//else if (args[0] == "hconfig_status") {
+	//	static timer_interval_t warning_time(5000);
 
-		if (!HOTNESS_ENABLED) {
-			if (warning_time.passed()) {
-				echo_wow("WARNING: hconfig_status called, but hotness not enabled with hconfig_enable!");
-				warning_time.reset();
-			}
-			return;
-		}
+	//	if (!HOTNESS_ENABLED) {
+	//		if (warning_time.passed()) {
+	//			echo_wow("WARNING: hconfig_status called, but hotness not enabled with hconfig_enable!");
+	//			warning_time.reset();
+	//		}
+	//		return;
+	//	}
 
-		auto m = get_current_hotness_status();
-		
-		const BYTE HOTNESS_THRESHOLD = 160;
-		const BYTE DH_THRESHOLD = 30;
-		int dh = abs((int)m.current_hotness - (int)m.best_hotness);
+	//	auto m = get_current_hotness_status();
+	//	
+	//	const BYTE HOTNESS_THRESHOLD = 160;
+	//	const BYTE DH_THRESHOLD = 30;
+	//	int dh = abs((int)m.current_hotness - (int)m.best_hotness);
 
-		if (m.current_hotness > HOTNESS_THRESHOLD && dh > DH_THRESHOLD) {
-			PRINT("%s walking to %f, %f (best hotness %u, current %u, threshold: %u)\n", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
-			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
-		}
-	}
+	//	if (m.current_hotness > HOTNESS_THRESHOLD && dh > DH_THRESHOLD) {
+	//		PRINT("%s walking to %f, %f (best hotness %u, current %u, threshold: %u)\n", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
+	//		ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
+	//	}
+	//}
 
-	else {
-		PRINT("Unknown boss action %s\n", args[0].c_str());
-	}
+	//else {
+	//	PRINT("Unknown boss action %s\n", args[0].c_str());
+	//}
 
 }
 
@@ -1744,22 +1735,6 @@ int lop_exec(lua_State *L) {
 		float f = LOP_get_aoe_feasibility(lua_tonumber(L, 2));
 		lua_pushnumber(L, f);
 		return 1;
-	}
-
-	case LOP_SL_RESETCAMERA:
-		LOPSL_reset_camera();
-		break;
-
-	case LOP_WC3MODE: {
-		int b = lua_tointeger(L, 2);
-		enable_wc3mode(b);
-
-		break;
-	}
-
-	case LOP_SL_SETSELECT: {
-		wc3mode_setselection(lua_tolstring(L, 2, &len));
-		break;
 	}
 
 	case LOP_AVOID_NPC_WITH_NAME: {
