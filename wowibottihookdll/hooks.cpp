@@ -271,6 +271,7 @@ static void __stdcall Present_hook() {
 		should_unpatch = 0;
 
 		//cleanup_custom_d3d();
+		opengl_cleanup();
 
 		// might be race condition territory right here
 		CreateThread(NULL, 0, eject_DLL, NULL, 0, 0);

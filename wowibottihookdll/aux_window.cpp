@@ -56,6 +56,7 @@ void hotness_toggle() {
 }
 
 static const std::unordered_map<std::string, hconfig_t> hconfigs = {
+	// this will leak memory when ejected :D NVM
 	{"Marrowgar",
 	hconfig_t("Lord Marrowgar",
 		{ new avoid_npc_t(25, "Lord Marrowgar"), new avoid_npc_t(10, "Coldflame"), new avoid_spellobject_t(10, 69146), new avoid_units_t(8) },
@@ -73,8 +74,8 @@ int hconfig_set(const std::string& confname) {
 
 	try {
 		const auto& c = hconfigs.at(confname);
-	
 		current_hconfig = &c;
+		dual_echo("hconfig_set: config set to %s", confname.c_str());
 		if (current_hconfig->impassable.size() > 0) {
 			glBindBuffer(GL_ARRAY_BUFFER, imp_VBOid);
 			glBufferSubData(GL_ARRAY_BUFFER, 0, current_hconfig->impassable.size() * sizeof(arena_impassable_t), &current_hconfig->impassable[0]);
@@ -83,7 +84,7 @@ int hconfig_set(const std::string& confname) {
 		return 1;
 	}
 	catch (const std::exception &e) {
-		dual_echo("hconfig_set: error: %s\n", e.what());
+		dual_echo("hconfig_set: error: %s", e.what());
 		current_hconfig = NULL;
 		return 0;
 	}
@@ -371,8 +372,62 @@ static void update_buffers() {
 }
 
 static inline BYTE get_pixel(int x, int y) {
+	// NOTE: TODO: no bounds checking =)=)=)=)
 	return pixbuf[y * HMAP_SIZE + x];
 }
+
+static vec2_t world2screen(float x, float y, const arena_t& arena) {
+
+	const float A = (arena.middle.y + arena.size / 2.0);
+	const float B = (arena.middle.x - arena.size / 2.0);
+
+	float nx = (-y + A) / arena.size;
+	float ny = (x - B) / arena.size;
+	return vec2(nx * 2 - 1, ny * 2 - 1);
+
+}
+
+static vec2_t screen2world(float x, float y, const arena_t& arena) {
+
+	const float A = (arena.middle.y + arena.size / 2.0);
+	const float B = (arena.middle.x - arena.size / 2.0);
+
+	float nx = B + arena.size * (y + 1) / 2.0f;
+	float ny = A - arena.size * (x + 1) / 2.0f;
+
+	return vec2(nx, ny);
+}
+
+static vec2_t tex2screen(int x, int y) {
+	// assume square texture
+	float fx = (float(x)) / (float)HMAP_SIZE;
+	float fy = (float(y)) / (float)HMAP_SIZE;
+
+	return vec2(2 * fx - 1, -2 * fy + 1);
+}
+
+static vec2_t tex2world(int x, int y, const arena_t& arena) {
+	vec2_t t = tex2screen(x, y);
+	return screen2world(t.x, t.y, arena);
+}
+
+static inline int clampi(int i, int min, int max) {
+	if (i < min) return min;
+	if (i > max) return max;
+	return i;
+}
+
+static vec2i_t screen2tex(float x, float y) {
+	int xt = clampi((x + 1) * HMAP_SIZE / 2.0f, 0, HMAP_SIZE - 1);
+	int yt = clampi((y + 1) * HMAP_SIZE / 2.0f, 0, HMAP_SIZE - 1);
+	return { xt, yt };
+}
+
+static vec2i_t world2tex(float x, float y) {
+	vec2_t scr = world2screen(x, y, current_hconfig->arena);
+	return screen2tex(scr.x, scr.y);
+}
+
 
 static pixinfo_t get_lowest_pixel() {
 	vec2i_t lowest = { 0,0 };
@@ -388,6 +443,24 @@ static pixinfo_t get_lowest_pixel() {
 	}
 	
 	return { lowest, lowest_val };
+}
+
+static void update_hstatus() {
+
+	if (!current_hconfig) return;
+
+	pixinfo_t lowest = get_lowest_pixel();
+	hstatus.best_pixel = lowest.pos;
+	hstatus.best_hotness = lowest.value;
+	vec2_t w = tex2world(lowest.pos.x, lowest.pos.y, current_hconfig->arena);
+	hstatus.best_world_pos = vec3(w.x, w.y, current_hconfig->arena.z);
+	ObjectManager OM;
+	WowObject p;
+	OM.get_local_object(&p);
+	vec3 ppos = p.get_pos();
+	vec2i_t ppos_tex = world2tex(ppos.x, ppos.y);
+	hstatus.current_hotness = get_pixel(ppos_tex.x, ppos_tex.y);
+	PRINT("lowest: (%d, %d), value %u (world: %f, %f), (player pixel: %u, %u), current_hotness = %u\n", lowest.pos.x, lowest.pos.y, lowest.value, w.x, w.y, ppos_tex.x, ppos_tex.y, hstatus.current_hotness);
 }
 
 void aux_draw() {
@@ -433,10 +506,7 @@ void aux_draw() {
 	}
 
 	glReadPixels(0, 0, HMAP_SIZE, HMAP_SIZE, GL_RED, GL_UNSIGNED_BYTE, pixbuf);
-	pixinfo_t lowest = get_lowest_pixel();
-	hstatus.best_pixel = lowest.pos;
-	hstatus.best_hotness = lowest.value;
-	PRINT("lowest: (%d, %d), value %u\n", lowest.pos.x, lowest.pos.y, lowest.value);
+	update_hstatus();
 
 	SwapBuffers(hDC);
 
@@ -450,6 +520,7 @@ void aux_show() {
 	ShowWindow(hWnd, SW_SHOW);
 }
 
+#define CLASSNAME "ogl hotness"
 
 int create_aux_window(const char* title, int width, int height) {
 
@@ -476,10 +547,11 @@ int create_aux_window(const char* title, int width, int height) {
 	wc.hCursor = NULL; // LoadCursor(NULL, IDC_ARROW);
 	wc.hbrBackground = NULL;
 	wc.lpszMenuName = NULL;
-	wc.lpszClassName = "OpenGL";
+	wc.lpszClassName = CLASSNAME;
 
 	if (!RegisterClass(&wc))
 	{
+		PRINT("registerclass failed: %d\n", GetLastError());
 		MessageBox(NULL, "FAILED TO REGISTER THE WINDOW CLASS.", "ERROR", MB_OK | MB_ICONEXCLAMATION);
 		return FALSE;
 	}
@@ -499,7 +571,7 @@ int create_aux_window(const char* title, int width, int height) {
 
 	AdjustWindowRectEx(&WindowRect, dwStyle, FALSE, dwExStyle);
 
-	if (!(hWnd = CreateWindowEx(dwExStyle, "OpenGL", title,
+	if (!(hWnd = CreateWindowEx(dwExStyle, CLASSNAME, title,
 		WS_CLIPSIBLINGS | WS_CLIPCHILDREN | dwStyle,
 		0, 0,
 		WindowRect.right - WindowRect.left,
@@ -625,4 +697,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	return 0;
 
+}
+
+void opengl_cleanup() {
+	wglDeleteContext(hRC);
+	delete[] pixbuf;
+	DestroyWindow(hWnd);
+	UnregisterClass(CLASSNAME, GetModuleHandle(NULL));
+	//
 }

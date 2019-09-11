@@ -97,6 +97,8 @@ void aux_draw();
 void aux_hide();
 void aux_show();
 
+void opengl_cleanup();
+
 int hotness_enabled();
 void hotness_toggle();
 int hconfig_set(const std::string& confname);
