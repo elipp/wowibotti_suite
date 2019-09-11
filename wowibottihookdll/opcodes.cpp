@@ -1390,9 +1390,10 @@ static void do_boss_action(const std::vector<std::string> &args) {
 		const BYTE HOTNESS_THRESHOLD = 160;
 		const BYTE DH_THRESHOLD = 30;
 		int dh = abs((int)m.current_hotness - (int)m.best_hotness);
+		dual_echo("HOTNESS: %s shall we walk to %f, %f (best hotness %u, current %u, threshold: %u)?", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
 
 		if (m.current_hotness > HOTNESS_THRESHOLD && dh > DH_THRESHOLD) {
-			dual_echo("HOTNESS: %s walking to %f, %f (best hotness %u, current %u, threshold: %u)", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
+			dual_echo("walking to position ^");
 			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
 		}
 	}

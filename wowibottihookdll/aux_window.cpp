@@ -59,7 +59,7 @@ static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 	// this will leak memory when ejected :D NVM
 	{"Marrowgar",
 	hconfig_t("Lord Marrowgar",
-		{ new avoid_npc_t(25, "Lord Marrowgar"), new avoid_npc_t(10, "Coldflame"), new avoid_spellobject_t(10, 69146), new avoid_units_t(8) },
+		{ new avoid_npc_t(25, "Lord Marrowgar"), new avoid_npc_t(15, "Coldflame"), new avoid_spellobject_t(10, 69146), new avoid_units_t(8) },
 		{ 140, {-390, 2215 }, 42 },
 		{ arena_impassable_t(vec2(-401.8, 2170), vec2(-0.762509, -0.646977)),
 		arena_impassable_t(vec2(-422.9, 2200.4), vec2(-1.000000, 0.000000)),
@@ -255,7 +255,7 @@ std::vector<rev_target_t> hconfig_t::get_rev_targets() const {
 	std::vector<rev_target_t> r;
 
 	vec3 ppos = p.get_pos();
-	r.push_back({ ppos.x, ppos.y, 25 });
+	r.push_back({ ppos.x, ppos.y, 10 });
 	
 	auto b = OM.get_NPCs_by_name(bossname);
 
@@ -655,6 +655,7 @@ int create_aux_window(const char* title, int width, int height) {
 
 	catch (const std::exception& ex) {
 		PRINT("A shader error occurred: %s\n", ex.what());
+		MessageBox(NULL, "Shader error", "error", 0);
 		return FALSE;
 	}
 

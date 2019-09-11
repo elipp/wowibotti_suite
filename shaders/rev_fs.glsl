@@ -12,6 +12,11 @@ const float B = (arena_middle.x - arena_size / 2.0);
 
 const float R_scaled = radius / (arena_size*0.5);
 
+float linear(float x) {
+	return (x/R_scaled);
+}
+
+
 float parab(float x) {
 	float temp = (x/R_scaled);
 	return 1-(temp*temp);
@@ -22,13 +27,13 @@ float parab2(float x) {
 	return parab(x)*parab(x);
 }
 
-float par(float x) {
+float parab_rev(float x) {
 	float temp = (x/R_scaled);
 	return (temp * temp);	
 }
 
-float par2(float x) {
-	return par(x) * par(x);
+float parab_rev2(float x) {
+	return parab_rev(x) * parab_rev(x);
 }
 
 vec2 map_to_dc(vec2 screenpos) {
@@ -49,5 +54,5 @@ void main() {
   vec2 fr = map_to_dc(gl_FragCoord.xy);
   float d = length(fr - scr);
   
-  color = vec3(par2(d), 0, 0);
+  color = vec3(parab_rev2(d), 0, 0);
 }
