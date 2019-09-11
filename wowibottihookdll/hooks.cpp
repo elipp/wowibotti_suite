@@ -209,11 +209,11 @@ static void __stdcall EndScene_hook() {
 
 static void __stdcall Present_hook() {
 
-	/*if (!create_aux_window("the hotness :D", HMAP_SIZE, HMAP_SIZE)) {
+	if (!create_aux_window("the hotness :D", HMAP_SIZE, HMAP_SIZE)) {
 
 	}
 
-	aux_draw();*/
+	aux_draw();
 
 	if (!ctm_check_direction()) {
 		ctm_cancel();
@@ -222,7 +222,7 @@ static void __stdcall Present_hook() {
 	register_luafunc_if_not_registered();
 
 	if (!hello_shown) {
-		echo_wow("Hello from DLL! ;)");
+		echo_wow("DLL loaded!");
 		hello_shown = 1;
 	}
 
@@ -1236,6 +1236,7 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("CTM_main");
 	ADD_PATCH_SAFE("SpellErrMsg");
 	ADD_PATCH_SAFE("SendPacket");
+
 	//ADD_PATCH_SAFE("ClosePetStables");
 	//ADD_PATCH_SAFE("pylpyr");
 	//ADD_PATCH_SAFE("AddInputEvent");

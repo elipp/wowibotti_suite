@@ -84,12 +84,23 @@ public:
 	std::vector<rev_target_t> get_rev_targets() const;
 };
 
+typedef struct hotness_status_t {
+	vec2i_t best_pixel;
+	BYTE best_hotness;
+	vec3 best_world_pos;
+	BYTE current_hotness;
+} hotness_status_t;
 
 int create_aux_window(const char *title, int width, int height);
-void aux_draw();
 
+void aux_draw();
 void aux_hide();
 void aux_show();
+
+int hotness_enabled();
+void hotness_toggle();
+int hconfig_set(const std::string& confname);
+hotness_status_t hotness_status();
 
 typedef char GLchar;
 typedef unsigned int GLsizeiptr;

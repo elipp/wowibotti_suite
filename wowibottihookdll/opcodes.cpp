@@ -16,6 +16,7 @@
 #include "linalg.h"
 #include "dipcapture.h"
 #include "lua.h"
+#include "aux_window.h"
 
 #include "govconn.h"
 
@@ -1352,50 +1353,45 @@ static void do_boss_action(const std::vector<std::string> &args) {
 
 	}
 	
-	//else if (args[0] == "hconfig_set") {
-	//	if (args.size() < 2) {
-	//		echo_wow("hconfig_set called but no argument specified!");
-	//	}
-	//	else {
-	//		hconfig_set(args[1]);
-	//	}
-	//}
+	else if (args[0] == "hconfig_set") {
+		if (args.size() < 2) {
+			echo_wow("hconfig_set called but no argument specified!");
+		}
+		else {
+			hconfig_set(args[1]);
+		}
+	}
 
-	//else if (args[0] == "hconfig_toggle") {
-	//	if (ACTIVE_HCONFIG == "") {
-	//		echo_wow("Error! hconfig_toggle called but boss name not set. Use hconfig_set <bossname>");
-	//	}
-	//	else {
-	//		HOTNESS_ENABLED = !HOTNESS_ENABLED;
-	//	}
-	//}
-	//
-	//else if (args[0] == "hconfig_status") {
-	//	static timer_interval_t warning_time(5000);
+	else if (args[0] == "hconfig_toggle") {
+		hotness_toggle();
+	}
+	
+	else if (args[0] == "hconfig_status") {
+		static timer_interval_t warning_time(5000);
 
-	//	if (!HOTNESS_ENABLED) {
-	//		if (warning_time.passed()) {
-	//			echo_wow("WARNING: hconfig_status called, but hotness not enabled with hconfig_enable!");
-	//			warning_time.reset();
-	//		}
-	//		return;
-	//	}
+		if (!hotness_enabled()) {
+			if (warning_time.passed()) {
+				echo_wow("WARNING: hconfig_status called, but hotness not enabled with hconfig_enable!");
+				warning_time.reset();
+			}
+			return;
+		}
 
-	//	auto m = get_current_hotness_status();
-	//	
-	//	const BYTE HOTNESS_THRESHOLD = 160;
-	//	const BYTE DH_THRESHOLD = 30;
-	//	int dh = abs((int)m.current_hotness - (int)m.best_hotness);
+		auto m = get_current_hotness_status();
+		
+		const BYTE HOTNESS_THRESHOLD = 160;
+		const BYTE DH_THRESHOLD = 30;
+		int dh = abs((int)m.current_hotness - (int)m.best_hotness);
 
-	//	if (m.current_hotness > HOTNESS_THRESHOLD && dh > DH_THRESHOLD) {
-	//		PRINT("%s walking to %f, %f (best hotness %u, current %u, threshold: %u)\n", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
-	//		ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
-	//	}
-	//}
+		if (m.current_hotness > HOTNESS_THRESHOLD && dh > DH_THRESHOLD) {
+			PRINT("%s walking to %f, %f (best hotness %u, current %u, threshold: %u)\n", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
+			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
+		}
+	}
 
-	//else {
-	//	PRINT("Unknown boss action %s\n", args[0].c_str());
-	//}
+	else {
+		PRINT("Unknown boss action %s\n", args[0].c_str());
+	}
 
 }
 

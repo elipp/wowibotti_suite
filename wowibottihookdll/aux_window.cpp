@@ -19,6 +19,7 @@ static HGLRC hRC;
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <unordered_map>
 
 class ShaderProgram;
 
@@ -32,9 +33,66 @@ static ShaderProgram *rev_shader;
 
 static BYTE* pixbuf;
 
-static hconfig_t* current_hconfig;
-static hconfig_t Marrowgar;
+static const hconfig_t* current_hconfig;
 static int num_avoid_points;
+
+static int hot_enabled = 0;
+
+static hotness_status_t hstatus;
+
+int hotness_enabled() {
+	return hot_enabled;
+}
+
+void hotness_toggle() {
+	if (!current_hconfig) {
+		echo_wow("hotness_toggle called but no config set! use hconfig_set <confname> first");
+		hot_enabled = 0;
+	}
+	else {
+		hot_enabled = !hot_enabled;
+		echo_wow("hotness set to %d", hot_enabled);
+	}
+}
+
+static const std::unordered_map<std::string, hconfig_t> hconfigs = {
+	{"Marrowgar",
+	hconfig_t("Lord Marrowgar",
+		{ new avoid_npc_t(25, "Lord Marrowgar"), new avoid_npc_t(10, "Coldflame"), new avoid_spellobject_t(10, 69146), new avoid_units_t(8) },
+		{ 140, {-390, 2215 }, 42 },
+		{ arena_impassable_t(vec2(-401.8, 2170), vec2(-0.762509, -0.646977)),
+		arena_impassable_t(vec2(-422.9, 2200.4), vec2(-1.000000, 0.000000)),
+		arena_impassable_t(vec2(-412.5, 2241.4), vec2(-0.834276, 0.551347)),
+		arena_impassable_t(vec2(-372.9, 2263.8), vec2(0.854369, 0.519668)),
+		arena_impassable_t(vec2(-357.7, 2182.9), vec2(0.850798, -0.525493)),
+		})
+	},
+};
+
+int hconfig_set(const std::string& confname) {
+
+	try {
+		const auto& c = hconfigs.at(confname);
+	
+		current_hconfig = &c;
+		if (current_hconfig->impassable.size() > 0) {
+			glBindBuffer(GL_ARRAY_BUFFER, imp_VBOid);
+			glBufferSubData(GL_ARRAY_BUFFER, 0, current_hconfig->impassable.size() * sizeof(arena_impassable_t), &current_hconfig->impassable[0]);
+		}
+	
+		return 1;
+	}
+	catch (const std::exception &e) {
+		dual_echo("hconfig_set: error: %s\n", e.what());
+		current_hconfig = NULL;
+		return 0;
+	}
+
+}
+
+hotness_status_t hotness_status() {
+	return hstatus;
+}
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
@@ -297,7 +355,7 @@ static void update_buffers() {
 
 	if (!OM.get_local_object(&p)) return;
 
-	current_hconfig = &Marrowgar;
+	current_hconfig = &hconfigs.at("Marrowgar");
 	
 	for (const auto& a : current_hconfig->avoid) {
 		auto v = a->get_points();
@@ -376,10 +434,20 @@ void aux_draw() {
 
 	glReadPixels(0, 0, HMAP_SIZE, HMAP_SIZE, GL_RED, GL_UNSIGNED_BYTE, pixbuf);
 	pixinfo_t lowest = get_lowest_pixel();
-	//PRINT("lowest: (%d, %d), value %u\n", lowest.pos.x, lowest.pos.y, lowest.value);
+	hstatus.best_pixel = lowest.pos;
+	hstatus.best_hotness = lowest.value;
+	PRINT("lowest: (%d, %d), value %u\n", lowest.pos.x, lowest.pos.y, lowest.value);
 
 	SwapBuffers(hDC);
 
+}
+
+
+void aux_hide() {
+	ShowWindow(hWnd, SW_HIDE);
+}
+void aux_show() {
+	ShowWindow(hWnd, SW_SHOW);
 }
 
 
@@ -497,9 +565,9 @@ int create_aux_window(const char* title, int width, int height) {
 		return FALSE;
 	}
 
-	ShowWindow(hWnd, SW_SHOW);
-	SetForegroundWindow(hWnd);
-	SetFocus(hWnd);
+	//ShowWindow(hWnd, SW_SHOW);
+	//SetForegroundWindow(hWnd);
+	//SetFocus(hWnd);
 
 	initialize_gl_extensions();
 	initialize_buffers();
@@ -532,36 +600,6 @@ int create_aux_window(const char* title, int width, int height) {
 	rev_shader->cache_uniform_location("arena_middle");
 	rev_shader->cache_uniform_location("arena_size");
 
-	// this is ported from the old 
-
-	vec2_t v1B = vec2(-401.8, 2170);
-	vec2_t v1P = vec2(-0.762509, -0.646977);
-	
-	vec2_t v2B = vec2(-422.9, 2200.4);
-	vec2_t v2P = vec2(-1.000000, 0.000000);
-
-	vec2_t v3B = vec2(-412.5, 2241.4);
-	vec2_t v3P = vec2(-0.834276, 0.551347);
-
-	vec2_t v4B = vec2(-372.9, 2263.8);
-	vec2_t v4P = vec2(0.854369, 0.519668);
-
-	vec2_t v5B = vec2(-357.7, 2182.9);
-	vec2_t v5P = vec2(0.850798, -0.525493);
-
-	Marrowgar = hconfig_t("Lord Marrowgar",
-		{ new avoid_npc_t(25, "Lord Marrowgar"), new avoid_npc_t(10, "Coldflame"), new avoid_spellobject_t(10, 69146), new avoid_units_t(8) }, 
-		{ 140, {-390, 2215 }, 42 }, 
-		{ arena_impassable_t(v1B, v1P),
-		arena_impassable_t(v2B, v2P),
-		arena_impassable_t(v3B, v3P),
-		arena_impassable_t(v4B, v4P),
-		arena_impassable_t(v5B, v5P), 
-		});
-
-	glBindBuffer(GL_ARRAY_BUFFER, imp_VBOid);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, Marrowgar.impassable.size() * sizeof(arena_impassable_t), &Marrowgar.impassable[0]);
-	
 	pixbuf = new BYTE[HMAP_SIZE * HMAP_SIZE]; // apparently we can read only the red channel with glReadPixels so skip the * 4 (= 4 bytes of RGBA)
 	memset(pixbuf, 0, HMAP_SIZE* HMAP_SIZE);
 	//PRINT("imp size: %d\n", Marrowgar.impassable.size() * sizeof(tri_t));
