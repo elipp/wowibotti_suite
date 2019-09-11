@@ -23,7 +23,12 @@ static HGLRC hRC;
 class ShaderProgram;
 
 static GLuint avoid_VAOid, avoid_VBOid;
-static ShaderProgram *shader;
+static GLuint imp_VAOid, imp_VBOid;
+static GLuint imp_VAOid, imp_VBOid;
+
+static ShaderProgram *point_shader;
+static ShaderProgram *imp_shader;
+static ShaderProgram *rev_shader;
 
 static hconfig_t* current_hconfig;
 static hconfig_t Marrowgar;
@@ -172,6 +177,16 @@ std::vector<avoid_point_t> avoid_units_t::get_points() const {
 	return p;
 }
 
+arena_impassable_t::arena_impassable_t(vec2_t p, vec2_t n) {
+	vec2_t un = unit(n);
+	vec2_t perp1 = perp(un);
+	vec2_t v1 = p + 1000 * perp1;
+	vec2_t v2 = p - 1000 * perp1;
+	vec2_t v3 = p + 1500 * n;
+	PRINT("(%f, %f), (%f, %f), (%f, %f)\n", v1.x, v1.y, v2.x, v2.y, v3.x, v3.y);
+	this->tri = { v1, v2, v3 };
+}
+
 static int initialize_buffers() {
 
 	glGenVertexArrays(1, &avoid_VAOid);
@@ -196,6 +211,25 @@ static int initialize_buffers() {
 	glVertexAttribPointer(
 		0,                  // attribute 0
 		3,                  // size
+		GL_FLOAT,           // type
+		GL_FALSE,           // normalized?
+		0,                  // stride
+		(void*)0            // array buffer offset
+	);
+
+	glBindVertexArray(0);
+
+	glGenVertexArrays(1, &imp_VAOid);
+	glBindVertexArray(imp_VAOid);
+
+	glGenBuffers(1, &imp_VBOid);
+	glBindBuffer(GL_ARRAY_BUFFER, imp_VBOid);
+	glBufferData(GL_ARRAY_BUFFER, 64 * sizeof(arena_impassable_t), NULL, GL_DYNAMIC_DRAW);
+
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(
+		0,                  // attribute 0
+		2,                  // size
 		GL_FLOAT,           // type
 		GL_FALSE,           // normalized?
 		0,                  // stride
@@ -238,16 +272,26 @@ void aux_draw() {
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	if (num_avoid_points == 0) return;
+	if (current_hconfig->impassable.size() > 0) {
+		glUseProgram(imp_shader->programHandle());
+		glUniform2fv(imp_shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
+		glUniform1f(imp_shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
 
-	glUseProgram(shader->programHandle());
-	GLfloat scr[2] = { HMAP_SIZE, HMAP_SIZE };
-	glUniform2fv(shader->get_uniform_location("target_size"), 1, scr);
-	glUniform2fv(shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
-	glUniform1f(shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
+		glBindVertexArray(imp_VAOid);
+		glDrawArrays(GL_TRIANGLES, 0, current_hconfig->impassable.size() * 3);
+	}
+	
+	if (num_avoid_points > 0) {
+		glUseProgram(point_shader->programHandle());
+		static const GLfloat scr[2] = { HMAP_SIZE, HMAP_SIZE };
+		glUniform2fv(point_shader->get_uniform_location("target_size"), 1, scr);
+		glUniform2fv(point_shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
+		glUniform1f(point_shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
 
-	glBindVertexArray(avoid_VAOid);
-	glDrawArrays(GL_POINTS, 0, num_avoid_points);
+		glBindVertexArray(avoid_VAOid);
+		glDrawArrays(GL_POINTS, 0, num_avoid_points);
+	}
+
 	SwapBuffers(hDC);
 }
 
@@ -378,7 +422,8 @@ int create_aux_window(const char* title, int width, int height) {
 	glBlendFunc(GL_ONE, GL_ONE);
 
 	try {
-		shader = new ShaderProgram("shaders\\vs.glsl", "shaders\\fs.glsl", "shaders\\gs.glsl");
+		point_shader = new ShaderProgram("shaders\\vs.glsl", "shaders\\fs.glsl", "shaders\\gs.glsl");
+		imp_shader = new ShaderProgram("shaders\\imp_vs.glsl", "shaders\\imp_fs.glsl", "");
 	}
 
 	catch (const std::exception& ex) {
@@ -386,14 +431,45 @@ int create_aux_window(const char* title, int width, int height) {
 		return FALSE;
 	}
 
-	shader->cache_uniform_location("target_size");
-	shader->cache_uniform_location("arena_middle");
-	shader->cache_uniform_location("arena_size");
+	point_shader->cache_uniform_location("target_size");
+	point_shader->cache_uniform_location("arena_middle");
+	point_shader->cache_uniform_location("arena_size");
+
+	imp_shader->cache_uniform_location("arena_middle");
+	imp_shader->cache_uniform_location("arena_size");
+
+	// this is ported from the old 
+
+	vec2_t v1B = vec2(-401.8, 2170);
+	vec2_t v1P = vec2(-0.762509, -0.646977);
+	
+	vec2_t v2B = vec2(-422.9, 2200.4);
+	vec2_t v2P = vec2(-1.000000, 0.000000);
+
+	vec2_t v3B = vec2(-412.5, 2241.4);
+	vec2_t v3P = vec2(-0.834276, 0.551347);
+
+	vec2_t v4B = vec2(-372.9, 2263.8);
+	vec2_t v4P = vec2(0.854369, 0.519668);
+
+	vec2_t v5B = vec2(-357.7, 2182.9);
+	vec2_t v5P = vec2(0.850798, -0.525493);
 
 	Marrowgar = hconfig_t(true, 
 		{ new avoid_npc_t(25, "Lord Marrowgar"), new avoid_npc_t(10, "Coldflame"), new avoid_spellobject_t(10, 69146), new avoid_units_t(8) }, 
-		{ 140, {-390, 2215 }, 42 });
+		{ 140, {-390, 2215 }, 42 }, 
+		{
+		arena_impassable_t(v1B, v1P),
+		arena_impassable_t(v2B, v2P),
+		arena_impassable_t(v3B, v3P),
+		arena_impassable_t(v4B, v4P),
+		arena_impassable_t(v5B, v5P), 
+		});
 
+	glBindBuffer(GL_ARRAY_BUFFER, imp_VBOid);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, Marrowgar.impassable.size() * sizeof(arena_impassable_t), &Marrowgar.impassable[0]);
+	
+	//PRINT("imp size: %d\n", Marrowgar.impassable.size() * sizeof(tri_t));
 	PRINT("Aux. OGL window successfully created!\n");
 
 	created = 1;

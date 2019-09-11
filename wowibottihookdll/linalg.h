@@ -79,3 +79,23 @@ glm::vec3 glm2wow(const glm::vec3 v);
 vec3 glm2wow(const vec3& v);
 
 void set_wow_rot(const glm::mat4 &rot);
+
+typedef struct vec2_t {
+	float x; float y;
+} vec2_t;
+
+// just to keep this "integral"
+vec2_t vec2(float x, float y);
+vec2_t operator+(const vec2_t& a, const vec2_t& b);
+vec2_t operator-(const vec2_t& a, const vec2_t& b);
+vec2_t operator*(float d, const vec2_t& v);
+vec2_t unit(const vec2_t& v);
+vec2_t perp(const vec2_t& v);
+
+typedef struct tri_t {
+	vec2_t v[3];
+} tri_t;
+
+typedef struct vec2i_t {
+	int x; int y;
+} vec2i_t;

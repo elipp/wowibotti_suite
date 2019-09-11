@@ -4,6 +4,7 @@
 #include <gl/gl.h>
 
 #include "hooks.h"
+#include "linalg.h"
 
 #define GL_ARRAY_BUFFER                   0x8892
 #define GL_ELEMENT_ARRAY_BUFFER           0x8893
@@ -23,16 +24,6 @@
 #define GL_VALIDATE_STATUS                0x8B83
 #define GL_INFO_LOG_LENGTH                0x8B84
 
-
-typedef struct vec2_t {
-	float x; float y;
-} vec2_t;
-
-
-typedef struct vec2i_t {
-	int x; int y;
-} vec2i_t;
-
 typedef struct arena_t {
 	float size;
 	vec2_t middle;
@@ -40,8 +31,8 @@ typedef struct arena_t {
 } arena_t;
 
 typedef struct arena_impassable_t {
-	vec2_t pos;	// an impassable region is represented by a normal and a position
-	vec2_t normal;
+	tri_t tri;
+	arena_impassable_t(vec2_t p, vec2_t n);
 } arena_impassable_t;
 
 struct avoid_point_t {
@@ -80,9 +71,10 @@ class hconfig_t {
 public:
 	std::vector<avoid_t*> avoid;
 	arena_t arena;
+	std::vector<arena_impassable_t> impassable;
 	hconfig_t() : arena({}) {};
-	hconfig_t(int avoid_f, const std::vector<avoid_t*>& avoid_stuff, arena_t arena_bounds)
-		: avoid(avoid_stuff), arena(arena_bounds) {};
+	hconfig_t(int avoid_f, const std::vector<avoid_t*>& avoid_stuff, arena_t arena_bounds, const std::vector<arena_impassable_t> &imp)
+		: avoid(avoid_stuff), arena(arena_bounds), impassable(imp) {};
 };
 
 

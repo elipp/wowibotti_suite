@@ -714,32 +714,6 @@ void rect_to_vertices(const RECT &r, float *in) {
 	memcpy(in, vertices, sizeof(vertices));
 }
 
-// just to keep this "integral"
-vec2_t vec2(float x, float y) {
-	return { x, y };
-}
-
-vec2_t operator+(const vec2_t &a, const vec2_t &b) {
-	return { a.x + b.x, a.y + b.y };
-}
-
-vec2_t operator-(const vec2_t &a, const vec2_t &b) {
-	return { a.x - b.x, a.y - b.y };
-}
-
-vec2_t operator*(float d, const vec2_t &v) {
-	return { d * v.x, d * v.y };
-}
-
-vec2_t unit(const vec2_t &v) {
-	float d = sqrt(v.x * v.x + v.y * v.y);
-	return (1.0/d) * v;
-}
-
-vec2_t perp(const vec2_t &v) {
-	// return { v.y, -v.x };
-	return { -v.y, v.x };	
-}
 
 
 
@@ -812,10 +786,6 @@ typedef struct quad_t {
 	vec2_t v[4];
 } quad_t;
 
-// these can be rendered with DrawPrimitive
-typedef struct tri_t {
-	vec2_t v[3];
-} tri_t;
 
 typedef struct ngon_t {
 	vec2_t v[NGONS + 1];

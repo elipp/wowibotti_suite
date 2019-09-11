@@ -309,5 +309,30 @@ vec3 vec3::rotated_2d(float angle) {
 }
 
 
+// just to keep this "integral"
+vec2_t vec2(float x, float y) {
+	return { x, y };
+}
 
+vec2_t operator+(const vec2_t& a, const vec2_t& b) {
+	return { a.x + b.x, a.y + b.y };
+}
+
+vec2_t operator-(const vec2_t& a, const vec2_t& b) {
+	return { a.x - b.x, a.y - b.y };
+}
+
+vec2_t operator*(float d, const vec2_t& v) {
+	return { d * v.x, d * v.y };
+}
+
+vec2_t unit(const vec2_t& v) {
+	float d = sqrt(v.x * v.x + v.y * v.y);
+	return (1.0 / d) * v;
+}
+
+vec2_t perp(const vec2_t& v) {
+	// return { v.y, -v.x };
+	return { -v.y, v.x };
+}
 
