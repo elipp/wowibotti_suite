@@ -213,7 +213,8 @@ static void __stdcall Present_hook() {
 		throw std::exception("FATAL ERROR!");
 	}
 
-	aux_draw();
+	update_hotness_cache();
+//	aux_draw();
 
 	if (!ctm_check_direction()) {
 		ctm_cancel();
@@ -269,6 +270,8 @@ static void __stdcall Present_hook() {
 		unpatch_all();
 		DoString("ConsoleExec(\"reloadui\")"); // this gets rid of all the registered funcs
 		should_unpatch = 0;
+
+		hotness_stop(); //
 
 		//cleanup_custom_d3d();
 		opengl_cleanup();

@@ -1,6 +1,11 @@
 #include <windows.h>
 #include <gl/GL.h>
 #include <assert.h>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <unordered_map>
+#include <mutex>
 
 #include "defs.h"
 #include "dllmain.h"
@@ -11,17 +16,13 @@
 #pragma comment (lib, "opengl32.lib")
 
 static int created = 0;
+static int running = 0;
 
 static HWND hWnd;
 static HDC hDC;
 static HGLRC hRC;
 
-#include <fstream>
-#include <sstream>
-#include <stdexcept>
-#include <unordered_map>
-
-class ShaderProgram;
+//class ShaderProgram;
 
 static GLuint avoid_VAOid, avoid_VBOid;
 static GLuint imp_VAOid, imp_VBOid;
@@ -31,6 +32,9 @@ static ShaderProgram *point_shader;
 static ShaderProgram *imp_shader;
 static ShaderProgram *rev_shader;
 
+static std::vector<WO_cached> hcache;
+static std::mutex hcache_mutex;	
+
 static BYTE* pixbuf;
 
 static const hconfig_t* current_hconfig;
@@ -39,6 +43,7 @@ static int num_avoid_points;
 static int hot_enabled = 0;
 
 static hotness_status_t hstatus;
+static HANDLE render_thread;
 
 int hotness_enabled() {
 	return hot_enabled;
@@ -93,6 +98,13 @@ int hconfig_set(const std::string& confname) {
 
 hotness_status_t hotness_status() {
 	return hstatus;
+}
+
+void update_hotness_cache() {
+	ObjectManager OM;
+	hcache_mutex.lock();
+	hcache = OM.get_snapshot();
+	hcache_mutex.unlock();
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -169,25 +181,48 @@ static int initialize_gl_extensions() {
 
 }
 
+static GLuint deb_VAOid, deb_VBOid;
+static int deb_initd = 0;
+
+static void draw_debug_info() {
+
+	static tri_t deb_tris[2];
+
+	if (!deb_initd) {
+		glGenVertexArrays(1, &deb_VAOid);
+		glBindVertexArray(deb_VAOid);
+		glGenBuffers(1, &deb_VBOid);
+		glBindBuffer(GL_ARRAY_BUFFER, deb_VBOid);
+		glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(tri_t), NULL, GL_DYNAMIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(
+			0,                  // attribute 0
+			2,                  // size
+			GL_FLOAT,           // type
+			GL_FALSE,           // normalized?
+			0,                  // stride
+			(void*)0            // array buffer offset
+		);
+		glBindVertexArray(0);
+		deb_initd = 1;
+	}
+
+}
 
 std::vector<avoid_point_t> avoid_npc_t::get_points() const {
 	std::vector<avoid_point_t> p;
-	ObjectManager OM;
-	WowObject iter;
-	if (!OM.get_first_object(&iter)) return p;
-	
-	while (iter.valid()) {
 
-		if (iter.get_type() == OBJECT_TYPE_NPC) {
-			if (iter.NPC_get_name() == this->name) {
-				vec3 pos = iter.get_pos();
+	hcache_mutex.lock();
+	for (const auto &o : hcache) {
+		if (o.type == OBJECT_TYPE_NPC) {
+			if (o.name == this->name) {
+				vec3 pos = o.pos;
 				avoid_point_t point = { pos.x, pos.y, this->radius };
 				p.push_back(point);
 			}
 		}
-
-		iter = iter.next();
 	}
+	hcache_mutex.unlock();
 
 	return p;
 }
@@ -195,22 +230,17 @@ std::vector<avoid_point_t> avoid_npc_t::get_points() const {
 std::vector<avoid_point_t> avoid_spellobject_t::get_points() const {
 	std::vector<avoid_point_t> p;
 
-	ObjectManager OM;
-	WowObject iter;
-	if (!OM.get_first_object(&iter)) return p;
-
-	while (iter.valid()) {
-
-		if (iter.get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
-			if (iter.DO_get_spellID() == this->spellID) {
-				vec3 pos = iter.DO_get_pos();
+	hcache_mutex.lock();
+	for (const auto &o : hcache) {
+		if (o.type == OBJECT_TYPE_DYNAMICOBJECT) {
+			if (o.DO_spellid == this->spellID) {
+				vec3 pos = o.pos;
 				avoid_point_t point = { pos.x, pos.y, this->radius };
 				p.push_back(point);
 			}
 		}
-
-		iter = iter.next();
 	}
+	hcache_mutex.unlock();
 
 	return p;
 }
@@ -219,21 +249,19 @@ std::vector<avoid_point_t> avoid_units_t::get_points() const {
 	std::vector<avoid_point_t> p;
 
 	ObjectManager OM;
-	WowObject iter;
-	if (!OM.get_first_object(&iter)) return p;
 	GUID_t player_guid = OM.get_local_GUID();
 
-	while (iter.valid()) {
-		if (iter.get_type() == OBJECT_TYPE_UNIT) {
-			if (iter.get_GUID() != player_guid) {
-				vec3 pos = iter.get_pos();
+	hcache_mutex.lock();
+	for (const auto &o : hcache) {
+		if (o.type == OBJECT_TYPE_UNIT) {
+			if (o.GUID != player_guid) {
+				vec3 pos = o.pos;
 				avoid_point_t point = { pos.x, pos.y, this->radius };
 				p.push_back(point);
 			}
 		}
-
-		iter = iter.next();
 	}
+	hcache_mutex.unlock();
 
 	return p;
 }
@@ -519,11 +547,36 @@ void aux_show() {
 	ShowWindow(hWnd, SW_SHOW);
 }
 
+void hotness_stop() {
+	running = 0;
+	WaitForSingleObject(render_thread, INFINITE);
+}
+
+static DWORD WINAPI render_threadfunc(LPVOID lpParam) {
+	while (running) {
+		aux_draw();
+		Sleep(16);
+		PRINT("LOL\n");
+	}
+	return 0;
+}
+
+typedef struct window_parms_t {
+	std::string title;
+	int width;
+	int height;
+} window_parms_t;
+
 #define CLASSNAME "ogl hotness"
 
-int create_aux_window(const char* title, int width, int height) {
+static DWORD WINAPI createwindow(LPVOID lpParam) {
 
-	if (created) return 1;
+	window_parms_t *p = static_cast<window_parms_t*>(lpParam);
+	int width = p->width;
+	int height = p->height;
+	std::string title = p->title;
+
+	delete p;
 
 	GLuint PixelFormat;
 	WNDCLASS wc;
@@ -565,12 +618,12 @@ int create_aux_window(const char* title, int width, int height) {
 
 
 	dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE;
-	dwStyle = (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
+	dwStyle = (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU);
 
 
 	AdjustWindowRectEx(&WindowRect, dwStyle, FALSE, dwExStyle);
 
-	if (!(hWnd = CreateWindowEx(dwExStyle, CLASSNAME, title,
+	if (!(hWnd = CreateWindowEx(dwExStyle, CLASSNAME, title.c_str(),
 		WS_CLIPSIBLINGS | WS_CLIPCHILDREN | dwStyle,
 		0, 0,
 		WindowRect.right - WindowRect.left,
@@ -673,13 +726,39 @@ int create_aux_window(const char* title, int width, int height) {
 	rev_shader->cache_uniform_location("arena_size");
 
 	pixbuf = new BYTE[HMAP_SIZE * HMAP_SIZE]; // apparently we can read only the red channel with glReadPixels so skip the * 4 (= 4 bytes of RGBA)
-	memset(pixbuf, 0, HMAP_SIZE* HMAP_SIZE);
+	memset(pixbuf, 0, HMAP_SIZE * HMAP_SIZE);
 	//PRINT("imp size: %d\n", Marrowgar.impassable.size() * sizeof(tri_t));
-	PRINT("Aux. OGL window successfully created!\n");
+	dual_echo("Auxiliary OGL window successfully created (hidden by default, use /lole ba hconfig_show)!");
 
-	
+	running = 1;
 
+	MSG msg = { 0 };
+	while (running && WM_QUIT != msg.message)
+	{
+		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) > 0) //Or use an if statement
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+		
+		aux_draw();
+		Sleep(16);
+	}
+}
+
+
+
+int create_aux_window(const char* title, int width, int height) {
+
+	if (created) return 1;
 	created = 1;
+
+	window_parms_t *p = new window_parms_t;
+	p->title = title;
+	p->width = width;
+	p->height = height;
+
+	render_thread = CreateThread(NULL, 0, createwindow, (LPVOID)p, 0, NULL);
 
 	return TRUE;
 }

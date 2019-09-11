@@ -104,6 +104,9 @@ void hotness_toggle();
 int hconfig_set(const std::string& confname);
 hotness_status_t hotness_status();
 
+void update_hotness_cache();
+void hotness_stop();
+
 typedef char GLchar;
 typedef unsigned int GLsizeiptr;
 typedef int GLintptr;

@@ -695,6 +695,24 @@ WowObject ObjectManager::get_closest_NPC_by_name(const std::vector<WowObject> &o
 	return *closest;
 }
 
+std::vector<WO_cached> ObjectManager::get_snapshot() const {
+
+	std::vector<WO_cached> c;
+
+	WowObject iter;
+	get_first_object(&iter);
+
+	while (iter.valid()) {
+		int type = iter.get_type();
+		if (type == OBJECT_TYPE_NPC || type == OBJECT_TYPE_UNIT || type == OBJECT_TYPE_DYNAMICOBJECT) {
+			c.push_back(WO_cached(iter));
+		}
+		iter = iter.next();
+	}
+	
+	return c;
+
+}
 
 int ObjectManager::get_GO_by_name(const std::string &name, WowObject *o) const {
 	WowObject n;
