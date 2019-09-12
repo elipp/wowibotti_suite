@@ -48,6 +48,10 @@ vec2 world2screen(vec2 world) {
 	return vec2(nx * 2 - 1, ny * 2 - 1);
 }
 
+float func(float x, float r) {
+	return -x/r + 1;
+}
+
 out vec3 color;
 
 void main() {
@@ -55,5 +59,5 @@ void main() {
   vec2 fr = map_to_dc(gl_FragCoord.xy);
   float d = length(fr - scr);
   
-  color = vec3(linear(d), 0, 0);
+  color = vec3(1 - func(d, R_scaled), 0, 0);
 }

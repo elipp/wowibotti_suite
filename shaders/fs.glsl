@@ -36,7 +36,12 @@ float parab2(float x) {
 	return parab(x)*parab(x);
 }
 
+float func(float x, float r) {
+	return -x/r + 1;
+}
+
 void main(){
   float d = length(map_to_dc(gl_FragCoord.xy) - FS_IN.center_pos);
-  color = vec3(parab2(d), 0, 0);
+  float v = func(d, FS_IN.radius); // FS_in.radius has been scaled in vertex shader
+  color = vec3(v*v, 0, 0);
 }
