@@ -7,7 +7,7 @@
 
 #include "patch.h"
 
-#define HMAP_SIZE 256
+#define HMAP_SIZE 768
 
 struct hookable_t;
 struct trampoline_t;

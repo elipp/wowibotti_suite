@@ -36,6 +36,7 @@ float parab_rev2(float x) {
 	return parab_rev(x) * parab_rev(x);
 }
 
+// round this also...?
 vec2 map_to_dc(vec2 screenpos) {
 	return vec2(screenpos.x / (0.5 * render_target_size.x) - 1, screenpos.y / (0.5 * render_target_size.y) - 1);
 }
@@ -54,5 +55,5 @@ void main() {
   vec2 fr = map_to_dc(gl_FragCoord.xy);
   float d = length(fr - scr);
   
-  color = vec3(parab_rev2(d), 0, 0);
+  color = vec3(linear(d), 0, 0);
 }

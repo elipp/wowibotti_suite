@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <unordered_map>
 #include <mutex>
+#include <cmath>
 
 #include "defs.h"
 #include "dllmain.h"
@@ -24,11 +25,7 @@ static HGLRC hRC;
 
 //class ShaderProgram;
 
-static GLuint avoid_VAOid, avoid_VBOid;
-static GLuint imp_VAOid, imp_VBOid;
-static GLuint rev_VAOid, rev_VBOid;
-
-static ShaderProgram *point_shader;
+static ShaderProgram *avoid_shader;
 static ShaderProgram *imp_shader;
 static ShaderProgram *rev_shader;
 
@@ -44,6 +41,10 @@ static int hot_enabled = 0;
 
 static hotness_status_t hstatus;
 static HANDLE render_thread;
+
+static const GLfloat scr[2] = { HMAP_SIZE, HMAP_SIZE };
+
+static std::unordered_map<std::string, Render> renders;
 
 int hotness_enabled() {
 	return hot_enabled;
@@ -79,11 +80,14 @@ int hconfig_set(const std::string& confname) {
 
 	try {
 		const auto& c = hconfigs.at(confname);
+		if (current_hconfig == &c) {
+			return 1;
+		}
 		current_hconfig = &c;
 		dual_echo("hconfig_set: config set to %s", confname.c_str());
 		if (current_hconfig->impassable.size() > 0) {
-			glBindBuffer(GL_ARRAY_BUFFER, imp_VBOid);
-			glBufferSubData(GL_ARRAY_BUFFER, 0, current_hconfig->impassable.size() * sizeof(arena_impassable_t), &current_hconfig->impassable[0]);
+			auto& r = renders.at("imp");
+			r.update_buffer(&current_hconfig->impassable[0], current_hconfig->impassable.size() * sizeof(arena_impassable_t));
 		}
 	
 		return 1;
@@ -275,37 +279,52 @@ arena_impassable_t::arena_impassable_t(vec2_t p, vec2_t n) {
 	this->tri = { v1, v2, v3 };
 }
 
+static int hcache_find(const std::string& name, WO_cached *out) {
+	hcache_mutex.lock();
+	for (const auto& o : hcache) {
+		if (name == o.name) {
+			*out = o;
+			hcache_mutex.unlock();
+			return 1;
+		}
+	}
+	hcache_mutex.unlock();
+	return 0;
+}
+
+static int hcache_find(GUID_t g, WO_cached *out) {
+	hcache_mutex.lock();
+	for (const auto& o : hcache) {
+		if (g == o.GUID) {
+			*out = o;
+			hcache_mutex.unlock();
+			return 1;
+		}
+	}
+	hcache_mutex.unlock();
+	return 0;
+}
+
 std::vector<rev_target_t> hconfig_t::get_rev_targets() const {
 	ObjectManager OM;
-	WowObject p;
-	OM.get_local_object(&p);
-
+	GUID_t pGUID = OM.get_local_GUID();
 	std::vector<rev_target_t> r;
 
-	vec3 ppos = p.get_pos();
-	r.push_back({ ppos.x, ppos.y, 10 });
+	WO_cached p;
+	hcache_find(pGUID, &p);
+	//r.push_back({ p.pos.x, p.pos.y, 10 });
 	
-	auto b = OM.get_NPCs_by_name(bossname);
-
-	if (b.size() == 0) {
-		return r;
+	WO_cached b;
+	if (hcache_find(bossname, &b)) {
+		r.push_back({ b.pos.x, b.pos.y, 30 });
 	}
-	if (b.size() > 1) {
-		PRINT("warning: more than one targets exist with the bossname \"%s\"\n", bossname.c_str());
-	}
-
-	vec3 bpos = b[0].get_pos();
-
-	r.push_back({ bpos.x, bpos.y, 55 });
-
 	return r;
 
 }
 
-static int initialize_buffers() {
-
-	glGenVertexArrays(1, &avoid_VAOid);
-	glBindVertexArray(avoid_VAOid);
+static void init_avoid_render(Render* r) {
+	glGenVertexArrays(1, &r->VAOid);
+	glBindVertexArray(r->VAOid);
 
 	//static const std::vector<GLfloat> vbuf_data = {
 	//	-0, 0, 0.5,
@@ -317,8 +336,8 @@ static int initialize_buffers() {
 		-390, 2215, 8
 	};
 
-	glGenBuffers(1, &avoid_VBOid);
-	glBindBuffer(GL_ARRAY_BUFFER, avoid_VBOid);
+	glGenBuffers(1, &r->VBOid);
+	glBindBuffer(GL_ARRAY_BUFFER, r->VBOid);
 	glBufferData(GL_ARRAY_BUFFER, 512 * 3 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, vbuf_data.size() * sizeof(float), &vbuf_data[0]);
 
@@ -333,12 +352,28 @@ static int initialize_buffers() {
 	);
 
 	glBindVertexArray(0);
+}
 
-	glGenVertexArrays(1, &imp_VAOid);
-	glBindVertexArray(imp_VAOid);
+static void draw_avoid(Render* r) {
 
-	glGenBuffers(1, &imp_VBOid);
-	glBindBuffer(GL_ARRAY_BUFFER, imp_VBOid);
+	if (num_avoid_points > 0) {
+		glUseProgram(r->shader->programHandle());
+		glUniform2fv(r->shader->get_uniform_location("render_target_size"), 1, scr);
+		glUniform2fv(r->shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
+		glUniform1f(r->shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
+
+		glBindVertexArray(r->VAOid);
+		glDrawArrays(GL_POINTS, 0, num_avoid_points);
+	}
+}
+
+static void init_imp_render(Render* r) {
+
+	glGenVertexArrays(1, &r->VAOid);
+	glBindVertexArray(r->VAOid);
+
+	glGenBuffers(1, &r->VBOid);
+	glBindBuffer(GL_ARRAY_BUFFER, r->VBOid);
 	glBufferData(GL_ARRAY_BUFFER, 64 * sizeof(arena_impassable_t), NULL, GL_DYNAMIC_DRAW);
 
 	glEnableVertexAttribArray(0);
@@ -352,11 +387,27 @@ static int initialize_buffers() {
 	);
 
 	glBindVertexArray(0);
+}
 
-	glGenVertexArrays(1, &rev_VAOid);
-	glBindVertexArray(rev_VAOid);
-	glGenBuffers(1, &rev_VBOid);
-	glBindBuffer(GL_ARRAY_BUFFER, rev_VBOid);
+static void draw_imp(Render* r) {
+
+	if (current_hconfig->impassable.size() > 0) {
+		glUseProgram(r->shader->programHandle());
+		glUniform2fv(r->shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
+		glUniform1f(r->shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
+
+		glBindVertexArray(r->VAOid);
+		glDrawArrays(GL_TRIANGLES, 0, current_hconfig->impassable.size() * 3);
+	}
+
+}
+
+static void init_rev_render(Render* r) {
+
+	glGenVertexArrays(1, &r->VAOid);
+	glBindVertexArray(r->VAOid);
+	glGenBuffers(1, &r->VBOid);
+	glBindBuffer(GL_ARRAY_BUFFER, r->VBOid);
 	static const tri_t fullscreen_tri = { vec2(-1, -1), vec2(3, -1), vec2(-1, 3) }; // might want to add a margin
 	glBufferData(GL_ARRAY_BUFFER, 1 * sizeof(tri_t), &fullscreen_tri, GL_STATIC_DRAW);
 
@@ -372,6 +423,30 @@ static int initialize_buffers() {
 
 	glBindVertexArray(0);
 
+}
+
+static void draw_rev(Render* r) {
+
+	glUseProgram(r->shader->programHandle());
+	glBindVertexArray(r->VAOid);
+	glUniform2fv(r->shader->get_uniform_location("render_target_size"), 1, scr);
+	glUniform2fv(r->shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
+	glUniform1f(r->shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
+
+	auto rev = current_hconfig->get_rev_targets();
+	for (const auto& R : rev) {
+		glUniform2fv(r->shader->get_uniform_location("world_pos"), 1, &R.pos.x);
+		glUniform1f(r->shader->get_uniform_location("radius"), R.radius);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+	}
+
+}
+
+static int initialize_renders() {
+	renders.insert({ "avoid", (Render(avoid_shader, init_avoid_render, draw_avoid)) });
+	renders.insert({ "imp", (Render(imp_shader, init_imp_render, draw_imp)) });
+	renders.insert({ "rev", (Render(rev_shader, init_rev_render, draw_rev)) });
+
 	return 1;
 }
 
@@ -384,7 +459,7 @@ static void update_buffers() {
 
 	if (!OM.get_local_object(&p)) return;
 
-	current_hconfig = &hconfigs.at("Marrowgar");
+	hconfig_set("Marrowgar");
 	
 	for (const auto& a : current_hconfig->avoid) {
 		auto v = a->get_points();
@@ -394,8 +469,8 @@ static void update_buffers() {
 	num_avoid_points = avoid_points.size();
 	if (num_avoid_points == 0) return;
 
-	glBindBuffer(GL_ARRAY_BUFFER, avoid_VBOid);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, avoid_points.size() * sizeof(avoid_point_t), &avoid_points[0]);
+	auto& r = renders.at("avoid");
+	r.update_buffer(&avoid_points[0], avoid_points.size() * sizeof(avoid_point_t));
 
 }
 
@@ -445,9 +520,9 @@ static inline int clampi(int i, int min, int max) {
 }
 
 static vec2i_t screen2tex(float x, float y) {
-	int xt = clampi((x + 1) * HMAP_SIZE / 2.0f, 0, HMAP_SIZE - 1);
-	int yt = clampi((y + 1) * HMAP_SIZE / 2.0f, 0, HMAP_SIZE - 1);
-	return { xt, yt };
+	float xt = clampi((x + 1) * HMAP_SIZE / 2.0f, 0, HMAP_SIZE - 1);
+	float yt = clampi((y + 1) * HMAP_SIZE / 2.0f, 0, HMAP_SIZE - 1);
+	return { (int)round(xt), (int)round(yt) };
 }
 
 static vec2i_t world2tex(float x, float y) {
@@ -492,7 +567,6 @@ static void update_hstatus() {
 
 void aux_draw() {
 
-	static const GLfloat scr[2] = { HMAP_SIZE, HMAP_SIZE };
 
 	glClearColor(0, 0, 0, 1);
 
@@ -500,37 +574,13 @@ void aux_draw() {
 
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	glUseProgram(rev_shader->programHandle());
-	glBindVertexArray(rev_VAOid);
-	glUniform2fv(rev_shader->get_uniform_location("render_target_size"), 1, scr);
-	glUniform2fv(rev_shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
-	glUniform1f(rev_shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
-
-	auto rev = current_hconfig->get_rev_targets();
-	for (const auto& r : rev) {
-		glUniform2fv(rev_shader->get_uniform_location("world_pos"), 1, &r.pos.x);
-		glUniform1f(rev_shader->get_uniform_location("radius"), r.radius);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
-	}
-
-	if (current_hconfig->impassable.size() > 0) {
-		glUseProgram(imp_shader->programHandle());
-		glUniform2fv(imp_shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
-		glUniform1f(imp_shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
-
-		glBindVertexArray(imp_VAOid);
-		glDrawArrays(GL_TRIANGLES, 0, current_hconfig->impassable.size() * 3);
-	}
-	
-	if (num_avoid_points > 0) {
-		glUseProgram(point_shader->programHandle());
-		glUniform2fv(point_shader->get_uniform_location("render_target_size"), 1, scr);
-		glUniform2fv(point_shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
-		glUniform1f(point_shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
-
-		glBindVertexArray(avoid_VAOid);
-		glDrawArrays(GL_POINTS, 0, num_avoid_points);
-	}
+	//for (auto& it : renders) {
+	//	PRINT("rendering %s\n", it.first.c_str());
+	//	it.second.draw();
+	//}
+	renders.at("imp").draw();
+	renders.at("avoid").draw();
+	renders.at("rev").draw();
 
 	glReadPixels(0, 0, HMAP_SIZE, HMAP_SIZE, GL_RED, GL_UNSIGNED_BYTE, pixbuf);
 	update_hstatus();
@@ -556,7 +606,6 @@ static DWORD WINAPI render_threadfunc(LPVOID lpParam) {
 	while (running) {
 		aux_draw();
 		Sleep(16);
-		PRINT("LOL\n");
 	}
 	return 0;
 }
@@ -694,27 +743,28 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 	//SetFocus(hWnd);
 
 	initialize_gl_extensions();
-	initialize_buffers();
 
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_ONE, GL_ONE);
 
 	try {
-		point_shader = new ShaderProgram("shaders\\vs.glsl", "shaders\\fs.glsl", "shaders\\gs.glsl");
+		avoid_shader = new ShaderProgram("shaders\\vs.glsl", "shaders\\fs.glsl", "shaders\\gs.glsl");
 		imp_shader = new ShaderProgram("shaders\\imp_vs.glsl", "shaders\\imp_fs.glsl", "");
 		rev_shader = new ShaderProgram("shaders\\rev_vs.glsl", "shaders\\rev_fs.glsl", "");
 	}
-
 	catch (const std::exception& ex) {
 		PRINT("A shader error occurred: %s\n", ex.what());
 		MessageBox(NULL, "Shader error", "error", 0);
 		return FALSE;
 	}
 
-	point_shader->cache_uniform_location("render_target_size");
-	point_shader->cache_uniform_location("arena_middle");
-	point_shader->cache_uniform_location("arena_size");
+
+	initialize_renders();
+
+	avoid_shader->cache_uniform_location("render_target_size");
+	avoid_shader->cache_uniform_location("arena_middle");
+	avoid_shader->cache_uniform_location("arena_size");
 
 	imp_shader->cache_uniform_location("arena_middle");
 	imp_shader->cache_uniform_location("arena_size");
@@ -728,14 +778,15 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 	pixbuf = new BYTE[HMAP_SIZE * HMAP_SIZE]; // apparently we can read only the red channel with glReadPixels so skip the * 4 (= 4 bytes of RGBA)
 	memset(pixbuf, 0, HMAP_SIZE * HMAP_SIZE);
 	//PRINT("imp size: %d\n", Marrowgar.impassable.size() * sizeof(tri_t));
-	dual_echo("Auxiliary OGL window successfully created (hidden by default, use /lole ba hconfig_show)!");
+	dual_echo("Auxiliary OGL window successfully created!");
+	dual_echo("(hidden by default, use /lole ba hconfig_show)!");
 
 	running = 1;
 
 	MSG msg = { 0 };
 	while (running && WM_QUIT != msg.message)
 	{
-		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) > 0) //Or use an if statement
+		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) > 0)
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
