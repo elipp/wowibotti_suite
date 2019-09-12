@@ -312,7 +312,7 @@ std::vector<rev_target_t> hconfig_t::get_rev_targets() const {
 
 	WO_cached p;
 	hcache_find(pGUID, &p);
-	//r.push_back({ p.pos.x, p.pos.y, 10 });
+	r.push_back({ p.pos.x, p.pos.y, 30 });
 	
 	WO_cached b;
 	if (hcache_find(bossname, &b)) {
@@ -567,20 +567,15 @@ static void update_hstatus() {
 
 void aux_draw() {
 
-
 	glClearColor(0, 0, 0, 1);
 
 	update_buffers();
 
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	//for (auto& it : renders) {
-	//	PRINT("rendering %s\n", it.first.c_str());
-	//	it.second.draw();
-	//}
-	renders.at("imp").draw();
-	renders.at("avoid").draw();
-	renders.at("rev").draw();
+	for (auto& it : renders) {
+		it.second.draw();
+	}
 
 	glReadPixels(0, 0, HMAP_SIZE, HMAP_SIZE, GL_RED, GL_UNSIGNED_BYTE, pixbuf);
 	update_hstatus();
