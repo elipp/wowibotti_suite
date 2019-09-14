@@ -41,7 +41,9 @@ float func(float x, float r) {
 }
 
 void main(){
+	const float FACTOR = 0.3;
+
   float d = length(map_to_dc(gl_FragCoord.xy) - FS_IN.center_pos);
   float v = func(d, FS_IN.radius); // FS_in.radius has been scaled in vertex shader
-  color = vec3(v*v, 0, 0);
+  color = FACTOR*vec3(v, v, v);
 }

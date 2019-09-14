@@ -55,9 +55,12 @@ float func(float x, float r) {
 out vec3 color;
 
 void main() {
+	const float FACTOR = 0.3;
+
   vec2 scr = world2screen(world_pos);
   vec2 fr = map_to_dc(gl_FragCoord.xy);
   float d = length(fr - scr);
+  float v = 1 - func(d, R_scaled);
   
-  color = vec3(1 - func(d, R_scaled), 0, 0);
+  color = FACTOR*vec3(v, v, v);
 }

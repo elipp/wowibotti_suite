@@ -744,9 +744,9 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 	glBlendFunc(GL_ONE, GL_ONE);
 
 	try {
-		avoid_shader = new ShaderProgram("shaders\\vs.glsl", "shaders\\fs.glsl", "shaders\\gs.glsl");
-		imp_shader = new ShaderProgram("shaders\\imp_vs.glsl", "shaders\\imp_fs.glsl", "");
-		rev_shader = new ShaderProgram("shaders\\rev_vs.glsl", "shaders\\rev_fs.glsl", "");
+		avoid_shader = new ShaderProgram("avoid");
+		imp_shader = new ShaderProgram("imp");
+		rev_shader = new ShaderProgram("rev");
 	}
 	catch (const std::exception& ex) {
 		PRINT("A shader error occurred: %s\n", ex.what());
@@ -770,7 +770,7 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 	rev_shader->cache_uniform_location("arena_middle");
 	rev_shader->cache_uniform_location("arena_size");
 
-	pixbuf = new BYTE[HMAP_SIZE * HMAP_SIZE]; // apparently we can read only the red channel with glReadPixels so skip the * 4 (= 4 bytes of RGBA)
+	pixbuf = new BYTE[HMAP_SIZE * HMAP_SIZE]; // apparently we can also only read the red channel with glReadPixels so skip the * 4 (= 4 bytes of RGBA)
 	memset(pixbuf, 0, HMAP_SIZE * HMAP_SIZE);
 	//PRINT("imp size: %d\n", Marrowgar.impassable.size() * sizeof(tri_t));
 	dual_echo("Auxiliary OGL window successfully created!");
