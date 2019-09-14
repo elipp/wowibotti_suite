@@ -23,11 +23,10 @@ static HWND hWnd;
 static HDC hDC;
 static HGLRC hRC;
 
-//class ShaderProgram;
-
 static ShaderProgram *avoid_shader;
 static ShaderProgram *imp_shader;
 static ShaderProgram *rev_shader;
+static ShaderProgram *debug_shader;
 
 static std::vector<WO_cached> hcache;
 static std::mutex hcache_mutex;	
@@ -212,6 +211,59 @@ static void draw_debug_info() {
 	}
 
 }
+
+static vec2_t world2screen(float x, float y, const arena_t& arena) {
+
+	const float A = (arena.middle.y + arena.size / 2.0);
+	const float B = (arena.middle.x - arena.size / 2.0);
+
+	float nx = (-y + A) / arena.size;
+	float ny = (x - B) / arena.size;
+	return vec2(nx * 2 - 1, ny * 2 - 1);
+
+}
+
+static vec2_t screen2world(float x, float y, const arena_t& arena) {
+
+	const float A = (arena.middle.y + arena.size / 2.0);
+	const float B = (arena.middle.x - arena.size / 2.0);
+
+	float nx = B + arena.size * (y + 1) / 2.0f;
+	float ny = A - arena.size * (x + 1) / 2.0f;
+
+	return vec2(nx, ny);
+}
+
+static vec2_t tex2screen(int x, int y) {
+	// assume square texture
+	float fx = (float(x)) / (float)HMAP_SIZE;
+	float fy = (float(y)) / (float)HMAP_SIZE;
+
+	return vec2(2 * fx - 1, 2 * fy - 1);
+}
+
+static vec2_t tex2world(int x, int y, const arena_t& arena) {
+	vec2_t t = tex2screen(x, y);
+	return screen2world(t.x, t.y, arena);
+}
+
+static inline int clampi(int i, int min, int max) {
+	if (i < min) return min;
+	if (i > max) return max;
+	return i;
+}
+
+static vec2i_t screen2tex(float x, float y) {
+	float xt = clampi((x + 1) * HMAP_SIZE / 2.0f, 0, HMAP_SIZE - 1);
+	float yt = clampi((y + 1) * HMAP_SIZE / 2.0f, 0, HMAP_SIZE - 1);
+	return { (int)round(xt), (int)round(yt) };
+}
+
+static vec2i_t world2tex(float x, float y) {
+	vec2_t scr = world2screen(x, y, current_hconfig->arena);
+	return screen2tex(scr.x, scr.y);
+}
+
 
 std::vector<avoid_point_t> avoid_npc_t::get_points() const {
 	std::vector<avoid_point_t> p;
@@ -442,11 +494,55 @@ static void draw_rev(Render* r) {
 
 }
 
-static int initialize_renders() {
-	renders.insert({ "avoid", (Render(avoid_shader, init_avoid_render, draw_avoid)) });
-	renders.insert({ "imp", (Render(imp_shader, init_imp_render, draw_imp)) });
-	renders.insert({ "rev", (Render(rev_shader, init_rev_render, draw_rev)) });
+static void init_debug_render(Render* r) {
+	glGenVertexArrays(1, &r->VAOid);
+	glBindVertexArray(r->VAOid);
+	glGenBuffers(1, &r->VBOid);
+	glBindBuffer(GL_ARRAY_BUFFER, r->VBOid);
+	glBufferData(GL_ARRAY_BUFFER, 1 * sizeof(tri_t), NULL, GL_DYNAMIC_DRAW);
 
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(
+		0,
+		2,
+		GL_FLOAT,
+		GL_FALSE,
+		0,
+		(void*)0
+	);
+
+	glBindVertexArray(0);
+}
+
+static inline tri_t get_tri(vec2_t pos, float size) {
+	static const double halfpi = 0.5 * M_PI;
+	static const double dpi = 2.0 * M_PI / 3.0;
+	return { 
+		pos + size * vec2(cos(halfpi),				sin(halfpi)),
+		pos + size * vec2(cos(halfpi + dpi),		sin(halfpi + dpi)),
+		pos + size * vec2(cos(halfpi + 2.0 * dpi),	sin(halfpi + 2.0 * dpi)) };
+
+}
+
+static void draw_debug(Render* r) {
+	glUseProgram(r->shader->programHandle());
+	glBindVertexArray(r->VAOid);
+	
+	vec2_t pos = tex2screen(hstatus.best_pixel.x, hstatus.best_pixel.y);
+	tri_t tri = get_tri(pos, 0.025);
+
+	glBindBuffer(GL_ARRAY_BUFFER, r->VBOid);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(tri_t), &tri, GL_DYNAMIC_DRAW);
+
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+
+}
+
+static int initialize_renders() {
+	renders.insert({ "avoid", Render(avoid_shader, init_avoid_render, draw_avoid) });
+	renders.insert({ "imp", Render(imp_shader, init_imp_render, draw_imp) });
+	renders.insert({ "rev", Render(rev_shader, init_rev_render, draw_rev) });
+	renders.insert({ "debug", Render(debug_shader, init_debug_render, draw_debug) });
 	return 1;
 }
 
@@ -478,57 +574,6 @@ static inline BYTE get_pixel(int x, int y) {
 	return pixbuf[y * HMAP_SIZE + x];
 }
 
-static vec2_t world2screen(float x, float y, const arena_t& arena) {
-
-	const float A = (arena.middle.y + arena.size / 2.0);
-	const float B = (arena.middle.x - arena.size / 2.0);
-
-	float nx = (-y + A) / arena.size;
-	float ny = (x - B) / arena.size;
-	return vec2(nx * 2 - 1, ny * 2 - 1);
-
-}
-
-static vec2_t screen2world(float x, float y, const arena_t& arena) {
-
-	const float A = (arena.middle.y + arena.size / 2.0);
-	const float B = (arena.middle.x - arena.size / 2.0);
-
-	float nx = B + arena.size * (y + 1) / 2.0f;
-	float ny = A - arena.size * (x + 1) / 2.0f;
-
-	return vec2(nx, ny);
-}
-
-static vec2_t tex2screen(int x, int y) {
-	// assume square texture
-	float fx = (float(x)) / (float)HMAP_SIZE;
-	float fy = (float(y)) / (float)HMAP_SIZE;
-
-	return vec2(2 * fx - 1, -2 * fy + 1);
-}
-
-static vec2_t tex2world(int x, int y, const arena_t& arena) {
-	vec2_t t = tex2screen(x, y);
-	return screen2world(t.x, t.y, arena);
-}
-
-static inline int clampi(int i, int min, int max) {
-	if (i < min) return min;
-	if (i > max) return max;
-	return i;
-}
-
-static vec2i_t screen2tex(float x, float y) {
-	float xt = clampi((x + 1) * HMAP_SIZE / 2.0f, 0, HMAP_SIZE - 1);
-	float yt = clampi((y + 1) * HMAP_SIZE / 2.0f, 0, HMAP_SIZE - 1);
-	return { (int)round(xt), (int)round(yt) };
-}
-
-static vec2i_t world2tex(float x, float y) {
-	vec2_t scr = world2screen(x, y, current_hconfig->arena);
-	return screen2tex(scr.x, scr.y);
-}
 
 
 static pixinfo_t get_lowest_pixel() {
@@ -747,6 +792,7 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 		avoid_shader = new ShaderProgram("avoid");
 		imp_shader = new ShaderProgram("imp");
 		rev_shader = new ShaderProgram("rev");
+		debug_shader = new ShaderProgram("debug");
 	}
 	catch (const std::exception& ex) {
 		PRINT("A shader error occurred: %s\n", ex.what());
@@ -825,6 +871,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 void opengl_cleanup() {
+	delete rev_shader;
+	delete avoid_shader;
+	delete imp_shader;
+	delete debug_shader;
 	wglDeleteContext(hRC);
 	delete[] pixbuf;
 	DestroyWindow(hWnd);

@@ -1,4 +1,6 @@
 
+#version 420 core
+
 out vec3 color;
 
 void main() {
