@@ -16,8 +16,10 @@
 
 #pragma comment (lib, "opengl32.lib")
 
-static int created = 0;
+static int aux_window_created = 0;
 static int running = 0;
+
+static std::string conf_to_set = "";
 
 static HWND hWnd;
 static HDC hDC;
@@ -45,6 +47,7 @@ static const GLfloat scr[2] = { HMAP_SIZE, HMAP_SIZE };
 
 static std::unordered_map<std::string, Render> renders;
 
+
 int hotness_enabled() {
 	return hot_enabled;
 }
@@ -64,8 +67,8 @@ static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 	// this will leak memory when ejected :D NVM
 	{"Marrowgar",
 	hconfig_t("Lord Marrowgar",
-		{ new avoid_npc_t(25, "Lord Marrowgar"), new avoid_npc_t(15, "Coldflame"), new avoid_spellobject_t(10, 69146), new avoid_units_t(8) },
-		{ 140, {-390, 2215 }, 42 },
+		{ new avoid_npc_t(15, "Lord Marrowgar"), new avoid_npc_t(10, "Coldflame"), new avoid_spellobject_t(10, 69146), new avoid_units_t(8) },
+		arena_t { 140, {-390, 2215 }, 42 },
 		{ arena_impassable_t(vec2(-401.8, 2170), vec2(-0.762509, -0.646977)),
 		arena_impassable_t(vec2(-422.9, 2200.4), vec2(-1.000000, 0.000000)),
 		arena_impassable_t(vec2(-412.5, 2241.4), vec2(-0.834276, 0.551347)),
@@ -75,28 +78,10 @@ static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 	},
 };
 
+
 int hconfig_set(const std::string& confname) {
-
-	try {
-		const auto& c = hconfigs.at(confname);
-		if (current_hconfig == &c) {
-			return 1;
-		}
-		current_hconfig = &c;
-		dual_echo("hconfig_set: config set to %s", confname.c_str());
-		if (current_hconfig->impassable.size() > 0) {
-			auto& r = renders.at("imp");
-			r.update_buffer(&current_hconfig->impassable[0], current_hconfig->impassable.size() * sizeof(arena_impassable_t));
-		}
-	
-		return 1;
-	}
-	catch (const std::exception &e) {
-		dual_echo("hconfig_set: error: %s", e.what());
-		current_hconfig = NULL;
-		return 0;
-	}
-
+	conf_to_set = confname;
+	return 1;
 }
 
 hotness_status_t hotness_status() {
@@ -183,6 +168,31 @@ static int initialize_gl_extensions() {
 	return 1;
 
 }
+
+static int hconfig_set_actual(const std::string& confname) {
+	try {
+		const auto& c = hconfigs.at(confname);
+		if (current_hconfig == &c) {
+			return 1;
+		}
+		current_hconfig = &c;
+		dual_echo("hconfig_set: config set to %s", confname.c_str());
+		if (current_hconfig->impassable.size() > 0) {
+			auto& r = renders.at("imp");
+			r.update_buffer(&current_hconfig->impassable[0], current_hconfig->impassable.size() * sizeof(arena_impassable_t));
+
+		}
+
+		return 1;
+	}
+	catch (const std::exception& e) {
+		dual_echo("hconfig_set: error: %s", e.what());
+		current_hconfig = NULL;
+		return 0;
+	}
+}
+
+
 
 static GLuint deb_VAOid, deb_VBOid;
 static int deb_initd = 0;
@@ -378,20 +388,10 @@ static void init_avoid_render(Render* r) {
 	glGenVertexArrays(1, &r->VAOid);
 	glBindVertexArray(r->VAOid);
 
-	//static const std::vector<GLfloat> vbuf_data = {
-	//	-0, 0, 0.5,
-	//	0.5, 0, 0.5,
-	//	0.25, 0.25, 0.30,
-	//};
-
-	static const std::vector<GLfloat> vbuf_data = {
-		-390, 2215, 8
-	};
 
 	glGenBuffers(1, &r->VBOid);
 	glBindBuffer(GL_ARRAY_BUFFER, r->VBOid);
 	glBufferData(GL_ARRAY_BUFFER, 512 * 3 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, vbuf_data.size() * sizeof(float), &vbuf_data[0]);
 
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(
@@ -547,6 +547,9 @@ static int initialize_renders() {
 }
 
 static void update_buffers() {
+
+	if (!hotness_enabled()) return;
+
 	ObjectManager OM;
 	WowObject p;
 	
@@ -554,8 +557,6 @@ static void update_buffers() {
 	avoid_points.reserve(256 * sizeof(avoid_point_t));
 
 	if (!OM.get_local_object(&p)) return;
-
-	hconfig_set("Marrowgar");
 	
 	for (const auto& a : current_hconfig->avoid) {
 		auto v = a->get_points();
@@ -612,6 +613,8 @@ static void update_hstatus() {
 
 void aux_draw() {
 
+	if (!aux_window_created || !hotness_enabled()) { return; }
+
 	glClearColor(0, 0, 0, 1);
 
 	update_buffers();
@@ -640,14 +643,6 @@ void aux_show() {
 void hotness_stop() {
 	running = 0;
 	WaitForSingleObject(render_thread, INFINITE);
-}
-
-static DWORD WINAPI render_threadfunc(LPVOID lpParam) {
-	while (running) {
-		aux_draw();
-		Sleep(16);
-	}
-	return 0;
 }
 
 typedef struct window_parms_t {
@@ -803,18 +798,9 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 
 	initialize_renders();
 
-	avoid_shader->cache_uniform_location("render_target_size");
-	avoid_shader->cache_uniform_location("arena_middle");
-	avoid_shader->cache_uniform_location("arena_size");
-
-	imp_shader->cache_uniform_location("arena_middle");
-	imp_shader->cache_uniform_location("arena_size");
-
-	rev_shader->cache_uniform_location("world_pos");
-	rev_shader->cache_uniform_location("radius");
-	rev_shader->cache_uniform_location("render_target_size");
-	rev_shader->cache_uniform_location("arena_middle");
-	rev_shader->cache_uniform_location("arena_size");
+	avoid_shader->cache_uniform_location({ "render_target_size", "arena_middle", "arena_size" });
+	imp_shader->cache_uniform_location({ "arena_middle", "arena_size" });
+	rev_shader->cache_uniform_location({ "world_pos", "radius", "render_target_size", "arena_middle", "arena_size" });
 
 	pixbuf = new BYTE[HMAP_SIZE * HMAP_SIZE]; // apparently we can also only read the red channel with glReadPixels so skip the * 4 (= 4 bytes of RGBA)
 	memset(pixbuf, 0, HMAP_SIZE * HMAP_SIZE);
@@ -832,6 +818,11 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
+
+		if (conf_to_set != "") {
+			hconfig_set_actual(conf_to_set);
+			conf_to_set = "";
+		}
 		
 		aux_draw();
 		Sleep(16);
@@ -842,8 +833,8 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 
 int create_aux_window(const char* title, int width, int height) {
 
-	if (created) return 1;
-	created = 1;
+	if (aux_window_created) return 1;
+	aux_window_created = 1;
 
 	window_parms_t *p = new window_parms_t;
 	p->title = title;

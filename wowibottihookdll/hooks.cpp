@@ -213,12 +213,15 @@ static void __stdcall Present_hook() {
 		throw std::exception("FATAL ERROR!");
 	}
 
-	update_hotness_cache();
-//	aux_draw();
+	if (hotness_enabled()) {
+		update_hotness_cache();
+	}
 
 	if (!ctm_check_direction()) {
 		ctm_cancel();
 	}
+
+	echo_queue_commit();
 
 	register_luafunc_if_not_registered();
 

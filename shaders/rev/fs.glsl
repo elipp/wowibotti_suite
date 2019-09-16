@@ -29,7 +29,7 @@ float parab2(float x) {
 
 float parab_rev(float x) {
 	float temp = (x/R_scaled);
-	return (temp * temp);	
+	return (temp * temp);
 }
 
 float parab_rev2(float x) {
@@ -61,6 +61,6 @@ void main() {
   vec2 fr = map_to_dc(gl_FragCoord.xy);
   float d = length(fr - scr);
   float v = 1 - func(d, R_scaled);
-  
-  color = FACTOR*vec3(v, v, v);
+
+  color = FACTOR*vec3(v, 0, 0);
 }

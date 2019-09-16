@@ -107,6 +107,8 @@ hotness_status_t hotness_status();
 void update_hotness_cache();
 void hotness_stop();
 
+void echo_queue_commit();
+
 typedef char GLchar;
 typedef unsigned int GLsizeiptr;
 typedef int GLintptr;

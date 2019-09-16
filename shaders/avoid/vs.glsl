@@ -1,8 +1,6 @@
 #version 420 core
 
-layout(location = 0) in vec3 pos;
-
-// pos.z is actually radius
+layout(location = 0) in vec3 pos; // <-- pos.z is actually radius
 
 uniform vec2 arena_middle;
 uniform float arena_size;

@@ -1,5 +1,8 @@
 #include <d3d9.h>
 
+#include <queue>
+#include <mutex>
+
 #include "wowmem.h"
 #include "ctm.h"
 
@@ -24,7 +27,30 @@ void DoString(const char* format, ...) {
 }
 
 static void echo(const char* msg) {
-	DoString("DEFAULT_CHAT_FRAME:AddMessage(\"|cff33ccff[C:%s]\")", msg); // colored text :D
+	//DoString("DEFAULT_CHAT_FRAME:AddMessage(\"|cff33ccff[C:%s]\")", msg); // colored text :D
+	DoString("print(\"|cff33ccff[C:%s]\")", msg); // colored text :D
+}
+
+static std::queue<std::string> echo_msgqueue; // this is because lua can only be used from the main thread
+static std::mutex echo_queue_mutex;
+
+static void equeue_add(const std::string& msg) {
+	echo_queue_mutex.lock();
+	echo_msgqueue.push(msg);
+	echo_queue_mutex.unlock();
+}
+
+void echo_queue_commit() {
+
+	echo_queue_mutex.lock();
+
+	while (!echo_msgqueue.empty()) {
+		echo(echo_msgqueue.front().c_str());
+		echo_msgqueue.pop();
+	}
+
+	echo_queue_mutex.unlock();
+
 }
 
 void echo_wow(const char* format, ...) {
@@ -35,7 +61,7 @@ void echo_wow(const char* format, ...) {
 	vsprintf_s(msg, format, args);
 	va_end(args);
 
-	echo(msg);
+	equeue_add(msg);
 }
 
 void dual_echo(const char* format, ...) {
@@ -46,8 +72,8 @@ void dual_echo(const char* format, ...) {
 	vsprintf_s(msg, format, args);
 	va_end(args);
 
-	PRINT("%s\n", msg);
-	echo(msg);
+	PRINT("%s\n", msg); // console should be thread safe
+	equeue_add(msg);
 
 }
 
