@@ -156,8 +156,6 @@ REMOVE_THIS_FRAME:SetScript("OnUpdate",
 
 function()
 
-  --putricide_stuff()
-  L_RunScript("VehicleMenuBarActionButton1:Click()")
   if not playermode() then
     -- this is for gunship
     if UnitInVehicle("player") then
