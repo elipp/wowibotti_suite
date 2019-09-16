@@ -608,7 +608,7 @@ static void update_hstatus() {
 	vec3 ppos = p.get_pos();
 	vec2i_t ppos_tex = world2tex(ppos.x, ppos.y);
 	hstatus.current_hotness = get_pixel(ppos_tex.x, ppos_tex.y);
-	PRINT("lowest: (%d, %d), value %u (world: %f, %f), (player pixel: %u, %u), current_hotness = %u\n", lowest.pos.x, lowest.pos.y, lowest.value, w.x, w.y, ppos_tex.x, ppos_tex.y, hstatus.current_hotness);
+	//PRINT("lowest: (%d, %d), value %u (world: %f, %f), (player pixel: %u, %u), current_hotness = %u\n", lowest.pos.x, lowest.pos.y, lowest.value, w.x, w.y, ppos_tex.x, ppos_tex.y, hstatus.current_hotness);
 }
 
 void aux_draw() {
