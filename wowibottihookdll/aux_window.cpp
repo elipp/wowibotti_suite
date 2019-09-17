@@ -77,9 +77,10 @@ static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 		arena_impassable_t(vec2(-357.7, 2182.9), vec2(0.850798, -0.525493)),
 		})
 	},
-//{"Rotface",
-//hconfig_t("Rotface",
-//	{new avoid_npc_t(15, "")})}
+{"Rotface",
+hconfig_t("Rotface",
+	{new avoid_npc_t(12, "Sticky Ooze") },
+	arena_t { 140, {4445.9, 3137.3}, 360.4}, {}) },
 };
 
 
@@ -834,6 +835,8 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 		aux_draw();
 		Sleep(16);
 	}
+
+	return TRUE;
 }
 
 

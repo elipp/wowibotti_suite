@@ -1927,7 +1927,7 @@ static int dump_wowobjects_to_log(const std::string &type_filter, const std::str
 
 	ObjectManager OM;
 
-	fprintf(stdout, "Basic info: ObjectManager base: %X, local GUID = 0x%016llX\n\n", OM.get_base_address(), OM.get_local_GUID());
+	dual_echo("Basic info: ObjectManager base: %X, local GUID = 0x%016llX", OM.get_base_address(), OM.get_local_GUID());
 	WowObject o;
 	if (!OM.get_first_object(&o)) return 0;
 
@@ -1938,40 +1938,40 @@ static int dump_wowobjects_to_log(const std::string &type_filter, const std::str
 		}
 
 		else if (type == OBJECT_TYPE_ITEM && (type_filter == "ITEM")) {
-			fprintf(stdout, "object GUID: 0x%016llX, base addr: 0x%X, type: %s, itemID: %u\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str(), o.item_get_ID());
+			dual_echo("object GUID: 0x%016llX, base addr: 0x%X, type: %s, itemID: %u", o.get_GUID(), o.get_base(), o.get_type_name().c_str(), o.item_get_ID());
 		}
 		
 		else if (type == OBJECT_TYPE_NPC && (type_filter == "" || type_filter == "NPC")) {
 			vec3 pos = o.get_pos();
 			std::string name = o.NPC_get_name();
 			if (name_filter == "" || (name_filter != "" && name.find(name_filter) != std::string::npos)) {
-				fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-				fprintf(stdout, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, o.get_rot());
-				fprintf(stdout, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d, mounted GUID: 0x%016llX\n\n", o.NPC_get_name().c_str(), o.NPC_get_health(), o.NPC_get_health_max(), o.NPC_get_target_GUID(), o.in_combat(), o.NPC_get_mounted_GUID());
-				fprintf(stdout, "----------------------------------------------------------------------------\n");
+				dual_echo("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+				dual_echo("coords = (%f, %f, %f), rot: %f", pos.x, pos.y, pos.z, o.get_rot());
+				dual_echo("name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d, mounted GUID: 0x%016llX", o.NPC_get_name().c_str(), o.NPC_get_health(), o.NPC_get_health_max(), o.NPC_get_target_GUID(), o.in_combat(), o.NPC_get_mounted_GUID());
+				dual_echo("----------------------------------------------------------------------------");
 			}
 		}
 		else if (type == OBJECT_TYPE_UNIT && (type_filter == "" || type_filter == "UNIT")) {
 			vec3 pos = o.get_pos();
 			std::string name = o.unit_get_name();
 			if (name_filter == "" || (name_filter != "" && name.find(name_filter) != std::string::npos)) {
-				fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-				fprintf(stdout, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, o.get_rot());
-				fprintf(stdout, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", o.unit_get_name().c_str(), o.unit_get_health(), o.unit_get_health_max(), o.unit_get_target_GUID(), o.in_combat());
-				fprintf(stdout, "----------------------------------------------------------------------------\n");
+				dual_echo("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+				dual_echo("coords = (%f, %f, %f), rot: %f", pos.x, pos.y, pos.z, o.get_rot());
+				dual_echo("name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d", o.unit_get_name().c_str(), o.unit_get_health(), o.unit_get_health_max(), o.unit_get_target_GUID(), o.in_combat());
+				dual_echo("----------------------------------------------------------------------------");
 			}
 		}
 		else if (type == OBJECT_TYPE_DYNAMICOBJECT && (type_filter == "" || type_filter == "DYNAMICOBJECT")) {
 			vec3 DO_pos = o.DO_get_pos();
-			fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-			fprintf(stdout, "position: (%.1f, %.1f, %.1f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, o.DO_get_spellID());
-			fprintf(stdout, "----------------------------------------------------------------------------\n");
+			dual_echo("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+			dual_echo("position: (%.1f, %.1f, %.1f), spellID: %d", DO_pos.x, DO_pos.y, DO_pos.z, o.DO_get_spellID());
+			dual_echo("----------------------------------------------------------------------------");
 		}
 		else if (type == OBJECT_TYPE_GAMEOBJECT && (type_filter == "" || type_filter == "GAMEOBJECT")) {
 			vec3 GO_pos = o.GO_get_pos();
-			fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-			fprintf(stdout, "name: %s, position: (%.2f, %.2f, %.2f)\n\n", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
-			fprintf(stdout, "----------------------------------------------------------------------------\n");
+			dual_echo("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+			dual_echo("name: %s, position: (%.2f, %.2f, %.2f)", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
+			dual_echo("----------------------------------------------------------------------------");
 		}
 
 

@@ -148,7 +148,6 @@ end
 function lole_debug_dump_wowobjects(type_filter, ...)
 	local name_filter = concatenate_args(" ", ...)
 	lop_exec(LDOP_DUMP, type_filter, name_filter);
-	echo("|cFF00FF96Dumped WowObjects to <DESKTOPDIR>\\wodump.log (if you're injected!) ;)")
 	return true;
 end
 
