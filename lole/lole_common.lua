@@ -54,6 +54,10 @@ function vec3:scale(s)
   return vec3:create(s * self.x, s * self.y, s * self.z)
 end
 
+function vec3:sublength(s)
+  return self:subtract(s):length()
+end
+
 function get_arg_table(...)
   -- NOTE: THIS CONVERTS EVERYTHING TO STRINGS!
   local atab = {};
@@ -151,6 +155,39 @@ local function putricide_stuff()
   end
 end
 
+local ooze_avoid_level = 0
+
+local function putricide_ooze_avoid()
+  if has_debuff("player", "Gaseous Bloat") then
+    local ppos = vec3:create(get_unit_position("player"))
+    local opos = vec3:create(get_unit_position("target"))
+    if ooze_avoid_level == 0 then
+      local wp0 = vec3:create(4404.2, 3224.8, 389.4)
+      walk_to(wp0.x, wp0.y, wp0.z, CTM_PRIO_FOLLOW)
+
+      local dl = opos:sublength(ppos)
+      if (dl < 15) then
+        ooze_avoid_level = 1
+      end
+
+    elseif ooze_avoid_level == 1 then
+      local wp1 = vec3:create(4403.6, 3199.8, 389.4)
+      walk_to(wp1.x, wp1.y, wp1.z, CTM_PRIO_FOLLOW)
+
+      local dl = wp1:sublength(ppos)
+      if (dl < 3) then
+        ooze_avoid_level = 2
+      end
+
+    elseif ooze_avoid_level == 2 then
+      local wp2 = vec3:create(4360.1, 3156.6, 389.4)
+      walk_to(wp2.x, wp2.y, wp2.z, CTM_PRIO_FOLLOW)
+    end
+  else
+    ooze_avoid_level = 0
+  end
+end
+
 local REMOVE_THIS_FRAME = CreateFrame("frame", nil, UIParent)
 REMOVE_THIS_FRAME:SetScript("OnUpdate",
 
@@ -183,9 +220,7 @@ function()
         hconfig("status")
       end
 
-      if has_debuff("player", "Gaseous Bloat") then
-        walk_to(4404.2, 3224.8, 389.4, CTM_PRIO_FOLLOW)
-      end
+      putricide_ooze_avoid()
 
     end
     --------------------------------------------
