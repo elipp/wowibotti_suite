@@ -180,7 +180,7 @@ function()
     if UnitAffectingCombat("player") then
       local n = UnitName("player")
       if not (n == "Iijj" or n == "Spobodi") then -- or n == "Kuratorn") then
-        boss_action("hconfig_status")
+        hconfig("status")
       end
 
       if has_debuff("player", "Gaseous Bloat") then

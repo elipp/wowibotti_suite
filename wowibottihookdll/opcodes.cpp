@@ -51,6 +51,8 @@ enum {
 	ARG_TYPE_STRING
 };
 
+#define ARG_INF 9999
+
 static lop_func_t lop_funcs[] = {
 
 	 LOPFUNC(LOP_NOP, 0, 0, 0),
@@ -86,10 +88,11 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_GET_COMBAT_TARGETS, 0, 0, 0),
 	 LOPFUNC(LOP_GET_AOE_FEASIBILITY, 1, 1, 1),
 	 LOPFUNC(LOP_AVOID_NPC_WITH_NAME, 2, 2, 1),
-	 LOPFUNC(LOP_BOSS_ACTION, 1, 1, 0),
+	 LOPFUNC(LOP_BOSS_ACTION, 1, ARG_INF, 0),
 	 LOPFUNC(LOP_INTERACT_SPELLNPC, 1, 1, 1),
 	 LOPFUNC(LOP_GET_LAST_SPELL_ERRMSG, 0, 0, 3),
 	 LOPFUNC(LOP_ICCROCKET, 1, 1, 0),
+	 LOPFUNC(LOP_HCONFIG, 1, ARG_INF, 0),
 };
 
 
@@ -1291,6 +1294,62 @@ float randf() {
 }
 static int initial_angle_set = 0;
 
+static void hconfig_action(const std::vector<std::string>& args) {
+	const std::string& a0 = args[0];
+
+	if (a0 == "set") {
+		if (args.size() < 2) {
+			echo_wow("hconfig set called but no argument specified!");
+		}
+		else {
+			hconfig_set(args[1]);
+		}
+	}
+
+	else if (a0 == "enable") {
+		hotness_enable(true);
+	}
+	else if (a0 == "disable") {
+		hotness_enable(false);
+	}
+
+	else if (a0 == "show") {
+		aux_show();
+	}
+
+	else if (a0 == "hide") {
+		aux_hide();
+	}
+
+	else if (a0 == "status") {
+		static timer_interval_t warning_time(5000);
+
+		if (!hotness_enabled()) {
+			if (warning_time.passed()) {
+				echo_wow("WARNING: hconfig status called, but hotness not enabled with hconfig enable!");
+				warning_time.reset();
+			}
+			return;
+		}
+
+		ObjectManager OM;
+		WowObject player;
+		OM.get_local_object(&player);
+
+		auto m = hotness_status();
+
+		const BYTE HOTNESS_THRESHOLD = 160;
+		const BYTE DH_THRESHOLD = 30;
+		int dh = abs((int)m.current_hotness - (int)m.best_hotness);
+
+		if (m.current_hotness > HOTNESS_THRESHOLD && dh > DH_THRESHOLD) {
+			dual_echo("HOTNESS: %s - best world pos: %.1f, %.1f (best hotness %u, current %u, threshold: %u)?", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
+			dual_echo("walking to a better position ^");
+			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
+		}
+	}
+}
+
 static void do_boss_action(const std::vector<std::string> &args) {
 	
 	ObjectManager OM;
@@ -1353,50 +1412,7 @@ static void do_boss_action(const std::vector<std::string> &args) {
 
 	}
 	
-	else if (args[0] == "hconfig_set") {
-		if (args.size() < 2) {
-			echo_wow("hconfig_set called but no argument specified!");
-		}
-		else {
-			hconfig_set(args[1]);
-		}
-	}
-
-	else if (args[0] == "hconfig_toggle") {
-		hotness_toggle();
-	}
-
-	else if (args[0] == "hconfig_show") {
-		aux_show();
-	}
-
-	else if (args[0] == "hconfig_hide") {
-		aux_hide();
-	}
-
-	else if (args[0] == "hconfig_status") {
-		static timer_interval_t warning_time(5000);
-
-		if (!hotness_enabled()) {
-			if (warning_time.passed()) {
-				echo_wow("WARNING: hconfig_status called, but hotness not enabled with hconfig_enable!");
-				warning_time.reset();
-			}
-			return;
-		}
-
-		auto m = hotness_status();
-		
-		const BYTE HOTNESS_THRESHOLD = 160;
-		const BYTE DH_THRESHOLD = 30;
-		int dh = abs((int)m.current_hotness - (int)m.best_hotness);
-
-		if (m.current_hotness > HOTNESS_THRESHOLD && dh > DH_THRESHOLD) {
-			dual_echo("HOTNESS: %s - best world pos: %.1f, %.1f (best hotness %u, current %u, threshold: %u)?", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
-			dual_echo("walking to a better position ^");
-			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
-		}
-	}
+	
 
 	else {
 		PRINT("Unknown boss action %s\n", args[0].c_str());
@@ -1756,6 +1772,13 @@ int lop_exec(lua_State *L) {
 		std::vector<std::string> tokens;
 		tokenize_string(lua_tolstring(L, 2, &len), " ", tokens);
 		do_boss_action(tokens);
+		break;
+	}
+
+	case LOP_HCONFIG: {
+		std::vector<std::string> tokens;
+		tokenize_string(lua_tolstring(L, 2, &len), " ", tokens);
+		hconfig_action(tokens);
 		break;
 	}
 

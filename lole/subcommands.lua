@@ -1091,9 +1091,9 @@ local function lole_spread_those_cheeks(dist)
 --	SPREAD_ONYXIA()
 
 	if not dist then dist = 15 end
-	SPREAD_SAVIANA(5)
+--	SPREAD_SAVIANA(dist)
 	--SPREAD_MADOT()
-	--SPREAD_FESTERGUT()
+	SPREAD_FESTERGUT()
 end
 
 local function lole_iccrocket(mirror_data)
@@ -1112,6 +1112,12 @@ local function lole_boss_action(...)
 	local catd = concatenate_args(" ", ...)
 	if not catd then return end
 	boss_action(catd)
+end
+
+local function lole_hconfig(...)
+	local catd = concatenate_args(" ", ...)
+	if not catd then return end
+	hconfig(catd)
 end
 
 local function lole_eject()
@@ -1200,6 +1206,7 @@ lole_subcommands = {
 	boss_action = lole_boss_action,
 	ba = lole_boss_action,
 
+	hconfig = lole_hconfig,
 
 	cast_spell = lole_cast_spell,
 

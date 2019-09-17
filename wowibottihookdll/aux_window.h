@@ -100,7 +100,7 @@ void aux_show();
 void opengl_cleanup();
 
 int hotness_enabled();
-void hotness_toggle();
+void hotness_enable(bool state);
 int hconfig_set(const std::string& confname);
 hotness_status_t hotness_status();
 

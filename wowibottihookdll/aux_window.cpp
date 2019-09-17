@@ -52,13 +52,14 @@ int hotness_enabled() {
 	return hot_enabled;
 }
 
-void hotness_toggle() {
+void hotness_enable(bool state) {
 	if (!current_hconfig) {
-		echo_wow("hotness_toggle called but no config set! use hconfig_set <confname> first");
+		echo_wow("hotness enable called but no config set! use hconfig set <confname> first");
 		hot_enabled = 0;
+		return;
 	}
 	else {
-		hot_enabled = !hot_enabled;
+		hot_enabled = state;
 		echo_wow("hotness set to %d", hot_enabled);
 	}
 }
@@ -76,6 +77,9 @@ static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 		arena_impassable_t(vec2(-357.7, 2182.9), vec2(0.850798, -0.525493)),
 		})
 	},
+//{"Rotface",
+//hconfig_t("Rotface",
+//	{new avoid_npc_t(15, "")})}
 };
 
 
@@ -638,6 +642,9 @@ void aux_hide() {
 }
 void aux_show() {
 	ShowWindow(hWnd, SW_SHOW);
+	// we don't want to lose focus to the aux window
+	SetForegroundWindow(wow_hWnd);
+	SetFocus(wow_hWnd);
 }
 
 void hotness_stop() {
@@ -773,9 +780,9 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 		return FALSE;
 	}
 
-	//ShowWindow(hWnd, SW_SHOW);
-	//SetForegroundWindow(hWnd);
-	//SetFocus(hWnd);
+	// disable close button =D 
+	EnableMenuItem(GetSystemMenu(hWnd, FALSE), SC_CLOSE,
+		MF_BYCOMMAND | MF_DISABLED | MF_GRAYED);
 
 	initialize_gl_extensions();
 
@@ -806,7 +813,7 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 	memset(pixbuf, 0, HMAP_SIZE * HMAP_SIZE);
 	//PRINT("imp size: %d\n", Marrowgar.impassable.size() * sizeof(tri_t));
 	dual_echo("Auxiliary OGL window successfully created!");
-	dual_echo("(hidden by default, use /lole ba hconfig_show)!");
+	dual_echo("(hidden by default, use /lole hconfig show)!");
 
 	running = 1;
 
