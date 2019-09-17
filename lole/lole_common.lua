@@ -180,8 +180,8 @@ local function putricide_ooze_avoid()
       end
 
     elseif ooze_avoid_level == 2 then
-      local wp2 = vec3:create(4360.1, 3156.6, 389.4)
-      walk_to(wp2.x, wp2.y, wp2.z, CTM_PRIO_NOOVERRIDE)
+      local wp2 = vec3:create(4366.8, 3165.6, 389.4)
+      walk_to(wp2.x, wp2.y, wp2.z, CTM_PRIO_FOLLOW)
     end
   else
     ooze_avoid_level = 0

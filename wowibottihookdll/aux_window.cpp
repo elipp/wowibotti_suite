@@ -69,6 +69,7 @@ static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 	{"Marrowgar",
 	hconfig_t("Lord Marrowgar",
 		{ new avoid_npc_t(15, "Lord Marrowgar"), new avoid_npc_t(10, "Coldflame"), new avoid_spellobject_t(10, 69146), new avoid_units_t(8) },
+		REV_SELF | REV_BOSS,
 		arena_t { 140, {-390, 2215 }, 42 },
 		{ arena_impassable_t(vec2(-401.8, 2170), vec2(-0.762509, -0.646977)),
 		arena_impassable_t(vec2(-422.9, 2200.4), vec2(-1.000000, 0.000000)),
@@ -80,12 +81,14 @@ static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 {"Rotface",
 hconfig_t("Rotface",
 	{new avoid_npc_t(10, "Sticky Ooze") },
-	arena_t { 140, {4445.9, 3137.3}, 360.4}, 
+	REV_SELF,
+	arena_t { 140, {4445.9, 3137.3}, 360.4},
 	{}) },
 
 {"Putricide",
 hconfig_t("Professor Putricide",
 	{new avoid_npc_t(15, "Professor Putricide"), new avoid_npc_t(15, "Choking Gas Bomb"), new avoid_npc_t(20, "Growing Ooze Puddle") },
+	REV_SELF,
 	arena_t { 140, {4357, 3211.5}, 389.4 },
 	{}
 	)},
@@ -385,13 +388,17 @@ std::vector<rev_target_t> hconfig_t::get_rev_targets() const {
 	GUID_t pGUID = OM.get_local_GUID();
 	std::vector<rev_target_t> r;
 
-	WO_cached p;
-	hcache_find(pGUID, &p);
-	r.push_back({ p.pos.x, p.pos.y, 30 });
-	
-	WO_cached b;
-	if (hcache_find(bossname, &b)) {
-		r.push_back({ b.pos.x, b.pos.y, 30 });
+	if (rev_flags & REV_SELF) {
+		WO_cached p;
+		hcache_find(pGUID, &p);
+		r.push_back({ p.pos.x, p.pos.y, 30 });
+	}
+
+	if (rev_flags & REV_BOSS) {
+		WO_cached b;
+		if (hcache_find(bossname, &b)) {
+			r.push_back({ b.pos.x, b.pos.y, 30 });
+		}
 	}
 	return r;
 

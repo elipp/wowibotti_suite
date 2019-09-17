@@ -72,15 +72,22 @@ typedef struct rev_target_t {
 	float radius;
 } rev_target_t;
 
+enum {
+	REV_SELF = 0x1,
+	REV_BOSS = 0x2,
+	REV_DEFAULT = 0x3,
+};
+
 class hconfig_t {
 public:
 	std::vector<avoid_t*> avoid;
 	arena_t arena;
 	std::vector<arena_impassable_t> impassable;
 	std::string bossname;
+	int rev_flags;
 	hconfig_t() : arena({}) {};
-	hconfig_t(const std::string &boss_name, const std::vector<avoid_t*>& avoid_stuff, arena_t arena_bounds, const std::vector<arena_impassable_t> &imp)
-		: bossname(boss_name), avoid(avoid_stuff), arena(arena_bounds), impassable(imp) {};
+	hconfig_t(const std::string &boss_name, const std::vector<avoid_t*>& avoid_stuff, int rflags, arena_t arena_bounds, const std::vector<arena_impassable_t> &imp)
+		: bossname(boss_name), avoid(avoid_stuff), rev_flags(rflags), arena(arena_bounds), impassable(imp) {};
 	std::vector<rev_target_t> get_rev_targets() const;
 };
 
