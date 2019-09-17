@@ -392,7 +392,7 @@ std::vector<rev_target_t> hconfig_t::get_rev_targets() const {
 	if (rev_flags & REV_SELF) {
 		WO_cached p;
 		hcache_find(pGUID, &p);
-		r.push_back({ p.pos.x, p.pos.y, 30 });
+		r.push_back({ p.pos.x, p.pos.y, 24 });
 	}
 
 	if (rev_flags & REV_BOSS) {
@@ -412,7 +412,7 @@ std::vector<rev_target_t> hconfig_t::get_rev_targets() const {
 	if (rev_flags & REV_FOCUS) {
 		WO_cached f;
 		if (hcache_find(hcache.focus_GUID, &f)) {
-			r.push_back({ f.pos.x, f.pos.y, 30 });
+			r.push_back({ f.pos.x, f.pos.y, 32 });
 		}
 	}
 

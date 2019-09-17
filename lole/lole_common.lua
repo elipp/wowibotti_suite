@@ -163,7 +163,11 @@ local function putricide_ooze_avoid()
     local opos = vec3:create(get_unit_position("target"))
     if ooze_avoid_level == 0 then
       local wp0 = vec3:create(4404.2, 3224.8, 389.4)
-      walk_to(wp0.x, wp0.y, wp0.z, CTM_PRIO_NOOVERRIDE)
+      local dwp = wp0:sublength(ppos)
+
+      if dwp > 2 then
+        walk_to(wp0.x, wp0.y, wp0.z, CTM_PRIO_NOOVERRIDE)
+      end
 
       local dl = opos:sublength(ppos)
       if (dl < 15) then
