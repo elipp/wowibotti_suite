@@ -163,7 +163,7 @@ local function putricide_ooze_avoid()
     local opos = vec3:create(get_unit_position("target"))
     if ooze_avoid_level == 0 then
       local wp0 = vec3:create(4404.2, 3224.8, 389.4)
-      walk_to(wp0.x, wp0.y, wp0.z, CTM_PRIO_FOLLOW)
+      walk_to(wp0.x, wp0.y, wp0.z, CTM_PRIO_NOOVERRIDE)
 
       local dl = opos:sublength(ppos)
       if (dl < 15) then
@@ -172,7 +172,7 @@ local function putricide_ooze_avoid()
 
     elseif ooze_avoid_level == 1 then
       local wp1 = vec3:create(4403.6, 3199.8, 389.4)
-      walk_to(wp1.x, wp1.y, wp1.z, CTM_PRIO_FOLLOW)
+      walk_to(wp1.x, wp1.y, wp1.z, CTM_PRIO_NOOVERRIDE)
 
       local dl = wp1:sublength(ppos)
       if (dl < 3) then
@@ -181,7 +181,7 @@ local function putricide_ooze_avoid()
 
     elseif ooze_avoid_level == 2 then
       local wp2 = vec3:create(4360.1, 3156.6, 389.4)
-      walk_to(wp2.x, wp2.y, wp2.z, CTM_PRIO_FOLLOW)
+      walk_to(wp2.x, wp2.y, wp2.z, CTM_PRIO_NOOVERRIDE)
     end
   else
     ooze_avoid_level = 0
