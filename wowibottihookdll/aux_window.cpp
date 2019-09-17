@@ -79,7 +79,7 @@ static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 	},
 {"Rotface",
 hconfig_t("Rotface",
-	{new avoid_npc_t(12, "Sticky Ooze") },
+	{new avoid_npc_t(15, "Sticky Ooze") },
 	arena_t { 140, {4445.9, 3137.3}, 360.4}, {}) },
 };
 

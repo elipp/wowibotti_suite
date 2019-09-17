@@ -99,8 +99,8 @@ function combat_hunter()
 
   caster_range_check(9.7,35)
 
-  local BEST_ASPECT = "Aspect of the Dragonhawk"
-  --local BEST_ASPECT = "Aspect of the Wild"
+  --local BEST_ASPECT = "Aspect of the Dragonhawk"
+  local BEST_ASPECT = "Aspect of the Wild"
 
   if UnitMana("player") > 4000 and (not has_buff("player", BEST_ASPECT)) then
     if change_aspect(BEST_ASPECT) then return end

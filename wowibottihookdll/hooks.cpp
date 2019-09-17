@@ -172,6 +172,7 @@ void unhook_DrawIndexedPrimitive() {
 
 static DWORD WINAPI eject_DLL(LPVOID lpParameter) {
 	close_console();
+//	Sleep(100); // in principle, the Present_hook function would have nowhere to return after CreateThread if FreeLibraryAndExitThread should finish earlier
 	FreeLibraryAndExitThread(inj_hModule, 0);
 }
 
@@ -282,10 +283,6 @@ static void __stdcall Present_hook() {
 		// might be race condition territory right here
 		CreateThread(NULL, 0, eject_DLL, NULL, 0, 0);
 	}
-
-
-	//execute_current_hconfig_if_active();
-
 
 }
 
