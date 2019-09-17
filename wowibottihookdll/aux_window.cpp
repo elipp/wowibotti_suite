@@ -30,7 +30,7 @@ static ShaderProgram *imp_shader;
 static ShaderProgram *rev_shader;
 static ShaderProgram *debug_shader;
 
-static std::vector<WO_cached> hcache;
+static hcache_t hcache;
 static std::mutex hcache_mutex;	
 
 static BYTE* pixbuf;
@@ -87,8 +87,9 @@ hconfig_t("Rotface",
 
 {"Putricide",
 hconfig_t("Professor Putricide",
-	{new avoid_npc_t(15, "Professor Putricide"), new avoid_npc_t(15, "Choking Gas Bomb"), new avoid_npc_t(20, "Growing Ooze Puddle") },
-	REV_SELF | REV_BOSS,
+	{ //new avoid_npc_t(15, "Professor Putricide"), 
+	new avoid_npc_t(12, "Choking Gas Bomb"), new avoid_npc_t(16, "Growing Ooze Puddle") },
+	REV_SELF | REV_FOCUS,
 	arena_t { 140, {4357, 3211.5}, 389.4 },
 	{}
 	)},
@@ -295,7 +296,7 @@ std::vector<avoid_point_t> avoid_npc_t::get_points() const {
 	std::vector<avoid_point_t> p;
 
 	hcache_mutex.lock();
-	for (const auto &o : hcache) {
+	for (const auto &o : hcache.objects) {
 		if (o.type == OBJECT_TYPE_NPC) {
 			if (o.name == this->name) {
 				vec3 pos = o.pos;
@@ -313,7 +314,7 @@ std::vector<avoid_point_t> avoid_spellobject_t::get_points() const {
 	std::vector<avoid_point_t> p;
 
 	hcache_mutex.lock();
-	for (const auto &o : hcache) {
+	for (const auto &o : hcache.objects) {
 		if (o.type == OBJECT_TYPE_DYNAMICOBJECT) {
 			if (o.DO_spellid == this->spellID) {
 				vec3 pos = o.pos;
@@ -334,7 +335,7 @@ std::vector<avoid_point_t> avoid_units_t::get_points() const {
 	GUID_t player_guid = OM.get_local_GUID();
 
 	hcache_mutex.lock();
-	for (const auto &o : hcache) {
+	for (const auto &o : hcache.objects) {
 		if (o.type == OBJECT_TYPE_UNIT) {
 			if (o.GUID != player_guid) {
 				vec3 pos = o.pos;
@@ -359,7 +360,7 @@ arena_impassable_t::arena_impassable_t(vec2_t p, vec2_t n) {
 
 static int hcache_find(const std::string& name, WO_cached *out) {
 	hcache_mutex.lock();
-	for (const auto& o : hcache) {
+	for (const auto& o : hcache.objects) {
 		if (name == o.name) {
 			*out = o;
 			hcache_mutex.unlock();
@@ -372,7 +373,7 @@ static int hcache_find(const std::string& name, WO_cached *out) {
 
 static int hcache_find(GUID_t g, WO_cached *out) {
 	hcache_mutex.lock();
-	for (const auto& o : hcache) {
+	for (const auto& o : hcache.objects) {
 		if (g == o.GUID) {
 			*out = o;
 			hcache_mutex.unlock();
@@ -400,6 +401,21 @@ std::vector<rev_target_t> hconfig_t::get_rev_targets() const {
 			r.push_back({ b.pos.x, b.pos.y, 30 });
 		}
 	}
+
+	if (rev_flags & REV_TARGET) {
+		WO_cached t;
+		if (hcache_find(hcache.target_GUID, &t)) {
+			r.push_back({ t.pos.x, t.pos.y, 30 });
+		}
+	}
+
+	if (rev_flags & REV_FOCUS) {
+		WO_cached f;
+		if (hcache_find(hcache.focus_GUID, &f)) {
+			r.push_back({ f.pos.x, f.pos.y, 30 });
+		}
+	}
+
 	return r;
 
 }

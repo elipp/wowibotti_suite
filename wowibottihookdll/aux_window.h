@@ -75,7 +75,10 @@ typedef struct rev_target_t {
 enum {
 	REV_SELF = 0x1,
 	REV_BOSS = 0x2,
+	REV_TARGET = 0x4,
+	REV_FOCUS = 0x8,
 	REV_DEFAULT = 0x3,
+
 };
 
 class hconfig_t {

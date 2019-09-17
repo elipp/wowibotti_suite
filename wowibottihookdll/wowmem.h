@@ -206,6 +206,13 @@ struct WO_cached {
 	}
 };
 
+class hcache_t {
+public:
+	std::string playername;
+	GUID_t target_GUID;
+	GUID_t focus_GUID;
+	std::vector<WO_cached> objects;
+};
 
 class ObjectManager {
 
@@ -249,7 +256,7 @@ public:
 	std::vector<WowObject> get_NPCs_by_name(const std::string &name);
 	WowObject get_closest_NPC_by_name(const std::vector<WowObject> &objs, const vec3 &other);
 
-	std::vector<WO_cached> get_snapshot() const; // get snapshot of current units, NPCs and DOs
+	hcache_t get_snapshot() const; // get snapshot of current units, NPCs and DOs
 
 };
 
