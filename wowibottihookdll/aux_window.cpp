@@ -88,7 +88,7 @@ hconfig_t("Rotface",
 {"Putricide",
 hconfig_t("Professor Putricide",
 	{new avoid_npc_t(15, "Professor Putricide"), new avoid_npc_t(15, "Choking Gas Bomb"), new avoid_npc_t(20, "Growing Ooze Puddle") },
-	REV_SELF,
+	REV_BOSS,
 	arena_t { 140, {4357, 3211.5}, 389.4 },
 	{}
 	)},
