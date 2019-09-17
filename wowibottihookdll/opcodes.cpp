@@ -1345,6 +1345,7 @@ static void hconfig_action(const std::vector<std::string>& args) {
 		if (m.current_hotness > HOTNESS_THRESHOLD && dh > DH_THRESHOLD) {
 			dual_echo("HOTNESS: %s - best world pos: %.1f, %.1f (best hotness %u, current %u, threshold: %u)?", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
 			dual_echo("walking to a better position ^");
+			DoString("SpellStopCasting()");
 			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
 		}
 	}
