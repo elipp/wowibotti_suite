@@ -79,8 +79,16 @@ static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 	},
 {"Rotface",
 hconfig_t("Rotface",
-	{new avoid_npc_t(15, "Sticky Ooze") },
-	arena_t { 140, {4445.9, 3137.3}, 360.4}, {}) },
+	{new avoid_npc_t(10, "Sticky Ooze") },
+	arena_t { 140, {4445.9, 3137.3}, 360.4}, 
+	{}) },
+
+{"Putricide",
+hconfig_t("Professor Putricide",
+	{new avoid_npc_t(15, "Professor Putricide"), new avoid_npc_t(15, "Choking Gas Bomb"), new avoid_npc_t(20, "Growing Ooze Puddle") },
+	arena_t { 140, {4357, 3211.5}, 389.4 },
+	{}
+	)},
 };
 
 
