@@ -8,14 +8,6 @@ end
 
 combat_mage_fire = function()
 
-	-- L_TargetUnit("Ghostly Priest")
-	-- if UnitExists("target") then
-	-- 	if UnitCastingInfo("target") and string.find(UnitCastingInfo("target"), "Fear") and GetSpellCooldown("Counterspell") == 0 then
-	-- 		L_SpellStopCasting()
-	-- 		L_CastSpellByName("Counterspell")
-	-- 	end
-	-- end
-
 	if player_casting() then return end
 
 	if ((GetItemCount(33312) == 0) and (not UnitAffectingCombat("player"))) then
@@ -43,10 +35,7 @@ combat_mage_fire = function()
 		if cleanse_mage() then return end
 	end
 
-	--if cleanse_raid("Curse of the Plaguebringer") then return end
-
 	if not validate_target() then return end
-	-- L_RunMacroText("/lole target 0xF1300027C8000007") -- FOR ONYXIA, REPLACE GUID OFC
 
 	caster_range_check(0,36);
 

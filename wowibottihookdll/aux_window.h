@@ -5,6 +5,11 @@
 
 #include "hooks.h"
 #include "linalg.h"
+#include "wowmem.h"
+
+#define HMAP_SIZE 768
+#define ARENA_SIZE 140.0f // yards
+
 
 #define GL_ARRAY_BUFFER                   0x8892
 #define GL_ELEMENT_ARRAY_BUFFER           0x8893
@@ -84,13 +89,12 @@ enum {
 class hconfig_t {
 public:
 	std::vector<avoid_t*> avoid;
-	arena_t arena;
 	std::vector<arena_impassable_t> impassable;
 	std::string bossname;
 	int rev_flags;
-	hconfig_t() : rev_flags(0), arena({}) {};
-	hconfig_t(const std::string &boss_name, const std::vector<avoid_t*>& avoid_stuff, int rflags, arena_t arena_bounds, const std::vector<arena_impassable_t> &imp)
-		: bossname(boss_name), avoid(avoid_stuff), rev_flags(rflags), arena(arena_bounds), impassable(imp) {};
+	hconfig_t() : rev_flags(0) {};
+	hconfig_t(const std::string &boss_name, const std::vector<avoid_t*>& avoid_stuff, int rflags, const std::vector<arena_impassable_t> &imp)
+		: bossname(boss_name), avoid(avoid_stuff), rev_flags(rflags), impassable(imp) {};
 	std::vector<rev_target_t> get_rev_targets() const;
 };
 
@@ -100,6 +104,8 @@ typedef struct hotness_status_t {
 	vec3 best_world_pos;
 	BYTE current_hotness;
 } hotness_status_t;
+
+const hcache_t& get_hcache();
 
 int create_aux_window(const char *title, int width, int height);
 

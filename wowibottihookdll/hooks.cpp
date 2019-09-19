@@ -480,9 +480,8 @@ static void __stdcall dump_sendpacket(BYTE *packet) {
 
 		break;
 	}
-	default:
-		////if (opcode != 0xAB) break;
 
+	default:
 		//PRINT("opcode: 0x%04X (total_length %d)\n", opcode, total_bytes);
 		//for (int i = 0; i < total_bytes; ++i) {
 		//	PRINT("%02X ", packet[i]);

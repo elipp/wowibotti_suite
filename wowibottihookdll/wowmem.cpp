@@ -11,6 +11,8 @@
 int const (*LUA_DoString)(const char*, const char*, const char*) = (int const(*)(const char*, const char*, const char*)) LUA_DoString_addr;
 int const (*SelectUnit)(GUID_t) = (int const(*)(GUID_t)) SelectUnit_addr;
 
+std::mutex hcache_t::mutex;
+
 void DoString(const char* format, ...) {
 	char cmd[1024];
 
@@ -730,11 +732,18 @@ hcache_t ObjectManager::get_snapshot() const {
 
 	WowObject iter;
 	get_first_object(&iter);
+	WowObject p;
+	get_local_object(&p);
 
 	while (iter.valid()) {
 		int type = iter.get_type();
 		if (type == OBJECT_TYPE_NPC || type == OBJECT_TYPE_UNIT || type == OBJECT_TYPE_DYNAMICOBJECT) {
-			c.objects.push_back(WO_cached(iter));
+			if (iter.get_GUID() == get_local_GUID()) {
+				c.player = WO_cached(iter);
+			}
+			else {
+				c.push(WO_cached(iter, get_reaction(p, iter))); // get_reaction returns -1 if the types are incorrect
+			}
 		}
 		iter = iter.next();
 	}
@@ -906,7 +915,13 @@ float get_distance2(const WowObject &a, const WowObject &b) {
 }	
 
 int get_reaction(const WowObject &A, const WowObject &B) {
-	DWORD UnitReaction = 0x7251C0;
+	static const DWORD UnitReaction = 0x7251C0;
+	
+	DWORD typeA = A.get_type();
+	DWORD typeB = B.get_type();
+
+	if (!(typeA == OBJECT_TYPE_UNIT || typeA == OBJECT_TYPE_NPC)) return -1;
+	if (!(typeB == OBJECT_TYPE_UNIT || typeB == OBJECT_TYPE_NPC)) return -1;
 	
 	DWORD baseA = A.get_base();
 	DWORD baseB = B.get_base();

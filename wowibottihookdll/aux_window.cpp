@@ -31,7 +31,10 @@ static ShaderProgram *rev_shader;
 static ShaderProgram *debug_shader;
 
 static hcache_t hcache;
-static std::mutex hcache_mutex;	
+
+const hcache_t& get_hcache() {
+	return hcache;
+}
 
 static BYTE* pixbuf;
 
@@ -66,11 +69,9 @@ void hotness_enable(bool state) {
 
 static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 	// this will leak memory when ejected :D NVM
-	{"Marrowgar",
-	hconfig_t("Lord Marrowgar",
+	{"Marrowgar", hconfig_t("Lord Marrowgar",
 		{ new avoid_npc_t(15, "Lord Marrowgar"), new avoid_npc_t(10, "Coldflame"), new avoid_spellobject_t(10, 69146), new avoid_units_t(8) },
 		REV_SELF | REV_BOSS,
-		arena_t { 140, {-390, 2215 }, 42 },
 		{ arena_impassable_t(vec2(-401.8, 2170), vec2(-0.762509, -0.646977)),
 		arena_impassable_t(vec2(-422.9, 2200.4), vec2(-1.000000, 0.000000)),
 		arena_impassable_t(vec2(-412.5, 2241.4), vec2(-0.834276, 0.551347)),
@@ -78,21 +79,13 @@ static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 		arena_impassable_t(vec2(-357.7, 2182.9), vec2(0.850798, -0.525493)),
 		})
 	},
-{"Rotface",
-hconfig_t("Rotface",
-	{new avoid_npc_t(10, "Sticky Ooze") },
-	REV_SELF,
-	arena_t { 140, {4445.9, 3137.3}, 360.4},
-	{}) },
+	{"Rotface", hconfig_t("Rotface",
+	{new avoid_npc_t(10, "Sticky Ooze") }, REV_SELF, {}) },
 
-{"Putricide",
-hconfig_t("Professor Putricide",
+	{"Putricide", hconfig_t("Professor Putricide",
 	{ //new avoid_npc_t(15, "Professor Putricide"), 
 	new avoid_npc_t(12, "Choking Gas Bomb"), new avoid_npc_t(16, "Growing Ooze Puddle") },
-	REV_SELF | REV_FOCUS,
-	arena_t { 140, {4357, 3211.5}, 389.4 },
-	{}
-	)},
+	REV_SELF | REV_FOCUS, {} )},
 };
 
 
@@ -107,9 +100,9 @@ hotness_status_t hotness_status() {
 
 void update_hotness_cache() {
 	ObjectManager OM;
-	hcache_mutex.lock();
+	hcache_t::mutex.lock();
 	hcache = OM.get_snapshot();
-	hcache_mutex.unlock();
+	hcache_t::mutex.unlock();
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -209,56 +202,10 @@ static int hconfig_set_actual(const std::string& confname) {
 	}
 }
 
-
-
-static GLuint deb_VAOid, deb_VBOid;
-static int deb_initd = 0;
-
-static void draw_debug_info() {
-
-	static tri_t deb_tris[2];
-
-	if (!deb_initd) {
-		glGenVertexArrays(1, &deb_VAOid);
-		glBindVertexArray(deb_VAOid);
-		glGenBuffers(1, &deb_VBOid);
-		glBindBuffer(GL_ARRAY_BUFFER, deb_VBOid);
-		glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(tri_t), NULL, GL_DYNAMIC_DRAW);
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(
-			0,                  // attribute 0
-			2,                  // size
-			GL_FLOAT,           // type
-			GL_FALSE,           // normalized?
-			0,                  // stride
-			(void*)0            // array buffer offset
-		);
-		glBindVertexArray(0);
-		deb_initd = 1;
-	}
-
-}
-
-static vec2_t world2screen(float x, float y, const arena_t& arena) {
-
-	const float A = (arena.middle.y + arena.size / 2.0);
-	const float B = (arena.middle.x - arena.size / 2.0);
-
-	float nx = (-y + A) / arena.size;
-	float ny = (x - B) / arena.size;
-	return vec2(nx * 2 - 1, ny * 2 - 1);
-
-}
-
-static vec2_t screen2world(float x, float y, const arena_t& arena) {
-
-	const float A = (arena.middle.y + arena.size / 2.0);
-	const float B = (arena.middle.x - arena.size / 2.0);
-
-	float nx = B + arena.size * (y + 1) / 2.0f;
-	float ny = A - arena.size * (x + 1) / 2.0f;
-
-	return vec2(nx, ny);
+static inline int clampi(int i, int min, int max) {
+	if (i < min) return min;
+	if (i > max) return max;
+	return i;
 }
 
 static vec2_t tex2screen(int x, int y) {
@@ -268,26 +215,29 @@ static vec2_t tex2screen(int x, int y) {
 
 	return vec2(2 * fx - 1, 2 * fy - 1);
 }
-
-static vec2_t tex2world(int x, int y, const arena_t& arena) {
-	vec2_t t = tex2screen(x, y);
-	return screen2world(t.x, t.y, arena);
-}
-
-static inline int clampi(int i, int min, int max) {
-	if (i < min) return min;
-	if (i > max) return max;
-	return i;
-}
-
 static vec2i_t screen2tex(float x, float y) {
 	float xt = clampi((x + 1) * HMAP_SIZE / 2.0f, 0, HMAP_SIZE - 1);
 	float yt = clampi((y + 1) * HMAP_SIZE / 2.0f, 0, HMAP_SIZE - 1);
 	return { (int)round(xt), (int)round(yt) };
 }
 
+static vec2_t world2screen(float x, float y) {
+	const vec3& p = hcache.player.pos;
+	return vec2((-y + p.y) / (0.5f * ARENA_SIZE), (x - p.x) / (0.5f * ARENA_SIZE));
+}
+
+static vec2_t screen2world(float x, float y) {
+	const vec3& p = hcache.player.pos;
+	return vec2(p.x + y*0.5*ARENA_SIZE, p.y - x*0.5*ARENA_SIZE);
+}
+
+static vec2_t tex2world(int x, int y) {
+	vec2_t t = tex2screen(x, y);
+	return screen2world(t.x, t.y);
+}
+
 static vec2i_t world2tex(float x, float y) {
-	vec2_t scr = world2screen(x, y, current_hconfig->arena);
+	vec2_t scr = world2screen(x, y);
 	return screen2tex(scr.x, scr.y);
 }
 
@@ -295,7 +245,7 @@ static vec2i_t world2tex(float x, float y) {
 std::vector<avoid_point_t> avoid_npc_t::get_points() const {
 	std::vector<avoid_point_t> p;
 
-	hcache_mutex.lock();
+	hcache_t::mutex.lock();
 	for (const auto &o : hcache.objects) {
 		if (o.type == OBJECT_TYPE_NPC) {
 			if (o.name == this->name) {
@@ -305,7 +255,7 @@ std::vector<avoid_point_t> avoid_npc_t::get_points() const {
 			}
 		}
 	}
-	hcache_mutex.unlock();
+	hcache_t::mutex.unlock();
 
 	return p;
 }
@@ -313,7 +263,7 @@ std::vector<avoid_point_t> avoid_npc_t::get_points() const {
 std::vector<avoid_point_t> avoid_spellobject_t::get_points() const {
 	std::vector<avoid_point_t> p;
 
-	hcache_mutex.lock();
+	hcache_t::mutex.lock();
 	for (const auto &o : hcache.objects) {
 		if (o.type == OBJECT_TYPE_DYNAMICOBJECT) {
 			if (o.DO_spellid == this->spellID) {
@@ -323,7 +273,7 @@ std::vector<avoid_point_t> avoid_spellobject_t::get_points() const {
 			}
 		}
 	}
-	hcache_mutex.unlock();
+	hcache_t::mutex.unlock();
 
 	return p;
 }
@@ -334,7 +284,7 @@ std::vector<avoid_point_t> avoid_units_t::get_points() const {
 	ObjectManager OM;
 	GUID_t player_guid = OM.get_local_GUID();
 
-	hcache_mutex.lock();
+	hcache_t::mutex.lock();
 	for (const auto &o : hcache.objects) {
 		if (o.type == OBJECT_TYPE_UNIT) {
 			if (o.GUID != player_guid) {
@@ -344,7 +294,7 @@ std::vector<avoid_point_t> avoid_units_t::get_points() const {
 			}
 		}
 	}
-	hcache_mutex.unlock();
+	hcache_t::mutex.unlock();
 
 	return p;
 }
@@ -358,31 +308,7 @@ arena_impassable_t::arena_impassable_t(vec2_t p, vec2_t n) {
 	this->tri = { v1, v2, v3 };
 }
 
-static int hcache_find(const std::string& name, WO_cached *out) {
-	hcache_mutex.lock();
-	for (const auto& o : hcache.objects) {
-		if (name == o.name) {
-			*out = o;
-			hcache_mutex.unlock();
-			return 1;
-		}
-	}
-	hcache_mutex.unlock();
-	return 0;
-}
 
-static int hcache_find(GUID_t g, WO_cached *out) {
-	hcache_mutex.lock();
-	for (const auto& o : hcache.objects) {
-		if (g == o.GUID) {
-			*out = o;
-			hcache_mutex.unlock();
-			return 1;
-		}
-	}
-	hcache_mutex.unlock();
-	return 0;
-}
 
 std::vector<rev_target_t> hconfig_t::get_rev_targets() const {
 	ObjectManager OM;
@@ -390,29 +316,28 @@ std::vector<rev_target_t> hconfig_t::get_rev_targets() const {
 	std::vector<rev_target_t> r;
 
 	if (rev_flags & REV_SELF) {
-		WO_cached p;
-		hcache_find(pGUID, &p);
-		r.push_back({ p.pos.x, p.pos.y, 24 });
+		const WO_cached *p = &hcache.player;
+		r.push_back({ p->pos.x, p->pos.y, 24 });
 	}
 
 	if (rev_flags & REV_BOSS) {
-		WO_cached b;
-		if (hcache_find(bossname, &b)) {
-			r.push_back({ b.pos.x, b.pos.y, 30 });
+		const WO_cached* b = hcache.find(bossname);
+		if (b) {
+			r.push_back({ b->pos.x, b->pos.y, 30 });
 		}
 	}
 
 	if (rev_flags & REV_TARGET) {
-		WO_cached t;
-		if (hcache_find(hcache.target_GUID, &t)) {
-			r.push_back({ t.pos.x, t.pos.y, 30 });
+		const WO_cached* t = hcache.find(hcache.target_GUID);
+		if (t) {
+			r.push_back({ t->pos.x, t->pos.y, 30 });
 		}
 	}
 
 	if (rev_flags & REV_FOCUS) {
-		WO_cached f;
-		if (hcache_find(hcache.focus_GUID, &f)) {
-			r.push_back({ f.pos.x, f.pos.y, 32 });
+		const WO_cached* f = hcache.find(hcache.focus_GUID);
+		if (f) {
+			r.push_back({ f->pos.x, f->pos.y, 32 });
 		}
 	}
 
@@ -447,8 +372,8 @@ static void draw_avoid(Render* r) {
 	if (num_avoid_points > 0) {
 		glUseProgram(r->shader->programHandle());
 		glUniform2fv(r->shader->get_uniform_location("render_target_size"), 1, scr);
-		glUniform2fv(r->shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
-		glUniform1f(r->shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
+		glUniform2fv(r->shader->get_uniform_location("player_pos"), 1, &hcache.player.pos.x);
+		glUniform1f(r->shader->get_uniform_location("arena_size"), ARENA_SIZE);
 
 		glBindVertexArray(r->VAOid);
 		glDrawArrays(GL_POINTS, 0, num_avoid_points);
@@ -481,8 +406,8 @@ static void draw_imp(Render* r) {
 
 	if (current_hconfig->impassable.size() > 0) {
 		glUseProgram(r->shader->programHandle());
-		glUniform2fv(r->shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
-		glUniform1f(r->shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
+		glUniform2fv(r->shader->get_uniform_location("player_pos"), 1, &hcache.player.pos.x); // should work, even though pos actually a vec3
+		glUniform1f(r->shader->get_uniform_location("arena_size"), ARENA_SIZE);
 
 		glBindVertexArray(r->VAOid);
 		glDrawArrays(GL_TRIANGLES, 0, current_hconfig->impassable.size() * 3);
@@ -518,8 +443,8 @@ static void draw_rev(Render* r) {
 	glUseProgram(r->shader->programHandle());
 	glBindVertexArray(r->VAOid);
 	glUniform2fv(r->shader->get_uniform_location("render_target_size"), 1, scr);
-	glUniform2fv(r->shader->get_uniform_location("arena_middle"), 1, &current_hconfig->arena.middle.x);
-	glUniform1f(r->shader->get_uniform_location("arena_size"), current_hconfig->arena.size);
+	glUniform2fv(r->shader->get_uniform_location("player_pos"), 1, &hcache.player.pos.x);
+	glUniform1f(r->shader->get_uniform_location("arena_size"), ARENA_SIZE);
 
 	auto rev = current_hconfig->get_rev_targets();
 	for (const auto& R : rev) {
@@ -550,9 +475,11 @@ static void init_debug_render(Render* r) {
 	glBindVertexArray(0);
 }
 
+static const double halfpi = 0.5 * M_PI;
+static const double dpi = 2.0 * M_PI / 3.0;
+
 static inline tri_t get_tri(vec2_t pos, float size) {
-	static const double halfpi = 0.5 * M_PI;
-	static const double dpi = 2.0 * M_PI / 3.0;
+
 	return { 
 		pos + size * vec2(cos(halfpi),				sin(halfpi)),
 		pos + size * vec2(cos(halfpi + dpi),		sin(halfpi + dpi)),
@@ -560,16 +487,34 @@ static inline tri_t get_tri(vec2_t pos, float size) {
 
 }
 
+static inline tri_t get_arrowhead(vec2_t pos, float size, float theta) {
+
+	return {
+		pos + 1.5*size * vec2(cos(halfpi + theta),				sin(halfpi + theta)),
+		pos + size * vec2(cos(halfpi + dpi + theta),		sin(halfpi + dpi + theta)),
+		pos + size * vec2(cos(halfpi + 2.0 * dpi + theta),	sin(halfpi + 2.0 * dpi + theta)) };
+
+}
+
+
 static void draw_debug(Render* r) {
 	glUseProgram(r->shader->programHandle());
 	glBindVertexArray(r->VAOid);
 	
+	static const GLfloat blue[] = { 0, 0, 1 };
+	static const GLfloat green[] = { 0, 1, 0 };
+	glUniform3fv(r->shader->get_uniform_location("color"), 1, green);
 	vec2_t pos = tex2screen(hstatus.best_pixel.x, hstatus.best_pixel.y);
-	tri_t tri = get_tri(pos, 0.025);
+	tri_t tri = get_tri(pos, 0.015);
 
 	glBindBuffer(GL_ARRAY_BUFFER, r->VBOid);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(tri_t), &tri, GL_DYNAMIC_DRAW);
 
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+	
+	glUniform3fv(r->shader->get_uniform_location("color"), 1, blue);
+	tri = get_arrowhead({ 0, 0 }, 0.025, hcache.player.rot);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(tri_t), &tri, GL_DYNAMIC_DRAW);
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 
 }
@@ -636,14 +581,16 @@ static void update_hstatus() {
 	pixinfo_t lowest = get_lowest_pixel();
 	hstatus.best_pixel = lowest.pos;
 	hstatus.best_hotness = lowest.value;
-	vec2_t w = tex2world(lowest.pos.x, lowest.pos.y, current_hconfig->arena);
-	hstatus.best_world_pos = vec3(w.x, w.y, current_hconfig->arena.z);
+	vec2_t w = tex2world(lowest.pos.x, lowest.pos.y);
+	vec2_t bu = 1.5 * unit(w - vec2(hcache.player.pos.x, hcache.player.pos.y));
+	hstatus.best_world_pos = vec3(w.x + bu.x, w.y + bu.y, hcache.player.pos.z); // the boss arenas are generally flat
 	ObjectManager OM;
 	WowObject p;
 	OM.get_local_object(&p);
 	vec3 ppos = p.get_pos();
 	vec2i_t ppos_tex = world2tex(ppos.x, ppos.y);
 	hstatus.current_hotness = get_pixel(ppos_tex.x, ppos_tex.y);
+
 	//PRINT("lowest: (%d, %d), value %u (world: %f, %f), (player pixel: %u, %u), current_hotness = %u\n", lowest.pos.x, lowest.pos.y, lowest.value, w.x, w.y, ppos_tex.x, ppos_tex.y, hstatus.current_hotness);
 }
 
@@ -660,7 +607,7 @@ void aux_draw() {
 	for (auto& it : renders) {
 		it.second.draw();
 	}
-
+	
 	glReadPixels(0, 0, HMAP_SIZE, HMAP_SIZE, GL_RED, GL_UNSIGNED_BYTE, pixbuf);
 	update_hstatus();
 
@@ -837,9 +784,10 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 
 	initialize_renders();
 
-	avoid_shader->cache_uniform_location({ "render_target_size", "arena_middle", "arena_size" });
-	imp_shader->cache_uniform_location({ "arena_middle", "arena_size" });
-	rev_shader->cache_uniform_location({ "world_pos", "radius", "render_target_size", "arena_middle", "arena_size" });
+	avoid_shader->cache_uniform_location({ "render_target_size", "player_pos", "arena_size" });
+	imp_shader->cache_uniform_location({ "arena_size", "player_pos" });
+	rev_shader->cache_uniform_location({ "world_pos", "radius", "render_target_size", "player_pos", "arena_size" });
+	debug_shader->cache_uniform_location({ "color" });
 
 	pixbuf = new BYTE[HMAP_SIZE * HMAP_SIZE]; // apparently we can also only read the red channel with glReadPixels so skip the * 4 (= 4 bytes of RGBA)
 	memset(pixbuf, 0, HMAP_SIZE * HMAP_SIZE);
@@ -889,17 +837,11 @@ int create_aux_window(const char* title, int width, int height) {
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	switch (message)
-	{
-	case WM_CREATE:
-		break;
-	
-	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
-		break;
+	switch (message) {
+		default:
+			return DefWindowProc(hWnd, message, wParam, lParam);
+			break;
 	}
-	return 0;
-
 }
 
 void opengl_cleanup() {
