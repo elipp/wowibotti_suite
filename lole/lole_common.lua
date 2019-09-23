@@ -192,10 +192,23 @@ local function putricide_ooze_avoid()
   end
 end
 
+local function blast_cannons()
+    if UnitAffectingCombat("player") then
+      local n = UnitName("player")
+      if (n == "Iijj" or n == "Spobodi") then -- or n == "Kuratorn") then
+          if UnitInVehicle("player") then
+            L_RunScript("if VehicleMenuBarPowerBar.currValue > 95 then VehicleMenuBarActionButton2:Click() else VehicleMenuBarActionButton1:Click() end")
+          end
+      end
+    end
+end
+
 local REMOVE_THIS_FRAME = CreateFrame("frame", nil, UIParent)
 REMOVE_THIS_FRAME:SetScript("OnUpdate",
 
 function()
+
+  blast_cannons()
 
   if not playermode() then
 
@@ -204,9 +217,6 @@ function()
     -- end
 
     -- this is for gunship
-    if UnitInVehicle("player") then
-      L_RunScript("if VehicleMenuBarPowerBar.currValue > 95 then VehicleMenuBarActionButton2:Click() else VehicleMenuBarActionButton1:Click() end")
-    end
 
     if unit_castorchannel("focus") == "Staggering Stomp" then L_SpellStopCasting(); return; end
 

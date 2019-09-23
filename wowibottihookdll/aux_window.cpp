@@ -80,7 +80,7 @@ static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 		})
 	},
 	{"Rotface", hconfig_t("Rotface",
-	{new avoid_npc_t(10, "Sticky Ooze") }, REV_SELF, {}) },
+	{new avoid_npc_t(12, "Sticky Ooze") }, REV_SELF, {}) },
 
 	{"Putricide", hconfig_t("Professor Putricide",
 	{ //new avoid_npc_t(15, "Professor Putricide"), 
