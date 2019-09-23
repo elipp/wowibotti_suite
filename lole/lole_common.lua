@@ -199,9 +199,9 @@ function()
 
   if not playermode() then
 
-    if validate_target() then
-      caster_range_check(0, 36)
-    end
+    -- if validate_target() then
+    --   caster_range_check(0, 36)
+    -- end
 
     -- this is for gunship
     if UnitInVehicle("player") then
