@@ -337,7 +337,7 @@ static int LOP_focus(const std::string &arg) {
 
 }
 
-static int LOP_range_check(double minrange, double maxrange) {
+static int LOP_range_check(lua_State *L, double minrange, double maxrange) {
 	GUID_t target_GUID = get_target_GUID();
 	if (!target_GUID) return 0;
 
@@ -357,6 +357,7 @@ static int LOP_range_check(double minrange, double maxrange) {
 		// move in a straight line to a distance of minrange-1 yd from the target. Kinda bug-prone though..
 		vec3 new_point = tpos - (maxrange - 1) * diff.unit();
 		ctm_add(CTM_t(new_point, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
+		lua_pushboolean(L, true);
 		return 1;
 
 	}
@@ -364,6 +365,7 @@ static int LOP_range_check(double minrange, double maxrange) {
 		// move slightly away from the mob
 		vec3 new_point = tpos - (minrange + 3) * diff.unit();
 		ctm_add(CTM_t(new_point, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
+		lua_pushboolean(L, true);
 		return 1;
 	}
 
@@ -381,11 +383,13 @@ static int LOP_range_check(double minrange, double maxrange) {
 
 		if (d < 0) {
 			ctm_add(CTM_t(ppos + diff.unit(), CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5)); // this seems quite stable for just changing orientation.
+			lua_pushboolean(L, true);
+			return 1;
 			//ctm_face_target();
 		}
 	}
 
-	return 1;
+	return 0;
 
 }
 
@@ -1594,7 +1598,7 @@ int lop_exec(lua_State *L) {
 	case LOP_CASTER_RANGE_CHECK: {
 		double minrange = lua_tonumber(L, 2);
 		double maxrange = lua_tonumber(L, 3);
-		LOP_range_check(minrange, maxrange);
+		return LOP_range_check(L, minrange, maxrange);
 		break;
 	}
 

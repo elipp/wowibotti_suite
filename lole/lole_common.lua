@@ -198,6 +198,11 @@ REMOVE_THIS_FRAME:SetScript("OnUpdate",
 function()
 
   if not playermode() then
+
+    if validate_target() then
+      caster_range_check(0, 36)
+    end
+
     -- this is for gunship
     if UnitInVehicle("player") then
       L_RunScript("if VehicleMenuBarPowerBar.currValue > 95 then VehicleMenuBarActionButton2:Click() else VehicleMenuBarActionButton1:Click() end")

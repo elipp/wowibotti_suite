@@ -10,7 +10,6 @@
 #define HMAP_SIZE 256
 #define ARENA_SIZE 140.0f // yards
 
-
 #define GL_ARRAY_BUFFER                   0x8892
 #define GL_ELEMENT_ARRAY_BUFFER           0x8893
 #define GL_STATIC_DRAW                    0x88E4
