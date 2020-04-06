@@ -92,6 +92,15 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_ICCROCKET, 1, 1, 0),
 };
 
+static int send_wowpacket(const BYTE* sockbuf, unsigned len) {
+	static BYTE dup[256];
+	assert(sizeof(dup) >= len);
+	memcpy(dup, sockbuf, len);
+	SOCKET s = get_wow_socket_handle();
+	encrypt_packet_header(dup);
+	return send(s, (const char*)dup, len, 0);
+}
+
 
 static int LOP_lua_unlock() {
 
@@ -989,6 +998,67 @@ static int LOP_get_combat_targets(std::vector <GUID_t> *out) {
 
 }
 
+static void synthetize_CMSG_SET_FACING(float angle) {
+
+	ObjectManager OM;
+	GUID_t pGUID = OM.get_local_GUID();
+	BYTE packed_GUID[8];
+	BYTE gBYTES[8];
+	memcpy(gBYTES, &pGUID, sizeof(pGUID));
+	int mark = 0;
+	BYTE mask = 0;
+	for (int i = 0; i < 8; ++i) {
+		if (gBYTES[i] > 0) {
+			packed_GUID[mark] = gBYTES[i];
+			++mark;
+			mask |= (1 << i);
+		}
+	}
+
+	//PRINT("%llX\n", pGUID);
+	//print_bytes("gBYTES", gBYTES, sizeof(gBYTES));
+	//print_bytes("packed_GUID", packed_GUID, mark);
+	//PRINT("mask: %x\n", mask);
+
+	const BYTE packet_hdr[] = {
+		0x00, 0x27, 0xDA, 0x00, 0x00, 0x00,
+	};
+
+	bytebuffer_t packet;
+	packet.append_bytes(packet_hdr, sizeof(packet_hdr));
+	packet.append_bytes(&mask, 1);
+	packet.append_bytes(packed_GUID, mark);
+
+
+	const BYTE packet_flags[] = {
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // the first one of these seems to be a movement mask (0x1 for moving forward, 0x2 for backward and so on)
+	};
+	packet.append_bytes(packet_flags, sizeof(packet_flags));
+
+	DWORD ticks = *(DWORD*)CurrentTicks;
+	packet.append_bytes(&ticks, sizeof(ticks));
+
+	WowObject player;
+	OM.get_local_object(&player);
+	vec3 ppos = player.get_pos();
+
+	packet.append_bytes(&ppos.data[0], sizeof(ppos.data));
+	packet << angle;
+
+	// no idea what this shit is, but seems to not give a disconnect
+	const BYTE packet_end[] = {
+		0x39, 0x03, 0x00, 0x00
+	};
+
+	packet.append_bytes(packet_end, sizeof(packet_end));
+
+	send_wowpacket(packet.bytes, packet.length);
+
+	PRINT("sent facing packet!\n");
+
+}
+
+
 static float LOP_get_aoe_feasibility(float threshold) {
 	GUID_t target_GUID = get_target_GUID();
 	if (!target_GUID) return -1;
@@ -1035,30 +1105,30 @@ static float LOP_get_aoe_feasibility(float threshold) {
 }
 
 static int LOPDBG_test() {
+	synthetize_CMSG_SET_FACING(1.0f);
+	//SOCKET s = get_wow_socket_handle();
+	//PRINT("send address: %X, socket = %X\n", &send, s);
 
-	SOCKET s = get_wow_socket_handle();
-	PRINT("send address: %X, socket = %X\n", &send, s);
+	//ObjectManager OM;
 
-	ObjectManager OM;
+	//WowObject i;
+	//if (!OM.get_first_object(&i)) return 0;
+	//while (i.valid()) {
+	//	PRINT("address: %X, GUID: %llX, type: %d\n", i.get_base(), i.get_GUID(), i.get_type());
 
-	WowObject i;
-	if (!OM.get_first_object(&i)) return 0;
-	while (i.valid()) {
-		PRINT("address: %X, GUID: %llX, type: %d\n", i.get_base(), i.get_GUID(), i.get_type());
+	//	if (i.get_type() == OBJECT_TYPE_UNIT) {
+	//		vec3 pos = i.get_pos();
+	//		PRINT("name: %s, position: (%f, %f, %f), %f\n", i.unit_get_name().c_str(), pos.x, pos.y, pos.z, i.get_rot());
+	//	}
+	//	else if (i.get_type() == OBJECT_TYPE_NPC) {
+	//		vec3 pos = i.get_pos();
+	//		PRINT("name: %s, (%f, %f, %f), %f, 0x%llX\n", i.NPC_get_name().c_str(), pos.x, pos.y, pos.z, i.get_rot(), i.NPC_get_target_GUID());
+	//	}
 
-		if (i.get_type() == OBJECT_TYPE_UNIT) {
-			vec3 pos = i.get_pos();
-			PRINT("name: %s, position: (%f, %f, %f), %f\n", i.unit_get_name().c_str(), pos.x, pos.y, pos.z, i.get_rot());
-		}
-		else if (i.get_type() == OBJECT_TYPE_NPC) {
-			vec3 pos = i.get_pos();
-			PRINT("name: %s, (%f, %f, %f), %f, 0x%llX\n", i.NPC_get_name().c_str(), pos.x, pos.y, pos.z, i.get_rot(), i.NPC_get_target_GUID());
-		}
+	//	i = i.next();
+	//}
 
-		i = i.next();
-	}
-
-	return 1;
+	//return 1;
 }
 
 static int LOPDBG_capture_frame_render_stages() {
@@ -1518,6 +1588,7 @@ static int avoid_npc_with_name(const std::string &name, float radius) {
 	return 0;
 }
 
+
 int lop_exec(lua_State *L) {
 
 	// NOTE: the return value of this function --> number of values returned to caller in LUA
@@ -1839,8 +1910,11 @@ int lop_exec(lua_State *L) {
 	}
 
 	case LDOP_TEST: {
-		PRINT("resetting initial angle\n");
-		initial_angle_set = 0;
+		//PRINT("resetting initial angle\n");
+		//initial_angle_set = 0;
+		float angle = 0.0;
+		synthetize_CMSG_SET_FACING(angle);
+	//	set_local_facing(angle);
 		break;
 	}
 	case LDOP_NOCLIP: {

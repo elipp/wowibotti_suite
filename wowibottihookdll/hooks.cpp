@@ -215,6 +215,7 @@ static void __stdcall Present_hook() {
 	if (!dbg_shown) {
 		IDirect3DDevice9 *d = get_wow_ID3D9();
 		PRINT("Present: %X, BeginScene: %X, EndScene: %X, DrawIndexedPrimitive: %X\n", get_Present(), get_BeginScene(), get_EndScene(), get_DrawIndexedPrimitive());
+		PRINT("set_local_facing: %X\n", set_local_facing);
 		dbg_shown = 1;
 		srand(time(NULL));
 		//connect_to_governor();
@@ -398,7 +399,7 @@ enum {
 	CMSG_WARDEN_DATA = 0x2E7,
 };
 
-static void print_bytes(const char* title, const uint8_t *bytes, int length, int modulo) {
+static void print_bytes(const char* title, const uint8_t *bytes, int length, int modulo = 16) {
 	PRINT("%s:\n", title);
 	for (int i = 0; i < length; ++i) {
 		PRINT("%02X ", bytes[i]);
@@ -429,6 +430,7 @@ static void relay_warden_packet(BYTE *pkt, int pktlen, uint8_t source) {
 		PRINT("sent %d bytes\n", pktlen + 1);
 	}
 }
+
 
 
 static void __stdcall dump_sendpacket(BYTE *packet) {
@@ -488,14 +490,39 @@ static void __stdcall dump_sendpacket(BYTE *packet) {
 
 		break;
 	}
-	default:
-		////if (opcode != 0xAB) break;
 
-		//PRINT("opcode: 0x%04X (total_length %d)\n", opcode, total_bytes);
+	case 0xDA: {
 		//for (int i = 0; i < total_bytes; ++i) {
 		//	PRINT("%02X ", packet[i]);
 		//}
-		//PRINT("\n\n");
+		//PRINT("\n");
+		//for (int i = 0; i < total_bytes; i += 4) {
+		//	PRINT("%02d          ", i);
+		//}
+		//PRINT("\n");
+		//uint32_t lollo;
+		//memcpy(&lollo, &packet[17], sizeof(lollo));
+
+		//float fs[5];
+		//memcpy(fs, &packet[21], sizeof(fs));
+		//PRINT("opcode: 0x%04X (total_length %d)\n", opcode, total_bytes);
+		//PRINT("first int: %u (tickcount: %u, straight DEREF: %u\n", lollo, *(DWORD*)CurrentTicks);
+		//for (auto& f : fs) {
+		//	PRINT("%f ", f);
+		//}
+		//PRINT("\n");
+
+		break;
+	}
+	default:
+		//if (opcode != 0xAB) break;
+		break;
+
+		PRINT("opcode: 0x%04X (total_length %d)\n", opcode, total_bytes);
+		for (int i = 0; i < total_bytes; ++i) {
+			PRINT("%02X ", packet[i]);
+		}
+		PRINT("\n\n");
 		break;
 	}
 }

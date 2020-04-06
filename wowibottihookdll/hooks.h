@@ -40,6 +40,27 @@ typedef struct pipe_data {
 
 extern pipe_data PIPEDATA;
 
+typedef struct bytebuffer_t {
+	BYTE bytes[128];
+	size_t length;
+
+	bytebuffer_t() : length(0) {
+
+	}
+
+	bytebuffer_t& append_bytes(const void* b, int size) {
+		memcpy(bytes + length, b, size);
+		length += size;
+		return (*this);
+	}
+
+	template <typename T> bytebuffer_t& operator << (const T& arg) {
+		this->append_bytes(&arg, sizeof(arg));
+		return *this;
+	}
+
+} bytebuffer_t;
+
 typedef struct trampoline_t {
 	BYTE bytes[128];
 	size_t length;

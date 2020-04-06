@@ -234,6 +234,8 @@ DWORD get_Present();
 DWORD get_DrawIndexedPrimitive();
 IDirect3DDevice9 *get_wow_ID3D9();
 
+__declspec(noinline) void set_local_facing(float angle);
+
 GUID_t get_focus_GUID();
 
 float get_distance3(const WowObject &a, const WowObject &b);

@@ -1118,12 +1118,6 @@ local function lole_eject()
 	eject_DLL()
 end
 
-local function lole_debug_test(...)
-
-	print(lole_get("dispelmode"))
-
-end
-
 lole_subcommands = {
 	lbuffcheck = lole_leaderbuffcheck,
 	buffcheck = lole_buffcheck,

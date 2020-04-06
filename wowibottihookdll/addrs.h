@@ -57,6 +57,9 @@
 
 #define Camera_static 0xB7436C
 
+#define SetFacing (0x00989B70)
+
+
 
 //#define TicksSinceLastHWEvent 0xBE10FC // <-- tbc
 

@@ -76,24 +76,30 @@ void increment_spellcast_counter() {
 	++*spellcast_counter;
 }
 
-// this __declspec(noinline) thing has got to do with the msvc optimizer.
-// seems like the inline assembly is discarded when this func is inlined, in which case were fucked
-//__declspec(noinline) static void set_facing(float x) {
-//	void const (*SetFacing)(float) = (void const (*)(float))0x007B9DE0;
-//
-//	uint this_ecx = DEREF(0xE29D28) + 0xBE0;
-//
-//	// printf("set_facing: this_ecx: %X\n", this_ecx);
-//	// this is due to the fact that SetFacing is uses a __thiscall calling convention, 
-//	// so the base addr needs to be passed in ECX. no idea which base address this is though,
-//	// but it seems to be constant enough :D
-//
-//	__asm push ecx
-//	__asm mov ecx, this_ecx
-//	SetFacing(x);
-//	__asm pop ecx;
-//
-//}
+ //this __declspec(noinline) thing has got to do with the msvc optimizer.
+ //seems like the inline assembly is discarded when this func is inlined, in which case were fucked
+__declspec(noinline) void set_local_facing(float angle) {
+	auto pSetFacing = (void const __declspec(naked) (*)(float))SetFacing;
+	DWORD func = 0x4D3810;
+	DWORD r;
+
+	__asm call func;
+	__asm mov r, eax;
+	
+	DWORD this_ecx = DEREF(r + 0x120);
+
+	PRINT("r: %X, this_exc: %X\n", r, this_ecx);
+
+	// printf("set_facing: this_ecx: %X\n", this_ecx);
+	// this is due to the fact that SetFacing is uses a __thiscall calling convention, 
+	// so the base addr needs to be passed in ECX. no idea which base address this is though,
+	// but it seems to be constant enough :D
+
+	_asm push ecx;
+	_asm mov ecx, this_ecx;
+	pSetFacing(angle);
+
+}
 
 void camera_stuff() {
 	// the camera struct lies at [[B7436C]+7E20]
