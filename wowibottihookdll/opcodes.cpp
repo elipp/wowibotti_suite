@@ -998,14 +998,25 @@ static int LOP_get_combat_targets(std::vector <GUID_t> *out) {
 
 }
 
+static void SetFacing_local(float angle) {
+	ObjectManager OM;
+	WowObject p;
+	OM.get_local_object(&p);
+
+	float* facing_angle = (float*)(DEREF(p.get_base() + 0xD8) + 0x20);
+	PRINT("current facing_angle: %f\n", *facing_angle);
+	*facing_angle = angle;
+}
+
 static void synthetize_CMSG_SET_FACING(float angle) {
+	// NOTE: the client side address of the facing angle is at [ECX of when EIP == 989B9B] + 0x20
 
 	ObjectManager OM;
 	GUID_t pGUID = OM.get_local_GUID();
 	BYTE packed_GUID[8];
 	BYTE gBYTES[8];
 	memcpy(gBYTES, &pGUID, sizeof(pGUID));
-	int mark = 0;
+	BYTE mark = 0;
 	BYTE mask = 0;
 	for (int i = 0; i < 8; ++i) {
 		if (gBYTES[i] > 0) {
@@ -1021,7 +1032,7 @@ static void synthetize_CMSG_SET_FACING(float angle) {
 	//PRINT("mask: %x\n", mask);
 
 	const BYTE packet_hdr[] = {
-		0x00, 0x27, 0xDA, 0x00, 0x00, 0x00,
+		0x00, 0x23 + mark, 0xDA, 0x00, 0x00, 0x00,
 	};
 
 	bytebuffer_t packet;
@@ -1033,6 +1044,7 @@ static void synthetize_CMSG_SET_FACING(float angle) {
 	const BYTE packet_flags[] = {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // the first one of these seems to be a movement mask (0x1 for moving forward, 0x2 for backward and so on)
 	};
+
 	packet.append_bytes(packet_flags, sizeof(packet_flags));
 
 	DWORD ticks = *(DWORD*)CurrentTicks;
@@ -1105,7 +1117,12 @@ static float LOP_get_aoe_feasibility(float threshold) {
 }
 
 static int LOPDBG_test() {
-	synthetize_CMSG_SET_FACING(1.0f);
+	float angle = 0.0;
+	synthetize_CMSG_SET_FACING(angle);
+	SetFacing_local(angle);
+
+	return 1;
+
 	//SOCKET s = get_wow_socket_handle();
 	//PRINT("send address: %X, socket = %X\n", &send, s);
 
@@ -1910,11 +1927,7 @@ int lop_exec(lua_State *L) {
 	}
 
 	case LDOP_TEST: {
-		//PRINT("resetting initial angle\n");
-		//initial_angle_set = 0;
-		float angle = 0.0;
-		synthetize_CMSG_SET_FACING(angle);
-	//	set_local_facing(angle);
+		LOPDBG_test();
 		break;
 	}
 	case LDOP_NOCLIP: {

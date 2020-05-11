@@ -215,7 +215,6 @@ static void __stdcall Present_hook() {
 	if (!dbg_shown) {
 		IDirect3DDevice9 *d = get_wow_ID3D9();
 		PRINT("Present: %X, BeginScene: %X, EndScene: %X, DrawIndexedPrimitive: %X\n", get_Present(), get_BeginScene(), get_EndScene(), get_DrawIndexedPrimitive());
-		PRINT("set_local_facing: %X\n", set_local_facing);
 		dbg_shown = 1;
 		srand(time(NULL));
 		//connect_to_governor();
@@ -393,13 +392,14 @@ enum {
 
 enum {
 	CMSG_USE_ITEM = 0x0AB,
+	CMSG_MOVEMENT_INFO = 0x0DA,
 	CMSG_CAST_SPELL = 0x12E,
 	CMSG_SET_SELECTION = 0x13D,
 	SMSG_WARDEN_DATA = 0x2E6,
 	CMSG_WARDEN_DATA = 0x2E7,
 };
 
-static void print_bytes(const char* title, const uint8_t *bytes, int length, int modulo = 16) {
+void print_bytes(const char* title, const uint8_t *bytes, int length, int modulo) {
 	PRINT("%s:\n", title);
 	for (int i = 0; i < length; ++i) {
 		PRINT("%02X ", bytes[i]);
@@ -491,7 +491,8 @@ static void __stdcall dump_sendpacket(BYTE *packet) {
 		break;
 	}
 
-	case 0xDA: {
+	case CMSG_MOVEMENT_INFO: {
+		//print_bytes("CMSG_MOVEMENT_INFO", packet, total_bytes);
 		//for (int i = 0; i < total_bytes; ++i) {
 		//	PRINT("%02X ", packet[i]);
 		//}

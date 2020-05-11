@@ -102,3 +102,5 @@ int unpatch_all();
 
 int hexstr_to_bytearray(BYTE* bytes, int bytes_max, const char* hexstr);
 std::string bytearray_to_hexstr(const BYTE *bytes, int num_bytes);
+
+void print_bytes(const char* title, const uint8_t* bytes, int length, int modulo = 16);
