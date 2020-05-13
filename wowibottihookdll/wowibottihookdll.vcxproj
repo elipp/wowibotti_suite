@@ -157,6 +157,7 @@
     <ClInclude Include="dungeon_script.h" />
     <ClInclude Include="hooks.h" />
     <ClInclude Include="input.h" />
+    <ClInclude Include="json.hpp" />
     <ClInclude Include="linalg.h" />
     <ClInclude Include="lua.h" />
     <ClInclude Include="packet.h" />

@@ -69,9 +69,12 @@ extern HWND wow_hWnd;
 
 #define DEREF(x) *(DWORD*)(x)
 
+struct vec2;
 struct vec3;
+
 inline float dot(const vec3 &a, const vec3 &b);
-inline vec3 operator*(float  f, const vec3 &v);
+
+inline vec3 operator*(float f, const vec3 &v);
 
 struct vec3 {
 	union {
@@ -95,6 +98,7 @@ struct vec3 {
 		return l_recip*vec3(*this);
 	}
 };
+
 
 inline float dot(const vec3 &a, const vec3 &b) {
 	return a.x*b.x + a.y*b.y + a.z*b.z;

@@ -4,6 +4,7 @@
 #include <Shlobj.h> // for the function that gets the desktop directory path for current user
 #include <WinSock2.h>
 #include <time.h>
+#include <chrono>
 
 #include "opcodes.h"
 #include "ctm.h"
@@ -188,6 +189,134 @@ static void face_posthook(void *a) {
 	LOP_execute("RunMacroText(\"/startattack\")");
 }
 
+enum class POSFLAG : int {
+	NONE = 0,
+	TOONEAR,
+	TOOFAR,
+	WRONG_FACING,
+	VALID
+};
+
+
+static inline POSFLAG get_position_flags_melee(const vec3 &dpos_ideal, const vec3& tpdiff_unit, const vec3& prot_unit) {
+	float dist = dpos_ideal.length();
+	if (dist > 1.0) { return POSFLAG::TOOFAR; }
+
+	float cosb = dot(tpdiff_unit, prot_unit); // both are of length 1
+	if (cosb < 0.80) { return POSFLAG::WRONG_FACING; }
+
+	return POSFLAG::VALID;
+}
+
+
+static inline POSFLAG get_position_flags_ranged(float minrange, float maxrange, const vec3& tpdiff, const vec3& prot_unit) {
+	float tpl = tpdiff.length();
+	if (tpl < maxrange) { return POSFLAG::TOOFAR; }
+	if (tpl >= maxrange) { return POSFLAG::TOONEAR; }
+
+	float cosb = dot(tpdiff.unit(), prot_unit);
+	if (cosb < 0.80) { return POSFLAG::WRONG_FACING; }
+	
+	return POSFLAG::VALID;
+}
+
+static void SetFacing_local(float angle) {
+	ObjectManager OM;
+	WowObject p;
+	OM.get_local_object(&p);
+
+	float* facing_angle = (float*)(DEREF(p.get_base() + 0xD8) + 0x20);
+	PRINT("current facing_angle: %f\n", *facing_angle);
+	*facing_angle = angle;
+}
+
+static std::chrono::system_clock::time_point last_CMSG_SET_FACING_sent = std::chrono::system_clock::now();
+
+long long get_time_from_ms(const std::chrono::system_clock::time_point& t) {
+	return std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch()).count();
+}
+
+static void synthetize_CMSG_SET_FACING(float angle) {
+	// NOTE: the client side address of the facing angle is at [ECX of when EIP == 989B9B] + 0x20
+
+	ObjectManager OM;
+	GUID_t pGUID = OM.get_local_GUID();
+	BYTE packed_GUID[8];
+	BYTE gBYTES[8];
+	memcpy(gBYTES, &pGUID, sizeof(pGUID));
+	BYTE mark = 0;
+	BYTE mask = 0;
+	for (int i = 0; i < 8; ++i) {
+		if (gBYTES[i] > 0) {
+			packed_GUID[mark] = gBYTES[i];
+			++mark;
+			mask |= (1 << i);
+		}
+	}
+
+	//PRINT("%llX\n", pGUID);
+	//print_bytes("gBYTES", gBYTES, sizeof(gBYTES));
+	//print_bytes("packed_GUID", packed_GUID, mark);
+	//PRINT("mask: %x\n", mask);
+
+	const BYTE packet_hdr[] = {
+		0x00, 0x23 + mark, 0xDA, 0x00, 0x00, 0x00,
+	};
+
+	bytebuffer_t packet;
+	packet.append_bytes(packet_hdr, sizeof(packet_hdr));
+	packet.append_bytes(&mask, 1);
+	packet.append_bytes(packed_GUID, mark);
+
+
+	const BYTE packet_flags[] = {
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // the first one of these seems to be a movement mask (0x1 for moving forward, 0x2 for backward and so on)
+	};
+
+	packet.append_bytes(packet_flags, sizeof(packet_flags));
+
+	DWORD ticks = *(DWORD*)CurrentTicks;
+	packet.append_bytes(&ticks, sizeof(ticks));
+
+	WowObject player;
+	OM.get_local_object(&player);
+	vec3 ppos = player.get_pos();
+
+	packet.append_bytes(&ppos.data[0], sizeof(ppos.data));
+	packet << angle;
+
+	// no idea what this shit is, but seems to not give a disconnect
+	const BYTE packet_end[] = {
+		0x39, 0x03, 0x00, 0x00
+	};
+
+	packet.append_bytes(packet_end, sizeof(packet_end));
+
+	send_wowpacket(packet.bytes, packet.length);
+
+	PRINT("sent facing packet!\n");
+
+}
+
+static void set_facing_local_and_remote(float angle) {
+	static const long long LOCK_TIME_MS = 150;
+
+	auto ms = get_time_from_ms(last_CMSG_SET_FACING_sent);
+	if (ms < LOCK_TIME_MS) {
+		printf("CMSG_SET_FACING sent too recently, waiting until %lld ms passed\n", LOCK_TIME_MS);
+		return;
+	}
+
+	printf("setting facing locally and remotely!\n");
+	synthetize_CMSG_SET_FACING(angle);
+	SetFacing_local(angle);
+
+	last_CMSG_SET_FACING_sent = std::chrono::system_clock::now();
+
+}
+
+
+
 static int LOP_melee_behind(float minrange) {
 
 	ObjectManager OM;
@@ -197,67 +326,45 @@ static int LOP_melee_behind(float minrange) {
 		return 0;
 	}
 
-
-	// basically rotating the vector (1, 0, 0) target_rot radians anti-clockwise
-	//vec3 rot_unit(1.0 * std::cos(target_rot) - 0.0 * std::sin(target_rot), 1.0 * std::sin(target_rot) + 0.0 * std::cos(target_rot), 0.0);
+	minrange = minrange > 2 ? minrange - 2 : minrange; // can't remember what this is for
 
 	vec3 ppos = p.get_pos();
-	float prot = p.get_rot();
+	vec3 prot_unit = p.get_rotvec();
 
 	vec3 tpos = t.get_pos();
+	vec3 trot_unit = t.get_rotvec();
 
-	// ok, so turns out the get_rot() variable isn't really kept up-to-date in the OM,
-	// so the actual rotation will need to be figured out by means of looking at who the mob is
-	// targeting, and looking at the difference vector (since the mob is always directly facing the target)
+	static const float MELEE_NUKE_ANGLE = 0.35;
 
-	GUID_t tot_GUID = t.NPC_get_target_GUID();
-	float target_rot;
+	const vec3 vs[] = { tpos + minrange * trot_unit.rotated_2d((1.0f - MELEE_NUKE_ANGLE) * M_PI), tpos + minrange * trot_unit.rotated_2d((1.0f + MELEE_NUKE_ANGLE) * M_PI) };
+	const vec3 &ideal_position = ((vs[0] - ppos).length() < (vs[1] - ppos).length()) ? vs[0] : vs[1];
+	
+	vec3 posdiff = ideal_position - ppos;
+	posdiff.z = 0;
+	
+	vec3 tpdiff = tpos - ppos;
+	tpdiff.z = 0;
+	vec3 tpdiff_unit = tpdiff.unit();
 
-	if (tot_GUID) {
-		if (tot_GUID == OM.get_local_GUID()) {
-			vec3 face = (tpos - ppos).unit();
-			float newa = atan2(face.y, face.x);
-			PRINT("prot: %f, target_rot: %f\n", prot, newa);
-			//ctm_add(CTM_t::construct_CTM_face(CTM_PRIO_REPLACE, newa));
-			return 1;
-		}
-		WowObject tot;
-		OM.get_object_by_GUID(tot_GUID, &tot);
-		vec3 trot_diff = tot.get_pos() - tpos;
-		target_rot = atan2(trot_diff.y, trot_diff.x);
-	}
-	else {
-		// it's kinda funny this is the fallback tbh :DD
-		target_rot = t.get_rot();
-	}
+	auto R = get_position_flags_melee(posdiff, tpdiff_unit, prot_unit);
 
-	vec3 trot_unit = vec3(std::cos(target_rot), std::sin(target_rot), 0.0);
-
-	vec3 prot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
-
-	//vec3 point_behind(tc.x - std::cos(target_rot), tc.y - std::sin(target_rot), tc.z);
-	vec3 point_behind_actual = tpos + (minrange > 2 ? minrange - 2 : minrange) * trot_unit.rotated_2d(0.85*M_PI); // this should put us into a nice "dragon slaying position" :D
-	vec3 point_behind_ctm = point_behind_actual + 0.5*prot_unit;
-	vec3 diff = point_behind_ctm - ppos;
-	diff.z = 0;
-
-	vec3 face = (tpos - ppos).unit();
-	float newa = atan2(face.y, face.x);
-
-	float dl = diff.length();
-	if (dl > minrange) {
+	switch (R) {
+	case POSFLAG::TOOFAR: {
+		vec3 point_behind_ctm = ideal_position + 0.5 * prot_unit;
 		CTM_t act = CTM_t(point_behind_ctm, CTM_MOVE, CTM_PRIO_REPLACE, 0, 0.5);
-
-		act.add_posthook(CTM_posthook_t(face_posthook, &newa, sizeof(newa), 50));
-		// TODO ADD DOT PRODUCT CHECKING
 		ctm_add(act);
-
-		return 1;
+		break;
 	}
-	else {
-		ctm_face_angle(newa);
+	
+	case POSFLAG::WRONG_FACING: {
+		float newa = atan2(tpdiff_unit.y, tpdiff_unit.x);
+		set_facing_local_and_remote(newa);
+		break;
 	}
 
+	default:
+		break;
+	}
 
 	return 1;
 
@@ -356,39 +463,31 @@ static int LOP_range_check(double minrange, double maxrange) {
 
 	vec3 ppos = p.get_pos();
 	vec3 tpos = t.get_pos();
+	vec3 tpdiff = tpos - ppos;
+	vec3 tpdiff_unit = tpdiff.unit();
 
-	vec3 diff = tpos - ppos;
-
-	if (diff.length() > maxrange - 1) {
-		// move in a straight line to a distance of minrange-1 yd from the target. Kinda bug-prone though..
-		vec3 new_point = tpos - (maxrange - 1) * diff.unit();
+	auto R = get_position_flags_ranged(minrange, maxrange, tpdiff, p.get_rotvec());
+	switch (R) {
+	case POSFLAG::TOONEAR: {
+		vec3 new_point = tpos - (minrange + 2) * tpdiff_unit;
 		ctm_add(CTM_t(new_point, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
-		return 1;
-
-	}
-	else if (diff.length() < minrange) {
-		// move slightly away from the mob
-		vec3 new_point = tpos - (minrange + 3) * diff.unit();
-		ctm_add(CTM_t(new_point, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
-		return 1;
+		break;
 	}
 
-	else {
+	case POSFLAG::TOOFAR: {
+		vec3 new_point = tpos - (maxrange - 2) * tpdiff_unit;
+		ctm_add(CTM_t(new_point, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
+		break;
+	}
 
-		// change facing to face the mob
+	case POSFLAG::WRONG_FACING: {
+		float newa = atan2(tpdiff_unit.y, tpdiff_unit.x);
+		set_facing_local_and_remote(newa);
+		break;
+	}
 
-		// a continuous kind of facing function could also be considered (ie. just always face directly towards the mob)
-
-		float rot = p.get_rot();
-		vec3 rot_unit = vec3(std::cos(rot), std::sin(rot), 0.0);
-		float d = dot(diff, rot_unit);
-
-	//	PRINT("dot product: %f\n", d);
-
-		if (d < 0) {
-			ctm_add(CTM_t(ppos + diff.unit(), CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5)); // this seems quite stable for just changing orientation.
-			//ctm_face_target();
-		}
+	default:
+		break;
 	}
 
 	return 1;
@@ -998,77 +1097,6 @@ static int LOP_get_combat_targets(std::vector <GUID_t> *out) {
 
 }
 
-static void SetFacing_local(float angle) {
-	ObjectManager OM;
-	WowObject p;
-	OM.get_local_object(&p);
-
-	float* facing_angle = (float*)(DEREF(p.get_base() + 0xD8) + 0x20);
-	PRINT("current facing_angle: %f\n", *facing_angle);
-	*facing_angle = angle;
-}
-
-static void synthetize_CMSG_SET_FACING(float angle) {
-	// NOTE: the client side address of the facing angle is at [ECX of when EIP == 989B9B] + 0x20
-
-	ObjectManager OM;
-	GUID_t pGUID = OM.get_local_GUID();
-	BYTE packed_GUID[8];
-	BYTE gBYTES[8];
-	memcpy(gBYTES, &pGUID, sizeof(pGUID));
-	BYTE mark = 0;
-	BYTE mask = 0;
-	for (int i = 0; i < 8; ++i) {
-		if (gBYTES[i] > 0) {
-			packed_GUID[mark] = gBYTES[i];
-			++mark;
-			mask |= (1 << i);
-		}
-	}
-
-	//PRINT("%llX\n", pGUID);
-	//print_bytes("gBYTES", gBYTES, sizeof(gBYTES));
-	//print_bytes("packed_GUID", packed_GUID, mark);
-	//PRINT("mask: %x\n", mask);
-
-	const BYTE packet_hdr[] = {
-		0x00, 0x23 + mark, 0xDA, 0x00, 0x00, 0x00,
-	};
-
-	bytebuffer_t packet;
-	packet.append_bytes(packet_hdr, sizeof(packet_hdr));
-	packet.append_bytes(&mask, 1);
-	packet.append_bytes(packed_GUID, mark);
-
-
-	const BYTE packet_flags[] = {
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // the first one of these seems to be a movement mask (0x1 for moving forward, 0x2 for backward and so on)
-	};
-
-	packet.append_bytes(packet_flags, sizeof(packet_flags));
-
-	DWORD ticks = *(DWORD*)CurrentTicks;
-	packet.append_bytes(&ticks, sizeof(ticks));
-
-	WowObject player;
-	OM.get_local_object(&player);
-	vec3 ppos = player.get_pos();
-
-	packet.append_bytes(&ppos.data[0], sizeof(ppos.data));
-	packet << angle;
-
-	// no idea what this shit is, but seems to not give a disconnect
-	const BYTE packet_end[] = {
-		0x39, 0x03, 0x00, 0x00
-	};
-
-	packet.append_bytes(packet_end, sizeof(packet_end));
-
-	send_wowpacket(packet.bytes, packet.length);
-
-	PRINT("sent facing packet!\n");
-
-}
 
 
 static float LOP_get_aoe_feasibility(float threshold) {

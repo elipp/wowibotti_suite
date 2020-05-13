@@ -76,37 +76,6 @@ void increment_spellcast_counter() {
 	++*spellcast_counter;
 }
 
- //this __declspec(noinline) thing has got to do with the msvc optimizer.
- //seems like the inline assembly is discarded when this func is inlined, in which case were fucked
-__declspec(noinline) void set_local_facing(float angle) {
-	auto pSetFacing = (void const __declspec(naked) (*)(float))SetFacing;
-	DWORD func = 0x4D3810;
-	DWORD r;
-
-	__asm call func;
-	__asm mov r, eax;
-	
-	DWORD this_ecx = DEREF(r + 0x120);
-
-	PRINT("r: %X, this_exc: %X\n", r, this_ecx);
-
-	// printf("set_facing: this_ecx: %X\n", this_ecx);
-	// this is due to the fact that SetFacing is uses a __thiscall calling convention, 
-	// so the base addr needs to be passed in ECX. no idea which base address this is though,
-	// but it seems to be constant enough :D
-
-	_asm push ecx;
-	_asm mov ecx, this_ecx;
-	pSetFacing(angle);
-
-}
-
-void camera_stuff() {
-	// the camera struct lies at [[B7436C]+7E20]
-
-
-}
-
 GUID_t get_raid_target_GUID(int index) {
 	GUID_t GUID;
 	readAddr(0xC6F700 + index * 8, &GUID, sizeof(GUID)); // these are stored at the static address C6F700 until C6F764
@@ -198,10 +167,22 @@ normal:
 }
 
 float WowObject::get_rot() const {
-	float r;
-	readAddr(base + UnitRot, &r, sizeof(r));
-	return r;
+	//float r;
+	//readAddr(base + UnitRot, &r, sizeof(r));
+	//return r;
+
+	DWORD temp = DEREF(get_base() + 0xD8);
+	if (!temp) return 0;
+
+	float* facing_angle = (float*)(temp + 0x20);
+	return *facing_angle;
 }
+
+vec3 WowObject::get_rotvec() const {
+	float rot = get_rot();
+	return vec3(std::cos(rot), std::sin(rot), 0);
+}
+
 
 bool WowObject::valid() const {
 	return ((this->get_base() != 0) && ((this->get_base() & 1) == 0));

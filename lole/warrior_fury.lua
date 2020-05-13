@@ -2,8 +2,8 @@ function combat_warrior_fury()
 
   if not validate_target() then return end
 
-  melee_attack_behind(1.5) -- 8 FOR THE RUBY SANCTUM GUY, 1.5 for magic
-  L_StartAttack()
+  melee_attack_behind(5) -- 8 FOR THE RUBY SANCTUM GUY, 1.5 for magic
+--  L_StartAttack()
 
   L_RunMacroText("/cast [nostance:3] Berserker Stance");
 
