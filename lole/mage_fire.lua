@@ -16,6 +16,8 @@ combat_mage_fire = function()
 	-- 	end
 	-- end
 
+	if true then caster_range_check(1, 36); return end
+
 	if player_casting() then return end
 
 	if ((GetItemCount(33312) == 0) and (not UnitAffectingCombat("player"))) then

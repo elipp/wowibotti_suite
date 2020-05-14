@@ -237,20 +237,7 @@ function iccrocket(mirror_data)
 	lop_exec(LOP_ICCROCKET, mirror_data)
 end
 
-function get_biscuits()
-	lop_exec(LOP_GET_BISCUITS)
-end
-
-
-function lua_unlock()
-	return lop_exec(LOP_LUA_UNLOCK)
-end
-
-function lua_lock()
-	return lop_exec(LOP_LUA_LOCK)
-end
-
-function lole_debug_test()
+function lole_debug_test(angle)
 	lop_exec(LDOP_TEST, angle)
 end
 

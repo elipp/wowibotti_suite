@@ -197,13 +197,24 @@ enum class POSFLAG : int {
 	VALID
 };
 
+static const char* to_string(POSFLAG f) {
+	static const char* POSFLAG_STRINGS[] = {
+		"NONE",
+		"TOONEAR",
+		"TOOFAR",
+		"WRONG_FACING",
+		"VALID"
+	};
+
+	return POSFLAG_STRINGS[(int)f];
+}
 
 static inline POSFLAG get_position_flags_melee(const vec3 &dpos_ideal, const vec3& tpdiff_unit, const vec3& prot_unit) {
 	float dist = dpos_ideal.length();
 	if (dist > 1.0) { return POSFLAG::TOOFAR; }
 
 	float cosb = dot(tpdiff_unit, prot_unit); // both are of length 1
-	if (cosb < 0.80) { return POSFLAG::WRONG_FACING; }
+	if (cosb < 0.85) { return POSFLAG::WRONG_FACING; }
 
 	return POSFLAG::VALID;
 }
@@ -211,11 +222,11 @@ static inline POSFLAG get_position_flags_melee(const vec3 &dpos_ideal, const vec
 
 static inline POSFLAG get_position_flags_ranged(float minrange, float maxrange, const vec3& tpdiff, const vec3& prot_unit) {
 	float tpl = tpdiff.length();
-	if (tpl < maxrange) { return POSFLAG::TOOFAR; }
-	if (tpl >= maxrange) { return POSFLAG::TOONEAR; }
+	if (tpl < minrange) { return POSFLAG::TOONEAR; }
+	if (tpl > maxrange) { return POSFLAG::TOOFAR; }
 
 	float cosb = dot(tpdiff.unit(), prot_unit);
-	if (cosb < 0.80) { return POSFLAG::WRONG_FACING; }
+	if (cosb < 0.99) { return POSFLAG::WRONG_FACING; }
 	
 	return POSFLAG::VALID;
 }
@@ -301,9 +312,16 @@ static void synthetize_CMSG_SET_FACING(float angle) {
 static void set_facing_local_and_remote(float angle) {
 	static const long long LOCK_TIME_MS = 150;
 
+	static float prev_angle = 0;
+
 	auto ms = get_time_from_ms(last_CMSG_SET_FACING_sent);
 	if (ms < LOCK_TIME_MS) {
 		printf("CMSG_SET_FACING sent too recently, waiting until %lld ms passed\n", LOCK_TIME_MS);
+		return;
+	}
+
+	if (fabs(prev_angle - angle) < 0.001) {
+		// this is just so we don't send too many packets
 		return;
 	}
 
@@ -312,6 +330,7 @@ static void set_facing_local_and_remote(float angle) {
 	SetFacing_local(angle);
 
 	last_CMSG_SET_FACING_sent = std::chrono::system_clock::now();
+	prev_angle = angle;
 
 }
 
@@ -369,6 +388,8 @@ static int LOP_melee_behind(float minrange) {
 	return 1;
 
 }
+
+
 
 static int LOP_melee_avoid_aoe_buff(long spellID) {
 	
@@ -467,7 +488,11 @@ static int LOP_range_check(double minrange, double maxrange) {
 	vec3 tpdiff_unit = tpdiff.unit();
 
 	auto R = get_position_flags_ranged(minrange, maxrange, tpdiff, p.get_rotvec());
+
+	//PRINT("got R == %s\n", to_string(R));
+
 	switch (R) {
+
 	case POSFLAG::TOONEAR: {
 		vec3 new_point = tpos - (minrange + 2) * tpdiff_unit;
 		ctm_add(CTM_t(new_point, CTM_MOVE, CTM_PRIO_REPLACE, 0, 1.5));
@@ -870,7 +895,7 @@ static int LOP_tank_face() {
 	vec3 face = (t.get_pos() - p.get_pos()).unit();
 	float newa = atan2(face.y, face.x);
 
-	ctm_face_angle(newa);
+	set_facing_local_and_remote(newa);
 
 }
 
@@ -1955,7 +1980,10 @@ int lop_exec(lua_State *L) {
 	}
 
 	case LDOP_TEST: {
-		LOPDBG_test();
+		//LOPDBG_test();
+		float angle = lua_tonumber(L, 2);
+		PRINT("angle: %f\n", angle);
+		set_facing_local_and_remote(lua_tonumber(L, 2));
 		break;
 	}
 	case LDOP_NOCLIP: {

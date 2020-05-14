@@ -567,6 +567,10 @@ local function lole_getbiscuit()
 	--get_biscuits()
 end
 
+local function lole_script(scripttext)
+	L_RunScript(scripttext)
+end
+
 local function lole_sendscript(to, ...)
     local usage = "lole_sendscript: Usage: sendscript/ss [(RAID)/PARTY/GUILD]/[WHISPER/w [t1,t2,...,tn]] scripttext";
     if to == nil then
@@ -1086,6 +1090,10 @@ local function SPREAD_FESTERGUT()
 
 end
 
+local function lole_debug_face_angle(angle)
+	lole_debug_test(angle)
+end
+
 local function lole_spread_those_cheeks(dist)
 	-- REMEMBER TO CHANGE THIS ACCORDINGLY :DDDDDDDDD
 --	SPREAD_ONYXIA()
@@ -1167,6 +1175,7 @@ lole_subcommands = {
 	ss = lole_sendscript,
 	sendmacro = lole_sendmacro,
 	run = lole_sendmacro,
+	script = lole_script,
 	override = lole_override,
 	echo = lole_echo,
 
@@ -1182,6 +1191,8 @@ lole_subcommands = {
 	loot = lole_debug_loot_all,
 	de_greeniez = lole_disenchant_greeniez,
 	dscript = lole_dscript,
+
+	face = lole_debug_face_angle,
 
 	register = lole_debug_lua_register,
 	distance = lole_distance_to_target,
