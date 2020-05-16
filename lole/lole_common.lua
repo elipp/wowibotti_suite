@@ -54,6 +54,10 @@ function vec3:scale(s)
   return vec3:create(s * self.x, s * self.y, s * self.z)
 end
 
+function vec3:sublength(s)
+  return self:subtract(s):length()
+end
+
 function get_arg_table(...)
   -- NOTE: THIS CONVERTS EVERYTHING TO STRINGS!
   local atab = {};
@@ -151,18 +155,68 @@ local function putricide_stuff()
   end
 end
 
+local ooze_avoid_level = 0
+
+local function putricide_ooze_avoid()
+  if has_debuff("player", "Gaseous Bloat") then
+    local ppos = vec3:create(get_unit_position("player"))
+    local opos = vec3:create(get_unit_position("target"))
+    if ooze_avoid_level == 0 then
+      local wp0 = vec3:create(4404.2, 3224.8, 389.4)
+      local dwp = wp0:sublength(ppos)
+
+      if dwp > 2 then
+        walk_to(wp0.x, wp0.y, wp0.z, CTM_PRIO_NOOVERRIDE)
+      end
+
+      local dl = opos:sublength(ppos)
+      if (dl < 15) then
+        ooze_avoid_level = 1
+      end
+
+    elseif ooze_avoid_level == 1 then
+      local wp1 = vec3:create(4403.6, 3199.8, 389.4)
+      walk_to(wp1.x, wp1.y, wp1.z, CTM_PRIO_NOOVERRIDE)
+
+      local dl = wp1:sublength(ppos)
+      if (dl < 3) then
+        ooze_avoid_level = 2
+      end
+
+    elseif ooze_avoid_level == 2 then
+      local wp2 = vec3:create(4366.8, 3165.6, 389.4)
+      walk_to(wp2.x, wp2.y, wp2.z, CTM_PRIO_FOLLOW)
+    end
+  else
+    ooze_avoid_level = 0
+  end
+end
+
+local function blast_cannons()
+    if UnitAffectingCombat("player") then
+      local n = UnitName("player")
+      if (n == "Iijj" or n == "Spobodi") then -- or n == "Kuratorn") then
+          if UnitInVehicle("player") then
+            L_RunScript("if VehicleMenuBarPowerBar.currValue > 95 then VehicleMenuBarActionButton2:Click() else VehicleMenuBarActionButton1:Click() end")
+          end
+      end
+    end
+end
+
 local REMOVE_THIS_FRAME = CreateFrame("frame", nil, UIParent)
 REMOVE_THIS_FRAME:SetScript("OnUpdate",
 
 function()
 
-  --putricide_stuff()
+  blast_cannons()
 
   if not playermode() then
+
+    -- if validate_target() then
+    --   caster_range_check(0, 36)
+    -- end
+
     -- this is for gunship
-    if UnitInVehicle("player") then
-      L_RunScript("if VehicleMenuBarPowerBar.currValue > 95 then VehicleMenuBarActionButton2:Click() else VehicleMenuBarActionButton1:Click() end")
-    end
 
     if unit_castorchannel("focus") == "Staggering Stomp" then L_SpellStopCasting(); return; end
 
@@ -182,12 +236,10 @@ function()
     if UnitAffectingCombat("player") then
       local n = UnitName("player")
       if not (n == "Iijj" or n == "Spobodi") then -- or n == "Kuratorn") then
-        boss_action("hconfig_status")
+        hconfig("status")
       end
 
-      if has_debuff("player", "Gaseous Bloat") then
-        walk_to(4404.2, 3224.8, 389.4, CTM_PRIO_FOLLOW)
-      end
+      putricide_ooze_avoid()
 
     end
     --------------------------------------------

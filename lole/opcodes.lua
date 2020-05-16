@@ -35,6 +35,7 @@ local LOP_BOSS_ACTION = 0x21
 local LOP_INTERACT_SPELLNPC = 0x22
 local LOP_GET_LAST_SPELL_ERRMSG = 0x23
 local LOP_ICCROCKET = 0x24
+local LOP_HCONFIG = 0x25
 
 local LOP_EXT_NOP = 0x70
 local LOP_SL_RESETCAMERA = 0x71
@@ -375,6 +376,9 @@ function boss_action(name)
 	lop_exec(LOP_BOSS_ACTION, name)
 end
 
+function hconfig(args)
+	lop_exec(LOP_HCONFIG, args)
+end
 
 function capture_render_stages()
 	lop_exec(LDOP_CAPTURE_FRAME_RENDER_STAGES)

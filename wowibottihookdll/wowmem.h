@@ -3,6 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include <algorithm>
+#include <mutex>
 
 #include "addrs.h"
 #include "defs.h"
@@ -163,6 +164,96 @@ public:
 };
 
 
+struct WO_cached {
+	GUID_t GUID;
+	vec3 pos;
+	float rot;
+	int type;
+	uint health;
+	uint health_max;
+	int deficit;
+	uint inc_heals;
+	float heal_urgency;
+	std::string name;
+	unsigned DO_spellid;
+	int reaction;
+	int in_combat;
+	int dead;
+
+	WO_cached(GUID_t guid, vec3 p, uint hp, uint hp_max, uint ih, float hu, const std::string& n)
+		: GUID(guid), pos(p), health(hp), health_max(hp_max), inc_heals(ih), heal_urgency(hu), name(n) {
+		deficit = hp_max - hp;
+	}
+
+	WO_cached(const WowObject& o, int react = -1) {
+		GUID = o.get_GUID();
+		type = o.get_type();
+
+		if (type == OBJECT_TYPE_NPC) {
+			pos = o.get_pos();
+			health = o.NPC_get_health();
+			health_max = o.NPC_get_health_max();
+			name = o.NPC_get_name();
+			in_combat = o.in_combat();
+			dead = o.NPC_unit_is_dead();
+			rot = o.get_rot();
+			reaction = react;
+		}
+		else if (type == OBJECT_TYPE_UNIT) {
+			pos = o.get_pos();
+			health = o.unit_get_health();
+			health_max = o.unit_get_health_max();
+			rot = o.get_rot();
+			name = o.unit_get_name();
+		}
+		else if (type == OBJECT_TYPE_DYNAMICOBJECT) {
+			pos = o.DO_get_pos();
+			DO_spellid = o.DO_get_spellID();
+		}
+	}
+
+	WO_cached() {
+		memset(this, 0, sizeof(*this));
+	}
+};
+
+class hcache_t {
+
+public:
+	static std::mutex mutex;
+	WO_cached player;
+	GUID_t target_GUID;
+	GUID_t focus_GUID;
+	std::vector<WO_cached> objects;
+	const WO_cached *find(const std::string& name) const {
+		hcache_t::mutex.lock();
+		for (const auto& o : this->objects) {
+			if (name == o.name) {
+				hcache_t::mutex.unlock();
+				return &o;
+			}
+		}
+		hcache_t::mutex.unlock();
+		return NULL;
+	}
+
+	const WO_cached* find(GUID_t g) const {
+		hcache_t::mutex.lock();
+		for (const auto& o : this->objects) {
+			if (g == o.GUID) {
+				hcache_t::mutex.unlock();
+				return &o;
+			}
+		}
+		hcache_t::mutex.unlock();
+		return NULL;
+	}
+
+	void push(const WO_cached& o) {
+		objects.push_back(o);
+	}
+};
+
 class ObjectManager {
 
 	class iterator {
@@ -221,28 +312,10 @@ public:
 	WowObject get_closest_NPC_by_name(const std::vector<WowObject> &objs, const vec3 &other);
 
 	static ObjectManager* get();
+	hcache_t get_snapshot() const; // get snapshot of current units, NPCs and DOs
 
 };
 
-struct WO_cached {
-	GUID_t GUID;
-	vec3 pos;
-	uint health;
-	uint health_max;
-	int deficit;
-	uint inc_heals;
-	float heal_urgency;
-	std::string name;
-
-	WO_cached(GUID_t guid, vec3 p, uint hp, uint hp_max, uint ih, float hu, const std::string &n) 
-		: GUID(guid), pos(p), health(hp), health_max(hp_max), inc_heals(ih), heal_urgency(hu), name(n) {
-		deficit = hp_max - hp;
-	}
-
-	WO_cached() {
-		memset(this, 0, sizeof(*this));
-	}
-};
 
 DWORD get_wow_d3ddevice();
 DWORD get_BeginScene();

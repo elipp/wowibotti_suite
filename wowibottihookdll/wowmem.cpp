@@ -1,5 +1,8 @@
 #include <d3d9.h>
 
+#include <queue>
+#include <mutex>
+
 #include "wowmem.h"
 #include "ctm.h"
 
@@ -8,6 +11,8 @@
 
 int const (*LUA_DoString)(const char*, const char*, const char*) = (int const(*)(const char*, const char*, const char*)) LUA_DoString_addr;
 int const (*SelectUnit)(GUID_t) = (int const(*)(GUID_t)) SelectUnit_addr;
+
+std::mutex hcache_t::mutex;
 
 void DoString(const char* format, ...) {
 	char cmd[1024];
@@ -27,7 +32,30 @@ void DoString(const char* format, ...) {
 
 
 static void echo(const char* msg) {
-	DoString("print(\"(C):%s\")", msg);
+	//DoString("DEFAULT_CHAT_FRAME:AddMessage(\"|cff33ccff[C:%s]\")", msg); // colored text :D
+	DoString("print(\"|cff33ccff[C:%s]\")", msg); // colored text :D
+}
+
+static std::queue<std::string> echo_msgqueue; // this is because lua can only be used from the main thread
+static std::mutex echo_queue_mutex;
+
+static void equeue_add(const std::string& msg) {
+	echo_queue_mutex.lock();
+	echo_msgqueue.push(msg);
+	echo_queue_mutex.unlock();
+}
+
+void echo_queue_commit() {
+
+	echo_queue_mutex.lock();
+
+	while (!echo_msgqueue.empty()) {
+		echo(echo_msgqueue.front().c_str());
+		echo_msgqueue.pop();
+	}
+
+	echo_queue_mutex.unlock();
+
 }
 
 void echo_wow(const char* format, ...) {
@@ -38,7 +66,7 @@ void echo_wow(const char* format, ...) {
 	vsprintf_s(msg, format, args);
 	va_end(args);
 
-	echo(msg);
+	equeue_add(msg);
 }
 
 void dual_echo(const char* format, ...) {
@@ -49,8 +77,8 @@ void dual_echo(const char* format, ...) {
 	vsprintf_s(msg, format, args);
 	va_end(args);
 
-	PRINT("%s\n", msg);
-	echo(msg);
+	PRINT("%s\n", msg); // console should be thread safe
+	equeue_add(msg);
 
 }
 
@@ -733,6 +761,34 @@ WowObject ObjectManager::get_closest_NPC_by_name(const std::vector<WowObject> &o
 	return *closest;
 }
 
+hcache_t ObjectManager::get_snapshot() const {
+
+	hcache_t c;
+	
+	c.target_GUID = get_target_GUID();
+	c.focus_GUID = get_focus_GUID();
+
+	WowObject iter;
+	get_first_object(&iter);
+	WowObject p;
+	get_local_object(&p);
+
+	while (iter.valid()) {
+		int type = iter.get_type();
+		if (type == OBJECT_TYPE_NPC || type == OBJECT_TYPE_UNIT || type == OBJECT_TYPE_DYNAMICOBJECT) {
+			if (iter.get_GUID() == get_local_GUID()) {
+				c.player = WO_cached(iter);
+			}
+			else {
+				c.push(WO_cached(iter, get_reaction(p, iter))); // get_reaction returns -1 if the types are incorrect
+			}
+		}
+		iter = iter.next();
+	}
+	
+	return c;
+
+}
 
 int ObjectManager::get_GO_by_name(const std::string &name, WowObject *o) const {
 	WowObject n;
@@ -908,7 +964,13 @@ float get_distance2(const WowObject &a, const WowObject &b) {
 }	
 
 int get_reaction(const WowObject &A, const WowObject &B) {
-	DWORD UnitReaction = 0x7251C0;
+	static const DWORD UnitReaction = 0x7251C0;
+	
+	DWORD typeA = A.get_type();
+	DWORD typeB = B.get_type();
+
+	if (!(typeA == OBJECT_TYPE_UNIT || typeA == OBJECT_TYPE_NPC)) return -1;
+	if (!(typeB == OBJECT_TYPE_UNIT || typeB == OBJECT_TYPE_NPC)) return -1;
 	
 	DWORD baseA = A.get_base();
 	DWORD baseB = B.get_base();

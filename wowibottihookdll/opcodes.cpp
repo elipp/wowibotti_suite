@@ -16,8 +16,8 @@
 #include "packet.h"
 #include "linalg.h"
 #include "dipcapture.h"
-#include "custom_d3d.h"
 #include "lua.h"
+#include "aux_window.h"
 
 #include "govconn.h"
 
@@ -51,6 +51,8 @@ enum {
 	ARG_TYPE_NUMBER,
 	ARG_TYPE_STRING
 };
+
+#define ARG_INF 9999
 
 static lop_func_t lop_funcs[] = {
 
@@ -87,10 +89,11 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_GET_COMBAT_TARGETS, 0, 0, 0),
 	 LOPFUNC(LOP_GET_AOE_FEASIBILITY, 1, 1, 1),
 	 LOPFUNC(LOP_AVOID_NPC_WITH_NAME, 2, 2, 1),
-	 LOPFUNC(LOP_BOSS_ACTION, 1, 1, 0),
+	 LOPFUNC(LOP_BOSS_ACTION, 1, ARG_INF, 0),
 	 LOPFUNC(LOP_INTERACT_SPELLNPC, 1, 1, 1),
 	 LOPFUNC(LOP_GET_LAST_SPELL_ERRMSG, 0, 0, 3),
 	 LOPFUNC(LOP_ICCROCKET, 1, 1, 0),
+	 LOPFUNC(LOP_HCONFIG, 1, ARG_INF, 0),
 };
 
 static int send_wowpacket(const BYTE* sockbuf, unsigned len) {
@@ -460,7 +463,7 @@ static int LOP_focus(const std::string &arg) {
 
 }
 
-static int LOP_range_check(double minrange, double maxrange) {
+static int LOP_range_check(lua_State *L, double minrange, double maxrange) {
 	GUID_t target_GUID = get_target_GUID();
 	if (!target_GUID) return 0;
 
@@ -504,7 +507,7 @@ static int LOP_range_check(double minrange, double maxrange) {
 		break;
 	}
 
-	return 1;
+	return 0;
 
 }
 
@@ -1376,14 +1379,6 @@ int LOP_loot_badge(const std::string &GUID_str) {
 
 }
 
-static int LOPSL_reset_camera() {
-	PRINT("resetting camera\n");
-	reset_camera();
-
-	return 1;
-}
-
-
 static void try_wowctm() {
 	// 0xD3F78C
 
@@ -1429,6 +1424,63 @@ float randf() {
 	return static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 }
 static int initial_angle_set = 0;
+
+static void hconfig_action(const std::vector<std::string>& args) {
+	const std::string& a0 = args[0];
+
+	if (a0 == "set") {
+		if (args.size() < 2) {
+			echo_wow("hconfig set called but no argument specified!");
+		}
+		else {
+			hconfig_set(args[1]);
+		}
+	}
+
+	else if (a0 == "enable") {
+		hotness_enable(true);
+	}
+	else if (a0 == "disable") {
+		hotness_enable(false);
+	}
+
+	else if (a0 == "show") {
+		aux_show();
+	}
+
+	else if (a0 == "hide") {
+		aux_hide();
+	}
+
+	else if (a0 == "status") {
+		static timer_interval_t warning_time(5000);
+
+		if (!hotness_enabled()) {
+			if (warning_time.passed()) {
+				echo_wow("WARNING: hconfig status called, but hotness not enabled with hconfig enable!");
+				warning_time.reset();
+			}
+			return;
+		}
+
+		ObjectManager OM;
+		WowObject player;
+		OM.get_local_object(&player);
+
+		auto m = hotness_status();
+
+		const BYTE HOTNESS_THRESHOLD = 160;
+		const BYTE DH_THRESHOLD = 30;
+		int dh = abs((int)m.current_hotness - (int)m.best_hotness);
+
+		if (m.current_hotness > HOTNESS_THRESHOLD && dh > DH_THRESHOLD) {
+			dual_echo("HOTNESS: %s - best world pos: %.1f, %.1f (best hotness %u, current %u, threshold: %u)?", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
+			dual_echo("walking to a better position ^");
+			DoString("SpellStopCasting()");
+			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
+		}
+	}
+}
 
 static void do_boss_action(const std::vector<std::string> &args) {
 	
@@ -1492,46 +1544,7 @@ static void do_boss_action(const std::vector<std::string> &args) {
 
 	}
 	
-	else if (args[0] == "hconfig_set") {
-		if (args.size() < 2) {
-			echo_wow("hconfig_set called but no argument specified!");
-		}
-		else {
-			hconfig_set(args[1]);
-		}
-	}
-
-	else if (args[0] == "hconfig_toggle") {
-		if (ACTIVE_HCONFIG == "") {
-			echo_wow("Error! hconfig_toggle called but boss name not set. Use hconfig_set <bossname>");
-		}
-		else {
-			HOTNESS_ENABLED = !HOTNESS_ENABLED;
-		}
-	}
 	
-	else if (args[0] == "hconfig_status") {
-		static timer_interval_t warning_time(5000);
-
-		if (!HOTNESS_ENABLED) {
-			if (warning_time.passed()) {
-				echo_wow("WARNING: hconfig_status called, but hotness not enabled with hconfig_enable!");
-				warning_time.reset();
-			}
-			return;
-		}
-
-		auto m = get_current_hotness_status();
-		
-		const BYTE HOTNESS_THRESHOLD = 160;
-		const BYTE DH_THRESHOLD = 30;
-		int dh = abs((int)m.current_hotness - (int)m.best_hotness);
-
-		if (m.current_hotness > HOTNESS_THRESHOLD && dh > DH_THRESHOLD) {
-			PRINT("%s walking to %f, %f (best hotness %u, current %u, threshold: %u)\n", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
-			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
-		}
-	}
 
 	else {
 		PRINT("Unknown boss action %s\n", args[0].c_str());
@@ -1713,7 +1726,7 @@ int lop_exec(lua_State *L) {
 	case LOP_CASTER_RANGE_CHECK: {
 		double minrange = lua_tonumber(L, 2);
 		double maxrange = lua_tonumber(L, 3);
-		LOP_range_check(minrange, maxrange);
+		return LOP_range_check(L, minrange, maxrange);
 		break;
 	}
 
@@ -1878,22 +1891,6 @@ int lop_exec(lua_State *L) {
 		return 1;
 	}
 
-	case LOP_SL_RESETCAMERA:
-		LOPSL_reset_camera();
-		break;
-
-	case LOP_WC3MODE: {
-		int b = lua_tointeger(L, 2);
-		enable_wc3mode(b);
-
-		break;
-	}
-
-	case LOP_SL_SETSELECT: {
-		wc3mode_setselection(lua_tolstring(L, 2, &len));
-		break;
-	}
-
 	case LOP_AVOID_NPC_WITH_NAME: {
 		int r = avoid_npc_with_name(lua_tolstring(L, 2, &len), lua_tonumber(L, 3));
 		if (r) {
@@ -1908,6 +1905,13 @@ int lop_exec(lua_State *L) {
 		std::vector<std::string> tokens;
 		tokenize_string(lua_tolstring(L, 2, &len), " ", tokens);
 		do_boss_action(tokens);
+		break;
+	}
+
+	case LOP_HCONFIG: {
+		std::vector<std::string> tokens;
+		tokenize_string(lua_tolstring(L, 2, &len), " ", tokens);
+		hconfig_action(tokens);
 		break;
 	}
 
@@ -2055,7 +2059,7 @@ static int dump_wowobjects_to_log(const std::string &type_filter, const std::str
 
 	ObjectManager OM;
 
-	fprintf(stdout, "Basic info: ObjectManager base: %X, local GUID = 0x%016llX\n\n", OM.get_base_address(), OM.get_local_GUID());
+	dual_echo("Basic info: ObjectManager base: %X, local GUID = 0x%016llX", OM.get_base_address(), OM.get_local_GUID());
 	WowObject o;
 	if (!OM.get_first_object(&o)) return 0;
 
@@ -2066,40 +2070,40 @@ static int dump_wowobjects_to_log(const std::string &type_filter, const std::str
 		}
 
 		else if (type == OBJECT_TYPE_ITEM && (type_filter == "ITEM")) {
-			fprintf(stdout, "object GUID: 0x%016llX, base addr: 0x%X, type: %s, itemID: %u\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str(), o.item_get_ID());
+			dual_echo("object GUID: 0x%016llX, base addr: 0x%X, type: %s, itemID: %u", o.get_GUID(), o.get_base(), o.get_type_name().c_str(), o.item_get_ID());
 		}
 		
 		else if (type == OBJECT_TYPE_NPC && (type_filter == "" || type_filter == "NPC")) {
 			vec3 pos = o.get_pos();
 			std::string name = o.NPC_get_name();
 			if (name_filter == "" || (name_filter != "" && name.find(name_filter) != std::string::npos)) {
-				fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-				fprintf(stdout, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, o.get_rot());
-				fprintf(stdout, "name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d, mounted GUID: 0x%016llX\n\n", o.NPC_get_name().c_str(), o.NPC_get_health(), o.NPC_get_health_max(), o.NPC_get_target_GUID(), o.in_combat(), o.NPC_get_mounted_GUID());
-				fprintf(stdout, "----------------------------------------------------------------------------\n");
+				dual_echo("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+				dual_echo("coords = (%f, %f, %f), rot: %f", pos.x, pos.y, pos.z, o.get_rot());
+				dual_echo("name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d, mounted GUID: 0x%016llX", o.NPC_get_name().c_str(), o.NPC_get_health(), o.NPC_get_health_max(), o.NPC_get_target_GUID(), o.in_combat(), o.NPC_get_mounted_GUID());
+				dual_echo("----------------------------------------------------------------------------");
 			}
 		}
 		else if (type == OBJECT_TYPE_UNIT && (type_filter == "" || type_filter == "UNIT")) {
 			vec3 pos = o.get_pos();
 			std::string name = o.unit_get_name();
 			if (name_filter == "" || (name_filter != "" && name.find(name_filter) != std::string::npos)) {
-				fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-				fprintf(stdout, "coords = (%f, %f, %f), rot: %f\n", pos.x, pos.y, pos.z, o.get_rot());
-				fprintf(stdout, "name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d\n", o.unit_get_name().c_str(), o.unit_get_health(), o.unit_get_health_max(), o.unit_get_target_GUID(), o.in_combat());
-				fprintf(stdout, "----------------------------------------------------------------------------\n");
+				dual_echo("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+				dual_echo("coords = (%f, %f, %f), rot: %f", pos.x, pos.y, pos.z, o.get_rot());
+				dual_echo("name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d", o.unit_get_name().c_str(), o.unit_get_health(), o.unit_get_health_max(), o.unit_get_target_GUID(), o.in_combat());
+				dual_echo("----------------------------------------------------------------------------");
 			}
 		}
 		else if (type == OBJECT_TYPE_DYNAMICOBJECT && (type_filter == "" || type_filter == "DYNAMICOBJECT")) {
 			vec3 DO_pos = o.DO_get_pos();
-			fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-			fprintf(stdout, "position: (%.1f, %.1f, %.1f), spellID: %d\n\n", DO_pos.x, DO_pos.y, DO_pos.z, o.DO_get_spellID());
-			fprintf(stdout, "----------------------------------------------------------------------------\n");
+			dual_echo("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+			dual_echo("position: (%.1f, %.1f, %.1f), spellID: %d", DO_pos.x, DO_pos.y, DO_pos.z, o.DO_get_spellID());
+			dual_echo("----------------------------------------------------------------------------");
 		}
 		else if (type == OBJECT_TYPE_GAMEOBJECT && (type_filter == "" || type_filter == "GAMEOBJECT")) {
 			vec3 GO_pos = o.GO_get_pos();
-			fprintf(stdout, "object GUID: 0x%016llX, base addr = 0x%X, type: %s\n", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-			fprintf(stdout, "name: %s, position: (%.2f, %.2f, %.2f)\n\n", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
-			fprintf(stdout, "----------------------------------------------------------------------------\n");
+			dual_echo("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+			dual_echo("name: %s, position: (%.2f, %.2f, %.2f)", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
+			dual_echo("----------------------------------------------------------------------------");
 		}
 
 

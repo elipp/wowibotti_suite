@@ -11,6 +11,7 @@
 
 #include <d3d9.h>
 
+#include "aux_window.h"
 #include "hooks.h"
 #include "addrs.h"
 #include "defs.h"
@@ -22,8 +23,6 @@
 #include "linalg.h"
 #include "patch.h"
 #include "dipcapture.h"
-#include "custom_d3d.h"
-#include "input.h"
 #include "patch.h"
 #include "govconn.h"
 #include "dllmain.h"
@@ -176,15 +175,9 @@ void unhook_DrawIndexedPrimitive() {
 	h->patch.disable();
 }
 
-
-static void __stdcall call_pylpyr() {
-	if (wc3mode_enabled())
-		wc3_draw_pylpyrs();
-}
-
-
 static DWORD WINAPI eject_DLL(LPVOID lpParameter) {
 	close_console();
+//	Sleep(100); // in principle, the Present_hook function would have nowhere to return after CreateThread if FreeLibraryAndExitThread should finish earlier
 	FreeLibraryAndExitThread(inj_hModule, 0);
 }
 
@@ -210,36 +203,38 @@ extern time_t in_world; // from opcodes.cpp
 //	}
 //}
 
+static int hello_shown = 0;
 
-static int dbg_shown = 0;
+static void __stdcall EndScene_hook() {
+	//	draw_custom_d3d();
+
+
+
+}
+
 
 static void __stdcall Present_hook() {
 
-	init_custom_d3d(); // this doesn't do anything if it's already initialized
-	
-	if (!dbg_shown) {
-		IDirect3DDevice9 *d = get_wow_ID3D9();
-		PRINT("Present: %X, BeginScene: %X, EndScene: %X, DrawIndexedPrimitive: %X\n", get_Present(), get_BeginScene(), get_EndScene(), get_DrawIndexedPrimitive());
-		dbg_shown = 1;
-		srand(time(NULL));
-		//connect_to_governor();
+	if (!create_aux_window("the hotness :D", HMAP_SIZE, HMAP_SIZE)) {
+		throw std::exception("FATAL ERROR!");
 	}
 
-	do_wc3mode_stuff();
-
-	if (wc3mode_enabled()) {
-		if (mouse_pressed) {
-			need_mouseup = 1;
-			add_mouseup();
-			need_mouseup = 0;
-		}
+	if (hotness_enabled()) {
+		update_hotness_cache();
 	}
 
 	if (!ctm_check_direction()) {
 		ctm_cancel();
 	}
 
+	echo_queue_commit();
+
 	register_luafunc_if_not_registered();
+
+	if (!hello_shown) {
+		echo_wow("DLL loaded!");
+		hello_shown = 1;
+	}
 
 	static timer_interval_t fifty_ms(50);
 	static timer_interval_t half_second(500);
@@ -267,7 +262,7 @@ static void __stdcall Present_hook() {
 	}
 
 	if (fifteen_seconds.passed()) {
-//		report_client_status(); //
+		//		report_client_status(); //
 		fifteen_seconds.reset();
 	}
 
@@ -278,15 +273,18 @@ static void __stdcall Present_hook() {
 	//else if (capture.need_to_stop) {
 	//	capture.finish();
 	//}
-	
+
 	if (should_unpatch) {
 		PRINT("should unpatch! unpatching!\n");
 		unpatch_all();
 		DoString("ConsoleExec(\"reloadui\")"); // this gets rid of all the registered funcs
 		should_unpatch = 0;
 
-		cleanup_custom_d3d();
-		
+		hotness_stop(); //
+
+		//cleanup_custom_d3d();
+		opengl_cleanup();
+
 		// might be race condition territory right here
 		CreateThread(NULL, 0, eject_DLL, NULL, 0, 0);
 	}
@@ -385,12 +383,6 @@ static DWORD WINAPI create_warden_socket() {
 	return 0;
 }
 
-static void __stdcall EndScene_hook() {
-//	draw_custom_d3d();
-
-	execute_current_hconfig_if_active();
-
-}
 
 enum {
 	WARDEN_SOURCE_IN = 0,
@@ -557,11 +549,6 @@ static void __stdcall dump_recvpacket(BYTE *packet) {
 
 }
 
-static void __stdcall ClosePetStables_hook() {
-	lua_registered = 0;
-	enable_wc3mode(0);
-}
-
 static void __stdcall broadcast_CTM(float *coords, int action) {
 
 	float x, y, z;
@@ -619,7 +606,7 @@ static const trampoline_t *prepare_ClosePetStables_patch(patch_t *p) {
 
 	tr << PUSHAD; 
 
-	tr.append_CALL((DWORD)ClosePetStables_hook);
+	//tr.append_CALL((DWORD)ClosePetStables_hook);
 	tr << POPAD;
 
 	tr.append_bytes(p->original, p->size);
@@ -1020,7 +1007,7 @@ static const trampoline_t *prepare_pylpyr_patch(patch_t *p) {
 	PRINT("Preparing pylpyr patch...\n");
 
 	tr << PUSHAD;
-	tr.append_CALL((DWORD)call_pylpyr);
+	//tr.append_CALL((DWORD)call_pylpyr);
 
 	tr << POPAD; // POPAD
 	tr.append_bytes(p->original, p->size);
@@ -1029,12 +1016,6 @@ static const trampoline_t *prepare_pylpyr_patch(patch_t *p) {
 
 	return &tr;
 
-}
-
-static void __stdcall mwheel_hook(DWORD wParam) {
-	int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
-	if (zDelta < 0) customcamera.increment_s();
-	if (zDelta > 0) customcamera.decrement_s();
 }
 
 static void __stdcall SARC4_hook(uint* args) {
@@ -1051,7 +1032,7 @@ static const trampoline_t *prepare_mwheel_patch(patch_t *p) {
 	tr << PUSHAD;
 	tr << (BYTE)0x8B << (BYTE)0x45 << (BYTE)0x10; // move wParam to EAX
 	tr << (BYTE)0x50; // push eax
-	tr.append_CALL((DWORD)mwheel_hook);
+	//tr.append_CALL((DWORD)mwheel_hook);
 
 	tr << POPAD; // POPAD
 	tr << (BYTE)0x68 << (DWORD)0x86A8D1; // skip right to return
@@ -1071,7 +1052,7 @@ typedef struct {
 int __stdcall CTM_main_hook(CTM_final_args_t *a) {
 	PRINT("CTM: action %X, s1: %X, coords: %X, s2: %X\n", a->action, a->GUID, (DWORD)a->coords, a->s2);
 	
-	if (!wc3mode_enabled()) return 1;
+	//if (!wc3mode_enabled()) return 1;
 
 	if (a->action == CTM_MOVE) {
 		float *c = a->coords;
@@ -1115,7 +1096,7 @@ static const trampoline_t *prepare_AddInputEvent_patch(patch_t *p) {
 	static trampoline_t tr;
 
 	tr.append_hexstring("608D5C242453"); // pushad; lea ebx, [esp + 0x24]; push ebx
-	tr.append_CALL((DWORD)AddInputEvent_hook);
+	//tr.append_CALL((DWORD)AddInputEvent_hook);
 	tr.append_hexstring("83F800"); // cmp eax, 0
 	tr.append_hexstring("0F840F000000"); // jz branch 2
 
@@ -1291,12 +1272,14 @@ int prepare_pipe_data() {
 	ADD_PATCH_SAFE("EndScene");
 	ADD_PATCH_SAFE("Present");
 	ADD_PATCH_SAFE("CTM_finished");
-	ADD_PATCH_SAFE("ClosePetStables");
-	ADD_PATCH_SAFE("pylpyr");
 	ADD_PATCH_SAFE("CTM_main");
-	ADD_PATCH_SAFE("AddInputEvent");
 	ADD_PATCH_SAFE("SpellErrMsg");
 	ADD_PATCH_SAFE("SendPacket");
+
+	//ADD_PATCH_SAFE("ClosePetStables");
+	//ADD_PATCH_SAFE("pylpyr");
+	//ADD_PATCH_SAFE("AddInputEvent");
+
 //	ADD_PATCH_SAFE("RecvPacket");
 	//ADD_PATCH_SAFE("SARC4_encrypt");
 //	ADD_PATCH_SAFE("WS2_send");

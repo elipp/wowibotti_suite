@@ -154,8 +154,9 @@ CTM_PRIO_LOW = 1
 CTM_PRIO_REPLACE = 2
 CTM_PRIO_EXCLUSIVE = 3
 CTM_PRIO_FOLLOW = 4
-CTM_PRIO_HOLD_POSITION = 5
-CTM_PRIO_CLEAR_HOLD = 6
+CTM_PRIO_NOOVERRIDE = 5
+CTM_PRIO_HOLD_POSITION = 6
+CTM_PRIO_CLEAR_HOLD = 7
 
 local function lole_broadcast_ctm(x, y, z)
 
@@ -1099,9 +1100,9 @@ local function lole_spread_those_cheeks(dist)
 --	SPREAD_ONYXIA()
 
 	if not dist then dist = 15 end
-	SPREAD_SAVIANA(5)
+--	SPREAD_SAVIANA(dist)
 	--SPREAD_MADOT()
-	--SPREAD_FESTERGUT()
+	SPREAD_FESTERGUT()
 end
 
 local function lole_iccrocket(mirror_data)
@@ -1120,6 +1121,12 @@ local function lole_boss_action(...)
 	local catd = concatenate_args(" ", ...)
 	if not catd then return end
 	boss_action(catd)
+end
+
+local function lole_hconfig(...)
+	local catd = concatenate_args(" ", ...)
+	if not catd then return end
+	hconfig(catd)
 end
 
 local function lole_eject()
@@ -1205,6 +1212,7 @@ lole_subcommands = {
 	boss_action = lole_boss_action,
 	ba = lole_boss_action,
 
+	hconfig = lole_hconfig,
 
 	cast_spell = lole_cast_spell,
 

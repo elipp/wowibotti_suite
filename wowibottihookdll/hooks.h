@@ -7,6 +7,7 @@
 
 #include "patch.h"
 
+
 struct hookable_t;
 struct trampoline_t;
 struct patch_t;

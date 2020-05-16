@@ -24,11 +24,13 @@ function combat_warrior_fury()
   end
 
 
-  if UnitHealthMax("target") > 250000 then
-    local has, dur, stacks = has_debuff("target", "Sunder Armor")
-    if (not has) or dur < 5 or stacks < 5 then
-      L_CastSpellByName("Sunder Armor")
-      return
+  if not has_debuff("target", "Mutated Slash") then -- slight optimization for Putricide
+    if UnitHealthMax("target") > 250000 then
+      local has, dur, stacks = has_debuff("target", "Sunder Armor")
+      if (not has) or dur < 5 or stacks < 5 then
+        L_CastSpellByName("Sunder Armor")
+        return
+      end
     end
   end
 

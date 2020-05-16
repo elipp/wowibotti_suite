@@ -16,8 +16,6 @@ combat_mage_fire = function()
 	-- 	end
 	-- end
 
-	if true then caster_range_check(1, 36); return end
-
 	if player_casting() then return end
 
 	if ((GetItemCount(33312) == 0) and (not UnitAffectingCombat("player"))) then
@@ -45,10 +43,7 @@ combat_mage_fire = function()
 		if cleanse_mage() then return end
 	end
 
-	--if cleanse_raid("Curse of the Plaguebringer") then return end
-
 	if not validate_target() then return end
-	-- L_RunMacroText("/lole target 0xF1300027C8000007") -- FOR ONYXIA, REPLACE GUID OFC
 
 	caster_range_check(0,36);
 
