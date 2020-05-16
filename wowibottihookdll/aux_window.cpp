@@ -72,7 +72,8 @@ static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 	{"Marrowgar", hconfig_t("Lord Marrowgar",
 		{ new avoid_npc_t(15, "Lord Marrowgar"), new avoid_npc_t(10, "Coldflame"), new avoid_spellobject_t(10, 69146), new avoid_units_t(8) },
 		REV_SELF | REV_BOSS,
-		{ arena_impassable_t(vec2(-401.8, 2170), vec2(-0.762509, -0.646977)),
+		{ 
+		arena_impassable_t(vec2(-401.8, 2170), vec2(-0.762509, -0.646977)),
 		arena_impassable_t(vec2(-422.9, 2200.4), vec2(-1.000000, 0.000000)),
 		arena_impassable_t(vec2(-412.5, 2241.4), vec2(-0.834276, 0.551347)),
 		arena_impassable_t(vec2(-372.9, 2263.8), vec2(0.854369, 0.519668)),

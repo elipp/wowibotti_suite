@@ -37,27 +37,8 @@ struct CTM_posthook_t {
 	Timer timestamp;
 	int active;
 
-	CTM_posthook_t(CTM_callback_t hookfunc, void *hookfunc_arg, size_t arg_size, float delay_milliseconds) : 
-		callback(hookfunc), delay_ms(delay_milliseconds), argument({ 0 }), argument_size(0), active(0) {
-		timestamp.start();
-		delay_ms = delay_milliseconds;
-		
-		if (hookfunc_arg) {
-			memcpy(argument, hookfunc_arg, arg_size);
-			argument_size = arg_size;
-		}
-		else {
-			hookfunc_arg = NULL;
-			argument_size = 0;
-		}
-	};
-
-	CTM_posthook_t() : callback(NULL), delay_ms(0), active(0) {}
-
-	//~CTM_posthook_t() {
-	//	if (argument) free(argument);
-	//	argument = NULL;
-	//}
+	CTM_posthook_t(CTM_callback_t hookfunc, void* hookfunc_arg, size_t arg_size, float delay_milliseconds);
+	CTM_posthook_t();
 };
 
 enum {

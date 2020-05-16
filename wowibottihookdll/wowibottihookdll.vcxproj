@@ -157,11 +157,6 @@
     <ClInclude Include="dungeon_script.h" />
     <ClInclude Include="aux_window.h" />
     <ClInclude Include="hooks.h" />
-<<<<<<< HEAD
-    <ClInclude Include="input.h" />
-    <ClInclude Include="json.hpp" />
-=======
->>>>>>> origin/glaux
     <ClInclude Include="linalg.h" />
     <ClInclude Include="lua.h" />
     <ClInclude Include="packet.h" />
