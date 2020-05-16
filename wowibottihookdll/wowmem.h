@@ -25,6 +25,7 @@ GUID_t get_raid_target_GUID(const std::string &marker_name);
 
 GUID_t get_target_GUID();
 
+
 enum {
 	OBJECT_TYPE_OBJECT = 0,
 	OBJECT_TYPE_ITEM = 1,
@@ -156,7 +157,6 @@ public:
 	WowObject(unsigned int addr);
 	WowObject();
 
-
 	unsigned int get_base() const;
 
 	const WowObject& operator=(const WowObject &o);
@@ -164,6 +164,19 @@ public:
 
 
 class ObjectManager {
+
+	class iterator {
+	public:
+		iterator(DWORD base_addr);
+		iterator operator++();
+		bool operator!=(const iterator& other) const;
+		WowObject operator*() const;
+	private:
+		DWORD base;
+	};
+
+	ObjectManager::iterator begin() const;
+	ObjectManager::iterator end() const;
 
 private:
 	const unsigned int clientConnection_addr_static = 0xC79CE0,
@@ -180,6 +193,9 @@ private:
 	GUID_t localGUID;
 
 	int invalid;
+	long long construction_frame_num;
+
+	static ObjectManager* thisframe_objectmanager;
 
 public:
 
@@ -197,14 +213,14 @@ public:
 	GUID_t get_local_GUID() const;
 	int get_local_object(WowObject *o) const;
 	uint get_base_address() const { return base_addr; }
-	std::vector<WowObject> find_all_NPCs_at(const vec3 &pos, float radius) const;
-
+	std::vector<WowObject> get_all_NPCs_at(const vec3 &pos, float radius) const;
 	std::vector<WowObject> get_all_units() const;
-
+	std::vector<WowObject> get_all_combat_mobs() const;
 	std::vector<WowObject> get_spell_objects_with_spellID(long spellID);
 	std::vector<WowObject> get_NPCs_by_name(const std::string &name);
 	WowObject get_closest_NPC_by_name(const std::vector<WowObject> &objs, const vec3 &other);
 
+	static ObjectManager* get();
 
 };
 

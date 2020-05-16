@@ -41,6 +41,11 @@ pipe_data PIPEDATA;
 
 const UINT32 PIPE_PROTOCOL_MAGIC = 0xAB30DD13;
 
+static long long framenum = 0;
+long long get_current_frame_num() {
+	return framenum;
+}
+
 #define PUSHAD (BYTE)0x60
 #define POPAD (BYTE)0x61
 #define RET (BYTE)0xC3
@@ -285,6 +290,8 @@ static void __stdcall Present_hook() {
 		// might be race condition territory right here
 		CreateThread(NULL, 0, eject_DLL, NULL, 0, 0);
 	}
+
+	++framenum;
 
 }
 

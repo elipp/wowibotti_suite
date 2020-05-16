@@ -251,7 +251,7 @@ int dscript_run() {
 
 int dscript_objective_t::get_mob_info() {
 	ObjectManager OM;
-	std::vector<WowObject> M = OM.find_all_NPCs_at(this->pack_pos, this->radius);
+	std::vector<WowObject> M = OM.get_all_NPCs_at(this->pack_pos, this->radius);
 
 	for (auto &m : M) {
 		this->mobs.push_back(mob_t(m));

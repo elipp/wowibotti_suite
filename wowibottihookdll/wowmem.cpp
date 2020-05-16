@@ -4,6 +4,7 @@
 #include "ctm.h"
 
 #include "creds.h"
+#include "hooks.h"
 
 int const (*LUA_DoString)(const char*, const char*, const char*) = (int const(*)(const char*, const char*, const char*)) LUA_DoString_addr;
 int const (*SelectUnit)(GUID_t) = (int const(*)(GUID_t)) SelectUnit_addr;
@@ -22,6 +23,8 @@ void DoString(const char* format, ...) {
 	LUA_DoString(cmd, cmd, NULL); // the last argument actually MUST be null :D otherwise taint->blocked
 //	PRINT("(DoString: executed script \"%s\")\n", cmd);
 }
+
+
 
 static void echo(const char* msg) {
 	DoString("print(\"(C):%s\")", msg);
@@ -531,7 +534,7 @@ void increment_item_usecount() {
 }
 
 WowObject::WowObject(unsigned int addr) : base(addr) {};
-WowObject::WowObject() {};
+WowObject::WowObject() : base(0) {};
 
 unsigned int WowObject::get_base() const { return base; }
 
@@ -581,6 +584,38 @@ vec3 WowObject::GO_get_pos() const {
 }
 
 
+ObjectManager::iterator::iterator(DWORD base_addr) : base(base_addr) {}
+
+ObjectManager::iterator ObjectManager::iterator::operator++() {
+	auto next = WowObject(WowObject(base).next().get_base());
+	if (next.valid()) {
+		base = next.get_base();
+	}
+	else {
+		base = 0;
+	}
+	return *this;
+
+}
+
+bool ObjectManager::iterator::operator!=(const ObjectManager::iterator& other) const {
+	return base != other.base;
+}
+
+WowObject ObjectManager::iterator::operator*() const { 
+	return WowObject(base); 
+}
+
+ObjectManager::iterator ObjectManager::begin() const {
+	WowObject o;
+	if (!get_first_object(&o)) return 0;
+	else return iterator(o.get_base());
+}
+ObjectManager::iterator ObjectManager::end() const { 
+	return iterator(0); 
+}
+
+
 void ObjectManager::LoadAddresses() {
 
 	//if (!credentials.logged_in) { this->invalid = 1; return; }
@@ -611,6 +646,22 @@ int ObjectManager::get_first_object(WowObject *o) const {
 
 ObjectManager::ObjectManager() {
 	LoadAddresses();
+	construction_frame_num = get_current_frame_num();
+}
+
+ObjectManager* ObjectManager::thisframe_objectmanager = nullptr;
+
+ObjectManager* ObjectManager::get() {
+	if (!thisframe_objectmanager) {
+		thisframe_objectmanager = new ObjectManager;
+	}
+	else {
+		if (get_current_frame_num() != thisframe_objectmanager->construction_frame_num) {
+			delete thisframe_objectmanager;
+			thisframe_objectmanager = new ObjectManager;
+		}
+	}
+	return thisframe_objectmanager;
 }
 
 int ObjectManager::get_object_by_GUID(GUID_t GUID, WowObject *o) const {
@@ -749,7 +800,7 @@ std::vector<WowObject> ObjectManager::get_spell_objects_with_spellID(long spellI
 	return matches;
 }
 
-std::vector<WowObject> ObjectManager::find_all_NPCs_at(const vec3 &pos, float radius) const {
+std::vector<WowObject> ObjectManager::get_all_NPCs_at(const vec3 &pos, float radius) const {
 	std::vector<WowObject> NPCs;
 
 	WowObject o;
@@ -778,6 +829,17 @@ std::vector<WowObject> ObjectManager::get_all_units() const {
 			units.push_back(i);
 		}
 		i = i.next();
+	}
+	return units;
+}
+
+std::vector<WowObject> ObjectManager::get_all_combat_mobs() const {
+	std::vector<WowObject> units;
+
+	for (const auto &o : *this) {
+		if (o.get_type() == OBJECT_TYPE_NPC && o.in_combat()) {
+			units.push_back(o);
+		}
 	}
 	return units;
 }

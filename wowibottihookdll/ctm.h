@@ -37,7 +37,8 @@ struct CTM_posthook_t {
 	Timer timestamp;
 	int active;
 
-	CTM_posthook_t(CTM_callback_t hookfunc, void *hookfunc_arg, size_t arg_size, float delay_milliseconds) : callback(hookfunc), delay_ms(delay_milliseconds), active(0) {
+	CTM_posthook_t(CTM_callback_t hookfunc, void *hookfunc_arg, size_t arg_size, float delay_milliseconds) : 
+		callback(hookfunc), delay_ms(delay_milliseconds), argument({ 0 }), argument_size(0), active(0) {
 		timestamp.start();
 		delay_ms = delay_milliseconds;
 		

@@ -15,6 +15,8 @@ extern int should_unpatch;
 
 int prepare_pipe_data();
 
+long long get_current_frame_num();
+
 typedef struct patch_serialized {
 	UINT32 buffer_size;
 	BYTE *buffer;

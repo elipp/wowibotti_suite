@@ -162,26 +162,6 @@ static struct follow_state_t {
 } follow_state;
 
 
-	// COMMENTARY ON THE NOW REMOVED LOP_FACE
-	// less than 0.5 is good for just changing orientation (without walking). see click_to_move()
-
-	// The SetFacing function is effective on the local client level, 
-	// as it seems like the server still thinks the character is facing 
-	// the way it was before the call to SetFacing. So use CTM magic.
-
-	// this formula is for a directed angle (clockwise angle). atan2(det, dot). 
-	// now we're taking the angle with respect to the x axis (north in wow), so the computation becomes simply:
-
-	//vec3 diff = p.get_pos() - t.get_pos(); // OK, THE FOLLOWING CODE WORKS WITH PLAYER - TARGET,
-	//float directed_angle = atan2(diff.y, diff.x);
-
-	//printf("player coords: (%f, %f, %f), target coords: (%f, %f, %f), diff = (%f, %f, %f)\nangle = %f, player rot = %f\n", 
-	//pc.x, pc.y, pc.z, tc.x, tc.y, tc.z, diff.x, diff.y, diff.z, directed_angle, p.get_rot());
-
-	// the wow angle system seems to be counter-clockwise
-
-	//set_facing(directed_angle + M_PI);
-
 static void face_posthook(void *a) {
 	float angle = *(float*)a;
 	PRINT("Executed face_posthook (angle: %f)\n", angle);
@@ -236,9 +216,18 @@ static void SetFacing_local(float angle) {
 	WowObject p;
 	OM.get_local_object(&p);
 
-	float* facing_angle = (float*)(DEREF(p.get_base() + 0xD8) + 0x20);
-	PRINT("current facing_angle: %f\n", *facing_angle);
-	*facing_angle = angle;
+	static DWORD SetFacing_wow = 0x989B70;
+	DWORD facing_object = (DEREF(p.get_base() + 0xD8));// + 0x20);
+	
+	_asm {
+		fld angle;
+		push angle;
+		fstp angle;
+		mov ecx, facing_object;
+		call SetFacing_wow;
+	}
+	//PRINT("current facing_angle: %f\n", *facing_angle);
+	//*facing_angle = angle;
 }
 
 static std::chrono::system_clock::time_point last_CMSG_SET_FACING_sent = std::chrono::system_clock::now();
@@ -891,6 +880,8 @@ static int LOP_tank_face() {
 	if (!OM.get_local_object(&p) || !OM.get_object_by_GUID(get_target_GUID(), &t)) {
 		return 0;
 	}
+
+//	auto hostiles = OM
 
 	vec3 face = (t.get_pos() - p.get_pos()).unit();
 	float newa = atan2(face.y, face.x);
@@ -1980,10 +1971,7 @@ int lop_exec(lua_State *L) {
 	}
 
 	case LDOP_TEST: {
-		//LOPDBG_test();
-		float angle = lua_tonumber(L, 2);
-		PRINT("angle: %f\n", angle);
-		set_facing_local_and_remote(lua_tonumber(L, 2));
+		auto mobs = ObjectManager::get()->get_all_combat_mobs();
 		break;
 	}
 	case LDOP_NOCLIP: {
