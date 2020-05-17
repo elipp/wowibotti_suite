@@ -266,8 +266,6 @@ class ObjectManager {
 		DWORD base;
 	};
 
-	ObjectManager::iterator begin() const;
-	ObjectManager::iterator end() const;
 
 private:
 	const unsigned int clientConnection_addr_static = 0xC79CE0,
@@ -312,10 +310,14 @@ public:
 	WowObject get_closest_NPC_by_name(const std::vector<WowObject> &objs, const vec3 &other);
 
 	static ObjectManager* get();
-	hcache_t get_snapshot() const; // get snapshot of current units, NPCs and DOs
+	hcache_t get_snapshot() const; // get snapshot of current units, NPCs and DOs (for GLAUX)
+
+	ObjectManager::iterator begin() const;
+	ObjectManager::iterator end() const;
 
 };
 
+#define OMgr (ObjectManager::get())
 
 DWORD get_wow_d3ddevice();
 DWORD get_BeginScene();
@@ -323,8 +325,6 @@ DWORD get_EndScene();
 DWORD get_Present();
 DWORD get_DrawIndexedPrimitive();
 IDirect3DDevice9 *get_wow_ID3D9();
-
-__declspec(noinline) void set_local_facing(float angle);
 
 GUID_t get_focus_GUID();
 

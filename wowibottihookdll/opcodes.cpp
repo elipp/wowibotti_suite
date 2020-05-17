@@ -5,6 +5,7 @@
 #include <WinSock2.h>
 #include <time.h>
 #include <chrono>
+#include <numeric>
 
 #include "opcodes.h"
 #include "ctm.h"
@@ -55,7 +56,6 @@ enum {
 #define ARG_INF 9999
 
 static lop_func_t lop_funcs[] = {
-
 	 LOPFUNC(LOP_NOP, 0, 0, 0),
 	 LOPFUNC(LOP_TARGET_GUID, 1, 1, 0),
 	 LOPFUNC(LOP_CASTER_RANGE_CHECK, 2, 2, 0),
@@ -94,6 +94,7 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_GET_LAST_SPELL_ERRMSG, 0, 0, 3),
 	 LOPFUNC(LOP_ICCROCKET, 1, 1, 0),
 	 LOPFUNC(LOP_HCONFIG, 1, ARG_INF, 0),
+	 LOPFUNC(LOP_TANK_TAUNT_LOOSE, 2, 2, 0),
 };
 
 static int send_wowpacket(const BYTE* sockbuf, unsigned len) {
@@ -317,7 +318,7 @@ static void set_facing_local_and_remote(float angle) {
 		return;
 	}
 
-	printf("setting facing locally and remotely!\n");
+	printf("setting facing locally and remotely! (prev: %f, new: %f)\n", prev_angle, angle);
 	synthetize_CMSG_SET_FACING(angle);
 	SetFacing_local(angle);
 
@@ -420,7 +421,7 @@ static int LOP_melee_avoid_aoe_buff(long spellID) {
 	return 0;
 }
 
- void settarget_GUID(GUID_t GUID) {
+ void target_unit_with_GUID(GUID_t GUID) {
 
 	static GUID_t * const GUID_addr1 = (GUID_t*)0xBD07B0;
 	static GUID_t * const GUID_addr2 = (GUID_t*)0xBD07C0;
@@ -437,7 +438,7 @@ static int LOP_melee_avoid_aoe_buff(long spellID) {
 
 static int LOP_target_GUID(const std::string &arg) {
 	GUID_t GUID = convert_str_to_GUID(arg);
-	settarget_GUID(GUID);
+	target_unit_with_GUID(GUID);
 	return 1;
 }
 
@@ -877,19 +878,54 @@ static int mob_has_debuff(const WowObject &mob, uint debuff_spellID) {
 }
 
 static int LOP_tank_face() {
-	ObjectManager OM;
 
 	WowObject p, t;
-	if (!OM.get_local_object(&p) || !OM.get_object_by_GUID(get_target_GUID(), &t)) {
+	if (!OMgr->get_local_object(&p) || !OMgr->get_object_by_GUID(get_target_GUID(), &t)) {
 		return 0;
 	}
 
-//	auto hostiles = OM
+	auto mobs = OMgr->get_all_combat_mobs();
+	const auto ppos = p.get_pos();
+	const auto prot_unit = p.get_rotvec();
 
-	vec3 face = (t.get_pos() - p.get_pos()).unit();
-	float newa = atan2(face.y, face.x);
+	if (mobs.size() == 0) return 0;
 
-	set_facing_local_and_remote(newa);
+	vec3 diffsum(0, 0, 0);
+	for (const auto& m : mobs) {
+		diffsum = diffsum + (m.get_pos() - ppos);
+	}
+
+	diffsum = (1.0f / (float)mobs.size()) * diffsum;
+
+	//PRINT("Average diff vector: %f %f %f (# of mobs: %zu)\n", diffsum.x, diffsum.y, diffsum.z, mobs.size());
+
+	float orient_new = atan2(diffsum.y, diffsum.x);
+	set_facing_local_and_remote(orient_new);
+
+	bool need_to_backpedal = std::any_of(mobs.begin(), mobs.end(),
+		[&](const WowObject& o) -> bool {
+			vec3 tpdiff_unit = (o.get_pos() - ppos).unit();
+			float cosa = dot(tpdiff_unit, prot_unit);
+			if (cosa < 0.25) {
+				PRINT("mob 0x%llX is behind (even after orientation adjustment), need to backpedal\n", o.get_GUID());
+				return true;
+			}
+			return false;
+		});
+	
+	static bool stop_backpedal_lock = false;
+
+	if (need_to_backpedal) {
+		DoString("MoveBackwardStart()");
+		stop_backpedal_lock = false;
+	}
+	else {
+		// the lock is because in case somebody needs to manually move (especially backpedal) the tank, it won't be stopped by MoveBackwardStop()
+		if (!stop_backpedal_lock) DoString("MoveBackwardStop()"); 
+		stop_backpedal_lock = true;
+	}
+
+	return 0;
 
 }
 
@@ -1116,36 +1152,76 @@ static int LOP_get_combat_targets(std::vector <GUID_t> *out) {
 
 }
 
+static void tank_filter_wellbehaving_mobs(std::vector<WowObject>* mobs, const std::vector<GUID_t>& ignore_tanked_by_GUID) {
+	GUID_t pGUID = OMgr->get_local_GUID();
+	mobs->erase(
+		std::remove_if(mobs->begin(), mobs->end(),
+		[&](const WowObject& mob) {
+				GUID_t mtguid = mob.NPC_get_target_GUID();
+				if (std::any_of(ignore_tanked_by_GUID.begin(), ignore_tanked_by_GUID.end(),
+					[&](GUID_t guid) {
+						return mtguid == guid;
+					})) {
+					return true;
+				}
+				else if (mtguid == pGUID) {
+					return true;
+				}
+				else return false;
+		}),
+		mobs->end());
+}
+
+static int LOP_tank_taunt_loose(lua_State *L) {
+	auto mobs = OMgr->get_all_combat_mobs();
+	if (mobs.size() == 0) return 0;
+
+	std::string tauntspell = lua_tostring(L, 2);
+
+	std::vector<std::string> ignore_tanked_by_GUID;
+
+	if (lua_gettop(L) > 1) {
+		ignore_tanked_by_GUID = get_lua_stringtable(L, 3);
+	}
+
+	std::vector<GUID_t> ig;
+	for (const auto& G : ignore_tanked_by_GUID) {
+		ig.push_back(convert_str_to_GUID(G));
+	}
+
+	tank_filter_wellbehaving_mobs(&mobs, ig);
+
+	if (mobs.size() > 0) {
+		GUID_t tguid = mobs[0].get_GUID();
+		std::string tguidstr = convert_GUID_to_str(tguid);
+		lua_pushstring(L, tguidstr);
+		return 1;
+	}
+
+	else return 0;
+}
 
 
-static float LOP_get_aoe_feasibility(float threshold) {
+static int LOP_get_aoe_feasibility(lua_State *L, float threshold) {
 	GUID_t target_GUID = get_target_GUID();
 	if (!target_GUID) return -1;
 
 	ObjectManager OM;
-	WowObject p, t, i;
+	WowObject p, t;
 
 	OM.get_local_object(&p);
 
 	if (!OM.get_object_by_GUID(target_GUID, &t)) {
 		return -1;
 	}
-	vec3 tpos = t.get_pos();
 
-	if (!OM.get_first_object(&i)) {
-		return -1;
-	}
+	const vec3 tpos = t.get_pos();
 
 	float feasibility = 0; // the mob itself will be counted in the loop, so that's an automatic +1
 
-	while (i.valid()) {
+	for (const auto& i : *OMgr) {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
-
-			//settarget_GUID(i.get_GUID());
-			//auto R = dostring_getrvals("UnitReaction(\"player\", \"target\")");
-			//int reaction = std::stoi(R[0]);
 			int reaction = get_reaction(p, i);
-
 			if (reaction < 5 && !i.NPC_unit_is_dead() && i.NPC_get_health_max() > 2500) {
 				float dist = get_distance2(t, i);
 				if (dist < threshold) {
@@ -1153,14 +1229,11 @@ static float LOP_get_aoe_feasibility(float threshold) {
 					//PRINT("0x%llX (%s) is in combat, dist: %f, feasibility: %f, reaction: %d\n", i.get_GUID(), i.NPC_get_name().c_str(), dist, feasibility, reaction);
 				}
 			}
-
 		}
-		i = i.next();
 	}
 
-	PRINT("\n");
-
-	return feasibility;
+	lua_pushnumber(L, feasibility);
+	return 1;
 }
 
 static int LOPDBG_test() {
@@ -1886,9 +1959,7 @@ int lop_exec(lua_State *L) {
 	}
 
 	case LOP_GET_AOE_FEASIBILITY: {
-		float f = LOP_get_aoe_feasibility(lua_tonumber(L, 2));
-		lua_pushnumber(L, f);
-		return 1;
+		return LOP_get_aoe_feasibility(L, lua_tonumber(L, 2));
 	}
 
 	case LOP_AVOID_NPC_WITH_NAME: {
@@ -1926,13 +1997,13 @@ int lop_exec(lua_State *L) {
 				return 0;
 				break;
 			case 0:
-				lua_pushlstring(L, GUIDstr.c_str(), GUIDstr.length());
+				lua_pushstring(L, GUIDstr);
 				lua_pushboolean(L, 0);
 				return 2;
 				break;
 
 			case 1:
-				lua_pushlstring(L, GUIDstr.c_str(), GUIDstr.length());
+				lua_pushstring(L, GUIDstr);
 				lua_pushboolean(L, 1);
 				return 2;
 				break;
@@ -1944,7 +2015,7 @@ int lop_exec(lua_State *L) {
 
 		if (last_errmsg.msg) {
 			lua_pushnumber(L, last_errmsg.msg->code);
-			lua_pushlstring(L, last_errmsg.msg->text.c_str(), last_errmsg.msg->text.length());
+			lua_pushstring(L, last_errmsg.msg->text);
 			lua_pushnumber(L, last_errmsg.err_id);
 			return 3;
 		}
@@ -1956,6 +2027,11 @@ int lop_exec(lua_State *L) {
 
 	case LOP_ICCROCKET: {
 		use_icc_rocket_pack(lua_tolstring(L, 2, &len)); 
+		break;
+	}
+
+	case LOP_TANK_TAUNT_LOOSE: {
+		return LOP_tank_taunt_loose(L);
 		break;
 	}
 
@@ -1975,7 +2051,6 @@ int lop_exec(lua_State *L) {
 	}
 
 	case LDOP_TEST: {
-		auto mobs = ObjectManager::get()->get_all_combat_mobs();
 		break;
 	}
 	case LDOP_NOCLIP: {

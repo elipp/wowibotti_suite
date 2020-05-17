@@ -153,6 +153,8 @@ int request_patch() {
 			return 1;
 		}
 	}
+
+	return 0;
 }
 
 int handle_patching() {
