@@ -1091,8 +1091,8 @@ local function SPREAD_FESTERGUT()
 
 end
 
-local function lole_debug_face_angle(angle)
-	lole_debug_test(angle)
+local function lole_debug_face_angle()
+	lole_debug_test()
 end
 
 local function lole_spread_those_cheeks(dist)

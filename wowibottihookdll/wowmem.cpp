@@ -680,6 +680,9 @@ ObjectManager::ObjectManager() {
 ObjectManager* ObjectManager::thisframe_objectmanager = nullptr;
 
 ObjectManager* ObjectManager::get() {
+
+	// this is most likely not necessary anyway, but just in case we reload the addresses of OM every frame
+
 	if (!thisframe_objectmanager) {
 		thisframe_objectmanager = new ObjectManager;
 	}
@@ -888,6 +891,7 @@ std::vector<WowObject> ObjectManager::get_all_units() const {
 	}
 	return units;
 }
+
 
 std::vector<WowObject> ObjectManager::get_all_combat_mobs() const {
 	std::vector<WowObject> units;
