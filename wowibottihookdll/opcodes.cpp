@@ -6,6 +6,7 @@
 #include <time.h>
 #include <chrono>
 #include <numeric>
+#include <filesystem>
 
 #include "opcodes.h"
 #include "ctm.h"
@@ -94,7 +95,8 @@ static lop_func_t lop_funcs[] = {
 	 LOPFUNC(LOP_GET_LAST_SPELL_ERRMSG, 0, 0, 3),
 	 LOPFUNC(LOP_ICCROCKET, 1, 1, 0),
 	 LOPFUNC(LOP_HCONFIG, 1, ARG_INF, 0),
-	 LOPFUNC(LOP_TANK_TAUNT_LOOSE, 2, 2, 0),
+	 LOPFUNC(LOP_TANK_TAUNT_LOOSE, 1, 2, 0),
+	 LOPFUNC(LOP_READ_FILE, 1, 1, 1),
 };
 
 static int send_wowpacket(const BYTE* sockbuf, unsigned len) {
@@ -1201,6 +1203,35 @@ static int LOP_tank_taunt_loose(lua_State *L) {
 	else return 0;
 }
 
+static inline long get_filesize(FILE* fp) {
+	long r;
+	fseek(fp, 0, SEEK_END);
+	r = ftell(fp);
+	rewind(fp);
+	return r;
+}
+
+static int LOP_read_file(lua_State *L) {
+	std::string filename = lua_tostring(L, 2);
+	
+	FILE* fp = fopen(filename.c_str(), "rb");
+	if (!fp) {
+		dual_echo("Couldn't open file %ls\\\"%s\" for reading\n", std::filesystem::current_path().c_str(), filename.c_str());
+		return 0;
+	}
+
+	long fs = get_filesize(fp);
+	char* buf = new char[fs + 1];
+	fread(buf, 1, fs, fp);
+	buf[fs] = '\0';
+	lua_pushlstring(L, buf, fs);
+	dual_echo("loaded file \"%s\" (size = %ld)", filename.c_str(), fs);
+
+	delete[] buf;
+
+	return 1;
+}
+
 
 static int LOP_get_aoe_feasibility(lua_State *L, float threshold) {
 	GUID_t target_GUID = get_target_GUID();
@@ -1860,7 +1891,7 @@ int lop_exec(lua_State *L) {
 		std::vector<std::string> names = LOP_chain_heal_target(current_heals);
 		int n_rvals = 0;
 		for (auto &n : names) {
-			PUSHSTRING(L, n.c_str());
+			lua_pushstring(L, n);
 			++n_rvals;
 		}
 		return n_rvals;
@@ -1950,7 +1981,7 @@ int lop_exec(lua_State *L) {
 		LOP_get_combat_targets(&targets);
 
 		for (int i = 0; i < targets.size(); ++i) {
-			PUSHSTRING(L, convert_GUID_to_str(targets[i]).c_str());
+			lua_pushstring(L, convert_GUID_to_str(targets[i]));
 		}
 
 		return targets.size();
@@ -2033,6 +2064,10 @@ int lop_exec(lua_State *L) {
 	case LOP_TANK_TAUNT_LOOSE: {
 		return LOP_tank_taunt_loose(L);
 		break;
+	}
+
+	case LOP_READ_FILE: {
+		return LOP_read_file(L);
 	}
 
 	case LDOP_CAPTURE_FRAME_RENDER_STAGES:

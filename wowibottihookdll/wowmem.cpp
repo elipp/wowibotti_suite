@@ -2,6 +2,7 @@
 
 #include <queue>
 #include <mutex>
+#include <algorithm>
 
 #include "wowmem.h"
 #include "ctm.h"
@@ -47,14 +48,13 @@ static void equeue_add(const std::string& msg) {
 
 void echo_queue_commit() {
 
-	echo_queue_mutex.lock();
+	std::lock_guard lock(echo_queue_mutex);
 
 	while (!echo_msgqueue.empty()) {
 		echo(echo_msgqueue.front().c_str());
 		echo_msgqueue.pop();
 	}
 
-	echo_queue_mutex.unlock();
 
 }
 
@@ -69,16 +69,63 @@ void echo_wow(const char* format, ...) {
 	equeue_add(msg);
 }
 
+
+static std::string echomsg_transform(const char* msg, int len) {
+	// we transform all the "\""s to "\\\"", because otherwise DoString gets ripped
+	const char* prevpos = msg;
+
+	struct replaceinfo {
+		std::string from;
+		std::string to;
+		const char* fpos;
+	};
+
+	replaceinfo transforms[] = {
+		{"\"", "\\\"", msg},
+		{"\\", "\\\\", msg},
+	};
+
+	std::string buf;
+	buf.reserve(2048);
+
+	while (true) {
+
+		replaceinfo* first_occurrence = nullptr;
+		const char* firstpos = (const char*)0xFFFFFFFF;
+		for (auto& t : transforms) {
+			t.fpos = strstr(prevpos, t.from.c_str());
+			if (t.fpos && t.fpos < firstpos) {
+				firstpos = t.fpos;
+				first_occurrence = &t;
+			}
+		}
+
+		if (!first_occurrence) {
+			if (prevpos == msg) {
+				return msg;
+			}
+			break;
+		}
+		std::string toadd(prevpos, (size_t)(firstpos - prevpos));
+		buf += toadd + first_occurrence->to;
+
+		prevpos = firstpos + first_occurrence->from.length();
+	
+	}
+
+	return buf;
+}
+
 void dual_echo(const char* format, ...) {
 	char msg[1024];
 
 	va_list args;
 	va_start(args, format);
-	vsprintf_s(msg, format, args);
+	int len = vsprintf_s(msg, format, args);
 	va_end(args);
 
 	PRINT("%s\n", msg); // console should be thread safe
-	equeue_add(msg);
+	equeue_add(echomsg_transform(msg, len));
 
 }
 

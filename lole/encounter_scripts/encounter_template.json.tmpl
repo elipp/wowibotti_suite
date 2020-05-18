@@ -1,7 +1,7 @@
 {
     "name": "Professor Putricide",
-    "area": [[x1, y1], [x2, y2], ...],
-    "obstacles": [[[x1, y1], [x2, y2], ...], ...],
+    "area": "[[x1, y1], [x2, y2], ...]",
+    "obstacles": "[[[x1, y1], [x2, y2], ...], ...]",
     "fight": {
         "preparationActions": {
             "byName": null,
@@ -10,7 +10,7 @@
                     {
                         "action": "MOVE",
                         "actionArgs": {
-                            "location": [x, y]
+                            "location": "[x, y]"
                         }
                     }                    
                 ],
@@ -18,16 +18,18 @@
                     {
                         "action": "MOVE",
                         "actionArgs": {
-                            "location": [x, y]
+                            "location": "[x, y]"
                         }
                     }                    
                 ],
                 "rangedOrHealer": [
                     {
-                        "action": "DISPERSE",               // "DISPERSE" for demonstration reasons. "MOVE" should be used for Prof. Putricide.
+                        "action": "DISPERSE",
+                        "_comment" : "\"DISPERSE\" for demonstration reasons. \"MOVE\" should be used for Prof. Putricide.",
                         "actionArgs": {
-                            "location": [x, y],
-                            "mode": "MAX_RANGE",            // [MAX_RANGE|ENTROPY|ZIGZAG]
+                            "location": "[x, y]",
+                            "mode": "MAX_RANGE",
+                            "_comment" : "[MAX_RANGE|ENTROPY|ZIGZAG]",
                             "intervalYds": 8
                         }
                     }
@@ -68,11 +70,13 @@
                             }
                         ]
                     },
-                    "dynamic": [                            // [] for Prof. Putricide but could be useful elsewhere
+                    "dynamic": [
                         {
+                            "_comment" : "[] for Prof. Putricide but could be useful elsewhere",
                             "name": "Add X", 
                             "switchCondition": null,
-                            "ddAllocation": 0.2,            // 20% of damage dealers should focus on Add X when spawned
+                            "ddAllocation": 0.2,
+                            "_comment" : "20% of damage dealers should focus on Add X when spawned",
                             "rolePreference": "MELEE"
                         },
                         {
@@ -84,7 +88,7 @@
                         {
                             "name": "Boss",
                             "switchCondition": null,
-                            "ddAllocation": 1.0
+                            "ddAllocation": 1.0,
                             "rolePreference": null
                         }
                     ]
@@ -98,14 +102,14 @@
                     ],
                     "combatLogEvents": [
                         {
-                            "event": "Volatile Ooze died"
+                            "event": "Volatile Ooze died",
                             "actions": {
                                 "byRole": {
                                     "rangedOrHealer": [
                                         {
                                             "action": "MOVE",
                                             "actionArgs": {
-                                                "location": [x, y]
+                                                "location": "[x, y]"
                                             }
                                         }
                                     ]
@@ -113,23 +117,24 @@
                             }
                         },
                         {
-                            "event": "Gas Cloud died"
+                            "event": "Gas Cloud died",
                             "actions": {
                                 "byRole": {
                                     "rangedOrHealer": [
                                         {
                                             "action": "MOVE",
                                             "actionArgs": {
-                                                "location": [x, y]
+                                                "location": "[x, y]"
                                             }
                                         }
                                     ]
                                 }
                             }
                         }
-                    ]
-                    "debuffs": [                            // [] for Prof. P.
+                    ],
+                    "debuffs": [
                         {
+                            "_comment" : "[] for Prof. P.",
                             "name": "Debuff X",
                             "actions": {
                                 "player": [
@@ -151,7 +156,7 @@
                         }
                     ]
                 },
-                positioning: {
+                "positioning" : {
                     "hazards": {
                         "dynamicObjects": [
                             {
@@ -159,15 +164,17 @@
                                 "isStaticSize": false,
                                 "isStaticLocation": true,
                                 "shape": "CIRCLE",
-                                "radiusYds": 10,            // starting radius
+                                "radiusYds": 10,
+                                "_comment" : "starting radius",
                                 "evasionMarginYds": 5
                             }
-                        ]
+                        ],
                         "NPCs": [],
-                        "_placeHolder": []                  // any others?
+                        "_placeHolder": [],
+                        "_comment" : "any others?"
                     }
                 },
-                healerAssignments: {
+                "healerAssignments" : {
                     "Prinf": {
                         "heals": ["raid"],
                         "hots": [],
@@ -212,14 +219,14 @@
                 "reactions": {
                     "combatLogEvents": [
                         {
-                            "event": "Volatile Ooze died"
+                            "event": "Volatile Ooze died",
                             "actions": {
                                 "byRole": {
                                     "rangedOrHealer": [
                                         {
                                             "action": "DISPERSE",
                                             "actionArgs": {
-                                                "location": [x, y],
+                                                "location": "[x, y]",
                                                 "mode": "ENTROPY",
                                                 "intervalYds": 10
                                             }
@@ -229,14 +236,14 @@
                             }
                         },
                         {
-                            "event": "Gas Cloud died"
+                            "event": "Gas Cloud died",
                             "actions": {
                                 "byRole": {
                                     "rangedOrHealer": [
                                         {
                                             "action": "DISPERSE",
                                             "actionArgs": {
-                                                "location": [x, y],
+                                                "location": "[x, y]",
                                                 "mode": "ENTROPY",
                                                 "intervalYds": 10
                                             }
@@ -246,13 +253,13 @@
                             }
                         },
                         {
-                            "event": "Professor Putricide casts Malleable Goo at X"
+                            "event": "Professor Putricide casts Malleable Goo at X",
                             "actions": {
                                 "everyone": [
                                     {
                                         "action": "MOVE_AWAY_FROM_PLAYER",
                                         "actionArgs": {
-                                            "playerName": X,
+                                            "playerName": "X",
                                             "isTargetIncluded": true,
                                             "evasionMarginYds": 12
                                         }
@@ -262,7 +269,7 @@
                         }
                     ]
                 },
-                positioning: {
+                "positioning": {
                     "hazards": {
                         "dynamicObjects": [
                             {
@@ -270,7 +277,8 @@
                                 "isStaticSize": false,
                                 "isStaticLocation": true,
                                 "shape": "CIRCLE",
-                                "radiusYds": 10,            // starting radius
+                                "radiusYds": 10,
+                                "_comment" : "starting radius",
                                 "evasionMarginYds": 5
                             },
                             {
@@ -284,9 +292,11 @@
                         ]
                     },
                     "NPCs": [],
-                    "_placeHolder": []                      // any others?
+                    "_placeHolder": [],
+                    "_comment" : "any others?"
                 },
-                healerAssignments: null                     // null i.e. default
+                "healerAssignments" : null,
+                "_comment" : "null healerAssignments -> default"
             },
             "phase3": {
                 "targeting": {
@@ -330,13 +340,13 @@
                     ],
                     "combatLogEvents": [
                         {
-                            "event": "Professor Putricide casts Malleable Goo at X"
+                            "event": "Professor Putricide casts Malleable Goo at X",
                             "actions": {
                                 "everyone": [
                                     {
                                         "action": "MOVE_AWAY_FROM_PLAYER",
                                         "actionArgs": {
-                                            "playerName": X,
+                                            "playerName": "X",
                                             "isTargetIncluded": true,
                                             "evasionMarginYds": 12
                                         }
@@ -346,7 +356,7 @@
                         }
                     ]
                 },
-                positioning: {
+                "positioning" : {
                     "hazards": {
                         "dynamicObjects": [
                             {
@@ -354,7 +364,8 @@
                                 "isStaticSize": false,
                                 "isStaticLocation": true,
                                 "shape": "CIRCLE",
-                                "radiusYds": 10,            // starting radius
+                                "radiusYds": 10,
+                                "_comment" : "starting radius",
                                 "evasionMarginYds": 5
                             },
                             {
@@ -368,9 +379,10 @@
                         ]
                     },
                     "NPCs": [],
-                    "_placeHolder": []                      // any others?
+                    "_placeHolder": [],
+                    "_comment" : "any others?"
                 },
-                healerAssignments: null                     // null i.e. default
+                "healerAssignments" : null
             }
         }
     }

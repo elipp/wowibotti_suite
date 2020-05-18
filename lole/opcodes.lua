@@ -37,7 +37,8 @@ local LOP = {
 	GET_LAST_SPELL_ERRMSG = 0x23,
 	ICCROCKET = 0x24,
 	HCONFIG = 0x25,
-	TANK_TAUNT_LOOSE = 0x26
+	TANK_TAUNT_LOOSE = 0x26,
+	READ_FILE = 0x27,
 }
 
 local LOP_EXT = {
@@ -245,8 +246,33 @@ function iccrocket(mirror_data)
 	lop_exec(LOP.ICCROCKET, mirror_data)
 end
 
+local function get_indent(indentlevel)
+	local indent = ""
+	for i = 0, indentlevel - 1 do
+		indent = indent .. "    "
+	end
+	return indent
+end
+
+local function print_nested_table(tbl, indentlevel)
+	if not indentlevel then indentlevel = 0 
+	else indentlevel = indentlevel + 1 end
+
+	for k,v in pairs(tbl) do 
+		if type(v) == "table" then
+			print(get_indent(indentlevel), k)
+			print_nested_table(v, indentlevel)
+		else
+			print(get_indent(indentlevel), k, v)
+		end
+    end
+
+end
+
 function lole_debug_test()
-	lop_exec(LDOP.TEST, {"persse", "onsso"}, {"pirri", "kalltu"})
+	local s = read_file(".\\Interface\\AddOns\\lole\\encounter_scripts\\encounter_template.json.tmpl")
+	local j = json.decode(s)
+	print_nested_table(j)
 end
 
 function lole_debug_pull_test()
@@ -420,4 +446,8 @@ function get_loose_tank_target(taunt_spells, ignore_mobs_tanked_by_GUID)
 	if spell then
 		return lop_exec(LOP.TANK_TAUNT_LOOSE, spell, ignore_mobs_tanked_by_GUID), spell
 	end
+end
+
+function read_file(filename)
+	return lop_exec(LOP.READ_FILE, filename)
 end

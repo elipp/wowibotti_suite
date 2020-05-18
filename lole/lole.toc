@@ -3,6 +3,8 @@
 ## Author: Toni Pillu
 ## Notes: epic
 
+json.lua
+
 lole_common.lua
 lole_buffs.lua
 
@@ -31,6 +33,7 @@ subcommands.lua
 
 frame.lua
 unitselectionframe.lua
+
 
 lole.xml
 lole.lua
