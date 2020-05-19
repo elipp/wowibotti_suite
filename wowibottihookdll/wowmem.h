@@ -11,7 +11,7 @@
 extern int const (*LUA_DoString)(const char*, const char*, const char*);
 extern int const (*SelectUnit)(GUID_t);
 
-void DoString(const char* format, ...); 
+void DoString(const std::string format, ...); // because must not have reference type
 void echo_wow(const char* format, ...);
 void dual_echo(const char* format, ...); // echo to both console and wow chat
 
@@ -307,7 +307,6 @@ public:
 	std::vector<WowObject> get_all_combat_mobs() const;
 	std::vector<WowObject> get_spell_objects_with_spellID(long spellID);
 	std::vector<WowObject> get_NPCs_by_name(const std::string &name);
-	WowObject get_closest_NPC_by_name(const std::vector<WowObject> &objs, const vec3 &other);
 
 	static ObjectManager* get();
 	hcache_t get_snapshot() const; // get snapshot of current units, NPCs and DOs (for GLAUX)
@@ -348,3 +347,11 @@ typedef struct last_spellerror {
 } last_spellerror;
 
 extern last_spellerror last_errmsg;
+
+struct taint_caller_reseter {
+	DWORD current_taint_caller;
+	static const DWORD taint_caller_addr_wow;
+
+	taint_caller_reseter();
+	~taint_caller_reseter();
+};

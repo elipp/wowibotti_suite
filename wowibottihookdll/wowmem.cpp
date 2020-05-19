@@ -15,12 +15,12 @@ int const (*SelectUnit)(GUID_t) = (int const(*)(GUID_t)) SelectUnit_addr;
 
 std::mutex hcache_t::mutex;
 
-void DoString(const char* format, ...) {
+void DoString(const std::string format, ...) {
 	char cmd[1024];
 
 	va_list args;
 	va_start(args, format);
-	vsprintf_s(cmd, format, args);
+	vsprintf_s(cmd, format.c_str(), args);
 	va_end(args);
 
 //	char cmd2[1024];
@@ -129,20 +129,17 @@ void dual_echo(const char* format, ...) {
 
 }
 
-
-static const char* taint_caller;
-static const char **taint_addr = (const char**)0xD4139C;
-
-// these are garbage these days :D
-void set_taint_caller_zero() {
-	//PRINT("setting taint target zero (was %s)\n", *taint_addr);
-	taint_caller = *taint_addr;
-	*taint_addr = 0;
+taint_caller_reseter::taint_caller_reseter() : current_taint_caller(0) {
+	readAddr(taint_caller_addr_wow, &current_taint_caller, sizeof(current_taint_caller));
+	DWORD zero = 0;
+	writeAddr(taint_caller_addr_wow, &zero, sizeof(zero));
+}
+taint_caller_reseter::~taint_caller_reseter() {
+	writeAddr(taint_caller_addr_wow, &current_taint_caller, sizeof(current_taint_caller));
 }
 
-void reset_taint_caller() {
-	*taint_addr = taint_caller;
-}
+const DWORD taint_caller_reseter::taint_caller_addr_wow = 0xD4139C;
+
 
 static BYTE *const spellcast_counter = (BYTE*)0xD397D5;
 
@@ -541,6 +538,7 @@ int WowObject::NPC_has_debuff(uint spellID) const {
 
 	for (int i = 1; i < 40; ++i) {
 		uint s = NPC_get_debuff(i);
+		if (s == 0) break;
 		if (s == spellID) {
 			return 1;
 		}
@@ -796,20 +794,7 @@ std::vector<WowObject> ObjectManager::get_NPCs_by_name(const std::string &name) 
 	return ret;
 }
 
-WowObject ObjectManager::get_closest_NPC_by_name(const std::vector<WowObject> &objs, const vec3 &other) {
-	const WowObject *closest = NULL;
-	float cdist = 0;
 
-	for (const auto &o : objs) {
-		float dist = (o.get_pos() - other).length();
-		if (!closest || (dist < cdist)) { // should work like this :D
-			closest = &o;
-			cdist = dist;
-		}
-	}
-
-	return *closest;
-}
 
 hcache_t ObjectManager::get_snapshot() const {
 

@@ -1,45 +1,50 @@
-local LOP = {
-	NOP = 0x0,
-	TARGET_GUID = 0x1,
-	CASTER_RANGE_CHECK = 0x2,
-	FOLLOW = 0x3,  -- this also includes walking to/towards the target
-	CTM = 0x4,
-	DUNGEON_SCRIPT = 0x5,
-	TARGET_MARKER = 0x6,
-	MELEE_BEHIND = 0x7,
-	AVOID_SPELL_OBJECT = 0x8,
-	HUG_SPELL_OBJECT = 0x9,
-	SPREAD = 0xA,
-	CHAIN_HEAL_TARGET = 0xB,
-	MELEE_AVOID_AOE_BUFF = 0xC,
-	TANK_FACE = 0xD,
-	WALK_TO_PULLING_RANGE = 0xE,
-	GET_UNIT_POSITION = 0xF,
-	GET_WALKING_STATE = 0x10,
-	GET_CTM_STATE = 0x11,
-	GET_PREVIOUS_CAST_MSG = 0x12,
-	STOPFOLLOW = 0x13,
-	CAST_GTAOE = 0x14,
-	HAS_AGGRO = 0x15,
-	INTERACT_GOBJECT = 0x16,
-	GET_BISCUITS = 0x17,
-	LOOT_BADGE = 0x18,
-	LUA_UNLOCK = 0x19,
-	LUA_LOCK = 0x1A,
-	EXECUTE = 0x1B,
-	FOCUS = 0x1C,
-	CAST_SPELL = 0x1D,
-	GET_COMBAT_TARGETS = 0x1E,
-	GET_AOE_FEASIBILITY = 0x1F,
-	AVOID_NPC_WITH_NAME = 0x20,
-	BOSS_ACTION = 0x21,
-	INTERACT_SPELLNPC = 0x22,
-	GET_LAST_SPELL_ERRMSG = 0x23,
-	ICCROCKET = 0x24,
-	HCONFIG = 0x25,
-	TANK_TAUNT_LOOSE = 0x26,
-	READ_FILE = 0x27,
-}
+local LOP = { NUM_OPCODES = 0 }
+
+function LOP:add(VAL)
+	self[VAL] = self.NUM_OPCODES
+	self.NUM_OPCODES = self.NUM_OPCODES + 1
+end
+
+-- kinda KlunKy, but helps keep track of these
+
+LOP:add("NOP")
+LOP:add("TARGET_GUID")
+LOP:add("CASTER_RANGE_CHECK")
+LOP:add("FOLLOW")
+LOP:add("CTM")
+LOP:add("DUNGEON_SCRIPT")
+LOP:add("TARGET_MARKER")
+LOP:add("MELEE_BEHIND")
+LOP:add("AVOID_SPELL_OBJECT")
+LOP:add("HUG_SPELL_OBJECT")
+LOP:add("SPREAD")
+LOP:add("CHAIN_HEAL_TARGET")
+LOP:add("MELEE_AVOID_AOE_BUFF")
+LOP:add("TANK_FACE")
+LOP:add("TANK_PULL")
+LOP:add("GET_UNIT_POSITION")
+LOP:add("GET_WALKING_STATE")
+LOP:add("GET_CTM_STATE")
+LOP:add("GET_PREVIOUS_CAST_MSG")
+LOP:add("STOPFOLLOW")
+LOP:add("CAST_GTAOE")
+LOP:add("HAS_AGGRO")
+LOP:add("INTERACT_GOBJECT")
+LOP:add("GET_BISCUITS")
+LOP:add("LOOT_BADGE")
+LOP:add("LUA_UNLOCK")
+LOP:add("LUA_LOCK")
+LOP:add("EXECUTE")
+LOP:add("GET_COMBAT_TARGETS")
+LOP:add("GET_AOE_FEASIBILITY")
+LOP:add("AVOID_NPC_WITH_NAME")
+LOP:add("BOSS_ACTION")
+LOP:add("INTERACT_SPELLNPC")
+LOP:add("GET_LAST_SPELL_ERRMSG")
+LOP:add("ICCROCKET")
+LOP:add("HCONFIG")
+LOP:add("TANK_TAUNT_LOOSE")
+LOP:add("READ_FILE")
 
 local LOP_EXT = {
 	NOP = 0x70,
@@ -370,18 +375,6 @@ end
 
 function L_InviteUnit(name)
 	execute_script("InviteUnit(" .. tostring(name) .. ")")
-end
-
-function L_focus_target()
-	lop_exec(LOP.FOCUS, UnitGUID("target"))
-end
-
-function L_clear_focus()
-	lop_exec(LOP.FOCUS, "0x0000000000000000")
-end
-
-function L_target_focus()
-	lop_exec(LOP.TARGET_GUID, UnitGUID("focus"))
 end
 
 function L_TargetTotem(slot)

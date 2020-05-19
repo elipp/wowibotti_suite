@@ -1,24 +1,27 @@
 #include "lua.h"
 #include "opcodes.h"
 
-p_lua_pushcclosure	lua_pushcclosure = (p_lua_pushcclosure)lua335_pushcclosure;
-p_lua_setfield		lua_setfield = (p_lua_setfield)lua335_setfield;
-p_lua_gettop		lua_gettop = (p_lua_gettop)lua335_gettop;
-p_lua_settop		lua_settop = (p_lua_settop)lua335_settop;
-p_lua_pushnumber	lua_pushnumber = (p_lua_pushnumber)lua335_pushnumber;
-p_lua_pushnil		lua_pushnil = (p_lua_pushnil)lua335_pushnil;
-p_lua_pushboolean	lua_pushboolean = (p_lua_pushboolean)lua335_pushboolean;
-p_lua_pushinteger	lua_pushinteger = (p_lua_pushinteger)lua335_pushinteger;
-p_lua_tolstring		lua_tolstring = (p_lua_tolstring)lua335_tolstring;
-p_lua_pushlstring	lua_pushlstring = (p_lua_pushlstring)lua335_pushlstring;
-p_lua_getfield		lua_getfield_ = (p_lua_getfield)lua335_getfield;
-p_lua_tonumber		lua_tonumber = (p_lua_tonumber)lua335_tonumber;
-p_lua_tointeger		lua_tointeger = (p_lua_tointeger)lua335_tointeger;
-p_lua_toboolean		lua_toboolean = (p_lua_toboolean)lua335_toboolean;
-p_lua_gettable		lua_gettable = (p_lua_gettable)lua335_gettable;
-p_lua_next			lua_next = (p_lua_next)lua335_next;
+const p_lua_pushcclosure	lua_pushcclosure = (p_lua_pushcclosure)lua335_pushcclosure;
+const p_lua_setfield		lua_setfield = (p_lua_setfield)lua335_setfield;
+const p_lua_gettop			lua_gettop = (p_lua_gettop)lua335_gettop;
+const p_lua_settop			lua_settop = (p_lua_settop)lua335_settop;
+const p_lua_pushnumber		lua_pushnumber = (p_lua_pushnumber)lua335_pushnumber;
+const p_lua_pushnil			lua_pushnil = (p_lua_pushnil)lua335_pushnil;
+const p_lua_pushboolean		lua_pushboolean = (p_lua_pushboolean)lua335_pushboolean;
+const p_lua_pushinteger		lua_pushinteger = (p_lua_pushinteger)lua335_pushinteger;
+const p_lua_tolstring		lua_tolstring = (p_lua_tolstring)lua335_tolstring;
+const p_lua_pushlstring		lua_pushlstring = (p_lua_pushlstring)lua335_pushlstring;
+const p_lua_getfield		lua_getfield_ = (p_lua_getfield)lua335_getfield;
+const p_lua_tonumber		lua_tonumber = (p_lua_tonumber)lua335_tonumber;
+const p_lua_tointeger		lua_tointeger = (p_lua_tointeger)lua335_tointeger;
+const p_lua_toboolean		lua_toboolean = (p_lua_toboolean)lua335_toboolean;
+const p_lua_gettable		lua_gettable = (p_lua_gettable)lua335_gettable;
+const p_lua_next			lua_next = (p_lua_next)lua335_next;
 
+// semi-custom stuff
 
+const p_lua_gettype lua_gettype = (p_lua_gettype)0x84DEB0;
+const p_lua_gettypestring lua_gettypestring = (p_lua_gettypestring)0x84DED0;
 
 #define lua243_state 0xE1DB84
 #define lua335_state 0xD3F78C
@@ -51,35 +54,22 @@ const lua_rvals_t &dostring_getrvals(const std::string &script) {
 	return LUA_RVALS();
 }
 
-enum lua_types {
-	nil = 0,
-	boolean_ = 1, // there's some weird redefinition error, hence underscore
-	userdata = 2,
-	number = 3,
-	string = 4,
-	table = 5,
-	function = 6,
-	userdata2 = 7,
-	thread = 8,
-	proto = 9
-};
 
-static const auto gettypeid = (DWORD(*__cdecl)(lua_State*, int))0x84DEB0;
-static const auto gettypestring = (const char* (*__cdecl)(lua_State*, int))0x84DED0;
-#define get_lua_typestr(STATE, idx) gettypestring(STATE, gettypeid(STATE, idx))
+
+#define lua_gettypestr(STATE, idx) lua_gettypestring(STATE, gettypeid(STATE, idx))
 
 static std::string lua_stackval_to_string(lua_State* L, int idx) {
-	DWORD type = gettypeid(L, idx);
+	lua_type type = lua_gettype(L, idx);
 	size_t len = 0;
 
 	switch (type) {
-	case lua_types::string:
+	case lua_type::string:
 		return std::string(lua_tolstring(L, idx, &len));
 		break;
-	case lua_types::number:
+	case lua_type::number:
 		return std::to_string(lua_tointeger(L, idx));
 		break;
-	case lua_types::table:
+	case lua_type::table:
 		return "table";
 		break;
 	default:
@@ -91,14 +81,14 @@ static std::string lua_stackval_to_string(lua_State* L, int idx) {
 std::vector<std::string> get_lua_stringtable(lua_State* L, int idx) {
 	
 	std::vector<std::string> ret;
-	int type = gettypeid(L, idx); 
-	if (type == lua_types::string) {
+	lua_type type = lua_gettype(L, idx);
+	if (type == lua_type::string) {
 		size_t len = 0;
 		ret.push_back(lua_tolstring(L, idx, &len));
 		return ret;
 	}
 
-	if (type != lua_types::table) { return ret; }
+	if (type != lua_type::table) { return ret; }
 	if (idx < 2) return ret;
 
 	lua_pushnil(L);

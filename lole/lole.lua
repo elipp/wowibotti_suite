@@ -61,16 +61,16 @@ function lole_main(args)
         end
 
 		if not playermode() then
-      if UnitExists("focus") and UnitIsDead("focus") then
-				L_clear_focus()
-			end
+        if UnitExists("focus") and UnitIsDead("focus") then
+            L_ClearFocus()
+		end
 
-			local curconf = get_current_config()
+		local curconf = get_current_config()
       -- if has_aggro() then -- TODO IMPLEMENT!
       --     curconf.survive();
       -- end
 
-			curconf.combat();
+		curconf.combat();
 
       elseif OVERRIDE_COMMAND then
           run_override();

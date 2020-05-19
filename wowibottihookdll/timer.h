@@ -3,6 +3,8 @@
 #include <Windows.h>
 #include <cstdio>
 
+// TODO use std::chrono instead
+
 class Timer {
 
 	static double cpu_freq;	// in kHz

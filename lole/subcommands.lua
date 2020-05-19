@@ -823,10 +823,6 @@ local function lole_noclip()
 	noclip()
 end
 
-local function lole_cast_spell(spellID_str)
-	cast_spell_packet(tonumber(spellID_str))
-end
-
 local function lole_execute(...)
 	local arg_concatd = concatenate_args(" ", ...)
 	if arg_concatd then
@@ -1210,8 +1206,6 @@ lole_subcommands = {
 	ba = lole_boss_action,
 
 	hconfig = lole_hconfig,
-
-	cast_spell = lole_cast_spell,
 
 	spread = lole_spread_those_cheeks,
 	click_essence_portal = lole_click_essence_portal,

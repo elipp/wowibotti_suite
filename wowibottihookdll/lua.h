@@ -21,56 +21,56 @@ typedef int(*lua_CFunction) (lua_State *L);
 typedef double lua_Number;
 
 typedef void(*p_lua_pushcclosure) (lua_State *L, lua_CFunction fn, int n);
-extern p_lua_pushcclosure lua_pushcclosure;
+extern const p_lua_pushcclosure lua_pushcclosure;
 
 typedef void(*p_lua_setfield) (lua_State *L, int idx, const char *k);
-extern p_lua_setfield lua_setfield;
+extern const p_lua_setfield lua_setfield;
 
 typedef int(*p_lua_gettop) (lua_State *L);
-extern p_lua_gettop lua_gettop;
+extern const p_lua_gettop lua_gettop;
 
 typedef int(*p_lua_settop) (lua_State* L, int idx);
-extern p_lua_settop lua_settop;
+extern const p_lua_settop lua_settop;
 
 #define lua_pop(L,n)  lua_settop(L, -(n)-1)
 
 typedef void(*p_lua_pushnumber) (lua_State *L, lua_Number n);
-extern p_lua_pushnumber lua_pushnumber;
+extern const p_lua_pushnumber lua_pushnumber;
 
 typedef void(*p_lua_pushnil)(lua_State *L);
-extern p_lua_pushnil lua_pushnil;
+extern const p_lua_pushnil lua_pushnil;
 
 typedef void(*p_lua_pushlstring) (lua_State *L, const char* str, size_t len);
-extern p_lua_pushlstring lua_pushlstring;
+extern const p_lua_pushlstring lua_pushlstring;
 
 typedef void(*p_lua_pushinteger) (lua_State *L, int i);
-extern p_lua_pushinteger lua_pushinteger;
+extern const p_lua_pushinteger lua_pushinteger;
 
 typedef void(*p_lua_pushboolean) (lua_State *L, int b);
-extern p_lua_pushboolean lua_pushboolean;
+extern const p_lua_pushboolean lua_pushboolean;
 
 typedef const char*(*p_lua_tolstring)(lua_State *L, int idx, size_t *len);
-extern p_lua_tolstring lua_tolstring;
+extern const p_lua_tolstring lua_tolstring;
 
 typedef void(*p_lua_getfield) (lua_State *L, int idx, const char* key, size_t key_len);
-extern p_lua_getfield lua_getfield_; // note the underscore at the end! we use the following macro instead
+extern const p_lua_getfield lua_getfield_; // note the underscore at the end! we use the following macro instead
 
 #define lua_getfield(L, idx, key) lua_getfield_(L, idx, key, strlen(key))
 
 typedef lua_Number(*p_lua_tonumber) (lua_State *L, int idx);
-extern p_lua_tonumber lua_tonumber;
+extern const p_lua_tonumber lua_tonumber;
 
 typedef int (*p_lua_tointeger) (lua_State *L, int idx);
-extern p_lua_tointeger lua_tointeger;
+extern const p_lua_tointeger lua_tointeger;
 
 typedef int(*p_lua_toboolean) (lua_State *L, int idx);
-extern p_lua_toboolean lua_toboolean;
+extern const p_lua_toboolean lua_toboolean;
 
 typedef int(*p_lua_gettable) (lua_State* L, int idx);
-extern p_lua_gettable lua_gettable;
+extern const p_lua_gettable lua_gettable;
 
 typedef int(*p_lua_next) (lua_State* L, int idx);
-extern p_lua_next lua_next;
+extern const p_lua_next lua_next;
 
 int register_lop_exec();
 
@@ -121,6 +121,30 @@ extern int lua_registered;
 #define lua335_next 0x0084EF50
 #define wowlua335_next 0x00854690
 #define wowlua335_type 0x00854660
+
+enum class lua_type : int {
+	nil = 0,
+	boolean_ = 1, // there's some weird redefinition error, hence underscore
+	userdata = 2,
+	number = 3,
+	integer = 3, // NOT OFFICIAL!
+	string = 4,
+	table = 5,
+	function = 6,
+	userdata2 = 7,
+	thread = 8,
+	proto = 9,
+};
+
+typedef lua_type (__cdecl *p_lua_gettype) (lua_State* L, int idx);
+extern const p_lua_gettype lua_gettype;
+
+typedef const char*(__cdecl *p_lua_gettypestring) (lua_State* L, lua_type type);
+extern const p_lua_gettypestring lua_gettypestring;
+
+#define lua_gettypestr(STATE, idx) lua_gettypestring(STATE, lua_gettype(STATE, idx))
+
+
 //define lua335_getfield 0x0059AAE0
 
 // hehe wow lua is confirmed to be 5.1.1 now :D
