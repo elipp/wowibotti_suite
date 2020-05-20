@@ -24,8 +24,6 @@
 #include "govconn.h"
 
 extern HWND wow_hWnd;
-Timer since_noclip;
-int noclip_enabled;
 
 time_t in_world = 0;
 
@@ -40,14 +38,6 @@ GUID_t string_to_GUID(const std::string &G) {
 }
 
 typedef std::vector <std::string> lua_stringtable;
-
-enum class LUA_ARG_TYPE : int {
-	NONE,
-	INT,
-	NUMBER,
-	STRING,
-	STRINGTABLE,
-};
 
 #define LUA_ARG_OPTIONAL false
 #define LUA_ARG_REQUIRED true
@@ -64,28 +54,7 @@ struct lua_arg {
 	std::string name;
 	lua_type type;
 	bool required;
-	template <typename T> T to_arg_type(lua_State* L, int idx) const;
 };
-
-template <>
-std::string lua_arg::to_arg_type<std::string>(lua_State* L, int idx) const {
-	return lua_tostring(L, idx);
-}
-
-template <>
-lua_Number lua_arg::to_arg_type<lua_Number>(lua_State* L, int idx) const {
-	return lua_tonumber(L, idx);
-}
-
-template <>
-int lua_arg::to_arg_type<int>(lua_State* L, int idx) const {
-	return lua_tointeger(L, idx);
-}
-
-template <>
-lua_stringtable lua_arg::to_arg_type<lua_stringtable>(lua_State* L, int idx) const {
-	return lua_stringtable();
-}
 
 typedef int (*opcode_handler)(lua_State* L);
 
@@ -101,129 +70,6 @@ static int op_handler_NYI(lua_State* L) {
 	return 0;
 }
 
-#define OPSTR(OPCODE_ID) OPCODE_ID, #OPCODE_ID
-
-static lop_func_t lop_funcs[] = {
-{ OPSTR(LOP::NOP), {}, 0, op_handler_NYI},
-
-{ OPSTR(LOP::TARGET_GUID),
-{{"targetGUID", lua_type::string, LUA_ARG_REQUIRED}},
-	RVALS_1, op_handler_NYI },
-
-{ OPSTR(LOP::CASTER_RANGE_CHECK),
-{{"minrange", lua_type::number, LUA_ARG_REQUIRED},
- {"maxrange", lua_type::number, LUA_ARG_REQUIRED}},
-	NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::FOLLOW),
-{{"unitGUID", lua_type::string, LUA_ARG_REQUIRED}},
-	NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::CTM),
-{{"x", lua_type::number, LUA_ARG_REQUIRED},
- {"y", lua_type::number, LUA_ARG_REQUIRED},
- {"z", lua_type::number, LUA_ARG_REQUIRED},
- {"priority", lua_type::integer, LUA_ARG_REQUIRED}},
-	NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::TARGET_MARKER), {}, NO_RVALS, op_handler_NYI }, // this would actually be NYI
-
-{ OPSTR(LOP::MELEE_BEHIND), 
-{{"minrange", lua_type::number, LUA_ARG_REQUIRED}}, 
-	NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::AVOID_SPELL_OBJECT), 
-{{"spellID", lua_type::integer, LUA_ARG_REQUIRED},
- {"radius", lua_type::number, LUA_ARG_REQUIRED}}, 
-	NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::HUG_SPELL_OBJECT), 
-{{"spellID", lua_type::integer, LUA_ARG_REQUIRED}}, 
-	NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::SPREAD), {}, NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::CHAIN_HEAL_TARGET), {{"NOT_IN_USE", lua_type::table, LUA_ARG_REQUIRED}}, RVALS_1, op_handler_NYI },
-
-{ OPSTR(LOP::MELEE_AVOID_AOE_BUFF), 
-{{"spellID", lua_type::integer, LUA_ARG_REQUIRED}}, 
-	NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::TANK_FACE), {}, NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::TANK_PULL), {}, NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::GET_UNIT_POSITION), 
-{{"unitname", lua_type::string, LUA_ARG_REQUIRED}}, 
-	RVALS_3, op_handler_NYI },
-
-{ OPSTR(LOP::GET_WALKING_STATE), {}, RVALS_1, op_handler_NYI },
-
-{ OPSTR(LOP::GET_CTM_STATE), {}, RVALS_1, op_handler_NYI },
-
-{ OPSTR(LOP::GET_PREVIOUS_CAST_MSG), {}, RVALS_1, op_handler_NYI },
-
-{ OPSTR(LOP::STOPFOLLOW), {}, NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::CAST_GTAOE),
-{{"spellID", lua_type::integer, LUA_ARG_REQUIRED},
- {"x", lua_type::number, LUA_ARG_REQUIRED},
- {"y", lua_type::number, LUA_ARG_REQUIRED},
- {"z", lua_type::number, LUA_ARG_REQUIRED}},
-	NO_RVALS, op_handler_NYI},
-
-{ OPSTR(LOP::HAS_AGGRO), {}, RVALS_1, op_handler_NYI },
-
-{ OPSTR(LOP::INTERACT_GOBJECT),
-{{"objname", lua_type::string, LUA_ARG_REQUIRED}},
-	RVALS_1, op_handler_NYI },
-
-{ OPSTR(LOP::EXECUTE),
-{{"objname", lua_type::string, LUA_ARG_REQUIRED}}, 
-	NO_RVALS, op_handler_NYI},
-
-{ OPSTR(LOP::GET_COMBAT_TARGETS), {}, NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::GET_AOE_FEASIBILITY),
-{{"radius", lua_type::number, LUA_ARG_REQUIRED},
- {"unitname", lua_type::string, LUA_ARG_OPTIONAL}},
-	RVALS_1, op_handler_NYI },
-
-{ OPSTR(LOP::AVOID_NPC_WITH_NAME),
-{{"npcname", lua_type::string, LUA_ARG_REQUIRED},
- {"radius", lua_type::number, LUA_ARG_REQUIRED}},
-	NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::BOSS_ACTION), 
-{ {"commandstring", lua_type::string, LUA_ARG_REQUIRED} }, // separated by spaces
-	RVALS_1, op_handler_NYI },
-
-{ OPSTR(LOP::INTERACT_SPELLNPC),
-{{"npcGUID", lua_type::string, LUA_ARG_REQUIRED}}, 
-	RVALS_1, op_handler_NYI },
-
-{ OPSTR(LOP::GET_LAST_SPELL_ERRMSG), {}, RVALS_3, op_handler_NYI },
-
-{ OPSTR(LOP::ICCROCKET),
-{{"unitGUID", lua_type::string, LUA_ARG_REQUIRED}},
-		NO_RVALS, op_handler_NYI },
-{ OPSTR(LOP::ICCROCKET),
-{{"packethexstr", lua_type::string, LUA_ARG_REQUIRED}}, 
-	NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::HCONFIG),
-{{"commandstring", lua_type::string, LUA_ARG_REQUIRED} }, // separated by spaces
-	RVALS_1, op_handler_NYI },
-
-{ OPSTR(LOP::TANK_TAUNT_LOOSE),
-{{"tauntspellname", lua_type::string, LUA_ARG_REQUIRED},
- {"ignoretargetedbyGUID", lua_type::table, LUA_ARG_OPTIONAL}}, 
-	NO_RVALS, op_handler_NYI },
-
-{ OPSTR(LOP::READ_FILE),
-{{"filename", lua_type::string, LUA_ARG_REQUIRED} }, 
-	RVALS_1, op_handler_NYI },
-};
 
 static int send_wowpacket(const BYTE* sockbuf, unsigned len) {
 	static BYTE dup[256];
@@ -455,7 +301,7 @@ static int LOP_melee_behind(lua_State *L) {
 		break;
 	}
 
-	return 0;
+	return NO_RVALS;
 
 }
 
@@ -483,7 +329,7 @@ static int LOP_melee_avoid_aoe_buff(lua_State *L) {
 		}
 	}
 
-	return 0;
+	return NO_RVALS;
 }
 
 static void target_unit_with_GUID(GUID_t guid) {
@@ -500,7 +346,7 @@ static int LOP_target_GUID(lua_State* L) {
 	return 0;
 }
 
-static int LOP_range_check(lua_State *L) {
+static int LOP_caster_range_check(lua_State *L) {
 
 	lua_Number minrange = lua_tonumber(L, 2);
 	lua_Number maxrange = lua_tonumber(L, 3);
@@ -585,7 +431,7 @@ static void followunit(const std::string& targetname) {
 	}
 }
 
-static int LOP_follow_unit(lua_State *L) {
+static int LOP_follow(lua_State *L) {
 	std::string targetname = lua_tostring(L, 2);
 	followunit(targetname);
 	return 0;
@@ -606,19 +452,21 @@ void stopfollow() {
 
 static int LOP_stopfollow(lua_State *L) {
 	stopfollow();
-	return 1;
+	return NO_RVALS;
 }
 
-static void LOP_CTM_act(lua_State *L) {
+static int LOP_CTM(lua_State *L) {
 
 	vec3 pos(lua_tonumber(L, 2), lua_tonumber(L, 3), lua_tonumber(L, 4));
 	int priority = lua_tointeger(L, 5);
 
 	ctm_add(CTM_t(pos, CTM_MOVE, priority, 0, 1.5));
+
+	return NO_RVALS;
 }
 
 static int LOP_nop(lua_State *L) {
-	return 0;
+	return NO_RVALS;
 }
 
 static int LOP_hug_spell_object(lua_State *L) {
@@ -634,6 +482,7 @@ static int LOP_hug_spell_object(lua_State *L) {
 	}
 	else {
 		PRINT("Hugging spellobject with spellID %ld!\n", spellID);
+		lua_pushboolean(L, true);
 		return 1;
 	}
 
@@ -682,6 +531,7 @@ static int LOP_avoid_spell_object(lua_State *L) {
 	PRINT("ESCAPING spell with id %d at %.0f, %.0f, %.0f\n", spellID, escape_pos.x, escape_pos.y, escape_pos.z);
 	ctm_add(CTM_t(escape_pos, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 0.5));
 
+	lua_pushboolean(L, true);
 	return 1;
 
 }
@@ -699,7 +549,7 @@ static void set_target_and_blast(void *noarg) {
 	DoString("RunMacroText(\"/lole test_blast_target\")");
 }
 
-static int LOP_walk_to_pull(lua_State *L) {
+static int LOP_tank_pull(lua_State *L) {
 
 	WowObject p, t;
 
@@ -723,7 +573,7 @@ static int LOP_walk_to_pull(lua_State *L) {
 		ctm_add(c);
 	}
 
-	return 0;
+	return NO_RVALS;
 
 }
 
@@ -935,7 +785,7 @@ static int LOP_tank_face(lua_State *L) {
 		stop_backpedal_lock = true;
 	}
 
-	return 0;
+	return NO_RVALS;
 
 }
 
@@ -958,7 +808,7 @@ static int LOP_interact_spellnpc(lua_State *L) {
 	auto n = OMgr->get_NPCs_by_name(objname);
 	if (n.size() == 0) {
 		PRINT("LOP_interact_spellnpc: error: couldn't find NPC with name \"%s\"!\n", objname.c_str());
-		return -1;
+		return 0;
 	}
 	
 	vec3 ppos = p.get_pos();
@@ -988,7 +838,7 @@ static int LOP_interact_spellnpc(lua_State *L) {
 }
 
 
-static int LOP_interact_object(lua_State *L) {
+static int LOP_interact_gobject(lua_State *L) {
 	
 	// for Meeting Stones, the game sends two opcodes:
 	// with opcodes 0xB1 (CMSG_GAMEOBJ_USE) and 0x4B1 (CMSG_GAMEOBJ_REPORT_USE)
@@ -1009,7 +859,7 @@ static int LOP_interact_object(lua_State *L) {
 
 	WowObject o;
 	if (!OMgr->get_GO_by_name(objname, &o)) {
-		PRINT("LOP_interact_object: error: couldn't find gobject with name \"%s\"!\n", objname.c_str());
+		PRINT("LOP_interact_gobject: error: couldn't find gobject with name \"%s\"!\n", objname.c_str());
 		return 0;
 	}
 
@@ -1021,7 +871,7 @@ static int LOP_interact_object(lua_State *L) {
 	float dist = diff.length();
 
 	if (dist > 5.0) {
-		PRINT("LOP_interact_object: too far from object \"%s\" (dist = %.2f)\n", objname.c_str(), dist);
+		PRINT("LOP_interact_gobject: too far from object \"%s\" (dist = %.2f)\n", objname.c_str(), dist);
 		return 0;
 	}
 
@@ -1033,9 +883,16 @@ static int LOP_interact_object(lua_State *L) {
 	send_wowpacket(sockbuf, sizeof(sockbuf));
 	send_wowpacket(sockbuf2, sizeof(sockbuf2));
 
-	PRINT("LOP_interact_object: interacted with object %s (GUID: 0x%llX)!\n", objname.c_str(), oGUID);
+	PRINT("LOP_interact_gobject: interacted with object %s (GUID: 0x%llX)!\n", objname.c_str(), oGUID);
 
+	lua_pushboolean(L, true);
 	return 1;
+}
+
+static int LOP_execute(lua_State *L) {
+	std::string script(lua_tostring(L, 2));
+	DoString(script);
+	return NO_RVALS;
 }
 
 static int LOPDBG_loot(lua_State *L) {
@@ -1231,9 +1088,10 @@ static int LOP_read_file(lua_State *L) {
 	char* buf = new char[fs + 1];
 	fread(buf, 1, fs, fp);
 	buf[fs] = '\0';
-	lua_pushlstring(L, buf, fs);
-	dual_echo("loaded file \"%s\" (size = %ld)", filename.c_str(), fs);
 
+	lua_pushlstring(L, buf, fs);
+
+	dual_echo("loaded file \"%s\" (size = %ld)", filename.c_str(), fs);
 	delete[] buf;
 
 	return 1;
@@ -1307,7 +1165,7 @@ static int LOPDBG_test() {
 	//return 1;
 }
 
-static int have_aggro() {
+static int LOP_has_aggro(lua_State *L) {
 	WowObject p;
 	OMgr->get_local_object(&p);
 
@@ -1316,7 +1174,10 @@ static int have_aggro() {
 	for (const auto &o : *OMgr) {
 		if (o.get_type() == OBJECT_TYPE_NPC) {
 			GUID_t tGUID = o.NPC_get_target_GUID();
-			if (pGUID == tGUID) return 1;
+			if (pGUID == tGUID) {
+				lua_pushboolean(L, true);
+				return 1;
+			}
 		}
 	}
 
@@ -1355,7 +1216,7 @@ int LOP_cast_gtaoe(lua_State *L) {
 
 	send_wowpacket(sockbuf, sizeof(sockbuf));
 
-	return 0;
+	return NO_RVALS;
 }
 
 static void try_wowctm() {
@@ -1404,7 +1265,9 @@ float randf() {
 }
 static int initial_angle_set = 0;
 
-static void hconfig_action(const std::vector<std::string>& args) {
+static int LOP_hconfig(lua_State* L) {
+	std::vector<std::string> args;
+	tokenize_string(lua_tostring(L, 2), " ", args);
 	const std::string& a0 = args[0];
 
 	if (a0 == "set") {
@@ -1432,7 +1295,7 @@ static void hconfig_action(const std::vector<std::string>& args) {
 	}
 
 	else if (a0 == "status") {
-		static timer_interval_t warning_time(5000);
+		static timer_interval_t warning_time(10000);
 
 		if (!hotness_enabled()) {
 			if (warning_time.passed()) {
@@ -1442,9 +1305,8 @@ static void hconfig_action(const std::vector<std::string>& args) {
 			return;
 		}
 
-		ObjectManager OM;
 		WowObject player;
-		OM.get_local_object(&player);
+		OMgr->get_local_object(&player);
 
 		auto m = hotness_status();
 
@@ -1459,19 +1321,21 @@ static void hconfig_action(const std::vector<std::string>& args) {
 			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
 		}
 	}
+	return NO_RVALS;
 }
 
-static void do_boss_action(const std::vector<std::string> &args) {
-	
-	ObjectManager OM;
+static int LOP_boss_action(lua_State *L) {
+	std::vector<std::string> args;
+	tokenize_string(lua_tostring(L, 2), " ", args);
+
 	WowObject player;
-	OM.get_local_object(&player);
+	OMgr->get_local_object(&player);
 	
 	if (args[0] == "Gormok_reset") {
 		PRINT("Running gormok angle reset\n");
 
 		initial_angle_set = 0;
-		return;
+		return 0;
 	}
 		
 	else if (args[0] == "Gormok") {
@@ -1480,10 +1344,10 @@ static void do_boss_action(const std::vector<std::string> &args) {
 
 		size_t len;
 		WowObject P;
-		OM.get_local_object(&P);
-		auto n = OM.get_NPCs_by_name("Fire Bomb");
+		OMgr->get_local_object(&P);
+		auto n = OMgr->get_NPCs_by_name("Fire Bomb");
 		if (n.size() == 0) {
-			return;
+			return 0;
 		}
 		else {
 			vec3 ppos = P.get_pos();
@@ -1496,10 +1360,10 @@ static void do_boss_action(const std::vector<std::string> &args) {
 				}
 			}
 
-			if (!needed) return;
+			if (!needed) return 0;
 
 			WowObject F;
-			if (!OM.get_object_by_GUID(get_focus_GUID(), &F)) return;
+			if (!OMgr->get_object_by_GUID(get_focus_GUID(), &F)) return 0;
 			vec3 fpos = F.get_pos();
 
 			static float angle = 0;
@@ -1523,15 +1387,14 @@ static void do_boss_action(const std::vector<std::string> &args) {
 
 	}
 	
-	
-
 	else {
 		PRINT("Unknown boss action %s\n", args[0].c_str());
 	}
 
+	return NO_RVALS;
 }
 
-static int use_icc_rocket_pack(lua_State *L) {
+static int LOP_iccrocket(lua_State *L) {
 
 	std::string packet_hexstr = lua_tostring(L, 2);
 
@@ -1606,8 +1469,23 @@ static int use_icc_rocket_pack(lua_State *L) {
 
 	send_wowpacket(sockbuf2, sizeof(sockbuf2));
 
-	return 0;
+	return NO_RVALS;
 
+}
+
+static int LOP_get_walking_state(lua_State *L) {
+	// TODO: implement
+	return NO_RVALS;
+}
+
+static int LOP_get_ctm_state(lua_State *L) {
+	// TODO: implement
+	return NO_RVALS;
+}
+
+static int LOP_get_previous_cast_msg(lua_State *L) {
+	// look at previous_cast_msg
+	return 0;
 }
 
 static int LOP_avoid_npc_with_name(lua_State* L) {
@@ -1675,6 +1553,127 @@ static bool check_lop_args(lua_State* L) {
 	}
 
 }
+
+#define OPSTR(OPCODE_ID) OPCODE_ID, #OPCODE_ID
+
+static lop_func_t lop_funcs[] = {
+{ OPSTR(LOP::NOP), {}, 0, LOP_nop },
+
+{ OPSTR(LOP::TARGET_GUID),
+{{"targetGUID", lua_type::string, LUA_ARG_REQUIRED}},
+	RVALS_1, LOP_target_GUID },
+
+{ OPSTR(LOP::CASTER_RANGE_CHECK),
+{{"minrange", lua_type::number, LUA_ARG_REQUIRED},
+ {"maxrange", lua_type::number, LUA_ARG_REQUIRED}},
+	RVALS_1, LOP_caster_range_check },
+
+{ OPSTR(LOP::FOLLOW),
+{{"unitGUID", lua_type::string, LUA_ARG_REQUIRED}},
+	NO_RVALS, LOP_follow },
+
+{ OPSTR(LOP::CTM),
+{{"x", lua_type::number, LUA_ARG_REQUIRED},
+ {"y", lua_type::number, LUA_ARG_REQUIRED},
+ {"z", lua_type::number, LUA_ARG_REQUIRED},
+ {"priority", lua_type::integer, LUA_ARG_REQUIRED}},
+	NO_RVALS, LOP_CTM },
+
+{ OPSTR(LOP::TARGET_MARKER), {}, NO_RVALS, op_handler_NYI }, // this would actually be NYI
+
+{ OPSTR(LOP::MELEE_BEHIND), 
+{{"minrange", lua_type::number, LUA_ARG_REQUIRED}}, 
+	NO_RVALS, LOP_melee_behind },
+
+{ OPSTR(LOP::AVOID_SPELL_OBJECT), 
+{{"spellID", lua_type::integer, LUA_ARG_REQUIRED},
+ {"radius", lua_type::number, LUA_ARG_REQUIRED}}, 
+	RVALS_1, LOP_avoid_spell_object },
+
+{ OPSTR(LOP::HUG_SPELL_OBJECT), 
+{{"spellID", lua_type::integer, LUA_ARG_REQUIRED}}, 
+	RVALS_1, LOP_hug_spell_object },
+
+{ OPSTR(LOP::SPREAD), {}, NO_RVALS, LOP_spread },
+
+{ OPSTR(LOP::CHAIN_HEAL_TARGET), {{"NOT_IN_USE", lua_type::table, LUA_ARG_REQUIRED}}, RVALS_1, op_handler_NYI },
+
+{ OPSTR(LOP::MELEE_AVOID_AOE_BUFF), 
+{{"spellID", lua_type::integer, LUA_ARG_REQUIRED}}, 
+	NO_RVALS, LOP_melee_avoid_aoe_buff },
+
+{ OPSTR(LOP::TANK_FACE), {}, NO_RVALS, LOP_tank_face },
+
+{ OPSTR(LOP::TANK_PULL), {}, NO_RVALS, LOP_tank_pull },
+
+{ OPSTR(LOP::GET_UNIT_POSITION), 
+{{"unitname", lua_type::string, LUA_ARG_REQUIRED}}, 
+	RVALS_3, LOP_get_unit_position },
+
+{ OPSTR(LOP::GET_WALKING_STATE), {}, RVALS_1, LOP_get_walking_state },
+
+{ OPSTR(LOP::GET_CTM_STATE), {}, RVALS_1, LOP_get_ctm_state },
+
+{ OPSTR(LOP::GET_PREVIOUS_CAST_MSG), {}, RVALS_1, LOP_get_previous_cast_msg },
+
+{ OPSTR(LOP::STOPFOLLOW), {}, NO_RVALS, LOP_stopfollow },
+
+{ OPSTR(LOP::CAST_GTAOE),
+{{"spellID", lua_type::integer, LUA_ARG_REQUIRED},
+ {"x", lua_type::number, LUA_ARG_REQUIRED},
+ {"y", lua_type::number, LUA_ARG_REQUIRED},
+ {"z", lua_type::number, LUA_ARG_REQUIRED}},
+	NO_RVALS, LOP_cast_gtaoe },
+
+{ OPSTR(LOP::HAS_AGGRO), {}, RVALS_1, LOP_has_aggro },
+
+{ OPSTR(LOP::INTERACT_GOBJECT),
+{{"objname", lua_type::string, LUA_ARG_REQUIRED}},
+	RVALS_1, LOP_interact_gobject },
+
+{ OPSTR(LOP::EXECUTE),
+{{"objname", lua_type::string, LUA_ARG_REQUIRED}}, 
+	NO_RVALS, LOP_execute },
+
+{ OPSTR(LOP::GET_COMBAT_TARGETS), {}, RVALS_1, LOP_get_combat_targets },
+
+{ OPSTR(LOP::GET_AOE_FEASIBILITY),
+{{"radius", lua_type::number, LUA_ARG_REQUIRED},
+ {"unitname", lua_type::string, LUA_ARG_OPTIONAL}},
+	RVALS_1, LOP_get_aoe_feasibility },
+
+{ OPSTR(LOP::AVOID_NPC_WITH_NAME),
+{{"npcname", lua_type::string, LUA_ARG_REQUIRED},
+ {"radius", lua_type::number, LUA_ARG_REQUIRED}},
+	NO_RVALS, LOP_avoid_npc_with_name },
+
+{ OPSTR(LOP::BOSS_ACTION), 
+{ {"commandstring", lua_type::string, LUA_ARG_REQUIRED} }, // separated by spaces
+	RVALS_1, LOP_boss_action },
+
+{ OPSTR(LOP::INTERACT_SPELLNPC),
+{{"npcGUID", lua_type::string, LUA_ARG_REQUIRED}}, 
+	RVALS_1, LOP_interact_spellnpc },
+
+{ OPSTR(LOP::GET_LAST_SPELL_ERRMSG), {}, RVALS_3, LOP_get_previous_cast_msg },
+
+{ OPSTR(LOP::ICCROCKET),
+{{"packethexstr", lua_type::string, LUA_ARG_REQUIRED}}, 
+	NO_RVALS, LOP_iccrocket },
+
+{ OPSTR(LOP::HCONFIG),
+{{"commandstring", lua_type::string, LUA_ARG_REQUIRED} }, // separated by spaces
+	RVALS_1, LOP_hconfig },
+
+{ OPSTR(LOP::TANK_TAUNT_LOOSE),
+{{"tauntspellname", lua_type::string, LUA_ARG_REQUIRED},
+ {"ignoretargetedbyGUID", lua_type::table, LUA_ARG_OPTIONAL}}, 
+	RVALS_1, LOP_tank_taunt_loose },
+
+{ OPSTR(LOP::READ_FILE),
+{{"filename", lua_type::string, LUA_ARG_REQUIRED} }, 
+	RVALS_1, LOP_read_file },
+};
 
 
 int lop_exec(lua_State *L) {
