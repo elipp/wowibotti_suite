@@ -179,6 +179,7 @@
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="dungeon_script.cpp" />
     <ClCompile Include="hooks.cpp" />
+    <ClCompile Include="implementation.cpp" />
     <ClCompile Include="linalg.cpp" />
     <ClCompile Include="lua.cpp" />
     <ClCompile Include="packet.cpp" />

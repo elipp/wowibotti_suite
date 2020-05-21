@@ -1910,3 +1910,18 @@ end
 function mana_percentage(unitname)
   return UnitMana(unitname)/UnitManaMax(unitname) * 100
 end
+
+local function bitoper(a, b, oper)
+   local r, m, s = 0, 2^52
+   repeat
+      s,a,b = a+b+m, a%m, b%m
+      r,m = r + m*oper%(s-a-b), m/2
+   until m < 1
+   return r
+end
+
+BITWISE = { 
+    OR=function(a,b) return bitoper(a,b,1) end,
+    XOR=function(a,b) return bitoper(a,b,3) end,
+    AND=function(a,b) return bitoper(a,b,4) end,
+}

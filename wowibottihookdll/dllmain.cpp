@@ -207,7 +207,6 @@ void __cdecl DO_STUFF(void *args) {
 	PRINT("DLL_path: %s\nbase_path: %s\n", DLL_path.c_str(), DLL_base_path.c_str());
 
 	handle_patching();
-	//dscript_read_all();
 
 	EnumWindows(EnumWindowsProc, NULL);
 

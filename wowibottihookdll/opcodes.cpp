@@ -7,6 +7,7 @@
 #include <chrono>
 #include <numeric>
 #include <filesystem>
+#include <iostream>
 
 #include "opcodes.h"
 #include "ctm.h"
@@ -23,9 +24,9 @@
 
 #include "govconn.h"
 
+#define ASSERT(left,operator,right) { if(!((left) operator (right))){ std::cout << "ASSERT FAILED: " << #left << #operator << #right << " @ " << __FILE__ << " (" << __LINE__ << "). " << #left << "=" << (left) << "; " << #right << "=" << (right) << std::endl; assert(false); } }
+
 extern HWND wow_hWnd;
-Timer since_noclip;
-int noclip_enabled;
 
 time_t in_world = 0;
 
@@ -39,65 +40,40 @@ GUID_t string_to_GUID(const std::string &G) {
 	return r;
 }
 
-struct lop_func_t {
-	std::string opcode_name;
-	int min_arguments;
-	int max_arguments;
-	int num_return_values;
-};
+typedef std::vector <std::string> lua_stringtable;
 
-#define LOPFUNC(OPCODE_ID, MINARGS, MAXARGS, NUM_RETURN_VALUES) { #OPCODE_ID, MINARGS, MAXARGS, NUM_RETURN_VALUES }
+#define LUA_ARG_OPTIONAL false
+#define LUA_ARG_REQUIRED true
 
 enum {
-	ARG_TYPE_INT,
-	ARG_TYPE_NUMBER,
-	ARG_TYPE_STRING
+	NO_RVALS,
+	RVALS_1,
+	RVALS_2,
+	RVALS_3,
+	RVALS_N,
 };
 
-#define ARG_INF 9999
-
-static lop_func_t lop_funcs[] = {
-	 LOPFUNC(LOP_NOP, 0, 0, 0),
-	 LOPFUNC(LOP_TARGET_GUID, 1, 1, 0),
-	 LOPFUNC(LOP_CASTER_RANGE_CHECK, 2, 2, 0),
-	 LOPFUNC(LOP_FOLLOW, 1, 1, 0),
-	 LOPFUNC(LOP_CTM, 4, 4, 0),
-	 LOPFUNC(LOP_DUNGEON_SCRIPT, 1, 2, 0),
-	 LOPFUNC(LOP_TARGET_MARKER, 1, 1, 0),
-	 LOPFUNC(LOP_MELEE_BEHIND, 1, 1, 0),
-	 LOPFUNC(LOP_AVOID_SPELL_OBJECT, 1, 2, 0),
-	 LOPFUNC(LOP_HUG_SPELL_OBJECT, 1, 1, 0),
-	 LOPFUNC(LOP_SPREAD, 0, 0, 0),
-	 LOPFUNC(LOP_CHAIN_HEAL_TARGET, 1, 1, 1),
-	 LOPFUNC(LOP_MELEE_AVOID_AOE_BUFF, 1, 1, 0),
-	 LOPFUNC(LOP_TANK_FACE, 0, 0, 0),
-	 LOPFUNC(LOP_WALK_TO_PULLING_RANGE, 0, 0, 0),
-	 LOPFUNC(LOP_GET_UNIT_POSITION, 1, 1, 3),
-	 LOPFUNC(LOP_GET_WALKING_STATE, 0, 0, 1),
-	 LOPFUNC(LOP_GET_CTM_STATE, 0, 0, 1),
-	 LOPFUNC(LOP_GET_PREVIOUS_CAST_MSG, 0, 0, 1),
-	 LOPFUNC(LOP_STOPFOLLOW, 0, 0, 0),
-	 LOPFUNC(LOP_CAST_GTAOE, 4, 4, 0),
-	 LOPFUNC(LOP_HAS_AGGRO, 0, 0, 1),
-	 LOPFUNC(LOP_INTERACT_GOBJECT, 1, 1, 1),
-	 LOPFUNC(LOP_GET_BISCUITS, 0, 0, 0),
-	 LOPFUNC(LOP_LOOT_BADGE, 1, 1, 0),
-	 LOPFUNC(LOP_LUA_UNLOCK, 0, 0, 0),
-	 LOPFUNC(LOP_LUA_LOCK, 0, 0, 0),
-	 LOPFUNC(LOP_EXECUTE, 1, 1, 0),
-	 LOPFUNC(LOP_FOCUS, 1, 1, 0),
-	 LOPFUNC(LOP_CAST_SPELL, 2, 2, 0),
-	 LOPFUNC(LOP_GET_COMBAT_TARGETS, 0, 0, 0),
-	 LOPFUNC(LOP_GET_AOE_FEASIBILITY, 1, 1, 1),
-	 LOPFUNC(LOP_AVOID_NPC_WITH_NAME, 2, 2, 1),
-	 LOPFUNC(LOP_BOSS_ACTION, 1, ARG_INF, 0),
-	 LOPFUNC(LOP_INTERACT_SPELLNPC, 1, 1, 1),
-	 LOPFUNC(LOP_GET_LAST_SPELL_ERRMSG, 0, 0, 3),
-	 LOPFUNC(LOP_ICCROCKET, 1, 1, 0),
-	 LOPFUNC(LOP_HCONFIG, 1, ARG_INF, 0),
-	 LOPFUNC(LOP_TANK_TAUNT_LOOSE, 1, 2, 0),
-	 LOPFUNC(LOP_READ_FILE, 1, 1, 1),
+struct lua_arg {
+	std::string name;
+	lua_type type;
+	bool required;
 };
+
+typedef int (*opcode_handler)(lua_State* L);
+
+struct lop_func_t {
+	LOP opcode;
+	std::string opcode_name;
+	std::vector<lua_arg> args;
+	int num_return_values;
+	opcode_handler handler;
+};
+
+static int op_handler_NYI(lua_State* L) {
+	puts("op_handler_NYI called!\n");
+	return 0;
+}
+
 
 static int send_wowpacket(const BYTE* sockbuf, unsigned len) {
 	static BYTE dup[256];
@@ -107,47 +83,6 @@ static int send_wowpacket(const BYTE* sockbuf, unsigned len) {
 	encrypt_packet_header(dup);
 	return send(s, (const char*)dup, len, 0);
 }
-
-
-static int LOP_lua_unlock() {
-
-	static BYTE LUA_prot_patch[] = {
-		0xB8, 0x01, 0x00, 0x00, 0x00, // MOV EAX, 1
-		0xC3						  // RET
-	};
-
-	WriteProcessMemory(glhProcess, (LPVOID)LUA_prot, LUA_prot_patch, 6, NULL);
-
-	//set_taint_caller_zero();
-
-	return 1;
-}
-
-static int LOP_lua_lock() {
-	static const BYTE LUA_prot_original[] = {
-		// we're just making an early exit, so nevermind opcode boundaries
-		0x55,
-		0x8B, 0xEC,
-		0x83, 0x3D, 0x9C // this one is cut in the middle
-	};
-
-	WriteProcessMemory(glhProcess, (LPVOID)LUA_prot, LUA_prot_original, 6, NULL);
-
-	//reset_taint_caller();
-
-	return 1;
-}
-
-static int LOP_execute(const std::string &arg) {
-	// this actually seems unnecessary
-
-	//LOP_lua_unlock();
-	DoString("%s", arg.c_str());
-	//LOP_lua_lock();
-
-	return 1;
-}
-
 
 static struct follow_state_t {
 	int close_enough = 1;
@@ -167,13 +102,6 @@ static struct follow_state_t {
 
 } follow_state;
 
-
-static void face_posthook(void *a) {
-	float angle = *(float*)a;
-	PRINT("Executed face_posthook (angle: %f)\n", angle);
-	ctm_face_angle(angle);
-	LOP_execute("RunMacroText(\"/startattack\")");
-}
 
 enum class POSFLAG : int {
 	NONE = 0,
@@ -305,15 +233,10 @@ static void synthetize_CMSG_SET_FACING(float angle) {
 }
 
 static void set_facing_local_and_remote(float angle) {
-	static const long long LOCK_TIME_MS = 150;
-
+	static timer_interval_t timer_interval(150);
 	static float prev_angle = 0;
 
-	auto ms = get_time_from_ms(last_CMSG_SET_FACING_sent);
-	if (ms < LOCK_TIME_MS) {
-		printf("CMSG_SET_FACING sent too recently, waiting until %lld ms passed\n", LOCK_TIME_MS);
-		return;
-	}
+	if (!timer_interval.passed()) return;
 
 	if (fabs(prev_angle - angle) < 0.001) {
 		// this is just so we don't send too many packets
@@ -327,16 +250,18 @@ static void set_facing_local_and_remote(float angle) {
 	last_CMSG_SET_FACING_sent = std::chrono::system_clock::now();
 	prev_angle = angle;
 
+	timer_interval.reset();
+
 }
 
 
 
-static int LOP_melee_behind(float minrange) {
+static int LOP_melee_behind(lua_State *L) {
 
-	ObjectManager OM;
+	float minrange = lua_tonumber(L, 2);
 
 	WowObject p, t;
-	if (!OM.get_local_object(&p) || !OM.get_object_by_GUID(get_target_GUID(), &t)) {
+	if (!OMgr->get_local_object(&p) || !OMgr->get_object_by_GUID(get_target_GUID(), &t)) {
 		return 0;
 	}
 
@@ -380,100 +305,61 @@ static int LOP_melee_behind(float minrange) {
 		break;
 	}
 
-	return 1;
+	return NO_RVALS;
 
 }
 
-
-
-static int LOP_melee_avoid_aoe_buff(long spellID) {
+static int LOP_melee_avoid_aoe_buff(lua_State *L) {
 	
-	ObjectManager OM;
+	int spellID = lua_tointeger(L, 2);
 
-	WowObject o;
-	if (!OM.get_first_object(&o)) return 0;
+	WowObject p;
+	if (!OMgr->get_local_object(&p)) return 0;
+	vec3 ppos = p.get_pos();
 
-	while (o.valid()) {
+	for (const auto &o : *OMgr) {
 
 		if (o.get_type() == OBJECT_TYPE_NPC) {
 
 			if (o.NPC_has_buff(spellID) || o.NPC_has_debuff(spellID)) {
 
-				WowObject p;
-				
-				if (!OM.get_local_object(&p)) return 0;
-
-				float dist = (o.get_pos() - p.get_pos()).length();
+				float dist = (o.get_pos() - ppos).length();
 
 				if (dist > 15) {
 					break; // this should go to melee_behind
 				}
-
-				WowObject Ceucho;
-				if (!OM.get_unit_by_name("Ceucho", &Ceucho)) return 0;
-
-				vec3 diff_unit = (Ceucho.get_pos() - o.get_pos()).unit();
-				ctm_add(CTM_t(o.get_pos() + 15 * diff_unit, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 0.5));
-				return 1;
+				// LOL XD TODO: Implement
 			}
 		}
-		o = o.next();
 	}
 
-	return 0;
+	return NO_RVALS;
 }
 
- void target_unit_with_GUID(GUID_t GUID) {
+static void target_unit_with_GUID(GUID_t guid) {
 
-	static GUID_t * const GUID_addr1 = (GUID_t*)0xBD07B0;
-	static GUID_t * const GUID_addr2 = (GUID_t*)0xBD07C0;
-
-	//*GUID_addr1 = GUID;
-	//*GUID_addr2 = GUID;
-
-	set_taint_caller_zero();
-	SelectUnit(GUID);
-	reset_taint_caller();
+	taint_caller_reseter r; // this sets taint caller to 0 on construction, and resets to whatever was there on destruction :)
+	SelectUnit(guid);
 
 	// 0081B530 is the function that gives the taint error message
 }
 
-static int LOP_target_GUID(const std::string &arg) {
-	GUID_t GUID = convert_str_to_GUID(arg);
-	target_unit_with_GUID(GUID);
-	return 1;
+static int LOP_target_GUID(lua_State* L) {
+	GUID_t guid = convert_str_to_GUID(lua_tostring(L, 2));
+	target_unit_with_GUID(guid);
+	return 0;
 }
 
-static int LOP_focus(const std::string &arg) {
-	GUID_t GUID = convert_str_to_GUID(arg);
+static int LOP_caster_range_check(lua_State *L) {
 
-	static GUID_t * const FOCUS_GUID = (GUID_t*)0xBD07D0;
+	lua_Number minrange = lua_tonumber(L, 2);
+	lua_Number maxrange = lua_tonumber(L, 3);
 
-	*FOCUS_GUID = GUID;
-
-	//ObjectManager OM;
-	//WowObject f;
-	//if (OM.get_object_by_GUID(GUID, &f)) return 0;
-	//const std::string name;
-
-	//if (f.get_type() == OBJECT_TYPE_NPC) {
-
-	//}
-
-	//esscript_add("FocusUnit(\"Printf\")");
-
-	return 1;
-
-}
-
-static int LOP_range_check(lua_State *L, double minrange, double maxrange) {
 	GUID_t target_GUID = get_target_GUID();
 	if (!target_GUID) return 0;
 
-	ObjectManager OM;
-
 	WowObject p, t;
-	if (!OM.get_local_object(&p) || !OM.get_object_by_GUID(get_target_GUID(), &t)) {
+	if (!OMgr->get_local_object(&p) || !OMgr->get_object_by_GUID(get_target_GUID(), &t)) {
 		return 0;
 	}
 
@@ -514,30 +400,27 @@ static int LOP_range_check(lua_State *L, double minrange, double maxrange) {
 
 }
 
-static int LOP_follow_unit(const std::string& targetname) {
-
-	ObjectManager OM;
-
+static void followunit(const std::string& targetname) {
 	WowObject p, t;
-	if (!OM.get_local_object(&p) 
-		|| !OM.get_unit_by_name(targetname, &t)) {
-		return 0;
+	if (!OMgr->get_local_object(&p)
+		|| !OMgr->get_unit_by_name(targetname, &t)) {
+		return;
 	}
 
 	if (p.get_GUID() == t.get_GUID()) {
-		return 1;
+		return;
 	}
 
 	GUID_t tGUID = t.get_GUID();
-	
+
 	ctm_add(CTM_t(t.get_pos(), CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
 
 	if ((t.get_pos() - p.get_pos()).length() < 10) {
 		PRINT("follow difference < 10! calling WOWAPI FollowUnit()\n");
-		LOP_execute("FollowUnit(\"" + t.unit_get_name() + "\")"); // not even protected :)
+		DoString("FollowUnit(\"%s\")", t.unit_get_name());
 		follow_state.clear();
 		ctm_queue_reset();
-		return 1;
+		return;
 	}
 	else {
 		// close_enough == 1 means the follow attempt either hasn't been started yet or that the char has actually reached its target
@@ -550,16 +433,20 @@ static int LOP_follow_unit(const std::string& targetname) {
 	if (follow_state.timer.get_s() > 10) {
 		follow_state.clear();
 	}
+}
 
-	return 1;
-
+static int LOP_follow(lua_State *L) {
+	std::string targetname = lua_tostring(L, 2);
+	followunit(targetname);
+	return 0;
 }
 
 void stopfollow() {
-	ObjectManager OM;
 
 	WowObject p;
-	OM.get_local_object(&p);
+	OMgr->get_local_object(&p);
+
+	// TODO: could also just set the CTM action to DONE
 
 	float prot = p.get_rot();
 	vec3 rot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
@@ -567,58 +454,30 @@ void stopfollow() {
 	follow_state.clear();
 }
 
-static int LOP_stopfollow() {
+static int LOP_stopfollow(lua_State *L) {
 	stopfollow();
-	return 1;
+	return NO_RVALS;
 }
 
-static void LOP_CTM_act(double x, double y, double z, int priority) {
-	ctm_add(CTM_t(vec3(x, y, z), CTM_MOVE, priority, 0, 1.5));
+static int LOP_CTM(lua_State *L) {
+
+	vec3 pos(lua_tonumber(L, 2), lua_tonumber(L, 3), lua_tonumber(L, 4));
+	int priority = lua_tointeger(L, 5);
+
+	ctm_add(CTM_t(pos, CTM_MOVE, priority, 0, 1.5));
+
+	return NO_RVALS;
 }
 
-static void LOP_nop(const std::string& arg) {
-	return;
+static int LOP_nop(lua_State *L) {
+	return NO_RVALS;
 }
 
-static void LOP_dungeon_script(const std::string &command, const std::string &arg) {
+static int LOP_hug_spell_object(lua_State *L) {
 
-	if (command == "load") {
-		dscript_load(arg);
-	}
-	else if (command == "run") {
-		dscript_run();
-	}
-	else if (command == "stop") {
-		dscript_unload();
-	}
-	else if (command == "next") {
-		dscript_next();
-	}
-	else if (command == "state") {
-		dscript_state(arg);
-	}
-}
+	int spellID = lua_tointeger(L, 2);
 
-static int LOP_target_marker(const std::string &arg) {
-	// arg = marker name
-	GUID_t GUID = get_raid_target_GUID(arg);
-
-	if (GUID == 0) {
-		DoString("ClearTarget()");
-		return 0;
-	}
-
-	else {
-		SelectUnit(GUID);
-		return 1;
-	}
-}
-
-static int LOP_hug_spell_object(long spellID) {
-
-	ObjectManager OM;
-
-	auto objs = OM.get_spell_objects_with_spellID(spellID);
+	auto objs = OMgr->get_spell_objects_with_spellID(spellID);
 
 	if (objs.empty()) {
 		PRINT("No objects with spellid %ld\n", spellID);
@@ -627,16 +486,18 @@ static int LOP_hug_spell_object(long spellID) {
 	}
 	else {
 		PRINT("Hugging spellobject with spellID %ld!\n", spellID);
+		lua_pushboolean(L, true);
 		return 1;
 	}
 
 }
 
-static int LOP_avoid_spell_object(long spellID, float radius) {
-		
-	ObjectManager OM;
+static int LOP_avoid_spell_object(lua_State *L) {
+	
+	int spellID = lua_tointeger(L, 2);
+	float radius = lua_tonumber(L, 3);
 
-	auto objs = OM.get_spell_objects_with_spellID(spellID);
+	auto objs = OMgr->get_spell_objects_with_spellID(spellID);
 
 	if (objs.empty()) {
 		return 0;
@@ -646,7 +507,7 @@ static int LOP_avoid_spell_object(long spellID, float radius) {
 	int need_to_escape = 0;
 
 	WowObject p;
-	if (!OM.get_local_object(&p)) return 0;
+	if (!OMgr->get_local_object(&p)) return 0;
 	
 	vec3 ppos = p.get_pos();
 
@@ -674,12 +535,13 @@ static int LOP_avoid_spell_object(long spellID, float radius) {
 	PRINT("ESCAPING spell with id %d at %.0f, %.0f, %.0f\n", spellID, escape_pos.x, escape_pos.y, escape_pos.z);
 	ctm_add(CTM_t(escape_pos, CTM_MOVE, CTM_PRIO_EXCLUSIVE, 0, 0.5));
 
+	lua_pushboolean(L, true);
 	return 1;
 
 }
 
-static int LOP_spread() {
-	return 1;
+static int LOP_spread(lua_State *L) {
+	return 0;
 }
 
 
@@ -691,13 +553,12 @@ static void set_target_and_blast(void *noarg) {
 	DoString("RunMacroText(\"/lole test_blast_target\")");
 }
 
-static int LOP_walk_to_pull() {
+static int LOP_tank_pull(lua_State *L) {
 
-	ObjectManager OM;
 	WowObject p, t;
 
-	if (!OM.get_local_object(&p) 
-		|| !OM.get_object_by_GUID(get_target_GUID(), &t)) {
+	if (!OMgr->get_local_object(&p) 
+		|| !OMgr->get_object_by_GUID(get_target_GUID(), &t)) {
 		return 0;
 	}
 
@@ -716,7 +577,7 @@ static int LOP_walk_to_pull() {
 		ctm_add(c);
 	}
 
-	return 1;
+	return NO_RVALS;
 
 }
 
@@ -872,6 +733,7 @@ static std::vector<std::string> LOP_chain_heal_target(const std::string &arg) {
 static int mob_has_debuff(const WowObject &mob, uint debuff_spellID) {
 	for (int i = 0; i < 16; ++i) {
 		uint spellID = mob.NPC_get_debuff(i);
+		if (spellID == 0) return 0;
 		if (spellID == debuff_spellID) {
 			return 1;
 		}
@@ -879,7 +741,7 @@ static int mob_has_debuff(const WowObject &mob, uint debuff_spellID) {
 	return 0;
 }
 
-static int LOP_tank_face() {
+static int LOP_tank_face(lua_State *L) {
 
 	WowObject p, t;
 	if (!OMgr->get_local_object(&p) || !OMgr->get_object_by_GUID(get_target_GUID(), &t)) {
@@ -927,31 +789,39 @@ static int LOP_tank_face() {
 		stop_backpedal_lock = true;
 	}
 
-	return 0;
+	return NO_RVALS;
 
 }
 
-static GUID_t LOP_interact_spellnpc(const std::string &objname, GUID_t *outGUID) {
+WowObject get_obj_closest_to(const std::vector<WowObject>& objs, const vec3& to) {
 
-	ObjectManager OM;
-	WowObject o, p;
+	return *std::min_element(objs.begin(), objs.end(),
+		[&](const WowObject& a, const WowObject& b) -> bool {
+			return (a.get_pos() - to).length() < (b.get_pos() - to).length();
+		});
 
-	OM.get_local_object(&p);
+}
 
-	auto n = OM.get_NPCs_by_name(objname);
+static int LOP_interact_spellnpc(lua_State *L) {
+
+	std::string objname = lua_tostring(L, 2);
+
+	WowObject p;
+	OMgr->get_local_object(&p);
+
+	auto n = OMgr->get_NPCs_by_name(objname);
 	if (n.size() == 0) {
 		PRINT("LOP_interact_spellnpc: error: couldn't find NPC with name \"%s\"!\n", objname.c_str());
-		return -1;
+		return 0;
 	}
 	
 	vec3 ppos = p.get_pos();
-	o = OM.get_closest_NPC_by_name(n, ppos);
+	WowObject o = get_obj_closest_to(n, ppos);
 	GUID_t oGUID = o.get_GUID();
 	float dist = (o.get_pos() - ppos).length();
 
 	if (dist > 5) {
 		PRINT("LOP_interact_spellnpc: too far from object %s (0x%llX), dist = %f\n", objname.c_str(), oGUID, dist);
-		*outGUID = oGUID;
 		return 0;
 	}
 
@@ -962,19 +832,17 @@ static GUID_t LOP_interact_spellnpc(const std::string &objname, GUID_t *outGUID)
 		};
 
 		memcpy(sockbuf + 6, &oGUID, sizeof(oGUID));
+		send_wowpacket(sockbuf, sizeof(sockbuf));
+		//dump_packet(sockbuf, sizeof(sockbuf));
 
-		SOCKET s = get_wow_socket_handle();
-		encrypt_packet_header(sockbuf);
-		send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
-		//dump_packet(sockbuf, 14);
-		*outGUID = oGUID;
+		lua_pushstring(L, convert_GUID_to_str(oGUID));
 		return 1;
 	}
 
 }
 
 
-static int LOP_interact_object(const std::string &objname) {
+static int LOP_interact_gobject(lua_State *L) {
 	
 	// for Meeting Stones, the game sends two opcodes:
 	// with opcodes 0xB1 (CMSG_GAMEOBJ_USE) and 0x4B1 (CMSG_GAMEOBJ_REPORT_USE)
@@ -991,24 +859,23 @@ static int LOP_interact_object(const std::string &objname) {
 	0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8
 	};
 
+	std::string objname = lua_tostring(L, 2);
 
-	ObjectManager OM;
 	WowObject o;
-
-	if (!OM.get_GO_by_name(objname, &o)) {
-		PRINT("LOP_interact_object: error: couldn't find gobject with name \"%s\"!\n", objname.c_str());
+	if (!OMgr->get_GO_by_name(objname, &o)) {
+		PRINT("LOP_interact_gobject: error: couldn't find gobject with name \"%s\"!\n", objname.c_str());
 		return 0;
 	}
 
 
 	WowObject p;
-	OM.get_local_object(&p);
+	OMgr->get_local_object(&p);
 
 	vec3 diff = o.GO_get_pos() - p.get_pos();
 	float dist = diff.length();
 
 	if (dist > 5.0) {
-		PRINT("LOP_interact_object: too far from object \"%s\" (dist = %.2f)\n", objname.c_str(), dist);
+		PRINT("LOP_interact_gobject: too far from object \"%s\" (dist = %.2f)\n", objname.c_str(), dist);
 		return 0;
 	}
 
@@ -1016,21 +883,23 @@ static int LOP_interact_object(const std::string &objname) {
 
 	memcpy(sockbuf + 6, &oGUID, sizeof(GUID_t));
 	memcpy(sockbuf2 + 6, &oGUID, sizeof(GUID_t));
-		
-	SOCKET s = get_wow_socket_handle();
-	
-	encrypt_packet_header(sockbuf);
-	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+			
+	send_wowpacket(sockbuf, sizeof(sockbuf));
+	send_wowpacket(sockbuf2, sizeof(sockbuf2));
 
-	encrypt_packet_header(sockbuf2);
-	send(s, (const char*)sockbuf2, sizeof(sockbuf2), 0);
+	PRINT("LOP_interact_gobject: interacted with object %s (GUID: 0x%llX)!\n", objname.c_str(), oGUID);
 
-	PRINT("LOP_interact_object: interacted with object %s (GUID: 0x%llX)!\n", objname.c_str(), oGUID);
-
+	lua_pushboolean(L, true);
 	return 1;
 }
 
-static int LOPDBG_loot(const std::string &arg) {
+static int LOP_execute(lua_State *L) {
+	std::string script(lua_tostring(L, 2));
+	DoString(script);
+	return NO_RVALS;
+}
+
+static int LOPDBG_loot(lua_State *L) {
 	ObjectManager OM;
 	WowObject corpse;
 	if (!OM.get_object_by_GUID(get_target_GUID(), &corpse)) return 0;
@@ -1072,8 +941,9 @@ static int LOPDBG_pull_test() {
 	ctm_add(pull);
 }
 
-static int LOP_get_unit_position(lua_State *L, const std::string &name) {
-	ObjectManager OM;
+static int LOP_get_unit_position(lua_State *L) {
+
+	std::string name = lua_tostring(L, 2);
 
 	GUID_t object_GUID = 0;
 
@@ -1083,7 +953,7 @@ static int LOP_get_unit_position(lua_State *L, const std::string &name) {
 	}
 	
 	else if (name == "player") {
-		object_GUID = OM.get_local_GUID();
+		object_GUID = OMgr->get_local_GUID();
 	}
 
 	else if (name == "target") {
@@ -1102,7 +972,7 @@ static int LOP_get_unit_position(lua_State *L, const std::string &name) {
 
 	else {
 		WowObject u;
-		if (!OM.get_unit_by_name(name, &u)) { return 0; }
+		if (!OMgr->get_unit_by_name(name, &u)) { return 0; }
 		object_GUID = u.get_GUID();
 	}
 
@@ -1111,7 +981,7 @@ static int LOP_get_unit_position(lua_State *L, const std::string &name) {
 
 	WowObject o;
 
-	if (!OM.get_object_by_GUID(object_GUID, &o)) { return 0; }
+	if (!OMgr->get_object_by_GUID(object_GUID, &o)) { return 0; }
 
 	pos = o.get_pos(); 
 	rot = o.get_rot();
@@ -1124,33 +994,31 @@ static int LOP_get_unit_position(lua_State *L, const std::string &name) {
 	return 4;
 }
 
-static int LOP_get_combat_targets(std::vector <GUID_t> *out) {
-	ObjectManager OM;
+static int LOP_get_combat_targets(lua_State *L) {
 
 	WowObject p;
-	if (!OM.get_local_object(&p)) return 0; 
+	if (!OMgr->get_local_object(&p)) return 0; 
 	vec3 ppos = p.get_pos();
 
-	WowObject i;
-	if (!OM.get_first_object(&i)) return 0;
-
-	while (i.valid()) {
-		if (i.get_type() == OBJECT_TYPE_NPC) {
+	std::vector<std::string> out;
+	for (const auto &i : *OMgr) {
+	if (i.get_type() == OBJECT_TYPE_NPC) {
 			int reaction = get_reaction(p, i);
 
 			if (reaction < 5 && i.in_combat() && !i.NPC_unit_is_dead() && i.NPC_get_health_max() > 2500) {
 				//float dist = (i.get_pos() - ppos).length();
 				//if (dist < 30) {
-				out->push_back(i.get_GUID());
+				out.push_back(convert_GUID_to_str(i.get_GUID()));
 				//}
 			}
-			
 		}
-
-		i = i.next();
 	}
 
-	return out->size();
+	for (const auto& o : out) {
+		lua_pushstring(L, o);
+	}
+
+	return out.size();
 
 }
 
@@ -1224,26 +1092,28 @@ static int LOP_read_file(lua_State *L) {
 	char* buf = new char[fs + 1];
 	fread(buf, 1, fs, fp);
 	buf[fs] = '\0';
-	lua_pushlstring(L, buf, fs);
-	dual_echo("loaded file \"%s\" (size = %ld)", filename.c_str(), fs);
 
+	lua_pushlstring(L, buf, fs);
+
+	dual_echo("loaded file \"%s\" (size = %ld)", filename.c_str(), fs);
 	delete[] buf;
 
 	return 1;
 }
 
 
-static int LOP_get_aoe_feasibility(lua_State *L, float threshold) {
+static int LOP_get_aoe_feasibility(lua_State *L) {
 	GUID_t target_GUID = get_target_GUID();
-	if (!target_GUID) return -1;
+	if (!target_GUID) return 0;
 
-	ObjectManager OM;
+	float radius = lua_tonumber(L, 2);
+
 	WowObject p, t;
 
-	OM.get_local_object(&p);
+	OMgr->get_local_object(&p);
 
-	if (!OM.get_object_by_GUID(target_GUID, &t)) {
-		return -1;
+	if (!OMgr->get_object_by_GUID(target_GUID, &t)) {
+		return 0;
 	}
 
 	const vec3 tpos = t.get_pos();
@@ -1255,8 +1125,8 @@ static int LOP_get_aoe_feasibility(lua_State *L, float threshold) {
 			int reaction = get_reaction(p, i);
 			if (reaction < 5 && !i.NPC_unit_is_dead() && i.NPC_get_health_max() > 2500) {
 				float dist = get_distance2(t, i);
-				if (dist < threshold) {
-					feasibility += -(dist / threshold) + 1;
+				if (dist < radius) {
+					feasibility += -(dist / radius) + 1;
 					//PRINT("0x%llX (%s) is in combat, dist: %f, feasibility: %f, reaction: %d\n", i.get_GUID(), i.NPC_get_name().c_str(), dist, feasibility, reaction);
 				}
 			}
@@ -1299,66 +1169,33 @@ static int LOPDBG_test() {
 	//return 1;
 }
 
-static int LOPDBG_capture_frame_render_stages() {
-
-}
-
-static int have_aggro() {
-	ObjectManager OM;
-
+static int LOP_has_aggro(lua_State *L) {
 	WowObject p;
-	OM.get_local_object(&p);
+	OMgr->get_local_object(&p);
 
 	GUID_t pGUID = p.get_GUID();
 
-	WowObject o;
-	if (!OM.get_first_object(&o)) return -1;
-
-	while (o.valid()) {
+	for (const auto &o : *OMgr) {
 		if (o.get_type() == OBJECT_TYPE_NPC) {
 			GUID_t tGUID = o.NPC_get_target_GUID();
-			if (pGUID == tGUID) return 1;
+			if (pGUID == tGUID) {
+				lua_pushboolean(L, true);
+				return 1;
+			}
 		}
-		o = o.next();
 	}
 
 	return 0;
 }
 
-static int check_num_args(int opcode, int nargs) {
 
-	if (opcode >= LOP_NUM_OPCODES) return 1;
 
-	lop_func_t &f = lop_funcs[opcode];
-	if (nargs < f.min_arguments || nargs > f.max_arguments) {
-		PRINT("error: %s: expected %d to %d argument(s), got %d\n", f.opcode_name.c_str(), f.min_arguments, f.max_arguments, nargs);
-		return 0;
-	}
+int LOP_cast_gtaoe(lua_State *L) {
+	static timer_interval_t second(1000);
+	if (!second.passed()) return 0;
 
-	return 1;
-}
-
-static const DWORD noclip_dgo = 0x006A4B6E;
-static const DWORD noclip_go = 0x006A49FE;
-
-void enable_noclip() {
-	static DWORD noclip_enabled_dgo = 0x968B1DEB;
-	static DWORD noclip_enabled_go = 0x0000B4E9;
-	writeAddr(noclip_dgo, &noclip_enabled_dgo, sizeof(DWORD));
-	writeAddr(noclip_go, &noclip_enabled_go, sizeof(DWORD));
-	since_noclip.start();
-	noclip_enabled = 1;
-}
-
-void disable_noclip() {
-	static DWORD noclip_disabled_dgo = 0x968B1D74;
-	static DWORD noclip_disabled_go = 0x00B3840F;
-	writeAddr(noclip_dgo, &noclip_disabled_dgo, sizeof(DWORD));
-	writeAddr(noclip_go, &noclip_disabled_go, sizeof(DWORD));
-	noclip_enabled = 0;
-}
-
-void LOP_cast_gtaoe(DWORD spellID, const vec3 &coords) {
+	int spellID = lua_tointeger(L, 2);
+	vec3 coords(lua_tonumber(L, 3), lua_tonumber(L, 4), lua_tonumber(L, 5));
 	
 	BYTE sockbuf[29] = {
 		0x00, 0x1B, 0x2E, 0x01, 0x00, 0x00, // HEADER
@@ -1381,106 +1218,9 @@ void LOP_cast_gtaoe(DWORD spellID, const vec3 &coords) {
 	memcpy(sockbuf + 21, &coords.y, sizeof(float));
 	memcpy(sockbuf + 25, &coords.z, sizeof(float));
 
-	dump_packet(sockbuf, sizeof(sockbuf));
+	send_wowpacket(sockbuf, sizeof(sockbuf));
 
-	encrypt_packet_header(sockbuf);
-
-	dump_packet(sockbuf, sizeof(sockbuf));
-
-
-	SOCKET s = get_wow_socket_handle();
-	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
-}
-
-static void LOP_cast_spell(DWORD spellID, GUID_t g) {
-	BYTE sockbuf[] = {
-		0x00, 0x00, // packet length
-		0x2E, 0x01, 0x00, 0x00, // opcode
-		0xFF, // CAST COUNT
-		0xAA, 0xBB, 0xCC, 0xDD, // SPELLID
-		0x00, 0x02,
-		0x00, 0x00, 0x00,
-		0xFF, // guid mask
-		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF // PACKED GUID of TARGET (max len 8 ofc)
-	};
-
-	sockbuf[6] = get_spellcast_counter();
-	increment_spellcast_counter();
-
-	BYTE gpack[8+1]; // the first byte is for the mask :P
-	memset(gpack, 0, 9);
-	
-	int gi = 0;
-	for (int i = 0; i < 8; ++i) {
-		if (g & 0xFF) {
-			gpack[0] |= BYTE(1 << i);
-			gpack[gi+1] = g & 0xFF;
-			++gi;
-		}
-		g >>= 8;
-	}
-	
-	PRINT("mask: %02X, target GUID (packed): ", gpack[0]);
-	for (int i = 1; i < gi+1; ++i) {
-		PRINT("%02X ", gpack[i]);
-	}
-
-	BYTE packet_len = 16 + (gi + 1) - 2; // -2 for the length bytes themselves O_O
-	sockbuf[1] = packet_len;
-
-	memcpy(sockbuf + 7, &spellID, 4);
-	memcpy(sockbuf + 16, gpack, gi + 1);
-
-	PRINT("\n");
-
-	dump_packet(sockbuf, packet_len + 2);
-	
-	encrypt_packet_header(sockbuf);
-	dump_packet(sockbuf, sizeof(sockbuf));
-
-	SOCKET s = get_wow_socket_handle();
-	send(s, (const char*)sockbuf, packet_len + 2, 0);
-}
-
-static void get_biscuits(void *noarg) {
-	LOP_interact_object("Refreshment Table");
-}
-
-int LOP_get_biscuits() {
-	ObjectManager OM;
-
-	WowObject t;
-	if (!OM.get_GO_by_name("Refreshment Table", &t)) return 0;
-	
-	CTM_t b = CTM_t(t.GO_get_pos(), CTM_MOVE, CTM_PRIO_REPLACE, 0, 0.5);
-	b.add_posthook(CTM_posthook_t(get_biscuits, NULL, 0, 100));
-	
-	ctm_add(b);
-}
-
-int LOP_loot_badge(const std::string &GUID_str) {
-
-
-
-	GUID_t corpse_GUID = convert_str_to_GUID(GUID_str);
-	if (corpse_GUID == 0) return 0;
-
-	ObjectManager OM;
-	WowObject p, c;
-	if (!OM.get_object_by_GUID(corpse_GUID, &c) || !OM.get_local_object(&p)) return 0;
-	
-	// TODO: fix the following detour code =D fails because the new dot product checking system in char_is_moving() messes up
-	// really tight direction changes :P
-
-	//vec3 diff = p.get_pos() - c.get_pos();
-
-	//if (diff.length() < 2) {
-	//	// the wow CTM-loot doesn't work if we're too close, need to make a small detour first =)
-	//	ctm_add(CTM_t(p.get_pos() + vec3(6, -6, 0), CTM_MOVE, CTM_PRIO_LOW, 0, 1.5));
-	//}
-
-	ctm_add(CTM_t(c.get_pos(), CTM_LOOT, CTM_PRIO_LOW, corpse_GUID, 1.5));
-
+	return NO_RVALS;
 }
 
 static void try_wowctm() {
@@ -1529,7 +1269,9 @@ float randf() {
 }
 static int initial_angle_set = 0;
 
-static void hconfig_action(const std::vector<std::string>& args) {
+static int LOP_hconfig(lua_State* L) {
+	std::vector<std::string> args;
+	tokenize_string(lua_tostring(L, 2), " ", args);
 	const std::string& a0 = args[0];
 
 	if (a0 == "set") {
@@ -1557,19 +1299,18 @@ static void hconfig_action(const std::vector<std::string>& args) {
 	}
 
 	else if (a0 == "status") {
-		static timer_interval_t warning_time(5000);
+		static timer_interval_t warning_time(10000);
 
 		if (!hotness_enabled()) {
 			if (warning_time.passed()) {
 				echo_wow("WARNING: hconfig status called, but hotness not enabled with hconfig enable!");
 				warning_time.reset();
 			}
-			return;
+			return 0;
 		}
 
-		ObjectManager OM;
 		WowObject player;
-		OM.get_local_object(&player);
+		OMgr->get_local_object(&player);
 
 		auto m = hotness_status();
 
@@ -1584,31 +1325,33 @@ static void hconfig_action(const std::vector<std::string>& args) {
 			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
 		}
 	}
+	return NO_RVALS;
 }
 
-static void do_boss_action(const std::vector<std::string> &args) {
-	
-	ObjectManager OM;
+static int LOP_boss_action(lua_State *L) {
+	std::vector<std::string> args;
+	tokenize_string(lua_tostring(L, 2), " ", args);
+
 	WowObject player;
-	OM.get_local_object(&player);
+	OMgr->get_local_object(&player);
 	
 	if (args[0] == "Gormok_reset") {
 		PRINT("Running gormok angle reset\n");
 
 		initial_angle_set = 0;
-		return;
+		return 0;
 	}
 		
 	else if (args[0] == "Gormok") {
 
-		if (ctm_queue_get_top_prio() == CTM_PRIO_NOOVERRIDE) return;
+		if (ctm_queue_get_top_prio() == CTM_PRIO_NOOVERRIDE) return 0;
 
 		size_t len;
 		WowObject P;
-		OM.get_local_object(&P);
-		auto n = OM.get_NPCs_by_name("Fire Bomb");
+		OMgr->get_local_object(&P);
+		auto n = OMgr->get_NPCs_by_name("Fire Bomb");
 		if (n.size() == 0) {
-			return;
+			return 0;
 		}
 		else {
 			vec3 ppos = P.get_pos();
@@ -1621,10 +1364,10 @@ static void do_boss_action(const std::vector<std::string> &args) {
 				}
 			}
 
-			if (!needed) return;
+			if (!needed) return 0;
 
 			WowObject F;
-			if (!OM.get_object_by_GUID(get_focus_GUID(), &F)) return;
+			if (!OMgr->get_object_by_GUID(get_focus_GUID(), &F)) return 0;
 			vec3 fpos = F.get_pos();
 
 			static float angle = 0;
@@ -1648,15 +1391,16 @@ static void do_boss_action(const std::vector<std::string> &args) {
 
 	}
 	
-	
-
 	else {
 		PRINT("Unknown boss action %s\n", args[0].c_str());
 	}
 
+	return NO_RVALS;
 }
 
-static void use_icc_rocket_pack(const std::string& packet_hexstr) {
+static int LOP_iccrocket(lua_State *L) {
+
+	std::string packet_hexstr = lua_tostring(L, 2);
 
 	ObjectManager OM;
 	WowObject rocket_pack;
@@ -1664,7 +1408,7 @@ static void use_icc_rocket_pack(const std::string& packet_hexstr) {
 	DoString("RunMacroText(\"/equip Goblin Rocket Pack\")");
 
 	if (!OM.get_item_by_itemID(49278, &rocket_pack)) {
-		return;
+		return 0;
 	}
 
 	GUID_t g = rocket_pack.get_GUID();
@@ -1715,11 +1459,7 @@ static void use_icc_rocket_pack(const std::string& packet_hexstr) {
 	PRINT("sending following iccpacket:\n");
 	dump_packet(sockbuf, 47);
 	
-	SOCKET s = get_wow_socket_handle();
-
-	encrypt_packet_header(sockbuf);
-
-	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+	send_wowpacket(sockbuf, sizeof(sockbuf));
 
 	// so this is the other packet :D
 	// ON WARMANE, A 0x101 IS SENT! (total length 10, content 0 0 0 0)
@@ -1731,28 +1471,35 @@ static void use_icc_rocket_pack(const std::string& packet_hexstr) {
 		0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00
 	};
 
-	encrypt_packet_header(sockbuf2);
-	send(s, (const char*)sockbuf2, sizeof(sockbuf2), 0);
+	send_wowpacket(sockbuf2, sizeof(sockbuf2));
 
+	return NO_RVALS;
 
 }
 
-void packet_test1() {
-	BYTE sockbuf[6] = {
-		0x00, 0x6, 0xF6, 0x04, 0, 0
-	};
-	SOCKET s = get_wow_socket_handle();
-	//encrypt_packet_header(sockbuf);
-	send(s, (const char*)sockbuf, sizeof(sockbuf), 0);
+static int LOP_get_walking_state(lua_State *L) {
+	// TODO: implement
+	return NO_RVALS;
 }
 
+static int LOP_get_ctm_state(lua_State *L) {
+	// TODO: implement
+	return NO_RVALS;
+}
 
-static int avoid_npc_with_name(const std::string &name, float radius) {
-	ObjectManager OM;
-	WowObject P;
-	OM.get_local_object(&P);
-	vec3 ppos = P.get_pos();
-	auto n = OM.get_NPCs_by_name(name);
+static int LOP_get_previous_cast_msg(lua_State *L) {
+	// look at previous_cast_msg
+	return 0;
+}
+
+static int LOP_avoid_npc_with_name(lua_State* L) {
+	std::string name = lua_tostring(L, 2);
+	lua_Number radius = lua_tonumber(L, 3);
+	
+	WowObject p;
+	OMgr->get_local_object(&p);
+	vec3 ppos = p.get_pos();
+	auto n = OMgr->get_NPCs_by_name(name);
 
 	for (auto &i : n) {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
@@ -1766,368 +1513,351 @@ static int avoid_npc_with_name(const std::string &name, float radius) {
 	return 0;
 }
 
+static int LDOP_debug_test(lua_State* L) {
+	return NO_RVALS;
+}
 
-int lop_exec(lua_State *L) {
+static int LDOP_eject_dll(lua_State* L) {
+	should_unpatch = 1;
+	return NO_RVALS;
+}
+
+static int LDOP_console_print(lua_State* L) {
+	if (lua_gettop(L) < 2) return 0;
+	else puts(lua_tostring(L, 2));
+	return NO_RVALS;
+}
+
+static int LDOP_lua_register(lua_State* L) {
+	lua_registered = 1;
+	return NO_RVALS;
+}
+
+class lopfunc_list {
+	std::vector<lop_func_t> funcs;
+	std::vector<lop_func_t> debug_funcs;
+
+public:
+	const lop_func_t& operator[](LOP op) const {
+		if (IS_DEBUG_OPCODE(op)) {
+		//	dual_echo("op: 0x%X, LDOP_MASK: 0x%X\n", (int)op, LDOP_MASK);
+			int stripped_index = (int)op & (~LDOP_MASK);
+			ASSERT(stripped_index, <, debug_funcs.size());
+			return debug_funcs[stripped_index];
+		}
+		else {
+			ASSERT((int)op, <, funcs.size());
+			return funcs[(int)op];
+		}
+	}
+
+	lopfunc_list(std::vector<lop_func_t>&& f, std::vector<lop_func_t>&& df)
+		: funcs(std::move(f)), debug_funcs(std::move(df))
+	{
+		dual_echo("lopfunc_list loaded! Have %d funcs, and %d debug funcs", funcs.size(), debug_funcs.size());
+		
+		// just check that there are no loops in the table :D
+		
+		int i = 0;
+		for (const auto& f : funcs) {
+			ASSERT(i, ==, (int)f.opcode);
+			++i;
+		}
+
+		i = 0;
+		for (const auto& f : debug_funcs) {
+			ASSERT(i | LDOP_MASK, ==, (int)f.opcode);
+			++i;
+		}
+	}
+
+};
+
+
+#define OPSTR(OPCODE_ID) OPCODE_ID, #OPCODE_ID
+
+static const lopfunc_list lop_funcs = {
+{
+{ OPSTR(LOP::NOP), {}, 0, LOP_nop },
+
+{ OPSTR(LOP::TARGET_GUID),
+{{"targetGUID", lua_type::string, LUA_ARG_REQUIRED}},
+	RVALS_1, LOP_target_GUID },
+
+{ OPSTR(LOP::CASTER_RANGE_CHECK),
+{{"minrange", lua_type::number, LUA_ARG_REQUIRED},
+ {"maxrange", lua_type::number, LUA_ARG_REQUIRED}},
+	RVALS_1, LOP_caster_range_check },
+
+{ OPSTR(LOP::FOLLOW),
+{{"unitGUID", lua_type::string, LUA_ARG_REQUIRED}},
+	NO_RVALS, LOP_follow },
+
+{ OPSTR(LOP::CTM),
+{{"x", lua_type::number, LUA_ARG_REQUIRED},
+ {"y", lua_type::number, LUA_ARG_REQUIRED},
+ {"z", lua_type::number, LUA_ARG_REQUIRED},
+ {"priority", lua_type::integer, LUA_ARG_REQUIRED}},
+	NO_RVALS, LOP_CTM },
+
+{ OPSTR(LOP::TARGET_MARKER), {}, NO_RVALS, op_handler_NYI }, // this would actually be NYI
+
+{ OPSTR(LOP::MELEE_BEHIND), 
+{{"minrange", lua_type::number, LUA_ARG_REQUIRED}}, 
+	NO_RVALS, LOP_melee_behind },
+
+{ OPSTR(LOP::AVOID_SPELL_OBJECT), 
+{{"spellID", lua_type::integer, LUA_ARG_REQUIRED},
+ {"radius", lua_type::number, LUA_ARG_REQUIRED}}, 
+	RVALS_1, LOP_avoid_spell_object },
+
+{ OPSTR(LOP::HUG_SPELL_OBJECT), 
+{{"spellID", lua_type::integer, LUA_ARG_REQUIRED}}, 
+	RVALS_1, LOP_hug_spell_object },
+
+{ OPSTR(LOP::SPREAD), {}, NO_RVALS, LOP_spread },
+
+{ OPSTR(LOP::CHAIN_HEAL_TARGET), {{"NOT_IN_USE", lua_type::table, LUA_ARG_REQUIRED}}, RVALS_1, op_handler_NYI },
+
+{ OPSTR(LOP::MELEE_AVOID_AOE_BUFF), 
+{{"spellID", lua_type::integer, LUA_ARG_REQUIRED}}, 
+	NO_RVALS, LOP_melee_avoid_aoe_buff },
+
+{ OPSTR(LOP::TANK_FACE), {}, NO_RVALS, LOP_tank_face },
+
+{ OPSTR(LOP::TANK_PULL), {}, NO_RVALS, LOP_tank_pull },
+
+{ OPSTR(LOP::GET_UNIT_POSITION), 
+{{"unitname", lua_type::string, LUA_ARG_REQUIRED}}, 
+	RVALS_3, LOP_get_unit_position },
+
+{ OPSTR(LOP::GET_WALKING_STATE), {}, RVALS_1, LOP_get_walking_state },
+
+{ OPSTR(LOP::GET_CTM_STATE), {}, RVALS_1, LOP_get_ctm_state },
+
+{ OPSTR(LOP::GET_PREVIOUS_CAST_MSG), {}, RVALS_1, LOP_get_previous_cast_msg },
+
+{ OPSTR(LOP::STOPFOLLOW), {}, NO_RVALS, LOP_stopfollow },
+
+{ OPSTR(LOP::CAST_GTAOE),
+{{"spellID", lua_type::integer, LUA_ARG_REQUIRED},
+ {"x", lua_type::number, LUA_ARG_REQUIRED},
+ {"y", lua_type::number, LUA_ARG_REQUIRED},
+ {"z", lua_type::number, LUA_ARG_REQUIRED}},
+	NO_RVALS, LOP_cast_gtaoe },
+
+{ OPSTR(LOP::HAS_AGGRO), {}, RVALS_1, LOP_has_aggro },
+
+{ OPSTR(LOP::INTERACT_GOBJECT),
+{{"objname", lua_type::string, LUA_ARG_REQUIRED}},
+	RVALS_1, LOP_interact_gobject },
+
+{ OPSTR(LOP::EXECUTE),
+{{"objname", lua_type::string, LUA_ARG_REQUIRED}}, 
+	NO_RVALS, LOP_execute },
+
+{ OPSTR(LOP::GET_COMBAT_TARGETS), {}, RVALS_1, LOP_get_combat_targets },
+
+{ OPSTR(LOP::GET_AOE_FEASIBILITY),
+{{"radius", lua_type::number, LUA_ARG_REQUIRED},
+ {"unitname", lua_type::string, LUA_ARG_OPTIONAL}},
+	RVALS_1, LOP_get_aoe_feasibility },
+
+{ OPSTR(LOP::AVOID_NPC_WITH_NAME),
+{{"npcname", lua_type::string, LUA_ARG_REQUIRED},
+ {"radius", lua_type::number, LUA_ARG_REQUIRED}},
+	NO_RVALS, LOP_avoid_npc_with_name },
+
+{ OPSTR(LOP::BOSS_ACTION), 
+{ {"commandstring", lua_type::string, LUA_ARG_REQUIRED} }, // separated by spaces
+	RVALS_1, LOP_boss_action },
+
+{ OPSTR(LOP::INTERACT_SPELLNPC),
+{{"npcGUID", lua_type::string, LUA_ARG_REQUIRED}}, 
+	RVALS_1, LOP_interact_spellnpc },
+
+{ OPSTR(LOP::GET_LAST_SPELL_ERRMSG), {}, RVALS_3, LOP_get_previous_cast_msg },
+
+{ OPSTR(LOP::ICCROCKET),
+{{"packethexstr", lua_type::string, LUA_ARG_REQUIRED}}, 
+	NO_RVALS, LOP_iccrocket },
+
+{ OPSTR(LOP::HCONFIG),
+{{"commandstring", lua_type::string, LUA_ARG_REQUIRED} }, // separated by spaces
+	RVALS_1, LOP_hconfig },
+
+{ OPSTR(LOP::TANK_TAUNT_LOOSE),
+{{"tauntspellname", lua_type::string, LUA_ARG_REQUIRED},
+ {"ignoretargetedbyGUID", lua_type::table, LUA_ARG_OPTIONAL}}, 
+	RVALS_1, LOP_tank_taunt_loose },
+
+{ OPSTR(LOP::READ_FILE),
+{{"filename", lua_type::string, LUA_ARG_REQUIRED} }, 
+	RVALS_1, LOP_read_file },
+},
+
+ {
+	 { OPSTR(LOP::LDOP_NOP), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_DUMP), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_LOOT_ALL), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_PULL_TEST), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_LUA_REGISTER), {}, NO_RVALS, LDOP_lua_register },
+	 { OPSTR(LOP::LDOP_LOS_TEST), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_TEST), {}, NO_RVALS, LDOP_debug_test },
+	 { OPSTR(LOP::LDOP_CAPTURE_FRAME_RENDER_STAGES), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_CONSOLE_PRINT), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_REPORT_CONNECTED), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_EJECT_DLL), {}, NO_RVALS, LDOP_eject_dll },
+	 
+	 // EXT stuff
+
+	 { OPSTR(LOP::LDOP_SL_RESETCAMERA), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_WC3MODE), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_SL_SETSELECT), {}, NO_RVALS, op_handler_NYI },
+
+	//	LDOP_NOP = LDOP_MASK,
+	//LDOP_DUMP,
+	//LDOP_LOOT_ALL,
+	//LDOP_PULL_TEST,
+	//LDOP_LUA_REGISTER,
+	//LDOP_LOS_TEST,
+	//LDOP_TEST,
+	//LDOP_CAPTURE_FRAME_RENDER_STAGES,
+	//LDOP_CONSOLE_PRINT,
+	//LDOP_REPORT_CONNECTED,
+	//LDOP_EJECT_DLL,
+
+	//// from the old "LOP_EXT"
+
+	//LDOP_SL_RESETCAMERA,
+	//LDOP_WC3MODE,
+	//LDOP_SL_SETSELECT,
+ }
+
+};
+
+
+static bool check_num_args(LOP opcode, int nargs) {
+
+	if (opcode >= LOP::NUM_OPCODES) return 1;
+
+	const lop_func_t& f = lop_funcs[opcode];
+	if (nargs < f.args.size()) { // TODO check types also
+		PRINT("error: %s: expected at least %d argument(s), got %d\n", f.opcode_name.c_str(), f.args.size(), nargs);
+		return false;
+	}
+
+	return true;
+}
+
+static bool check_arg_types(lua_State* L, LOP opcode) {
+	const lop_func_t& lf = lop_funcs[opcode];
+	for (int i = 0; i < lf.args.size(); ++i) {
+		const lua_arg& arg = lf.args[i];
+		if (arg.type != lua_gettype(L, i + 2)) {
+			dual_echo("lop_exec(%s): check_arg_types: wrong type for argument number %d (\"%s\")! Expected %s, got %s\n",
+				lf.opcode_name.c_str(), i + 1, arg.name.c_str(), lua_gettypestring(L, arg.type), lua_gettypestr(L, i + 2));
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool check_lop_args(lua_State* L) {
+	int nargs = lua_gettop(L);
+	if (nargs < 1) {
+		dual_echo("lop_exec: error: no arguments (or nil) passed\n");
+		return false;
+	}
+	LOP opcode = (LOP)lua_tointeger(L, 1);
+
+	//PRINT("opcode: 0x%X\n", (int)opcode);
+
+	if (IS_DEBUG_OPCODE(opcode)) {
+		return true; // we don't check these
+	}
+
+	if (!check_num_args(opcode, nargs)) {
+		return false;
+	}
+
+	if (!check_arg_types(L, opcode)) {
+		return false;
+	}
+
+	return true;
+}
+
+
+
+int lop_exec(lua_State* L) {
 
 	// NOTE: the return value of this function --> number of values returned to caller in LUA
 
-	int nargs = lua_gettop(L);
-
-	if (nargs < 1) {
-		PRINT("lop_exec: no arguments; doing nothing!\n");
-		return 0;
+	if (check_lop_args(L)) {
+		LOP op = (LOP)lua_tointeger(L, 1);
+		return lop_funcs[op].handler(L);
 	}
 
-	int opcode = lua_tointeger(L, 1);
-	
-	//if (opcode < LOP_NUM_OPCODES) {
-	//	PRINT("lop_exec: opcode = %d (%s)\n", opcode, lop_funcs[opcode].opcode_name.c_str());
-	//}
-	
-	//for (int i = 2; i <= nargs; ++i) {
-	//	size_t len;
-	//	const char* str = lua_tolstring(L, i, &len);
+	//case LDOP_CAPTURE_FRAME_RENDER_STAGES:
+	//	enable_capture_render();
+	//	break;
 
-	//	if (!str) {
-	//		PRINT("lua_tolstring for argument #%d failed (tables aren't allowed!\n");
+	//case LDOP_LUA_REGISTERED:
+	//	lua_registered = 1;
+	//	break;
+
+	//case LDOP_DUMP: {
+	//	const char *typefilter = lua_tolstring(L, 2, &len);
+	//	const char *namefilter = lua_tolstring(L, 3, &len);
+	//	dump_wowobjects_to_log(typefilter ? typefilter : "", namefilter ? namefilter : "");
+	//	break;
+	//}
+
+	//case LDOP_TEST: {
+	//	break;
+	//}
+	//case LDOP_NOCLIP: {
+	//	ObjectManager OM;
+	//	WowObject p;
+	//	if (OM.get_object_by_GUID(get_target_GUID(), &p)) {
+	//		if (p.get_type() == OBJECT_TYPE_NPC) {
+	//			printf("is dead: %d\n", p.NPC_unit_is_dead());
+	//		}
 	//	}
-
-	//	PRINT("arg %d: \"%s\"\n", i - 1, str);
+	//	//enable_noclip();
+	//	break;
 	//}
 
+	//case LDOP_CONSOLE_PRINT: {
+	//	const char* s = lua_tolstring(L, 2, &len);
+	//	puts(s);
 
-	if (!check_num_args(opcode, nargs - 1)) { return 0; }
+	//	//FILE *fp = fopen("C:\\Users\\Elias\\Desktop\\lua.log", "a");
+	//	//fputs(s, fp);
+	//	//fclose(fp);
+	//	break;
+	//}
 
-	size_t len;
+	////case LDOP_REPORT_CONNECTED: {
+	////	// this is sent by the addon, so if we're getting this, we're most definitely in world
+	////	std::string msg = "status " + std::string(lua_tolstring(L, 2, &len));
+	////	send_to_governor(msg.c_str(), msg.length() + 1);
+	////	in_world = time(NULL);
+	////	return 0;
+	////}
 
-	switch (opcode) {
-	case LOP_NOP:
-		break;
-
-	case LOP_LUA_UNLOCK:
-		//LOP_lua_unlock();
-		break;
-
-	case LOP_LUA_LOCK:
-		// this is now deprecated =D
-		//LOP_lua_lock();
-		break;
-
-	case LOP_EXECUTE:
-		LOP_execute(lua_tolstring(L, 2, &len));
-		break;
-
-	case LOP_TARGET_GUID: {
-		const char* arg = lua_tolstring(L, 2, &len);
-		if (arg) { LOP_target_GUID(arg); }
-		break;
-	}
-
-	case LOP_FOCUS:
-		LOP_focus(lua_tolstring(L, 2, &len));
-		break;
-
-	case LOP_CASTER_RANGE_CHECK: {
-		double minrange = lua_tonumber(L, 2);
-		double maxrange = lua_tonumber(L, 3);
-		return LOP_range_check(L, minrange, maxrange);
-		break;
-	}
-
-	case LOP_FOLLOW:
-		LOP_follow_unit(lua_tolstring(L, 2, &len));
-		break;
-
-	case LOP_CTM: {
-		double x, y, z;
-		x = lua_tonumber(L, 2);
-		y = lua_tonumber(L, 3);
-		z = lua_tonumber(L, 4);
-		int prio = lua_tointeger(L, 5);
-		PRINT("LOP_CTM: %f, %f, %f, prio\n", x, y, z);
-
-		LOP_CTM_act(x, y, z, prio);
-		break;
-	}
-
-	case LOP_DUNGEON_SCRIPT: {
-		const char* command = lua_tolstring(L, 2, &len);
-
-		const char* scriptname = NULL;
-		if (nargs > 2) {
-			scriptname = lua_tolstring(L, 3, &len);
-		}
-
-		LOP_dungeon_script(command, scriptname ? scriptname : "");
-		break;
-	}
-
-	case LOP_TARGET_MARKER:
-		LOP_target_marker(lua_tolstring(L, 2, &len));
-		break;
-
-	case LOP_MELEE_BEHIND:
-		LOP_melee_behind(lua_tonumber(L, 2));
-		break;
-
-	case LOP_AVOID_SPELL_OBJECT: {
-		long spellID = lua_tointeger(L, 2);
-		double radius = lua_tonumber(L, 3);
-		LOP_avoid_spell_object(spellID, radius);
-		break;
-	}
-
-	case LOP_HUG_SPELL_OBJECT: {
-		long spellID = lua_tointeger(L, 2);
-		LOP_hug_spell_object(spellID);
-		break;
-	}
-	case LOP_SPREAD:
-		LOP_spread();
-		break;
-
-	case LOP_CHAIN_HEAL_TARGET: {
-		const char* current_heals = lua_tolstring(L, 2, &len);
-		std::vector<std::string> names = LOP_chain_heal_target(current_heals);
-		int n_rvals = 0;
-		for (auto &n : names) {
-			lua_pushstring(L, n);
-			++n_rvals;
-		}
-		return n_rvals;
-	}
-
-	case LOP_MELEE_AVOID_AOE_BUFF: {
-		long spellID = lua_tointeger(L, 2);
-		LOP_melee_avoid_aoe_buff(spellID);
-		break;
-	}
-
-	case LOP_TANK_FACE:
-		LOP_tank_face();
-		break;
-
-	case LOP_WALK_TO_PULLING_RANGE:
-		LOP_walk_to_pull();
-		break;
-
-	case LOP_GET_UNIT_POSITION: {
-		return LOP_get_unit_position(L, lua_tolstring(L, 2, &len));
-	}
-
-	case LOP_GET_WALKING_STATE:
-		if (get_wow_CTM_state() != CTM_DONE) {
-			lua_pushboolean(L, 1);
-			return 1;
-		}
-		else {
-			return 0;
-		}
-		break;
-
-	case LOP_GET_CTM_STATE:
-		// get the CTM state of the lole DLL
-		break;
-
-	case LOP_GET_PREVIOUS_CAST_MSG:
-		lua_pushinteger(L, previous_cast_msg.msg);
-		lua_pushnumber(L, (double)(previous_cast_msg.timestamp) / 1000.0);
-		return 2;
-		break;
-
-	case LOP_STOPFOLLOW:
-		LOP_stopfollow();
-		break;
-
-	case LOP_CAST_GTAOE: {
-		static timer_interval_t second(1000);
-
-		if (!second.passed()) break;
-
-		uint spellID = lua_tointeger(L, 2);
-		vec3 pos = vec3(lua_tonumber(L, 3), lua_tonumber(L, 4), lua_tonumber(L, 5));
-
-		LOP_cast_gtaoe(spellID, pos);
-		second.reset();
-
-		break;
-	}
-
-	case LOP_CAST_SPELL:
-		LOP_cast_spell(lua_tointeger(L, 2), convert_str_to_GUID(lua_tolstring(L, 3, &len)));
-		break;
-
-	case LOP_HAS_AGGRO:
-		if (have_aggro()) {
-			lua_pushboolean(L, 1);
-			return 1;
-		}
-		break;
-
-	case LOP_INTERACT_GOBJECT:
-		LOP_interact_object(lua_tolstring(L, 2, &len));
-		break;
-
-	case LOP_GET_BISCUITS:
-		LOP_get_biscuits();
-		break;
-
-	case LOP_LOOT_BADGE:
-		LOP_loot_badge(lua_tolstring(L, 2, &len));
-		break;
-
-	case LOP_GET_COMBAT_TARGETS: {
-		std::vector<GUID_t> targets;
-		LOP_get_combat_targets(&targets);
-
-		for (int i = 0; i < targets.size(); ++i) {
-			lua_pushstring(L, convert_GUID_to_str(targets[i]));
-		}
-
-		return targets.size();
-
-		break;
-	}
-
-	case LOP_GET_AOE_FEASIBILITY: {
-		return LOP_get_aoe_feasibility(L, lua_tonumber(L, 2));
-	}
-
-	case LOP_AVOID_NPC_WITH_NAME: {
-		int r = avoid_npc_with_name(lua_tolstring(L, 2, &len), lua_tonumber(L, 3));
-		if (r) {
-			lua_pushnumber(L, 1);
-			return 1;
-		}
-		return 0;
-		break;
-	}
-
-	case LOP_BOSS_ACTION: {
-		std::vector<std::string> tokens;
-		tokenize_string(lua_tolstring(L, 2, &len), " ", tokens);
-		do_boss_action(tokens);
-		break;
-	}
-
-	case LOP_HCONFIG: {
-		std::vector<std::string> tokens;
-		tokenize_string(lua_tolstring(L, 2, &len), " ", tokens);
-		hconfig_action(tokens);
-		break;
-	}
-
-	case LOP_INTERACT_SPELLNPC:
-	{
-		GUID_t g = 0;
-		int r = LOP_interact_spellnpc(lua_tolstring(L, 2, &len), &g);
-		std::string GUIDstr = convert_GUID_to_str(g);
-
-		switch (r) {
-			case -1:
-				return 0;
-				break;
-			case 0:
-				lua_pushstring(L, GUIDstr);
-				lua_pushboolean(L, 0);
-				return 2;
-				break;
-
-			case 1:
-				lua_pushstring(L, GUIDstr);
-				lua_pushboolean(L, 1);
-				return 2;
-				break;
-			}
-		break;
-	}
-
-	case LOP_GET_LAST_SPELL_ERRMSG: {
-
-		if (last_errmsg.msg) {
-			lua_pushnumber(L, last_errmsg.msg->code);
-			lua_pushstring(L, last_errmsg.msg->text);
-			lua_pushnumber(L, last_errmsg.err_id);
-			return 3;
-		}
-		
-		else return 0;
-
-		break;
-	}
-
-	case LOP_ICCROCKET: {
-		use_icc_rocket_pack(lua_tolstring(L, 2, &len)); 
-		break;
-	}
-
-	case LOP_TANK_TAUNT_LOOSE: {
-		return LOP_tank_taunt_loose(L);
-		break;
-	}
-
-	case LOP_READ_FILE: {
-		return LOP_read_file(L);
-	}
-
-	case LDOP_CAPTURE_FRAME_RENDER_STAGES:
-		enable_capture_render();
-		break;
-
-	case LDOP_LUA_REGISTERED:
-		lua_registered = 1;
-		break;
-
-	case LDOP_DUMP: {
-		const char *typefilter = lua_tolstring(L, 2, &len);
-		const char *namefilter = lua_tolstring(L, 3, &len);
-		dump_wowobjects_to_log(typefilter ? typefilter : "", namefilter ? namefilter : "");
-		break;
-	}
-
-	case LDOP_TEST: {
-		break;
-	}
-	case LDOP_NOCLIP: {
-		ObjectManager OM;
-		WowObject p;
-		if (OM.get_object_by_GUID(get_target_GUID(), &p)) {
-			if (p.get_type() == OBJECT_TYPE_NPC) {
-				printf("is dead: %d\n", p.NPC_unit_is_dead());
-			}
-		}
-		//enable_noclip();
-		break;
-	}
-
-	case LDOP_CONSOLE_PRINT: {
-		const char* s = lua_tolstring(L, 2, &len);
-		puts(s);
-
-		//FILE *fp = fopen("C:\\Users\\Elias\\Desktop\\lua.log", "a");
-		//fputs(s, fp);
-		//fclose(fp);
-		break;
-	}
-
-	//case LDOP_REPORT_CONNECTED: {
-	//	// this is sent by the addon, so if we're getting this, we're most definitely in world
-	//	std::string msg = "status " + std::string(lua_tolstring(L, 2, &len));
-	//	send_to_governor(msg.c_str(), msg.length() + 1);
-	//	in_world = time(NULL);
+	//case LDOP_EJECT_DLL: {
+	//	should_unpatch = 1;
 	//	return 0;
 	//}
 
-	case LDOP_EJECT_DLL: {
-		should_unpatch = 1;
-		return 0;
-	}
+	//default:
+	//	PRINT("lop_exec: unknown opcode %d!\n", opcode);
+	//	break;
 
-	default:
-		PRINT("lop_exec: unknown opcode %d!\n", opcode);
-		break;
-
-	}
+	//}
 			 
 	return 0;
 }
@@ -2162,7 +1892,7 @@ int get_rvals(lua_State *L) {
 // follow stuff
 
 void refollow_if_needed() {
-	if (!follow_state.close_enough) LOP_follow_unit(follow_state.target_name);
+	if (!follow_state.close_enough) followunit(follow_state.target_name);
 }
 
 static int dump_wowobjects_to_log(const std::string &type_filter, const std::string &name_filter) {
