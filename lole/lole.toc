@@ -29,6 +29,7 @@ shaman_resto.lua
 class_config.lua
 
 opcodes.lua
+encounter.lua
 subcommands.lua
 
 frame.lua

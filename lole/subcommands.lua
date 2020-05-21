@@ -1201,7 +1201,7 @@ lole_subcommands = {
 	register = lole_debug_lua_register,
 	distance = lole_distance_to_target,
 
-	debug_test = lole_debug_test,
+	parse_encounter = lole_parse_encounter,
 	noclip = lole_noclip,
 	getbiscuit = lole_getbiscuit,
 	loot_badge = lole_loot_badge,
