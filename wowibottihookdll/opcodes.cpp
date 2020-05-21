@@ -1705,7 +1705,7 @@ static const lopfunc_list lop_funcs = {
 	 { OPSTR(LOP::LDOP_LOS_TEST), {}, NO_RVALS, op_handler_NYI },
 	 { OPSTR(LOP::LDOP_TEST), {}, NO_RVALS, LDOP_debug_test },
 	 { OPSTR(LOP::LDOP_CAPTURE_FRAME_RENDER_STAGES), {}, NO_RVALS, op_handler_NYI },
-	 { OPSTR(LOP::LDOP_CONSOLE_PRINT), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_CONSOLE_PRINT), {}, NO_RVALS, LDOP_console_print },
 	 { OPSTR(LOP::LDOP_REPORT_CONNECTED), {}, NO_RVALS, op_handler_NYI },
 	 { OPSTR(LOP::LDOP_EJECT_DLL), {}, NO_RVALS, LDOP_eject_dll },
 	 
