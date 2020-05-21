@@ -1,395 +1,395 @@
 {
-    "name": "Professor Putricide",
-    "area": "[[x1, y1], [x2, y2], ...]",
-    "obstacles": "[[[x1, y1], [x2, y2], ...], ...]",
-    "fight": {
-        "preparationActions": {
-            "byName": null,
-            "byRole": {
-                "tank": [
-                    {
-                        "action": "MOVE",
-                        "actionArgs": {
-                            "location": "[x, y]"
-                        }
-                    }
-                ],
-                "melee": [
-                    {
-                        "action": "MOVE",
-                        "actionArgs": {
-                            "location": "[x, y]"
-                        }
-                    }
-                ],
-                "rangedOrHealer": [
-                    {
-                        "action": "DISPERSE",
-                        "_comment": "\"DISPERSE\" for demonstration reasons. \"MOVE\" should be used for Prof. Putricide.",
-                        "actionArgs": {
-                            "location": "[x, y]",
-                            "mode": "MAX_RANGE",
-                            "_comment": "[MAX_RANGE|ENTROPY|ZIGZAG]",
-                            "intervalYds": 8
-                        }
-                    }
-                ]
+  "name": "Professor Putricide",
+  "area": "[[x1, y1], [x2, y2], ...]",
+  "obstacles": "[[[x1, y1], [x2, y2], ...], ...]",
+  "fight": {
+    "preparationActions": {
+      "byName": null,
+      "byRole": {
+        "tank": [
+          {
+            "action": "MOVE",
+            "actionArgs": {
+              "location": "[x, y]"
             }
+          }
+        ],
+        "melee": [
+          {
+            "action": "MOVE",
+            "actionArgs": {
+              "location": "[x, y]"
+            }
+          }
+        ],
+        "rangedOrHealer": [
+          {
+            "action": "DISPERSE",
+            "_comment": "\"DISPERSE\" for demonstration reasons. \"MOVE\" should be used for Prof. Putricide.",
+            "actionArgs": {
+              "location": "[x, y]",
+              "mode": "MAX_RANGE",
+              "_comment": "[MAX_RANGE|ENTROPY|ZIGZAG]",
+              "intervalYds": 8
+            }
+          }
+        ]
+      }
+    },
+    "phases": {
+      "phase1": {
+        "targeting": {
+          "byName": null,
+          "byRole": {
+            "melee": [
+              {
+                "name": "Volatile Ooze",
+                "switchCondition": "TARGET_HAS_TARGET"
+              },
+              {
+                "name": "Gas Cloud",
+                "switchCondition": "TARGET_HAS_TARGET"
+              },
+              {
+                "name": "Professor Putricide",
+                "switchCondition": null
+              }
+            ],
+            "ranged": [
+              {
+                "name": "Volatile Ooze",
+                "switchCondition": null
+              },
+              {
+                "name": "Gas Cloud",
+                "switchCondition": null
+              },
+              {
+                "name": "Professor Putricide",
+                "switchCondition": null
+              }
+            ]
+          },
+          "dynamic": [
+            {
+              "_comment": "20% of damage dealers should focus on Add X when spawned",
+              "name": "Add X",
+              "switchCondition": null,
+              "ddAllocation": 0.2,
+              "rolePreference": "MELEE"
+            },
+            {
+              "name": "Add Y",
+              "switchCondition": null,
+              "ddAllocation": 0.2,
+              "rolePreference": "RANGED"
+            },
+            {
+              "name": "Boss",
+              "switchCondition": null,
+              "ddAllocation": 1.0,
+              "rolePreference": null
+            }
+          ]
         },
-        "phases": {
-            "phase1": {
-                "targeting": {
-                    "byName": null,
-                    "byRole": {
-                        "melee": [
-                            {
-                                "name": "Volatile Ooze",
-                                "switchCondition": "TARGET_HAS_TARGET"
-                            },
-                            {
-                                "name": "Gas Cloud",
-                                "switchCondition": "TARGET_HAS_TARGET"
-                            },
-                            {
-                                "name": "Professor Putricide",
-                                "switchCondition": null
-                            }
-                        ],
-                        "ranged": [
-                            {
-                                "name": "Volatile Ooze",
-                                "switchCondition": null
-                            },
-                            {
-                                "name": "Gas Cloud",
-                                "switchCondition": null
-                            },
-                            {
-                                "name": "Professor Putricide",
-                                "switchCondition": null
-                            }
-                        ]
-                    },
-                    "dynamic": [
-                        {
-                            "_comment": "20% of damage dealers should focus on Add X when spawned",
-                            "name": "Add X",
-                            "switchCondition": null,
-                            "ddAllocation": 0.2,
-                            "rolePreference": "MELEE"
-                        },
-                        {
-                            "name": "Add Y",
-                            "switchCondition": null,
-                            "ddAllocation": 0.2,
-                            "rolePreference": "RANGED"
-                        },
-                        {
-                            "name": "Boss",
-                            "switchCondition": null,
-                            "ddAllocation": 1.0,
-                            "rolePreference": null
-                        }
-                    ]
-                },
-                "reactions": {
-                    "phaseEvents": [
-                        {
-                            "event": "PHASE_START",
-                            "actions": null
-                        }
-                    ],
-                    "combatLogEvents": [
-                        {
-                            "event": "Volatile Ooze died",
-                            "actions": {
-                                "byRole": {
-                                    "rangedOrHealer": [
-                                        {
-                                            "action": "MOVE",
-                                            "actionArgs": {
-                                                "location": "[x, y]"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "event": "Gas Cloud died",
-                            "actions": {
-                                "byRole": {
-                                    "rangedOrHealer": [
-                                        {
-                                            "action": "MOVE",
-                                            "actionArgs": {
-                                                "location": "[x, y]"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ],
-                    "debuffs": [
-                        {
-                            "_comment": "[] for Prof. P.",
-                            "name": "Debuff X",
-                            "actions": {
-                                "player": [
-                                    {
-                                        "action": "REQUEST_DEBUFF"
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "Debuff Y",
-                            "actions": {
-                                "player": [
-                                    {
-                                        "action": "MOVE_AWAY_FROM_RAID"
-                                    }
-                                ]
-                            }
-                        }
-                    ]
-                },
-                "positioning": {
-                    "hazards": {
-                        "dynamicObjects": [
-                            {
-                                "name": "Slime Pool",
-                                "isStaticSize": false,
-                                "isStaticLocation": true,
-                                "shape": "CIRCLE",
-                                "radiusYds": 10,
-                                "_comment": "starting radius",
-                                "evasionMarginYds": 5
-                            }
-                        ],
-                        "NPCs": [],
-                        "_placeHolder": [],
-                        "_comment": "any others?"
-                    }
-                },
-                "healerAssignments": {
-                    "Prinf": {
-                        "heals": [
-                            "raid"
-                        ],
-                        "hots": [],
-                        "ignores": []
-                    },
-                    "Ghospodi": {
-                        "heals": [
-                            "raid"
-                        ],
-                        "hots": [
-                            "Rektorn",
-                            "Kuratorn"
-                        ],
-                        "ignores": []
-                    }
-                }
-            },
-            "phase2": {
-                "targeting": {
-                    "byRole": {
-                        "melee": [
-                            {
-                                "name": "Volatile Ooze",
-                                "switchCondition": "TARGET_HAS_TARGET"
-                            },
-                            {
-                                "name": "Gas Cloud",
-                                "switchCondition": "TARGET_HAS_TARGET"
-                            },
-                            {
-                                "name": "Professor Putricide"
-                            }
-                        ],
-                        "ranged": [
-                            {
-                                "name": "Volatile Ooze"
-                            },
-                            {
-                                "name": "Gas Cloud"
-                            },
-                            {
-                                "name": "Professor Putricide"
-                            }
-                        ]
-                    }
-                },
-                "reactions": {
-                    "combatLogEvents": [
-                        {
-                            "event": "Volatile Ooze died",
-                            "actions": {
-                                "byRole": {
-                                    "rangedOrHealer": [
-                                        {
-                                            "action": "DISPERSE",
-                                            "actionArgs": {
-                                                "location": "[x, y]",
-                                                "mode": "ENTROPY",
-                                                "intervalYds": 10
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "event": "Gas Cloud died",
-                            "actions": {
-                                "byRole": {
-                                    "rangedOrHealer": [
-                                        {
-                                            "action": "DISPERSE",
-                                            "actionArgs": {
-                                                "location": "[x, y]",
-                                                "mode": "ENTROPY",
-                                                "intervalYds": 10
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "event": "Professor Putricide casts Malleable Goo at X",
-                            "actions": {
-                                "everyone": [
-                                    {
-                                        "action": "MOVE_AWAY_FROM_PLAYER",
-                                        "actionArgs": {
-                                            "playerName": "X",
-                                            "isTargetIncluded": true,
-                                            "evasionMarginYds": 12
-                                        }
-                                    }
-                                ]
-                            }
-                        }
-                    ]
-                },
-                "positioning": {
-                    "hazards": {
-                        "dynamicObjects": [
-                            {
-                                "name": "Slime Pool",
-                                "isStaticSize": false,
-                                "isStaticLocation": true,
-                                "shape": "CIRCLE",
-                                "radiusYds": 10,
-                                "_comment": "starting radius",
-                                "evasionMarginYds": 5
-                            },
-                            {
-                                "name": "Choking Gas Bomb",
-                                "isStaticSize": true,
-                                "isStaticLocation": true,
-                                "shape": "CIRCLE",
-                                "radiusYds": 10,
-                                "evasionMarginYds": 5
-                            }
-                        ]
-                    },
-                    "NPCs": [],
-                    "_placeHolder": [],
-                    "_comment": "any others?"
-                },
-                "healerAssignments": null,
-                "_comment": "null healerAssignments -> default"
-            },
-            "phase3": {
-                "targeting": {
-                    "byRole": {
-                        "melee": [
-                            {
-                                "name": "Volatile Ooze"
-                            },
-                            {
-                                "name": "Gas Cloud"
-                            },
-                            {
-                                "name": "Professor Putricide"
-                            }
-                        ],
-                        "ranged": [
-                            {
-                                "name": "Volatile Ooze"
-                            },
-                            {
-                                "name": "Gas Cloud"
-                            },
-                            {
-                                "name": "Professor Putricide"
-                            }
-                        ]
-                    }
-                },
-                "reactions": {
-                    "phaseEvents": [
-                        {
-                            "event": "PHASE_START",
-                            "actions": {
-                                "everyone": [
-                                    {
-                                        "action": "USE_COOLDOWNS"
-                                    }
-                                ]
-                            }
-                        }
-                    ],
-                    "combatLogEvents": [
-                        {
-                            "event": "Professor Putricide casts Malleable Goo at X",
-                            "actions": {
-                                "everyone": [
-                                    {
-                                        "action": "MOVE_AWAY_FROM_PLAYER",
-                                        "actionArgs": {
-                                            "playerName": "X",
-                                            "isTargetIncluded": true,
-                                            "evasionMarginYds": 12
-                                        }
-                                    }
-                                ]
-                            }
-                        }
-                    ]
-                },
-                "positioning": {
-                    "hazards": {
-                        "dynamicObjects": [
-                            {
-                                "name": "Slime Pool",
-                                "isStaticSize": false,
-                                "isStaticLocation": true,
-                                "shape": "CIRCLE",
-                                "radiusYds": 10,
-                                "_comment": "starting radius",
-                                "evasionMarginYds": 5
-                            },
-                            {
-                                "name": "Choking Gas Bomb",
-                                "isStaticSize": true,
-                                "isStaticLocation": true,
-                                "shape": "CIRCLE",
-                                "radiusYds": 10,
-                                "evasionMarginYds": 5
-                            }
-                        ]
-                    },
-                    "NPCs": [],
-                    "_placeHolder": [],
-                    "_comment": "any others?"
-                },
-                "healerAssignments": null
+        "reactions": {
+          "phaseEvents": [
+            {
+              "event": "PHASE_START",
+              "actions": null
             }
+          ],
+          "combatLogEvents": [
+            {
+              "event": "Volatile Ooze died",
+              "actions": {
+                "byRole": {
+                  "rangedOrHealer": [
+                    {
+                      "action": "MOVE",
+                      "actionArgs": {
+                        "location": "[x, y]"
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "Gas Cloud died",
+              "actions": {
+                "byRole": {
+                  "rangedOrHealer": [
+                    {
+                      "action": "MOVE",
+                      "actionArgs": {
+                        "location": "[x, y]"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "debuffs": [
+            {
+              "_comment": "[] for Prof. P.",
+              "name": "Debuff X",
+              "actions": {
+                "player": [
+                  {
+                    "action": "REQUEST_DEBUFF"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "Debuff Y",
+              "actions": {
+                "player": [
+                  {
+                    "action": "MOVE_AWAY_FROM_RAID"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "positioning": {
+          "hazards": {
+            "dynamicObjects": [
+              {
+                "name": "Slime Pool",
+                "isStaticSize": false,
+                "isStaticLocation": true,
+                "shape": "CIRCLE",
+                "radiusYds": 10,
+                "_comment": "starting radius",
+                "evasionMarginYds": 5
+              }
+            ],
+            "NPCs": [],
+            "_placeHolder": [],
+            "_comment": "any others?"
+          }
+        },
+        "healerAssignments": {
+          "Prinf": {
+            "heals": [
+              "raid"
+            ],
+            "hots": [],
+            "ignores": []
+          },
+          "Ghospodi": {
+            "heals": [
+              "raid"
+            ],
+            "hots": [
+              "Rektorn",
+              "Kuratorn"
+            ],
+            "ignores": []
+          }
         }
+      },
+      "phase2": {
+        "targeting": {
+          "byRole": {
+            "melee": [
+              {
+                "name": "Volatile Ooze",
+                "switchCondition": "TARGET_HAS_TARGET"
+              },
+              {
+                "name": "Gas Cloud",
+                "switchCondition": "TARGET_HAS_TARGET"
+              },
+              {
+                "name": "Professor Putricide"
+              }
+            ],
+            "ranged": [
+              {
+                "name": "Volatile Ooze"
+              },
+              {
+                "name": "Gas Cloud"
+              },
+              {
+                "name": "Professor Putricide"
+              }
+            ]
+          }
+        },
+        "reactions": {
+          "combatLogEvents": [
+            {
+              "event": "Volatile Ooze died",
+              "actions": {
+                "byRole": {
+                  "rangedOrHealer": [
+                    {
+                      "action": "DISPERSE",
+                      "actionArgs": {
+                        "location": "[x, y]",
+                        "mode": "ENTROPY",
+                        "intervalYds": 10
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "Gas Cloud died",
+              "actions": {
+                "byRole": {
+                  "rangedOrHealer": [
+                    {
+                      "action": "DISPERSE",
+                      "actionArgs": {
+                        "location": "[x, y]",
+                        "mode": "ENTROPY",
+                        "intervalYds": 10
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "Professor Putricide casts Malleable Goo at X",
+              "actions": {
+                "everyone": [
+                  {
+                    "action": "MOVE_AWAY_FROM_PLAYER",
+                    "actionArgs": {
+                      "playerName": "X",
+                      "isTargetIncluded": true,
+                      "evasionMarginYds": 12
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "positioning": {
+          "hazards": {
+            "dynamicObjects": [
+              {
+                "name": "Slime Pool",
+                "isStaticSize": false,
+                "isStaticLocation": true,
+                "shape": "CIRCLE",
+                "radiusYds": 10,
+                "_comment": "starting radius",
+                "evasionMarginYds": 5
+              },
+              {
+                "name": "Choking Gas Bomb",
+                "isStaticSize": true,
+                "isStaticLocation": true,
+                "shape": "CIRCLE",
+                "radiusYds": 10,
+                "evasionMarginYds": 5
+              }
+            ]
+          },
+          "NPCs": [],
+          "_placeHolder": [],
+          "_comment": "any others?"
+        },
+        "healerAssignments": null,
+        "_comment": "null healerAssignments -> default"
+      },
+      "phase3": {
+        "targeting": {
+          "byRole": {
+            "melee": [
+              {
+                "name": "Volatile Ooze"
+              },
+              {
+                "name": "Gas Cloud"
+              },
+              {
+                "name": "Professor Putricide"
+              }
+            ],
+            "ranged": [
+              {
+                "name": "Volatile Ooze"
+              },
+              {
+                "name": "Gas Cloud"
+              },
+              {
+                "name": "Professor Putricide"
+              }
+            ]
+          }
+        },
+        "reactions": {
+          "phaseEvents": [
+            {
+              "event": "PHASE_START",
+              "actions": {
+                "everyone": [
+                  {
+                    "action": "USE_COOLDOWNS"
+                  }
+                ]
+              }
+            }
+          ],
+          "combatLogEvents": [
+            {
+              "event": "Professor Putricide casts Malleable Goo at X",
+              "actions": {
+                "everyone": [
+                  {
+                    "action": "MOVE_AWAY_FROM_PLAYER",
+                    "actionArgs": {
+                      "playerName": "X",
+                      "isTargetIncluded": true,
+                      "evasionMarginYds": 12
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "positioning": {
+          "hazards": {
+            "dynamicObjects": [
+              {
+                "name": "Slime Pool",
+                "isStaticSize": false,
+                "isStaticLocation": true,
+                "shape": "CIRCLE",
+                "radiusYds": 10,
+                "_comment": "starting radius",
+                "evasionMarginYds": 5
+              },
+              {
+                "name": "Choking Gas Bomb",
+                "isStaticSize": true,
+                "isStaticLocation": true,
+                "shape": "CIRCLE",
+                "radiusYds": 10,
+                "evasionMarginYds": 5
+              }
+            ]
+          },
+          "NPCs": [],
+          "_placeHolder": [],
+          "_comment": "any others?"
+        },
+        "healerAssignments": null
+      }
     }
+  }
 }
