@@ -19,7 +19,6 @@ enum class LOP : int {
 	CASTER_RANGE_CHECK,
 	FOLLOW,
 	CTM,
-	DUNGEON_SCRIPT,
 	TARGET_MARKER,
 	MELEE_BEHIND,
 	AVOID_SPELL_OBJECT,
@@ -37,10 +36,6 @@ enum class LOP : int {
 	CAST_GTAOE,
 	HAS_AGGRO,
 	INTERACT_GOBJECT,
-	GET_BISCUITS,
-	LOOT_BADGE,
-	LUA_UNLOCK,
-	LUA_LOCK,
 	EXECUTE,
 	GET_COMBAT_TARGETS,
 	GET_AOE_FEASIBILITY,
@@ -58,9 +53,8 @@ enum class LOP : int {
 	LDOP_DUMP,
 	LDOP_LOOT_ALL,
 	LDOP_PULL_TEST,
-	LDOP_LUA_REGISTERED,
+	LDOP_LUA_REGISTER,
 	LDOP_LOS_TEST,
-	LDOP_NOCLIP,
 	LDOP_TEST,
 	LDOP_CAPTURE_FRAME_RENDER_STAGES,
 	LDOP_CONSOLE_PRINT,
@@ -75,7 +69,7 @@ enum class LOP : int {
 };
 
 inline constexpr bool IS_DEBUG_OPCODE(LOP op) {
-	return (int)op & LDOP_MASK;
+	return ((int)op & LDOP_MASK);
 }
 
 void refollow_if_needed();

@@ -55,9 +55,6 @@ const lua_rvals_t &dostring_getrvals(const std::string &script) {
 }
 
 
-
-#define lua_gettypestr(STATE, idx) lua_gettypestring(STATE, gettypeid(STATE, idx))
-
 static std::string lua_stackval_to_string(lua_State* L, int idx) {
 	lua_type type = lua_gettype(L, idx);
 	size_t len = 0;

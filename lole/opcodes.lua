@@ -8,7 +8,6 @@ end
 function LOP:add_debug_opcode(name)
 	self[name] = BITWISE.OR(self.NUM_DEBUG_OPCODES, self.LDOP_MASK)
 	self.NUM_DEBUG_OPCODES = self.NUM_DEBUG_OPCODES + 1
-	print(self[name])
 end
 
 -- kinda KlunKy, but helps keep track of these
@@ -18,7 +17,6 @@ LOP:add_opcode("TARGET_GUID")
 LOP:add_opcode("CASTER_RANGE_CHECK")
 LOP:add_opcode("FOLLOW")
 LOP:add_opcode("CTM")
-LOP:add_opcode("DUNGEON_SCRIPT")
 LOP:add_opcode("TARGET_MARKER")
 LOP:add_opcode("MELEE_BEHIND")
 LOP:add_opcode("AVOID_SPELL_OBJECT")
@@ -36,10 +34,6 @@ LOP:add_opcode("STOPFOLLOW")
 LOP:add_opcode("CAST_GTAOE")
 LOP:add_opcode("HAS_AGGRO")
 LOP:add_opcode("INTERACT_GOBJECT")
-LOP:add_opcode("GET_BISCUITS")
-LOP:add_opcode("LOOT_BADGE")
-LOP:add_opcode("LUA_UNLOCK")
-LOP:add_opcode("LUA_LOCK")
 LOP:add_opcode("EXECUTE")
 LOP:add_opcode("GET_COMBAT_TARGETS")
 LOP:add_opcode("GET_AOE_FEASIBILITY")
@@ -52,22 +46,21 @@ LOP:add_opcode("HCONFIG")
 LOP:add_opcode("TANK_TAUNT_LOOSE")
 LOP:add_opcode("READ_FILE")
 
-LOP:add_debug_opcode("NOP")
-LOP:add_debug_opcode("DUMP")
-LOP:add_debug_opcode("LOOT_ALL")
-LOP:add_debug_opcode("PULL_TEST")
-LOP:add_debug_opcode("LUA_REGISTERED")
-LOP:add_debug_opcode("LOS_TEST")
-LOP:add_debug_opcode("NOCLIP")
-LOP:add_debug_opcode("TEST")
-LOP:add_debug_opcode("CAPTURE_FRAME_RENDER_STAGES")
-LOP:add_debug_opcode("CONSOLE_PRINT")
-LOP:add_debug_opcode("REPORT_CONNECTED")
-LOP:add_debug_opcode("EJECT_DLL")
+LOP:add_debug_opcode("LDOP_NOP")
+LOP:add_debug_opcode("LDOP_DUMP")
+LOP:add_debug_opcode("LDOP_LOOT_ALL")
+LOP:add_debug_opcode("LDOP_PULL_TEST")
+LOP:add_debug_opcode("LDOP_LUA_REGISTER")
+LOP:add_debug_opcode("LDOP_LOS_TEST")
+LOP:add_debug_opcode("LDOP_TEST")
+LOP:add_debug_opcode("LDOP_CAPTURE_FRAME_RENDER_STAGES")
+LOP:add_debug_opcode("LDOP_CONSOLE_PRINT")
+LOP:add_debug_opcode("LDOP_REPORT_CONNECTED")
+LOP:add_debug_opcode("LDOP_EJECT_DLL")
 
-LOP:add_debug_opcode("SL_RESETCAMERA")
-LOP:add_debug_opcode("WC3MODE")
-LOP:add_debug_opcode("SL_SETSELECT")
+LOP:add_debug_opcode("LDOP_SL_RESETCAMERA")
+LOP:add_debug_opcode("LDOP_WC3MODE")
+LOP:add_debug_opcode("LDOP_SL_SETSELECT")
 
 
 ----------------------------
@@ -161,13 +154,13 @@ end
 
 function lole_debug_dump_wowobjects(type_filter, ...)
 	local name_filter = concatenate_args(" ", ...)
-	lop_exec(LDOP.DUMP, type_filter, name_filter);
+	lop_exec(LOP.DUMP, type_filter, name_filter);
 	echo("|cFF00FF96Dumped WowObjects to terminal (if you're injected!) Valid type filters are ITEM, NPC, UNIT, DYNAMICOBJECT, GAMEOBJECT")
 	return true;
 end
 
 function lole_debug_loot_all()
-	lop_exec(LDOP.LOOT_ALL);
+	lop_exec(LOP.LDOP_LOOT_ALL);
 end
 
 function walk_to(x, y, z, prio)
@@ -236,7 +229,7 @@ function query_injected()
 	if not lexec then
 		return 0;
 	else
-		lop_exec(LDOP.LUA_REGISTERED);
+		lop_exec(LOP.LDOP_LUA_REGISTER);
 		INJECTED_STATUS = 1;
 		return 1;
 	end
@@ -277,7 +270,7 @@ function lole_debug_test()
 end
 
 function lole_debug_pull_test()
-	lop_exec(LDOP.PULL_TEST)
+	lop_exec(LOP.LDOP_PULL_TEST)
 end
 
 function cast_spell_packet(spellID)
@@ -403,20 +396,20 @@ function hconfig(args)
 end
 
 function capture_render_stages()
-	lop_exec(LDOP.CAPTURE_FRAME_RENDER_STAGES)
+	lop_exec(LOP.LDOP_CAPTURE_FRAME_RENDER_STAGES)
 end
 
 function report_status_to_governor()
 	local msg = UnitName("player") .. "," .. GetRealmName() .. "," .. GetMinimapZoneText()
-	lop_exec(LDOP.REPORT_CONNECTED, msg)
+	lop_exec(LOP.LDOP_REPORT_CONNECTED, msg)
 end
 
 function console_print(msg)
-	lop_exec(LDOP.CONSOLE_PRINT, msg)
+	lop_exec(LOP.LDOP_CONSOLE_PRINT, msg)
 end
 
 function eject_DLL()
-	lop_exec(LDOP.EJECT_DLL)
+	lop_exec(LOP.LDOP_EJECT_DLL)
 end
 
 local function get_available_taunt(taunt_spells)

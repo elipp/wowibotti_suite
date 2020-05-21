@@ -7,6 +7,7 @@
 #include <chrono>
 #include <numeric>
 #include <filesystem>
+#include <iostream>
 
 #include "opcodes.h"
 #include "ctm.h"
@@ -22,6 +23,8 @@
 #include "aux_window.h"
 
 #include "govconn.h"
+
+#define ASSERT(left,operator,right) { if(!((left) operator (right))){ std::cout << "ASSERT FAILED: " << #left << #operator << #right << " @ " << __FILE__ << " (" << __LINE__ << "). " << #left << "=" << (left) << "; " << #right << "=" << (right) << std::endl; assert(false); } }
 
 extern HWND wow_hWnd;
 
@@ -67,6 +70,7 @@ struct lop_func_t {
 };
 
 static int op_handler_NYI(lua_State* L) {
+	puts("op_handler_NYI called!\n");
 	return 0;
 }
 
@@ -1509,10 +1513,71 @@ static int LOP_avoid_npc_with_name(lua_State* L) {
 	return 0;
 }
 
+static int LDOP_debug_test(lua_State* L) {
+	return NO_RVALS;
+}
+
+static int LDOP_eject_dll(lua_State* L) {
+	should_unpatch = 1;
+	return NO_RVALS;
+}
+
+static int LDOP_console_print(lua_State* L) {
+	if (lua_gettop(L) < 2) return 0;
+	else puts(lua_tostring(L, 2));
+	return NO_RVALS;
+}
+
+static int LDOP_lua_register(lua_State* L) {
+	lua_registered = 1;
+	return NO_RVALS;
+}
+
+class lopfunc_list {
+	std::vector<lop_func_t> funcs;
+	std::vector<lop_func_t> debug_funcs;
+
+public:
+	const lop_func_t& operator[](LOP op) const {
+		if (IS_DEBUG_OPCODE(op)) {
+		//	dual_echo("op: 0x%X, LDOP_MASK: 0x%X\n", (int)op, LDOP_MASK);
+			int stripped_index = (int)op & (~LDOP_MASK);
+			ASSERT(stripped_index, <, debug_funcs.size());
+			return debug_funcs[stripped_index];
+		}
+		else {
+			ASSERT((int)op, <, funcs.size());
+			return funcs[(int)op];
+		}
+	}
+
+	lopfunc_list(std::vector<lop_func_t>&& f, std::vector<lop_func_t>&& df)
+		: funcs(std::move(f)), debug_funcs(std::move(df))
+	{
+		dual_echo("lopfunc_list loaded! Have %d funcs, and %d debug funcs", funcs.size(), debug_funcs.size());
+		
+		// just check that there are no loops in the table :D
+		
+		int i = 0;
+		for (const auto& f : funcs) {
+			ASSERT(i, ==, (int)f.opcode);
+			++i;
+		}
+
+		i = 0;
+		for (const auto& f : debug_funcs) {
+			ASSERT(i | LDOP_MASK, ==, (int)f.opcode);
+			++i;
+		}
+	}
+
+};
+
 
 #define OPSTR(OPCODE_ID) OPCODE_ID, #OPCODE_ID
 
-static lop_func_t lop_funcs[] = {
+static const lopfunc_list lop_funcs = {
+{
 { OPSTR(LOP::NOP), {}, 0, LOP_nop },
 
 { OPSTR(LOP::TARGET_GUID),
@@ -1629,6 +1694,46 @@ static lop_func_t lop_funcs[] = {
 { OPSTR(LOP::READ_FILE),
 {{"filename", lua_type::string, LUA_ARG_REQUIRED} }, 
 	RVALS_1, LOP_read_file },
+},
+
+ {
+	 { OPSTR(LOP::LDOP_NOP), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_DUMP), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_LOOT_ALL), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_PULL_TEST), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_LUA_REGISTER), {}, NO_RVALS, LDOP_lua_register },
+	 { OPSTR(LOP::LDOP_LOS_TEST), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_TEST), {}, NO_RVALS, LDOP_debug_test },
+	 { OPSTR(LOP::LDOP_CAPTURE_FRAME_RENDER_STAGES), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_CONSOLE_PRINT), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_REPORT_CONNECTED), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_EJECT_DLL), {}, NO_RVALS, LDOP_eject_dll },
+	 
+	 // EXT stuff
+
+	 { OPSTR(LOP::LDOP_SL_RESETCAMERA), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_WC3MODE), {}, NO_RVALS, op_handler_NYI },
+	 { OPSTR(LOP::LDOP_SL_SETSELECT), {}, NO_RVALS, op_handler_NYI },
+
+	//	LDOP_NOP = LDOP_MASK,
+	//LDOP_DUMP,
+	//LDOP_LOOT_ALL,
+	//LDOP_PULL_TEST,
+	//LDOP_LUA_REGISTER,
+	//LDOP_LOS_TEST,
+	//LDOP_TEST,
+	//LDOP_CAPTURE_FRAME_RENDER_STAGES,
+	//LDOP_CONSOLE_PRINT,
+	//LDOP_REPORT_CONNECTED,
+	//LDOP_EJECT_DLL,
+
+	//// from the old "LOP_EXT"
+
+	//LDOP_SL_RESETCAMERA,
+	//LDOP_WC3MODE,
+	//LDOP_SL_SETSELECT,
+ }
+
 };
 
 
@@ -1636,7 +1741,7 @@ static bool check_num_args(LOP opcode, int nargs) {
 
 	if (opcode >= LOP::NUM_OPCODES) return 1;
 
-	const lop_func_t& f = lop_funcs[(int)opcode];
+	const lop_func_t& f = lop_funcs[opcode];
 	if (nargs < f.args.size()) { // TODO check types also
 		PRINT("error: %s: expected at least %d argument(s), got %d\n", f.opcode_name.c_str(), f.args.size(), nargs);
 		return false;
@@ -1646,11 +1751,12 @@ static bool check_num_args(LOP opcode, int nargs) {
 }
 
 static bool check_arg_types(lua_State* L, LOP opcode) {
-	lop_func_t& lf = lop_funcs[(int)opcode];
+	const lop_func_t& lf = lop_funcs[opcode];
 	for (int i = 0; i < lf.args.size(); ++i) {
-		if (lf.args[i].type != lua_gettype(L, i + 2)) {
-			dual_echo("lop_exec: check_arg_types: wrong type for argument number %d (\"%s\")! Expected %s, got %s\n",
-				i, lf.args[i].name.c_str(), lua_gettypestr(L, i + 2), lua_gettypestring(L, lf.args[i].type));
+		const lua_arg& arg = lf.args[i];
+		if (arg.type != lua_gettype(L, i + 2)) {
+			dual_echo("lop_exec(%s): check_arg_types: wrong type for argument number %d (\"%s\")! Expected %s, got %s\n",
+				lf.opcode_name.c_str(), i + 1, arg.name.c_str(), lua_gettypestring(L, arg.type), lua_gettypestr(L, i + 2));
 			return false;
 		}
 	}
@@ -1665,6 +1771,8 @@ static bool check_lop_args(lua_State* L) {
 		return false;
 	}
 	LOP opcode = (LOP)lua_tointeger(L, 1);
+
+	PRINT("opcode: 0x%X\n", (int)opcode);
 
 	if (IS_DEBUG_OPCODE(opcode)) {
 		return true; // we don't check these
@@ -1688,7 +1796,8 @@ int lop_exec(lua_State* L) {
 	// NOTE: the return value of this function --> number of values returned to caller in LUA
 
 	if (check_lop_args(L)) {
-		return lop_funcs[lua_tointeger(L, 1)].handler(L);
+		LOP op = (LOP)lua_tointeger(L, 1);
+		return lop_funcs[op].handler(L);
 	}
 
 	//case LDOP_CAPTURE_FRAME_RENDER_STAGES:

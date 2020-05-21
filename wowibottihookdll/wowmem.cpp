@@ -83,6 +83,7 @@ static std::string echomsg_transform(const char* msg, int len) {
 	replaceinfo transforms[] = {
 		{"\"", "\\\"", msg},
 		{"\\", "\\\\", msg},
+		{"\n", "\\\\n", msg},
 	};
 
 	std::string buf;
