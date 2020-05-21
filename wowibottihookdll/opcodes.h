@@ -11,6 +11,8 @@
 
 // lole opcodes. also defined in lole.lua (let's just hope they match XD)
 
+#define LDOP_MASK 0x40000000
+
 enum class LOP : int {
 	NOP = 0x0,
 	TARGET_GUID,
@@ -50,34 +52,30 @@ enum class LOP : int {
 	HCONFIG,
 	TANK_TAUNT_LOOSE,
 	READ_FILE,
-	NUM_OPCODES,
+	
+	LDOP_NOP = LDOP_MASK,
+	LDOP_DUMP,
+	LDOP_LOOT_ALL,
+	LDOP_PULL_TEST,
+	LDOP_LUA_REGISTERED,
+	LDOP_LOS_TEST,
+	LDOP_NOCLIP,
+	LDOP_TEST,
+	LDOP_CAPTURE_FRAME_RENDER_STAGES,
+	LDOP_CONSOLE_PRINT,
+	LDOP_REPORT_CONNECTED,
+	LDOP_EJECT_DLL,
+
+	// from the old "LOP_EXT"
+
+	LDOP_SL_RESETCAMERA,
+	LDOP_WC3MODE,
+	LDOP_SL_SETSELECT,
 };
 
-#define LOP_EXT_MASK 0x40000000
-
-enum class LOP_EXT : int {
-	NOP = 0x00 | LOP_EXT_MASK,
-	SL_RESETCAMERA = 0x1 | LOP_EXT_MASK,
-	WC3MODE = 0x2 | LOP_EXT_MASK,
-	SL_SETSELECT = 0x3 | LOP_EXT_MASK,
-};
-
-#define LDOP_MASK 0x80000000
-
-enum class LDOP : int {
-	 NOP = 0x00 | LDOP_MASK,
-	 DUMP = 0x01 | LDOP_MASK,
-	 LOOT_ALL = 0x02 | LDOP_MASK,
-	 PULL_TEST = 0x03 | LDOP_MASK,
-	 LUA_REGISTERED = 0x04 | LDOP_MASK,
-	 LOS_TEST = 0x05 | LDOP_MASK,
-	 NOCLIP = 0x06 | LDOP_MASK,
-	 TEST = 0x07 | LDOP_MASK,
-	 CAPTURE_FRAME_RENDER_STAGES = 0x08 | LDOP_MASK,
-	 CONSOLE_PRINT = 0x09 | LDOP_MASK,
-	 REPORT_CONNECTED = 0x0A | LDOP_MASK,
-	 EJECT_DLL = 0x0B | LDOP_MASK,
-};
+inline constexpr bool IS_DEBUG_OPCODE(LOP op) {
+	return (int)op & LDOP_MASK;
+}
 
 void refollow_if_needed();
 void stopfollow();

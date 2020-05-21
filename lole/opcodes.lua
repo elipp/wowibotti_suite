@@ -1,72 +1,73 @@
-local LOP = { NUM_OPCODES = 0 }
+local LOP = { NUM_OPCODES = 0, NUM_DEBUG_OPCODES = 0, LDOP_MASK = 0x40000000 }
 
-function LOP:add(VAL)
-	self[VAL] = self.NUM_OPCODES
+function LOP:add_opcode(name)
+	self[name] = self.NUM_OPCODES
 	self.NUM_OPCODES = self.NUM_OPCODES + 1
+end
+
+function LOP:add_debug_opcode(name)
+	self[name] = BITWISE.OR(self.NUM_DEBUG_OPCODES, self.LDOP_MASK)
+	self.NUM_DEBUG_OPCODES = self.NUM_DEBUG_OPCODES + 1
+	print(self[name])
 end
 
 -- kinda KlunKy, but helps keep track of these
 
-LOP:add("NOP")
-LOP:add("TARGET_GUID")
-LOP:add("CASTER_RANGE_CHECK")
-LOP:add("FOLLOW")
-LOP:add("CTM")
-LOP:add("DUNGEON_SCRIPT")
-LOP:add("TARGET_MARKER")
-LOP:add("MELEE_BEHIND")
-LOP:add("AVOID_SPELL_OBJECT")
-LOP:add("HUG_SPELL_OBJECT")
-LOP:add("SPREAD")
-LOP:add("CHAIN_HEAL_TARGET")
-LOP:add("MELEE_AVOID_AOE_BUFF")
-LOP:add("TANK_FACE")
-LOP:add("TANK_PULL")
-LOP:add("GET_UNIT_POSITION")
-LOP:add("GET_WALKING_STATE")
-LOP:add("GET_CTM_STATE")
-LOP:add("GET_PREVIOUS_CAST_MSG")
-LOP:add("STOPFOLLOW")
-LOP:add("CAST_GTAOE")
-LOP:add("HAS_AGGRO")
-LOP:add("INTERACT_GOBJECT")
-LOP:add("GET_BISCUITS")
-LOP:add("LOOT_BADGE")
-LOP:add("LUA_UNLOCK")
-LOP:add("LUA_LOCK")
-LOP:add("EXECUTE")
-LOP:add("GET_COMBAT_TARGETS")
-LOP:add("GET_AOE_FEASIBILITY")
-LOP:add("AVOID_NPC_WITH_NAME")
-LOP:add("BOSS_ACTION")
-LOP:add("INTERACT_SPELLNPC")
-LOP:add("GET_LAST_SPELL_ERRMSG")
-LOP:add("ICCROCKET")
-LOP:add("HCONFIG")
-LOP:add("TANK_TAUNT_LOOSE")
-LOP:add("READ_FILE")
+LOP:add_opcode("NOP")
+LOP:add_opcode("TARGET_GUID")
+LOP:add_opcode("CASTER_RANGE_CHECK")
+LOP:add_opcode("FOLLOW")
+LOP:add_opcode("CTM")
+LOP:add_opcode("DUNGEON_SCRIPT")
+LOP:add_opcode("TARGET_MARKER")
+LOP:add_opcode("MELEE_BEHIND")
+LOP:add_opcode("AVOID_SPELL_OBJECT")
+LOP:add_opcode("HUG_SPELL_OBJECT")
+LOP:add_opcode("SPREAD")
+LOP:add_opcode("CHAIN_HEAL_TARGET")
+LOP:add_opcode("MELEE_AVOID_AOE_BUFF")
+LOP:add_opcode("TANK_FACE")
+LOP:add_opcode("TANK_PULL")
+LOP:add_opcode("GET_UNIT_POSITION")
+LOP:add_opcode("GET_WALKING_STATE")
+LOP:add_opcode("GET_CTM_STATE")
+LOP:add_opcode("GET_PREVIOUS_CAST_MSG")
+LOP:add_opcode("STOPFOLLOW")
+LOP:add_opcode("CAST_GTAOE")
+LOP:add_opcode("HAS_AGGRO")
+LOP:add_opcode("INTERACT_GOBJECT")
+LOP:add_opcode("GET_BISCUITS")
+LOP:add_opcode("LOOT_BADGE")
+LOP:add_opcode("LUA_UNLOCK")
+LOP:add_opcode("LUA_LOCK")
+LOP:add_opcode("EXECUTE")
+LOP:add_opcode("GET_COMBAT_TARGETS")
+LOP:add_opcode("GET_AOE_FEASIBILITY")
+LOP:add_opcode("AVOID_NPC_WITH_NAME")
+LOP:add_opcode("BOSS_ACTION")
+LOP:add_opcode("INTERACT_SPELLNPC")
+LOP:add_opcode("GET_LAST_SPELL_ERRMSG")
+LOP:add_opcode("ICCROCKET")
+LOP:add_opcode("HCONFIG")
+LOP:add_opcode("TANK_TAUNT_LOOSE")
+LOP:add_opcode("READ_FILE")
 
-local LOP_EXT = {
-	NOP = 0x70,
-	SL_RESETCAMERA = 0x71,
-	WC3MODE = 0x72,
-	SL_SETSELECT = 0x73
-}
+LOP:add_debug_opcode("NOP")
+LOP:add_debug_opcode("DUMP")
+LOP:add_debug_opcode("LOOT_ALL")
+LOP:add_debug_opcode("PULL_TEST")
+LOP:add_debug_opcode("LUA_REGISTERED")
+LOP:add_debug_opcode("LOS_TEST")
+LOP:add_debug_opcode("NOCLIP")
+LOP:add_debug_opcode("TEST")
+LOP:add_debug_opcode("CAPTURE_FRAME_RENDER_STAGES")
+LOP:add_debug_opcode("CONSOLE_PRINT")
+LOP:add_debug_opcode("REPORT_CONNECTED")
+LOP:add_debug_opcode("EJECT_DLL")
 
-local LDOP = {
-	NOP = 0xE0,
-	DUMP = 0xE1,
-	LOOT_ALL = 0xE2,
-	PULL_TEST = 0xE3,
-	LUA_REGISTERED = 0xE4,
-	LOS_TEST = 0xE5,
-	NOCLIP = 0xE6,
-	TEST = 0xE7,
-	CAPTURE_FRAME_RENDER_STAGES = 0xE8,
-	CONSOLE_PRINT = 0xE9,
-	REPORT_CONNECTED = 0xEA,
-	EJECT_DLL = 0xEB
-}
+LOP:add_debug_opcode("SL_RESETCAMERA")
+LOP:add_debug_opcode("WC3MODE")
+LOP:add_debug_opcode("SL_SETSELECT")
 
 
 ----------------------------
@@ -224,11 +225,6 @@ function interact_with_spellnpc(...)
 	end
 
 	return lop_exec(LOP.INTERACT_SPELLNPC, name_concatenated)
-end
-
-function loot_badge(corpse_GUID)
-	-- unitexists and stuff has already been checked in subcommands.lole_loot_badge
-		lop_exec(LOP.LOOT_BADGE, corpse_GUID)
 end
 
 local INJECTED_STATUS = 0

@@ -1302,7 +1302,7 @@ static int LOP_hconfig(lua_State* L) {
 				echo_wow("WARNING: hconfig status called, but hotness not enabled with hconfig enable!");
 				warning_time.reset();
 			}
-			return;
+			return 0;
 		}
 
 		WowObject player;
@@ -1340,7 +1340,7 @@ static int LOP_boss_action(lua_State *L) {
 		
 	else if (args[0] == "Gormok") {
 
-		if (ctm_queue_get_top_prio() == CTM_PRIO_NOOVERRIDE) return;
+		if (ctm_queue_get_top_prio() == CTM_PRIO_NOOVERRIDE) return 0;
 
 		size_t len;
 		WowObject P;
@@ -1510,50 +1510,6 @@ static int LOP_avoid_npc_with_name(lua_State* L) {
 }
 
 
-static bool check_num_args(LOP opcode, int nargs) {
-
-	if (opcode >= LOP::NUM_OPCODES) return 1;
-
-	const lop_func_t& f = lop_funcs[(int)opcode];
-	if (nargs < f.args.size()) { // TODO check types also
-		PRINT("error: %s: expected at least %d argument(s), got %d\n", f.opcode_name.c_str(), f.args.size(), nargs);
-		return false;
-	}
-
-	return true;
-}
-
-static bool check_arg_types(lua_State* L, LOP opcode) {
-	lop_func_t& lf = lop_funcs[(int)opcode];
-	for (int i = 0; i < lf.args.size(); ++i) {
-		if (lf.args[i].type != lua_gettype(L, i + 2)) {
-			dual_echo("lop_exec: check_arg_types: wrong type for argument number %d (\"%s\")! Expected %s, got %s\n",
-				i, lf.args[i].name.c_str(), lua_gettypestr(L, i + 2), lua_gettypestring(L, lf.args[i].type));
-			return false;
-		}
-	}
-
-	return true;
-}
-
-static bool check_lop_args(lua_State* L) {
-	int nargs = lua_gettop(L);
-	if (nargs < 1) {
-		dual_echo("lop_exec: error: no arguments (or nil) passed\n");
-		return false;
-	}
-	LOP opcode = (LOP)lua_tointeger(L, 1);
-
-	if (!check_num_args(opcode, nargs)) {
-		return false;
-	}
-
-	if (!check_arg_types(L, opcode)) {
-		return false;
-	}
-
-}
-
 #define OPSTR(OPCODE_ID) OPCODE_ID, #OPCODE_ID
 
 static lop_func_t lop_funcs[] = {
@@ -1676,10 +1632,61 @@ static lop_func_t lop_funcs[] = {
 };
 
 
-int lop_exec(lua_State *L) {
+static bool check_num_args(LOP opcode, int nargs) {
+
+	if (opcode >= LOP::NUM_OPCODES) return 1;
+
+	const lop_func_t& f = lop_funcs[(int)opcode];
+	if (nargs < f.args.size()) { // TODO check types also
+		PRINT("error: %s: expected at least %d argument(s), got %d\n", f.opcode_name.c_str(), f.args.size(), nargs);
+		return false;
+	}
+
+	return true;
+}
+
+static bool check_arg_types(lua_State* L, LOP opcode) {
+	lop_func_t& lf = lop_funcs[(int)opcode];
+	for (int i = 0; i < lf.args.size(); ++i) {
+		if (lf.args[i].type != lua_gettype(L, i + 2)) {
+			dual_echo("lop_exec: check_arg_types: wrong type for argument number %d (\"%s\")! Expected %s, got %s\n",
+				i, lf.args[i].name.c_str(), lua_gettypestr(L, i + 2), lua_gettypestring(L, lf.args[i].type));
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool check_lop_args(lua_State* L) {
+	int nargs = lua_gettop(L);
+	if (nargs < 1) {
+		dual_echo("lop_exec: error: no arguments (or nil) passed\n");
+		return false;
+	}
+	LOP opcode = (LOP)lua_tointeger(L, 1);
+
+	if (IS_DEBUG_OPCODE(opcode)) {
+		return true; // we don't check these
+	}
+
+	if (!check_num_args(opcode, nargs)) {
+		return false;
+	}
+
+	if (!check_arg_types(L, opcode)) {
+		return false;
+	}
+
+	return true;
+}
+
+
+
+int lop_exec(lua_State* L) {
 
 	// NOTE: the return value of this function --> number of values returned to caller in LUA
-	
+
 	if (check_lop_args(L)) {
 		return lop_funcs[lua_tointeger(L, 1)].handler(L);
 	}
