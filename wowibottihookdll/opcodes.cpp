@@ -1772,7 +1772,7 @@ static bool check_lop_args(lua_State* L) {
 	}
 	LOP opcode = (LOP)lua_tointeger(L, 1);
 
-	PRINT("opcode: 0x%X\n", (int)opcode);
+	//PRINT("opcode: 0x%X\n", (int)opcode);
 
 	if (IS_DEBUG_OPCODE(opcode)) {
 		return true; // we don't check these
