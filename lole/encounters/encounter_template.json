@@ -12,7 +12,7 @@
                         "actionArgs": {
                             "location": "[x, y]"
                         }
-                    }                    
+                    }
                 ],
                 "melee": [
                     {
@@ -20,16 +20,16 @@
                         "actionArgs": {
                             "location": "[x, y]"
                         }
-                    }                    
+                    }
                 ],
                 "rangedOrHealer": [
                     {
                         "action": "DISPERSE",
-                        "_comment" : "\"DISPERSE\" for demonstration reasons. \"MOVE\" should be used for Prof. Putricide.",
+                        "_comment": "\"DISPERSE\" for demonstration reasons. \"MOVE\" should be used for Prof. Putricide.",
                         "actionArgs": {
                             "location": "[x, y]",
                             "mode": "MAX_RANGE",
-                            "_comment" : "[MAX_RANGE|ENTROPY|ZIGZAG]",
+                            "_comment": "[MAX_RANGE|ENTROPY|ZIGZAG]",
                             "intervalYds": 8
                         }
                     }
@@ -43,11 +43,11 @@
                     "byRole": {
                         "melee": [
                             {
-                                "name": "Volatile Ooze", 
+                                "name": "Volatile Ooze",
                                 "switchCondition": "TARGET_HAS_TARGET"
                             },
                             {
-                                "name": "Gas Cloud", 
+                                "name": "Gas Cloud",
                                 "switchCondition": "TARGET_HAS_TARGET"
                             },
                             {
@@ -72,15 +72,14 @@
                     },
                     "dynamic": [
                         {
-                            "_comment" : "[] for Prof. Putricide but could be useful elsewhere",
-                            "name": "Add X", 
+                            "_comment": "20% of damage dealers should focus on Add X when spawned",
+                            "name": "Add X",
                             "switchCondition": null,
                             "ddAllocation": 0.2,
-                            "_comment" : "20% of damage dealers should focus on Add X when spawned",
                             "rolePreference": "MELEE"
                         },
                         {
-                            "name": "Add Y", 
+                            "name": "Add Y",
                             "switchCondition": null,
                             "ddAllocation": 0.2,
                             "rolePreference": "RANGED"
@@ -134,7 +133,7 @@
                     ],
                     "debuffs": [
                         {
-                            "_comment" : "[] for Prof. P.",
+                            "_comment": "[] for Prof. P.",
                             "name": "Debuff X",
                             "actions": {
                                 "player": [
@@ -156,7 +155,7 @@
                         }
                     ]
                 },
-                "positioning" : {
+                "positioning": {
                     "hazards": {
                         "dynamicObjects": [
                             {
@@ -165,24 +164,31 @@
                                 "isStaticLocation": true,
                                 "shape": "CIRCLE",
                                 "radiusYds": 10,
-                                "_comment" : "starting radius",
+                                "_comment": "starting radius",
                                 "evasionMarginYds": 5
                             }
                         ],
                         "NPCs": [],
                         "_placeHolder": [],
-                        "_comment" : "any others?"
+                        "_comment": "any others?"
                     }
                 },
-                "healerAssignments" : {
+                "healerAssignments": {
                     "Prinf": {
-                        "heals": ["raid"],
+                        "heals": [
+                            "raid"
+                        ],
                         "hots": [],
                         "ignores": []
                     },
                     "Ghospodi": {
-                        "heals": ["raid"],
-                        "hots": ["Rektorn", "Kuratorn"],
+                        "heals": [
+                            "raid"
+                        ],
+                        "hots": [
+                            "Rektorn",
+                            "Kuratorn"
+                        ],
                         "ignores": []
                     }
                 }
@@ -192,11 +198,11 @@
                     "byRole": {
                         "melee": [
                             {
-                                "name": "Volatile Ooze", 
+                                "name": "Volatile Ooze",
                                 "switchCondition": "TARGET_HAS_TARGET"
                             },
                             {
-                                "name": "Gas Cloud", 
+                                "name": "Gas Cloud",
                                 "switchCondition": "TARGET_HAS_TARGET"
                             },
                             {
@@ -278,7 +284,7 @@
                                 "isStaticLocation": true,
                                 "shape": "CIRCLE",
                                 "radiusYds": 10,
-                                "_comment" : "starting radius",
+                                "_comment": "starting radius",
                                 "evasionMarginYds": 5
                             },
                             {
@@ -293,20 +299,20 @@
                     },
                     "NPCs": [],
                     "_placeHolder": [],
-                    "_comment" : "any others?"
+                    "_comment": "any others?"
                 },
-                "healerAssignments" : null,
-                "_comment" : "null healerAssignments -> default"
+                "healerAssignments": null,
+                "_comment": "null healerAssignments -> default"
             },
             "phase3": {
                 "targeting": {
                     "byRole": {
                         "melee": [
                             {
-                                "name": "Volatile Ooze", 
+                                "name": "Volatile Ooze"
                             },
                             {
-                                "name": "Gas Cloud", 
+                                "name": "Gas Cloud"
                             },
                             {
                                 "name": "Professor Putricide"
@@ -356,7 +362,7 @@
                         }
                     ]
                 },
-                "positioning" : {
+                "positioning": {
                     "hazards": {
                         "dynamicObjects": [
                             {
@@ -365,7 +371,7 @@
                                 "isStaticLocation": true,
                                 "shape": "CIRCLE",
                                 "radiusYds": 10,
-                                "_comment" : "starting radius",
+                                "_comment": "starting radius",
                                 "evasionMarginYds": 5
                             },
                             {
@@ -380,9 +386,9 @@
                     },
                     "NPCs": [],
                     "_placeHolder": [],
-                    "_comment" : "any others?"
+                    "_comment": "any others?"
                 },
-                "healerAssignments" : null
+                "healerAssignments": null
             }
         }
     }
