@@ -18,24 +18,9 @@
 #include <algorithm>
 #include <cstdlib>
 
-struct SimpleGraph {
-  std::unordered_map<char, std::vector<char> > edges;
-
-  std::vector<char> neighbors(char id) {
-    return edges[id];
-  }
-};
-
-SimpleGraph example_graph {{
-    {'A', {'B'}},
-    {'B', {'A', 'C', 'D'}},
-    {'C', {'A'}},
-    {'D', {'E', 'A'}},
-    {'E', {'B'}}
-  }};
-
 struct GridLocation {
   int x, y;
+  float hotness;
 };
 
 namespace std {
@@ -64,8 +49,8 @@ struct SquareGrid {
         && 0 <= id.y && id.y < height;
   }
 
-  bool passable(GridLocation id) const {
-    return walls.find(id) == walls.end();
+  bool passable(GridLocation loc) const {
+      return loc.hotness > 0.5;
   }
 
   std::vector<GridLocation> neighbors(GridLocation id) const {
@@ -78,10 +63,10 @@ struct SquareGrid {
       }
     }
 
-    if ((id.x + id.y) % 2 == 0) {
-      // aesthetic improvement on square grids
-      std::reverse(results.begin(), results.end());
-    }
+    //if ((id.x + id.y) % 2 == 0) {
+    //  // aesthetic improvement on square grids
+    //  std::reverse(results.begin(), results.end());
+    //}
 
     return results;
   }
