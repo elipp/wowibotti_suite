@@ -7,6 +7,7 @@ local mode_attribs = {
 	aoemode = 0,
 	hold = 0,
 	dispelmode = 0,
+    encountermode = 0
 }
 
 

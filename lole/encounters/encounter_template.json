@@ -36,8 +36,10 @@
         ]
       }
     },
-    "phases": {
-      "phase1": {
+    "phases": [
+      {
+        "name": "Phase 1",
+        "phaseShiftCondition": ["MOB_IN_COMBAT", "Professor Putricide"],
         "targeting": {
           "byName": null,
           "byRole": {
@@ -193,7 +195,9 @@
           }
         }
       },
-      "phase2": {
+      {
+        "name": "Phase 2",
+        "phaseShiftCondition": ["MOB_HEALTH_PCT_LTE", "Professor Putricide", 80],
         "targeting": {
           "byRole": {
             "melee": [
@@ -304,7 +308,9 @@
         "healerAssignments": null,
         "_comment": "null healerAssignments -> default"
       },
-      "phase3": {
+      {
+        "name": "Phase 3",
+        "phaseShiftCondition": ["MOB_HEALTH_PCT_LTE", "Professor Putricide", 35],
         "targeting": {
           "byRole": {
             "melee": [
@@ -390,6 +396,6 @@
         },
         "healerAssignments": null
       }
-    }
+    ]
   }
 }

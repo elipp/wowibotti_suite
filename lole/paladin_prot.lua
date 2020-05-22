@@ -9,7 +9,7 @@ function combat_paladin_prot()
     --if cleanse_party("Arcane Shock") then return; end
 
     tank_face()
-    local taunt_target, spell = get_loose_tank_target(taunt_spells, UnitGUID("Kuratorn"))
+    local taunt_target, spell = get_loose_tank_target(taunt_spells, {})
 
     if taunt_target then
         target_unit_with_GUID(taunt_target)

@@ -70,6 +70,10 @@ function lole_main(args)
       --     curconf.survive();
       -- end
 
+        if lole_subcommands.get("encountermode") == 1 then
+            run_encounter_actions()
+        end
+
 		curconf.combat();
 
       elseif OVERRIDE_COMMAND then
