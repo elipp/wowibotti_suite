@@ -73,7 +73,7 @@ void hotness_enable(bool state) {
 static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 	// this will leak memory when ejected :D NVM
 	{"Marrowgar", hconfig_t("Lord Marrowgar",
-		{ new avoid_npc_t(15, "Lord Marrowgar"), new avoid_npc_t(10, "Coldflame"), new avoid_spellobject_t(10, 69146), new avoid_units_t(8) },
+		{ new avoid_npc_t(15, FALLOFF_LINEAR, "Lord Marrowgar"), new avoid_npc_t(9, FALLOFF_CUBIC, "Coldflame"), new avoid_spellobject_t(9, FALLOFF_CUBIC, 69146), new avoid_units_t(8, FALLOFF_LINEAR) },
 		REV_SELF | REV_BOSS,
 		{ 
 		arena_impassable_t(vec2(-401.8, 2170), vec2(-0.762509, -0.646977)),
@@ -84,11 +84,11 @@ static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 		})
 	},
 	{"Rotface", hconfig_t("Rotface",
-	{new avoid_npc_t(12, "Sticky Ooze") }, REV_SELF, {}) },
+	{new avoid_npc_t(12, FALLOFF_LINEAR, "Sticky Ooze") }, REV_SELF, {}) },
 
 	{"Putricide", hconfig_t("Professor Putricide",
 	{ //new avoid_npc_t(15, "Professor Putricide"), 
-	new avoid_npc_t(12, "Choking Gas Bomb"), new avoid_npc_t(16, "Growing Ooze Puddle") },
+	new avoid_npc_t(12, FALLOFF_CONSTANT, "Choking Gas Bomb"), new avoid_npc_t(16, FALLOFF_QUADRATIC, "Growing Ooze Puddle") },
 	REV_SELF | REV_FOCUS, {} )},
 };
 
@@ -117,6 +117,7 @@ fp_glBindBuffer glBindBuffer;
 fp_glEnableVertexAttribArray glEnableVertexAttribArray;
 fp_glDisableVertexAttribArray glDisableVertexAttribArray;
 fp_glVertexAttribPointer glVertexAttribPointer;
+fp_glVertexAttribIPointer glVertexAttribIPointer;
 fp_glCreateShader glCreateShader;
 fp_glShaderSource glShaderSource;
 fp_glGetShaderiv glGetShaderiv;
@@ -145,40 +146,43 @@ fp_glUniform4fv glUniform4fv;
 fp_glGetUniformLocation glGetUniformLocation;
 
 static int initialize_gl_extensions() {
-	glGenVertexArrays = (fp_glGenVertexArrays)wglGetProcAddress("glGenVertexArrays"); assert(glGenVertexArrays);
-	glBindVertexArray = (fp_glBindVertexArray)wglGetProcAddress("glBindVertexArray"); assert(glBindVertexArray);
-	glGenBuffers = (fp_glGenBuffers)wglGetProcAddress("glGenBuffers"); assert(glGenBuffers);
-	glBindBuffer = (fp_glBindBuffer)wglGetProcAddress("glBindBuffer"); assert(glBindBuffer);
-	glEnableVertexAttribArray = (fp_glEnableVertexAttribArray)wglGetProcAddress("glEnableVertexAttribArray"); assert(glEnableVertexAttribArray);
-	glDisableVertexAttribArray = (fp_glDisableVertexAttribArray)wglGetProcAddress("glDisableVertexAttribArray"); assert(glDisableVertexAttribArray);
-	glVertexAttribPointer = (fp_glVertexAttribPointer)wglGetProcAddress("glVertexAttribPointer"); assert(glVertexAttribPointer);
-	glCreateShader = (fp_glCreateShader)wglGetProcAddress("glCreateShader"); assert(glCreateShader);
-	glShaderSource = (fp_glShaderSource)wglGetProcAddress("glShaderSource"); assert(glShaderSource);
-	glCompileShader = (fp_glCompileShader)wglGetProcAddress("glCompileShader"); assert(glCompileShader);
-	glGetShaderiv = (fp_glGetShaderiv)wglGetProcAddress("glGetShaderiv"); assert(glGetShaderiv);
-	glGetShaderInfoLog = (fp_glGetShaderInfoLog)wglGetProcAddress("glGetShaderInfoLog"); assert(glGetShaderInfoLog);
-	glAttachShader = (fp_glAttachShader)wglGetProcAddress("glAttachShader"); assert(glAttachShader);
-	glLinkProgram = (fp_glLinkProgram)wglGetProcAddress("glLinkProgram"); assert(glLinkProgram);
-	glGetProgramiv = (fp_glGetProgramiv)wglGetProcAddress("glGetProgramiv"); assert(glGetProgramiv);
-	glGetProgramInfoLog = (fp_glGetProgramInfoLog)wglGetProcAddress("glGetProgramInfoLog"); assert(glGetProgramInfoLog);
-	glDetachShader = (fp_glDetachShader)wglGetProcAddress("glDetachShader"); assert(glDetachShader);
-	glDeleteShader = (fp_glDeleteShader)wglGetProcAddress("glDeleteShader"); assert(glDeleteShader);
-	glUseProgram = (fp_glUseProgram)wglGetProcAddress("glUseProgram"); assert(glUseProgram);
-	glBufferData = (fp_glBufferData)wglGetProcAddress("glBufferData"); assert(glBufferData);
-	glCreateProgram = (fp_glCreateProgram)wglGetProcAddress("glCreateProgram"); assert(glCreateProgram);
-	glGetActiveUniform = (fp_glGetActiveUniform)wglGetProcAddress("glGetActiveUniform"); assert(glGetActiveUniform);
 
-	glUniform1f = (fp_glUniform1f)wglGetProcAddress("glUniform1f"); assert(glUniform1f);
-	glUniform2f = (fp_glUniform2f)wglGetProcAddress("glUniform2f"); assert(glUniform2f);
-	glUniform3f = (fp_glUniform3f)wglGetProcAddress("glUniform3f"); assert(glUniform3f);
-	glUniform4f = (fp_glUniform4f)wglGetProcAddress("glUniform4f"); assert(glUniform4f);
-	glUniform1fv = (fp_glUniform1fv)wglGetProcAddress("glUniform1fv"); assert(glUniform1fv);
-	glUniform2fv = (fp_glUniform2fv)wglGetProcAddress("glUniform2fv"); assert(glUniform2fv);
-	glUniform3fv = (fp_glUniform3fv)wglGetProcAddress("glUniform3fv"); assert(glUniform3fv);
-	glUniform4fv = (fp_glUniform4fv)wglGetProcAddress("glUniform4fv"); assert(glUniform4fv);
+	// quite a bit cleaner with this macro, i'm saying :D
+#define LOADEXT(name) { name = (fp_ ## name)wglGetProcAddress(#name); assert(name); }
 
-	glGetUniformLocation = (fp_glGetUniformLocation)wglGetProcAddress("glGetUniformLocation"); assert(glGetUniformLocation);
-	glBufferSubData = (fp_glBufferSubData)wglGetProcAddress("glBufferSubData"); assert(glBufferSubData);
+	LOADEXT(glGenVertexArrays);
+	LOADEXT(glBindVertexArray);
+	LOADEXT(glGenBuffers);
+	LOADEXT(glBindBuffer);
+	LOADEXT(glEnableVertexAttribArray);
+	LOADEXT(glDisableVertexAttribArray);
+	LOADEXT(glVertexAttribPointer);
+	LOADEXT(glVertexAttribIPointer);
+	LOADEXT(glCreateShader);
+	LOADEXT(glShaderSource);
+	LOADEXT(glCompileShader);
+	LOADEXT(glGetShaderiv);
+	LOADEXT(glGetShaderInfoLog);
+	LOADEXT(glAttachShader);
+	LOADEXT(glLinkProgram);
+	LOADEXT(glGetProgramiv);
+	LOADEXT(glGetProgramInfoLog);
+	LOADEXT(glDetachShader);
+	LOADEXT(glDeleteShader);
+	LOADEXT(glUseProgram);
+	LOADEXT(glBufferData);
+	LOADEXT(glCreateProgram);
+	LOADEXT(glGetActiveUniform);
+	LOADEXT(glUniform1f);
+	LOADEXT(glUniform2f);
+	LOADEXT(glUniform3f);
+	LOADEXT(glUniform4f);
+	LOADEXT(glUniform1fv);
+	LOADEXT(glUniform2fv);
+	LOADEXT(glUniform3fv);
+	LOADEXT(glUniform4fv);
+	LOADEXT(glGetUniformLocation);
+	LOADEXT(glBufferSubData);
 
 	return 1;
 
@@ -254,17 +258,14 @@ int HMAP_get_flatindex_from_worldpos(const vec3& pos) {
 std::vector<avoid_point_t> avoid_npc_t::get_points() const {
 	std::vector<avoid_point_t> p;
 
-	hcache_t::mutex.lock();
+	std::lock_guard<std::mutex> lg(hcache_t::mutex);
 	for (const auto &o : hcache.objects) {
 		if (o.type == OBJECT_TYPE_NPC) {
 			if (o.name == this->name) {
-				vec3 pos = o.pos;
-				avoid_point_t point = { pos.x, pos.y, this->radius };
-				p.push_back(point);
+				p.emplace_back(avoid_point_t(o.pos.x, o.pos.y, this->radius, this->falloff));
 			}
 		}
 	}
-	hcache_t::mutex.unlock();
 
 	return p;
 }
@@ -272,38 +273,30 @@ std::vector<avoid_point_t> avoid_npc_t::get_points() const {
 std::vector<avoid_point_t> avoid_spellobject_t::get_points() const {
 	std::vector<avoid_point_t> p;
 
-	hcache_t::mutex.lock();
+	std::lock_guard<std::mutex> lg(hcache_t::mutex);
 	for (const auto &o : hcache.objects) {
 		if (o.type == OBJECT_TYPE_DYNAMICOBJECT) {
 			if (o.DO_spellid == this->spellID) {
-				vec3 pos = o.pos;
-				avoid_point_t point = { pos.x, pos.y, this->radius };
-				p.push_back(point);
+				p.emplace_back(avoid_point_t(o.pos.x, o.pos.y, this->radius, this->falloff));
 			}
 		}
 	}
-	hcache_t::mutex.unlock();
 
 	return p;
 }
 
 std::vector<avoid_point_t> avoid_units_t::get_points() const {
 	std::vector<avoid_point_t> p;
+	GUID_t player_guid = OMgr->get_local_GUID();
 
-	ObjectManager OM;
-	GUID_t player_guid = OM.get_local_GUID();
-
-	hcache_t::mutex.lock();
+	std::lock_guard<std::mutex> lg(hcache_t::mutex);
 	for (const auto &o : hcache.objects) {
 		if (o.type == OBJECT_TYPE_UNIT) {
 			if (o.GUID != player_guid) {
-				vec3 pos = o.pos;
-				avoid_point_t point = { pos.x, pos.y, this->radius };
-				p.push_back(point);
+				p.emplace_back(avoid_point_t(o.pos.x, o.pos.y, this->radius, this->falloff));
 			}
 		}
 	}
-	hcache_t::mutex.unlock();
 
 	return p;
 }
@@ -358,10 +351,9 @@ static void init_avoid_render(Render* r) {
 	glGenVertexArrays(1, &r->VAOid);
 	glBindVertexArray(r->VAOid);
 
-
 	glGenBuffers(1, &r->VBOid);
 	glBindBuffer(GL_ARRAY_BUFFER, r->VBOid);
-	glBufferData(GL_ARRAY_BUFFER, 512 * 3 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 512 * sizeof(avoid_point_t), NULL, GL_DYNAMIC_DRAW);
 
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(
@@ -369,8 +361,16 @@ static void init_avoid_render(Render* r) {
 		3,                  // size
 		GL_FLOAT,           // type
 		GL_FALSE,           // normalized?
-		0,                  // stride
+		sizeof(avoid_point_t), // stride
 		(void*)0            // array buffer offset
+	);
+	glEnableVertexAttribArray(1);
+	glVertexAttribIPointer(
+		1,
+		1,
+		GL_INT,
+		sizeof(avoid_point_t),
+		BUFFER_OFFSET(3 * sizeof(GLfloat))
 	);
 
 	glBindVertexArray(0);
@@ -557,7 +557,7 @@ static std::vector<ivec2> get_path(const vec3& from, const vec3& to) {
 			total_length += (sqrt(pow(prevc.x - c.x, 2.0f) + pow(prevc.y - c.y, 2.0f)));
 			prevc = c;
 		}
-		ECHO_WOW("total_length: %f\n", total_length);
+		//ECHO_WOW("total_length: %f\n", total_length);
 	}
 
 
@@ -612,13 +612,12 @@ static void update_buffers() {
 
 	if (!hotness_enabled()) return;
 
-	ObjectManager OM;
 	WowObject p;
 	
 	std::vector<avoid_point_t> avoid_points;
 	avoid_points.reserve(256 * sizeof(avoid_point_t));
 
-	if (!OM.get_local_object(&p)) return;
+	if (!OMgr->get_local_object(&p)) return;
 	
 	for (const auto& a : current_hconfig->avoid) {
 		auto v = a->get_points();

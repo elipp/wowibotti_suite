@@ -63,32 +63,43 @@ typedef struct arena_impassable_t {
 struct avoid_point_t {
 	float pos[2];
 	float radius;
+	GLint falloff;
+	constexpr avoid_point_t(float x, float y, float r, GLint fo)
+		: pos{ x, y }, radius(r), falloff(fo) {}
 };
+
+#define BUFFER_OFFSET(i) ((void*)(i))
+
+#define FALLOFF_CONSTANT 0
+#define FALLOFF_LINEAR 1
+#define FALLOFF_QUADRATIC 2
+#define FALLOFF_CUBIC 3
 
 class avoid_t {
 public:
 	float radius;
-	avoid_t(float r) : radius(r) {};
+	GLint falloff;
+	avoid_t(float r, GLint fo) : radius(r), falloff(fo) {};
 	virtual std::vector<avoid_point_t> get_points() const = 0;
 };
 
 class avoid_npc_t : public avoid_t {
 public:
 	std::string name;
-	avoid_npc_t(float radius, const std::string& npcname) : avoid_t(radius), name(npcname) {}
+	avoid_npc_t(float radius, GLint falloff, const std::string& npcname) : avoid_t(radius, falloff), name(npcname) {}
 	std::vector<avoid_point_t> get_points() const;
 };
 
 class avoid_spellobject_t : public avoid_t {
 public:
 	uint spellID;
-	avoid_spellobject_t(float radius, uint sID) : avoid_t(radius), spellID(sID) {}
+	avoid_spellobject_t(float radius, GLint falloff, uint sID) : avoid_t(radius, falloff), spellID(sID) {}
 	std::vector<avoid_point_t> get_points() const;
 };
 
 class avoid_units_t : public avoid_t {
 public:
-	avoid_units_t(float radius) : avoid_t(radius) {}
+	avoid_units_t(float radius, GLint falloff) : avoid_t(radius, falloff) {}
 	std::vector<avoid_point_t> get_points() const;
 };
 
@@ -157,6 +168,7 @@ typedef void (APIENTRY* fp_glBindBuffer)(GLenum target, GLuint buffer);
 typedef void (APIENTRY* fp_glEnableVertexAttribArray)(GLuint index);
 typedef void (APIENTRY* fp_glDisableVertexAttribArray)(GLuint index);
 typedef void (APIENTRY* fp_glVertexAttribPointer)(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer);
+typedef void (APIENTRY* fp_glVertexAttribIPointer) (GLuint index, GLint size, GLenum type, GLsizei stride, const void* pointer);
 typedef void (APIENTRY* fp_glShaderSource)(GLuint shader, GLsizei count, const GLchar* const* string, const GLint* length);
 typedef void (APIENTRY* fp_glCompileShader)(GLuint shader);
 typedef void (APIENTRY* fp_glGetShaderiv)(GLuint shader, GLenum pname, GLint* params);
@@ -195,6 +207,7 @@ extern fp_glBindBuffer glBindBuffer;
 extern fp_glEnableVertexAttribArray glEnableVertexAttribArray;
 extern fp_glDisableVertexAttribArray glDisableVertexAttribArray;
 extern fp_glVertexAttribPointer glVertexAttribPointer;
+extern fp_glVertexAttribIPointer glVertexAttribIPointer;
 extern fp_glCreateShader glCreateShader;
 extern fp_glShaderSource glShaderSource;
 extern fp_glGetShaderiv glGetShaderiv;
