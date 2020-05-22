@@ -326,13 +326,28 @@ vec2_t operator*(float d, const vec2_t& v) {
 	return { d * v.x, d * v.y };
 }
 
+constexpr bool operator==(const vec2_t& a, const vec2_t& b) {
+	return a.x == b.x && a.y == b.y;
+}
+
 vec2_t unit(const vec2_t& v) {
-	float d = sqrt(v.x * v.x + v.y * v.y);
-	return (1.0 / d) * v;
+	return (1.0f / length(v)) * v;
 }
 
 vec2_t perp(const vec2_t& v) {
 	// return { v.y, -v.x };
 	return { -v.y, v.x };
+}
+
+vec2_t rotate90_cw(const vec2_t& v) {
+	return { -v.y, v.x };
+}
+
+vec2_t rotate90_ccw(const vec2_t& v) {
+	return { v.y, -v.x };
+}
+
+vec2_t avg(const vec2_t& a, const vec2_t& b) {
+	return 0.5f * (a + b);
 }
 

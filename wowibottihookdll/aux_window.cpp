@@ -14,7 +14,7 @@
 #include "aux_window.h"
 #include "shader.h"
 #include "wowmem.h"
-
+#include "linalg.h"
 
 #pragma comment (lib, "opengl32.lib")
 
@@ -74,7 +74,8 @@ static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 	// this will leak memory when ejected :D NVM
 	{"Marrowgar", hconfig_t("Lord Marrowgar",
 		{ new avoid_npc_t(15, FALLOFF_LINEAR, "Lord Marrowgar"), new avoid_npc_t(9, FALLOFF_CUBIC, "Coldflame"), new avoid_spellobject_t(9, FALLOFF_CUBIC, 69146), new avoid_units_t(8, FALLOFF_LINEAR) },
-		REV_SELF | REV_BOSS,
+		//REV_SELF | REV_BOSS,
+		0,
 		{ 
 		arena_impassable_t(vec2(-401.8, 2170), vec2(-0.762509, -0.646977)),
 		arena_impassable_t(vec2(-422.9, 2200.4), vec2(-1.000000, 0.000000)),
@@ -535,6 +536,77 @@ struct heaparray {
 	}
 };
 
+static std::vector<avoid_point_t> avoid_points;
+
+bool get_path_XD(const vec2_t& from, const vec2_t& to, std::vector<vec2_t> &waypoints, std::vector<circle> &ignore) {
+
+	const line_segment ls(from, to);
+
+	bool intersects = false;
+
+	//auto apsorted = avoid_points;
+
+	for (const auto& ap : avoid_points) {
+		const circle c(ap.pos, ap.radius);
+		if (std::any_of(ignore.begin(), ignore.end(), [&](const circle& circ) { return c == circ; })) continue;
+		//if (inside(from, c)) {
+		//	ignore.push_back(c);
+		//	continue;
+		//}
+		if (intersection(ls, c)) {
+
+			intersects = true;
+
+			vec2_t b = c.center - ls.start;
+			vec2_t b_cwr = c.center + ap.radius * unit(rotate90_cw(b));
+			vec2_t b_ccwr = c.center + ap.radius * unit(rotate90_ccw(b));
+			
+			vec2_t e = c.center - ls.end;
+			vec2_t e_cwr = c.center + ap.radius * unit(rotate90_cw(e));
+			vec2_t e_ccwr = c.center + ap.radius * unit(rotate90_ccw(e));
+
+			vec2_t s1 = avg(b_cwr, e_ccwr);
+			vec2_t s2 = avg(b_ccwr, e_cwr);
+
+			float l1 = length(s1 - ls.start) + length(ls.end - s1);
+			float l2 = length(s2 - ls.start) + length(ls.end - s2);
+			
+			waypoints.push_back(ls.start);
+
+			const vec2_t* to_push = (l1 < l2) ? &s1 : &s2;
+
+			waypoints.push_back(*to_push);
+			ignore.push_back(c);
+
+		//	PRINT("pushing avoid_object at %p to ignore\n", &ap);
+
+			get_path_XD(*to_push, ls.end, waypoints, ignore);
+
+			break;
+			//waypoints.push_back(ls.end);
+		}
+	}
+
+	if (!intersects) {
+		waypoints.push_back(ls.end);
+		return true;
+	}
+	
+	return false;
+
+	//if (l1 < l2) {
+//	path.push_back(e_ccwr);
+//	path.push_back(b_cwr);
+//}
+//else {
+//	path.push_back(e_cwr);
+//	path.push_back(b_ccwr);
+//}
+
+}
+
+
+
 static heaparray<int, HMAP_SIZE * HMAP_SIZE> path;
 static heaparray<float, HMAP_SIZE * HMAP_SIZE> weights;
 
@@ -585,14 +657,21 @@ static void draw_debug(Render* r) {
 	r->update_buffer(&tri, sizeof(tri));
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 
-	vec3 path_from = hcache.player.pos;
-	vec3 path_to = path_from + 30 * unitvec_from_rot(hcache.player.rot);
+	vec2_t path_from = { hcache.player.pos.x, hcache.player.pos.y };
+	vec2_t path_to{ -386, 2254 };
+	//vec3 path_to(path_from + 50*unitvec_from_rot(hcache.player.rot));
 
-	std::vector<ivec2> pathpoints = get_path(path_from, path_to);
+	std::vector<vec2_t> pathpoints;
+	std::vector<circle> ignore;
+	std::sort(avoid_points.begin(), avoid_points.end(), [&](const avoid_point_t& a, const avoid_point_t& b) { return length(a.pos - path_from) < length(b.pos - path_from); });
+
+	get_path_XD({ path_from.x, path_from.y }, { path_to.x, path_to.y }, pathpoints, ignore);
+
+	//std::vector<ivec2> pathpoints = get_path(path_from, path_to);
 
 	if (pathpoints.size() > 0) {
 		std::vector<vec2_t> vertices;
-		std::transform(pathpoints.begin(), pathpoints.end(), std::back_inserter(vertices), [](const ivec2& pp) -> vec2_t { return tex2screen(pp.x, pp.y); });
+		std::transform(pathpoints.begin(), pathpoints.end(), std::back_inserter(vertices), [](const vec2_t& pp) -> vec2_t { return world2screen(pp.x, pp.y); });
 		r->update_buffer(&vertices[0], vertices.size() * sizeof(vec2_t));
 		glDrawArrays(GL_LINE_STRIP, 0, vertices.size());
 	}
@@ -608,13 +687,14 @@ static int initialize_renders() {
 	return 1;
 }
 
+
 static void update_buffers() {
 
 	if (!hotness_enabled()) return;
 
 	WowObject p;
 	
-	std::vector<avoid_point_t> avoid_points;
+	avoid_points = std::vector<avoid_point_t>();
 	avoid_points.reserve(256 * sizeof(avoid_point_t));
 
 	if (!OMgr->get_local_object(&p)) return;
@@ -706,10 +786,11 @@ void hotness_convert_grid_astar(float *r) {
 	for (int x = 0; x < HMAP_SIZE; ++x) {
 		for (int y = 0; y < HMAP_SIZE; ++y) {
 			int findex = HMAP_FLAT_INDEX(x, y);
-			r[findex] = 3.0f * pixbyte_to_float01(get_pixel(x, y));
+			r[findex] = 5.0f * pixbyte_to_float01(get_pixel(x, y));
 		}
 	}
 }
+
 
 
 void aux_hide() {

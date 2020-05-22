@@ -84,13 +84,26 @@ typedef struct vec2_t {
 	float x; float y;
 } vec2_t;
 
-// just to keep this "integral"
 vec2_t vec2(float x, float y);
 vec2_t operator+(const vec2_t& a, const vec2_t& b);
 vec2_t operator-(const vec2_t& a, const vec2_t& b);
 vec2_t operator*(float d, const vec2_t& v);
+constexpr bool operator==(const vec2_t& a, const vec2_t& b);
 vec2_t unit(const vec2_t& v);
 vec2_t perp(const vec2_t& v);
+
+vec2_t rotate90_cw(const vec2_t& v);
+vec2_t rotate90_ccw(const vec2_t& v);
+
+vec2_t avg(const vec2_t& a, const vec2_t& b);
+
+inline float length(const vec2_t& v) {
+	return sqrt(v.x * v.x + v.y * v.y);
+}
+
+inline constexpr float dot(const vec2_t& a, const vec2_t& b) {
+	return a.x * b.x + a.y * b.y;
+}
 
 typedef struct tri_t {
 	vec2_t v[3];

@@ -2,6 +2,8 @@
 #include <limits>
 #include <cmath>
 
+#include "pathfinding.h"
+
 // represents a single pixel
 class Node {
 public:
@@ -26,6 +28,12 @@ bool operator==(const Node& n1, const Node& n2) {
 // L_\inf norm (diagonal distance)
 float linf_norm(int i0, int j0, int i1, int j1) {
     return std::max(std::abs(i0 - i1), std::abs(j0 - j1));
+}
+
+float euclidean(int i0, int j0, int i1, int j1) {
+    float i = (i0 - i1);
+    float j = (j0 - j1);
+    return sqrt(i * i + j * j);
 }
 
 // L_1 norm (manhattan distance)
@@ -90,7 +98,7 @@ extern "C" bool astar(
                 if (new_cost < costs[nbrs[i]]) {
                     // estimate the cost to the goal based on legal moves
                     if (diag_ok) {
-                        heuristic_cost = linf_norm(nbrs[i] / w, nbrs[i] % w,
+                        heuristic_cost = euclidean(nbrs[i] / w, nbrs[i] % w,
                             goal / w, goal % w);
                     }
                     else {
@@ -113,4 +121,66 @@ extern "C" bool astar(
     delete[] nbrs;
 
     return solution_found;
+}
+
+bool inside(const vec2_t& p, const circle& crc) {
+    return length(p - crc.center) < crc.radius;
+}
+
+bool intersection(const line_segment& ln, const circle& crc) {
+    vec2_t d = ln.end - ln.start;
+    vec2_t f = ln.start - crc.center;
+
+    const float& r = crc.radius;
+
+    float a = dot(d, d);
+    float b = 2 * dot(f, d);
+    float c = dot(f, f) - r * r;
+
+    float discriminant = b * b - 4 * a * c;
+    if (discriminant < 0)
+    {
+        return false;
+    }
+    else
+    {
+        // ray didn't totally miss sphere,
+        // so there is a solution to
+        // the equation.
+
+        discriminant = sqrt(discriminant);
+
+        // either solution may be on or off the ray so need to test both
+        // t1 is always the smaller value, because BOTH discriminant and
+        // a are nonnegative.
+        float t1 = (-b - discriminant) / (2 * a);
+        float t2 = (-b + discriminant) / (2 * a);
+
+        // 3x HIT cases:
+        //          -o->             --|-->  |            |  --|->
+        // Impale(t1 hit,t2 hit), Poke(t1 hit,t2>1), ExitWound(t1<0, t2 hit), 
+
+        // 3x MISS cases:
+        //       ->  o                     o ->              | -> |
+        // FallShort (t1>1,t2>1), Past (t1<0,t2<0), CompletelyInside(t1<0, t2>1)
+
+        if (t1 >= 0 && t1 <= 1)
+        {
+            // t1 is the intersection, and it's closer than t2
+            // (since t1 uses -b - discriminant)
+            // Impale, Poke
+            return true;
+        }
+
+        // here t1 didn't intersect so we are either started
+        // inside the sphere or completely past it
+        if (t2 >= 0 && t2 <= 1)
+        {
+            // ExitWound
+            return true;
+        }
+
+        // no intn: FallShort, Past, CompletelyInside
+        return false;
+    }
 }

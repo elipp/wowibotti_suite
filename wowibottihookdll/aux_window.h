@@ -61,7 +61,7 @@ typedef struct arena_impassable_t {
 } arena_impassable_t;
 
 struct avoid_point_t {
-	float pos[2];
+	vec2_t pos;
 	float radius;
 	GLint falloff;
 	constexpr avoid_point_t(float x, float y, float r, GLint fo)
