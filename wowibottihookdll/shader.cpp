@@ -53,6 +53,9 @@ static int load_shader(GLenum stype, const std::string& filename, GLuint *sid) {
 	}
 
 	*sid = s;
+
+
+
 	return 1;
 
 }
@@ -93,16 +96,36 @@ ShaderProgram::ShaderProgram(const std::string& shader_folder) {
 
 }
 
+static void print_uniform_data(GLuint program) {
 
-void ShaderProgram::cache_uniform_location(const std::vector<std::string>& uniforms) {
+	GLint count = 0;
+
+	glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &count);
+	printf("shaderprog %u: Active uniforms: %d\n", program, count);
+
+	char namebuf[256];
+
+	for (int i = 0; i < count; i++) {
+		GLsizei length = 0;
+		GLint size = 0;
+		GLenum type = 0;
+		glGetActiveUniform(program, (GLuint)i, 256, &length, &size, &type, namebuf);
+		printf("- uniform #%d type: %u name: %s\n", i, type, namebuf);
+	}
+}
+
+void ShaderProgram::cache_uniform_locations(const std::vector<std::string>& uniforms) {
 	for (const auto& u : uniforms) {
 		GLint loc = glGetUniformLocation(this->programHandle_, u.c_str());
-		if (loc == -1) { PRINT("warning: glGetUniformLocation returned -1 for uniform %s\n", u.c_str()); }
+		if (loc == -1) { PRINT("warning: shaderprog %u: glGetUniformLocation returned -1 for uniform %s\n", this->programHandle(), u.c_str()); }
 		else { 
-			PRINT("inserting %s to %u\n", u.c_str(), loc);
+			PRINT("shaderprog %u: inserting %s to location %u in the uniform cache\n", this->programHandle(), u.c_str(), loc);
 			this->uniform_locations.insert({ u, loc }); 
 		}
 	}
+
+	print_uniform_data(programHandle_);
+
 }
 
 GLint ShaderProgram::get_uniform_location(const std::string &name) const {

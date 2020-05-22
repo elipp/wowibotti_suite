@@ -7,12 +7,14 @@
 #include <unordered_map>
 #include <mutex>
 #include <cmath>
+#include <array>
 
 #include "defs.h"
 #include "dllmain.h"
 #include "aux_window.h"
 #include "shader.h"
 #include "wowmem.h"
+
 
 #pragma comment (lib, "opengl32.lib")
 
@@ -36,7 +38,7 @@ const hcache_t& get_hcache() {
 	return hcache;
 }
 
-static BYTE* pixbuf;
+static std::array<BYTE, HMAP_SIZE * HMAP_SIZE> pixbuf;
 
 static const hconfig_t* current_hconfig;
 static int num_avoid_points;
@@ -57,15 +59,16 @@ int hotness_enabled() {
 
 void hotness_enable(bool state) {
 	if (!current_hconfig) {
-		echo_wow("hotness enable called but no config set! use hconfig set <confname> first");
+		ECHO_WOW("hotness enable called but no config set! use hconfig set <confname> first");
 		hot_enabled = 0;
 		return;
 	}
 	else {
 		hot_enabled = state;
-		echo_wow("hotness set to %d", hot_enabled);
+		ECHO_WOW("hotness set to %d", hot_enabled);
 	}
 }
+
 
 static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 	// this will leak memory when ejected :D NVM
@@ -100,9 +103,8 @@ hotness_status_t hotness_status() {
 }
 
 void update_hotness_cache() {
-	ObjectManager OM;
 	hcache_t::mutex.lock();
-	hcache = OM.get_snapshot();
+	hcache = OMgr->get_snapshot();
 	hcache_t::mutex.unlock();
 }
 
@@ -130,6 +132,7 @@ fp_glBufferData glBufferData;
 fp_glUseProgram glUseProgram;
 fp_glCreateProgram glCreateProgram;
 fp_glBufferSubData glBufferSubData;
+fp_glGetActiveUniform glGetActiveUniform;
 
 fp_glUniform1f glUniform1f;
 fp_glUniform2f glUniform2f;
@@ -163,6 +166,7 @@ static int initialize_gl_extensions() {
 	glUseProgram = (fp_glUseProgram)wglGetProcAddress("glUseProgram"); assert(glUseProgram);
 	glBufferData = (fp_glBufferData)wglGetProcAddress("glBufferData"); assert(glBufferData);
 	glCreateProgram = (fp_glCreateProgram)wglGetProcAddress("glCreateProgram"); assert(glCreateProgram);
+	glGetActiveUniform = (fp_glGetActiveUniform)wglGetProcAddress("glGetActiveUniform"); assert(glGetActiveUniform);
 
 	glUniform1f = (fp_glUniform1f)wglGetProcAddress("glUniform1f"); assert(glUniform1f);
 	glUniform2f = (fp_glUniform2f)wglGetProcAddress("glUniform2f"); assert(glUniform2f);
@@ -187,7 +191,7 @@ static int hconfig_set_actual(const std::string& confname) {
 			return 1;
 		}
 		current_hconfig = &c;
-		dual_echo("hconfig_set: config set to %s", confname.c_str());
+		ECHO_WOW("hconfig_set: config set to %s", confname.c_str());
 		if (current_hconfig->impassable.size() > 0) {
 			auto& r = renders.at("imp");
 			r.update_buffer(&current_hconfig->impassable[0], current_hconfig->impassable.size() * sizeof(arena_impassable_t));
@@ -197,7 +201,7 @@ static int hconfig_set_actual(const std::string& confname) {
 		return 1;
 	}
 	catch (const std::exception& e) {
-		dual_echo("hconfig_set: error: %s", e.what());
+		ECHO_WOW("hconfig_set: error: %s", e.what());
 		current_hconfig = NULL;
 		return 0;
 	}
@@ -242,6 +246,10 @@ static vec2i_t world2tex(float x, float y) {
 	return screen2tex(scr.x, scr.y);
 }
 
+int HMAP_get_flatindex_from_worldpos(const vec3& pos) {
+	vec2i_t tex = world2tex(pos.x, pos.y);
+	return HMAP_FLAT_INDEX(tex.x, tex.y);
+}
 
 std::vector<avoid_point_t> avoid_npc_t::get_points() const {
 	std::vector<avoid_point_t> p;
@@ -461,7 +469,7 @@ static void init_debug_render(Render* r) {
 	glBindVertexArray(r->VAOid);
 	glGenBuffers(1, &r->VBOid);
 	glBindBuffer(GL_ARRAY_BUFFER, r->VBOid);
-	glBufferData(GL_ARRAY_BUFFER, 1 * sizeof(tri_t), NULL, GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 256 * sizeof(tri_t), NULL, GL_DYNAMIC_DRAW);
 
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(
@@ -491,32 +499,104 @@ static inline tri_t get_tri(vec2_t pos, float size) {
 static inline tri_t get_arrowhead(vec2_t pos, float size, float theta) {
 
 	return {
-		pos + 1.5*size * vec2(cos(halfpi + theta),				sin(halfpi + theta)),
+		pos + 1.8*size * vec2(cos(halfpi + theta),				sin(halfpi + theta)),
 		pos + size * vec2(cos(halfpi + dpi + theta),		sin(halfpi + dpi + theta)),
 		pos + size * vec2(cos(halfpi + 2.0 * dpi + theta),	sin(halfpi + 2.0 * dpi + theta)) };
 
 }
 
 
+template <typename T, int S>
+struct heaparray {
+	std::array<T, S>* p;
+	heaparray() : p(new std::array<T, S>()) {}
+	~heaparray() { delete p; }
+	T& operator[](int flatindex) {
+		return (*p)[flatindex];
+	}
+	std::array<T, S>& operator*() {
+		return *p;
+	}
+
+	std::size_t size() const {
+		return p->size();
+	}
+
+	auto begin() {
+		return p->begin();
+	}
+
+	auto end() {
+		return p->end();
+	}
+
+	constexpr T* get() {
+		return &(*p)[0];
+	}
+};
+
+static heaparray<int, HMAP_SIZE * HMAP_SIZE> path;
+static heaparray<float, HMAP_SIZE * HMAP_SIZE> weights;
+
+static std::vector<ivec2> get_path(const vec3& from, const vec3& to) {
+	hotness_convert_grid_astar(weights.get());
+
+	int start = HMAP_get_flatindex_from_worldpos(from);
+	int end = HMAP_get_flatindex_from_worldpos(to);
+	
+	std::vector<ivec2> coords;
+
+	if (astar(weights.get(), HMAP_SIZE, HMAP_SIZE, start, end, true, path.get())) {
+		int e = end;
+		float total_length = 0;
+		ivec2 prevc = HMAP_UNRAVEL_FLATINDEX(e);
+		while (e != start) {
+			ivec2 c = HMAP_UNRAVEL_FLATINDEX(e);
+			coords.push_back(c);
+			e = path[e];
+			total_length += (sqrt(pow(prevc.x - c.x, 2.0f) + pow(prevc.y - c.y, 2.0f)));
+			prevc = c;
+		}
+		ECHO_WOW("total_length: %f\n", total_length);
+	}
+
+
+	return coords;
+
+}
+
 static void draw_debug(Render* r) {
 	glUseProgram(r->shader->programHandle());
 	glBindVertexArray(r->VAOid);
 	
+	// the red channel is reserved for the "hotness"
 	static const GLfloat blue[] = { 0, 0, 1 };
 	static const GLfloat green[] = { 0, 1, 0 };
 	glUniform3fv(r->shader->get_uniform_location("color"), 1, green);
 	vec2_t pos = tex2screen(hstatus.best_pixel.x, hstatus.best_pixel.y);
 	tri_t tri = get_tri(pos, 0.015);
 
-	glBindBuffer(GL_ARRAY_BUFFER, r->VBOid);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(tri_t), &tri, GL_DYNAMIC_DRAW);
-
+	r->update_buffer(&tri, sizeof(tri));
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 	
 	glUniform3fv(r->shader->get_uniform_location("color"), 1, blue);
-	tri = get_arrowhead({ 0, 0 }, 0.025, hcache.player.rot);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(tri_t), &tri, GL_DYNAMIC_DRAW);
+	tri = get_arrowhead({ 0, 0 }, 0.040, hcache.player.rot);
+
+	r->update_buffer(&tri, sizeof(tri));
 	glDrawArrays(GL_TRIANGLES, 0, 3);
+
+	vec3 path_from = hcache.player.pos;
+	vec3 path_to = path_from + 30 * unitvec_from_rot(hcache.player.rot);
+
+	std::vector<ivec2> pathpoints = get_path(path_from, path_to);
+
+	if (pathpoints.size() > 0) {
+		std::vector<vec2_t> vertices;
+		std::transform(pathpoints.begin(), pathpoints.end(), std::back_inserter(vertices), [](const ivec2& pp) -> vec2_t { return tex2screen(pp.x, pp.y); });
+		r->update_buffer(&vertices[0], vertices.size() * sizeof(vec2_t));
+		glDrawArrays(GL_LINE_STRIP, 0, vertices.size());
+	}
+
 
 }
 
@@ -554,10 +634,16 @@ static void update_buffers() {
 }
 
 static inline BYTE get_pixel(int x, int y) {
-	return pixbuf[y * HMAP_SIZE + x];
+	return pixbuf[HMAP_FLAT_INDEX(x, y)];
 }
 
+static inline float pixbyte_to_float01(BYTE val) {
+	return (float)val / (float)0xFF;
+}
 
+BYTE hmap_get_pixel_float01(int x, int y) {
+	return pixbyte_to_float01(get_pixel(x, y));
+}
 
 static pixinfo_t get_lowest_pixel() {
 	vec2i_t lowest = { 0,0 };
@@ -585,9 +671,8 @@ static void update_hstatus() {
 	vec2_t w = tex2world(lowest.pos.x, lowest.pos.y);
 	vec2_t bu = 1.5 * unit(w - vec2(hcache.player.pos.x, hcache.player.pos.y));
 	hstatus.best_world_pos = vec3(w.x + bu.x, w.y + bu.y, hcache.player.pos.z); // the boss arenas are generally flat
-	ObjectManager OM;
 	WowObject p;
-	OM.get_local_object(&p);
+	OMgr->get_local_object(&p);
 	vec3 ppos = p.get_pos();
 	vec2i_t ppos_tex = world2tex(ppos.x, ppos.y);
 	hstatus.current_hotness = get_pixel(ppos_tex.x, ppos_tex.y);
@@ -609,11 +694,22 @@ void aux_draw() {
 		it.second.draw();
 	}
 	
-	glReadPixels(0, 0, HMAP_SIZE, HMAP_SIZE, GL_RED, GL_UNSIGNED_BYTE, pixbuf);
+	glReadPixels(0, 0, HMAP_SIZE, HMAP_SIZE, GL_RED, GL_UNSIGNED_BYTE, &pixbuf[0]);
 	update_hstatus();
 
 	SwapBuffers(hDC);
 
+}
+
+
+void hotness_convert_grid_astar(float *r) {
+	
+	for (int x = 0; x < HMAP_SIZE; ++x) {
+		for (int y = 0; y < HMAP_SIZE; ++y) {
+			int findex = HMAP_FLAT_INDEX(x, y);
+			r[findex] = 3.0f * pixbyte_to_float01(get_pixel(x, y));
+		}
+	}
 }
 
 
@@ -782,19 +878,17 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 		return FALSE;
 	}
 
-
 	initialize_renders();
 
-	avoid_shader->cache_uniform_location({ "render_target_size", "player_pos", "arena_size" });
-	imp_shader->cache_uniform_location({ "arena_size", "player_pos" });
-	rev_shader->cache_uniform_location({ "world_pos", "radius", "render_target_size", "player_pos", "arena_size" });
-	debug_shader->cache_uniform_location({ "color" });
+	avoid_shader->cache_uniform_locations({ "render_target_size", "player_pos", "arena_size" });
+	imp_shader->cache_uniform_locations({ "arena_size", "player_pos" });
+	rev_shader->cache_uniform_locations({ "world_pos", "radius", "render_target_size", "player_pos", "arena_size" });
+	debug_shader->cache_uniform_locations({ "color" });
 
-	pixbuf = new BYTE[HMAP_SIZE * HMAP_SIZE]; // apparently we can also only read the red channel with glReadPixels so skip the * 4 (= 4 bytes of RGBA)
-	memset(pixbuf, 0, HMAP_SIZE * HMAP_SIZE);
+	memset(&pixbuf[0], 0, pixbuf.size());
 	//PRINT("imp size: %d\n", Marrowgar.impassable.size() * sizeof(tri_t));
-	dual_echo("Auxiliary OGL window successfully created!");
-	dual_echo("(hidden by default, use /lole hconfig show)!");
+	ECHO_WOW("Auxiliary OGL window successfully created!");
+	ECHO_WOW("(hidden by default, use /lole hconfig show)!");
 
 	running = 1;
 
@@ -851,7 +945,6 @@ void opengl_cleanup() {
 	delete imp_shader;
 	delete debug_shader;
 	wglDeleteContext(hRC);
-	delete[] pixbuf;
 	DestroyWindow(hWnd);
 	UnregisterClass(CLASSNAME, GetModuleHandle(NULL));
 }

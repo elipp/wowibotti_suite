@@ -664,7 +664,7 @@ target_pos_text:SetText("")
 
 function update_target_pos_text(x, y, z)
 	local pos;
-	if x then	pos = string.format("%.1f, %.1f, %.1f", x, y, z)
+	if x then pos = string.format("%.1f, %.1f, %.1f", x, y, z)
 	else pos = "(no target)" end
 
 	target_pos_text:SetText("|cFFFFD100Target pos: |cFFFFFFFF" .. pos)
@@ -686,13 +686,13 @@ local raid_zones = {
 }
 
 local function gui_set_injected_status()
-		local inj = query_injected()
+	local inj = query_injected()
 
-		if (inj == 1) then
-			update_injected_status(true) -- default
-		else
-			update_injected_status(false)
-		end
+	if inj then
+		update_injected_status(true) -- default
+	else
+		update_injected_status(false)
+	end
 
 end
 
@@ -710,7 +710,11 @@ end
 
 lole_frame:SetScript("OnUpdate", function()
 
-	if query_injected() == 0 then return end
+	if not query_injected() then 
+		return 
+	else
+		report_lua_registered()
+	end
 
 	--update_spell_error_status()
 
@@ -730,12 +734,10 @@ lole_frame:SetScript("OnUpdate", function()
 
 	if every_30th_frame == 0 then
 
-
 		set_button_states()
 		check_durability()
 
 		gui_set_injected_status()
-
 		update_player_pos_text(get_unit_position("player"))
 		update_target_pos_text(get_unit_position("target"))
 

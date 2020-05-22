@@ -8,6 +8,7 @@
 #include <numeric>
 #include <filesystem>
 #include <iostream>
+#include <array>
 
 #include "opcodes.h"
 #include "ctm.h"
@@ -50,6 +51,7 @@ enum {
 	RVALS_1,
 	RVALS_2,
 	RVALS_3,
+	RVALS_4,
 	RVALS_N,
 };
 
@@ -943,45 +945,41 @@ static int LOPDBG_pull_test() {
 
 static int LOP_get_unit_position(lua_State *L) {
 
-	std::string name = lua_tostring(L, 2);
-
-	GUID_t object_GUID = 0;
-
-	if (name.rfind("0x", 0) == 0) {
-		// we're dealing with a GUID
-		object_GUID = convert_str_to_GUID(name);
-	}
-	
-	else if (name == "player") {
-		object_GUID = OMgr->get_local_GUID();
-	}
-
-	else if (name == "target") {
-		GUID_t target_GUID = get_target_GUID();
-		if (!target_GUID) { return 0; }
-	
-		object_GUID = target_GUID;
-	}
-
-	else if (name == "focus") { // useful for blast target
-		GUID_t focus_GUID = get_focus_GUID();
-		if (!focus_GUID) { return 0; }
-
-		object_GUID = focus_GUID;
-	}
-
-	else {
-		WowObject u;
-		if (!OMgr->get_unit_by_name(name, &u)) { return 0; }
-		object_GUID = u.get_GUID();
-	}
-
-	vec3 pos;
-	double rot;
+	std::string arg = lua_tostring(L, 2);
 
 	WowObject o;
 
-	if (!OMgr->get_object_by_GUID(object_GUID, &o)) { return 0; }
+	if (arg.rfind("0x", 0) == 0) {
+		// we're dealing with a GUID
+		GUID_t object_GUID = convert_str_to_GUID(arg);
+		if (!OMgr->get_object_by_GUID(object_GUID, &o)) return 0;
+	}
+	
+	else if (arg == "player") {
+		if (!OMgr->get_local_object(&o)) return 0;
+	}
+
+	else if (arg == "target") {
+		GUID_t target_GUID = get_target_GUID();
+		if (!target_GUID) { return 0; }
+	
+		if (!OMgr->get_object_by_GUID(target_GUID, &o)) return 0;
+	}
+
+	else if (arg == "focus") { // useful for blast target
+		GUID_t focus_GUID = get_focus_GUID();
+		if (!focus_GUID) { return 0; }
+
+		if (!OMgr->get_object_by_GUID(focus_GUID, &o)) return 0;
+	}
+
+	else {
+		if (!OMgr->get_unit_by_name(arg, &o)) { return 0; }
+	}
+
+
+	vec3 pos;
+	double rot;
 
 	pos = o.get_pos(); 
 	rot = o.get_rot();
@@ -1084,7 +1082,7 @@ static int LOP_read_file(lua_State *L) {
 	
 	FILE* fp = fopen(filename.c_str(), "rb");
 	if (!fp) {
-		dual_echo("Couldn't open file %ls\\\"%s\" for reading\n", std::filesystem::current_path().c_str(), filename.c_str());
+		ECHO_WOW("Couldn't open file %ls\"\\%s\" for reading\n", std::filesystem::current_path().c_str(), filename.c_str());
 		return 0;
 	}
 
@@ -1095,7 +1093,7 @@ static int LOP_read_file(lua_State *L) {
 
 	lua_pushlstring(L, buf, fs);
 
-	dual_echo("loaded file \"%s\" (size = %ld)", filename.c_str(), fs);
+	ECHO_WOW("loaded file \"%s\" (size = %ld)", filename.c_str(), fs);
 	delete[] buf;
 
 	return 1;
@@ -1276,7 +1274,7 @@ static int LOP_hconfig(lua_State* L) {
 
 	if (a0 == "set") {
 		if (args.size() < 2) {
-			echo_wow("hconfig set called but no argument specified!");
+			ECHO_WOW("hconfig set called but no argument specified!");
 		}
 		else {
 			hconfig_set(args[1]);
@@ -1303,7 +1301,7 @@ static int LOP_hconfig(lua_State* L) {
 
 		if (!hotness_enabled()) {
 			if (warning_time.passed()) {
-				echo_wow("WARNING: hconfig status called, but hotness not enabled with hconfig enable!");
+				ECHO_WOW("WARNING: hconfig status called, but hotness not enabled with hconfig enable!");
 				warning_time.reset();
 			}
 			return 0;
@@ -1319,8 +1317,8 @@ static int LOP_hconfig(lua_State* L) {
 		int dh = abs((int)m.current_hotness - (int)m.best_hotness);
 
 		if (m.current_hotness > HOTNESS_THRESHOLD && dh > DH_THRESHOLD) {
-			dual_echo("HOTNESS: %s - best world pos: %.1f, %.1f (best hotness %u, current %u, threshold: %u)?", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
-			dual_echo("walking to a better position ^");
+			ECHO_WOW("HOTNESS: %s - best world pos: %.1f, %.1f (best hotness %u, current %u, threshold: %u)?", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
+			ECHO_WOW("walking to a better position ^");
 			DoString("SpellStopCasting()");
 			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
 		}
@@ -1513,8 +1511,12 @@ static int LOP_avoid_npc_with_name(lua_State* L) {
 	return 0;
 }
 
+
+
 static int LDOP_debug_test(lua_State* L) {
-	return NO_RVALS;
+
+	lua_pushstring(L, "vittu");
+	return 1;
 }
 
 static int LDOP_eject_dll(lua_State* L) {
@@ -1540,7 +1542,7 @@ class lopfunc_list {
 public:
 	const lop_func_t& operator[](LOP op) const {
 		if (IS_DEBUG_OPCODE(op)) {
-		//	dual_echo("op: 0x%X, LDOP_MASK: 0x%X\n", (int)op, LDOP_MASK);
+		//	ECHO_WOW("op: 0x%X, LDOP_MASK: 0x%X\n", (int)op, LDOP_MASK);
 			int stripped_index = (int)op & (~LDOP_MASK);
 			ASSERT(stripped_index, <, debug_funcs.size());
 			return debug_funcs[stripped_index];
@@ -1554,7 +1556,7 @@ public:
 	lopfunc_list(std::vector<lop_func_t>&& f, std::vector<lop_func_t>&& df)
 		: funcs(std::move(f)), debug_funcs(std::move(df))
 	{
-		dual_echo("lopfunc_list loaded! Have %d funcs, and %d debug funcs", funcs.size(), debug_funcs.size());
+		ECHO_WOW("lopfunc_list loaded! Have %d funcs, and %d debug funcs", funcs.size(), debug_funcs.size());
 		
 		// just check that there are no loops in the table :D
 		
@@ -1629,7 +1631,7 @@ static const lopfunc_list lop_funcs = {
 
 { OPSTR(LOP::GET_UNIT_POSITION), 
 {{"unitname", lua_type::string, LUA_ARG_REQUIRED}}, 
-	RVALS_3, LOP_get_unit_position },
+	RVALS_4, LOP_get_unit_position },
 
 { OPSTR(LOP::GET_WALKING_STATE), {}, RVALS_1, LOP_get_walking_state },
 
@@ -1715,23 +1717,6 @@ static const lopfunc_list lop_funcs = {
 	 { OPSTR(LOP::LDOP_WC3MODE), {}, NO_RVALS, op_handler_NYI },
 	 { OPSTR(LOP::LDOP_SL_SETSELECT), {}, NO_RVALS, op_handler_NYI },
 
-	//	LDOP_NOP = LDOP_MASK,
-	//LDOP_DUMP,
-	//LDOP_LOOT_ALL,
-	//LDOP_PULL_TEST,
-	//LDOP_LUA_REGISTER,
-	//LDOP_LOS_TEST,
-	//LDOP_TEST,
-	//LDOP_CAPTURE_FRAME_RENDER_STAGES,
-	//LDOP_CONSOLE_PRINT,
-	//LDOP_REPORT_CONNECTED,
-	//LDOP_EJECT_DLL,
-
-	//// from the old "LOP_EXT"
-
-	//LDOP_SL_RESETCAMERA,
-	//LDOP_WC3MODE,
-	//LDOP_SL_SETSELECT,
  }
 
 };
@@ -1755,7 +1740,7 @@ static bool check_arg_types(lua_State* L, LOP opcode) {
 	for (int i = 0; i < lf.args.size(); ++i) {
 		const lua_arg& arg = lf.args[i];
 		if (arg.type != lua_gettype(L, i + 2)) {
-			dual_echo("lop_exec(%s): check_arg_types: wrong type for argument number %d (\"%s\")! Expected %s, got %s\n",
+			ECHO_WOW("lop_exec(%s): check_arg_types: wrong type for argument number %d (\"%s\")! Expected %s, got %s\n",
 				lf.opcode_name.c_str(), i + 1, arg.name.c_str(), lua_gettypestring(L, arg.type), lua_gettypestr(L, i + 2));
 			return false;
 		}
@@ -1766,10 +1751,12 @@ static bool check_arg_types(lua_State* L, LOP opcode) {
 
 static bool check_lop_args(lua_State* L) {
 	int nargs = lua_gettop(L);
+
 	if (nargs < 1) {
-		dual_echo("lop_exec: error: no arguments (or nil) passed\n");
+		ECHO_WOW("lop_exec: error: no arguments (or nil) passed\n");
 		return false;
 	}
+
 	LOP opcode = (LOP)lua_tointeger(L, 1);
 
 	//PRINT("opcode: 0x%X\n", (int)opcode);
@@ -1797,68 +1784,12 @@ int lop_exec(lua_State* L) {
 
 	if (check_lop_args(L)) {
 		LOP op = (LOP)lua_tointeger(L, 1);
-		return lop_funcs[op].handler(L);
+		const auto& f = lop_funcs[op];
+		int r = f.handler(L);
+	//	if (r != f.num_return_values) {	ECHO_BOTH("warning: handler for %s: expected %d return values, got %d\n", f.opcode_name.c_str(), f.num_return_values, r); }
+		return r;
 	}
-
-	//case LDOP_CAPTURE_FRAME_RENDER_STAGES:
-	//	enable_capture_render();
-	//	break;
-
-	//case LDOP_LUA_REGISTERED:
-	//	lua_registered = 1;
-	//	break;
-
-	//case LDOP_DUMP: {
-	//	const char *typefilter = lua_tolstring(L, 2, &len);
-	//	const char *namefilter = lua_tolstring(L, 3, &len);
-	//	dump_wowobjects_to_log(typefilter ? typefilter : "", namefilter ? namefilter : "");
-	//	break;
-	//}
-
-	//case LDOP_TEST: {
-	//	break;
-	//}
-	//case LDOP_NOCLIP: {
-	//	ObjectManager OM;
-	//	WowObject p;
-	//	if (OM.get_object_by_GUID(get_target_GUID(), &p)) {
-	//		if (p.get_type() == OBJECT_TYPE_NPC) {
-	//			printf("is dead: %d\n", p.NPC_unit_is_dead());
-	//		}
-	//	}
-	//	//enable_noclip();
-	//	break;
-	//}
-
-	//case LDOP_CONSOLE_PRINT: {
-	//	const char* s = lua_tolstring(L, 2, &len);
-	//	puts(s);
-
-	//	//FILE *fp = fopen("C:\\Users\\Elias\\Desktop\\lua.log", "a");
-	//	//fputs(s, fp);
-	//	//fclose(fp);
-	//	break;
-	//}
-
-	////case LDOP_REPORT_CONNECTED: {
-	////	// this is sent by the addon, so if we're getting this, we're most definitely in world
-	////	std::string msg = "status " + std::string(lua_tolstring(L, 2, &len));
-	////	send_to_governor(msg.c_str(), msg.length() + 1);
-	////	in_world = time(NULL);
-	////	return 0;
-	////}
-
-	//case LDOP_EJECT_DLL: {
-	//	should_unpatch = 1;
-	//	return 0;
-	//}
-
-	//default:
-	//	PRINT("lop_exec: unknown opcode %d!\n", opcode);
-	//	break;
-
-	//}
-			 
+	 
 	return 0;
 }
 
@@ -1899,7 +1830,7 @@ static int dump_wowobjects_to_log(const std::string &type_filter, const std::str
 
 	ObjectManager OM;
 
-	dual_echo("Basic info: ObjectManager base: %X, local GUID = 0x%016llX", OM.get_base_address(), OM.get_local_GUID());
+	ECHO_WOW("Basic info: ObjectManager base: %X, local GUID = 0x%016llX", OM.get_base_address(), OM.get_local_GUID());
 	WowObject o;
 	if (!OM.get_first_object(&o)) return 0;
 
@@ -1910,40 +1841,40 @@ static int dump_wowobjects_to_log(const std::string &type_filter, const std::str
 		}
 
 		else if (type == OBJECT_TYPE_ITEM && (type_filter == "ITEM")) {
-			dual_echo("object GUID: 0x%016llX, base addr: 0x%X, type: %s, itemID: %u", o.get_GUID(), o.get_base(), o.get_type_name().c_str(), o.item_get_ID());
+			ECHO_WOW("object GUID: 0x%016llX, base addr: 0x%X, type: %s, itemID: %u", o.get_GUID(), o.get_base(), o.get_type_name().c_str(), o.item_get_ID());
 		}
 		
 		else if (type == OBJECT_TYPE_NPC && (type_filter == "" || type_filter == "NPC")) {
 			vec3 pos = o.get_pos();
 			std::string name = o.NPC_get_name();
 			if (name_filter == "" || (name_filter != "" && name.find(name_filter) != std::string::npos)) {
-				dual_echo("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-				dual_echo("coords = (%f, %f, %f), rot: %f", pos.x, pos.y, pos.z, o.get_rot());
-				dual_echo("name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d, mounted GUID: 0x%016llX", o.NPC_get_name().c_str(), o.NPC_get_health(), o.NPC_get_health_max(), o.NPC_get_target_GUID(), o.in_combat(), o.NPC_get_mounted_GUID());
-				dual_echo("----------------------------------------------------------------------------");
+				ECHO_WOW("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+				ECHO_WOW("coords = (%f, %f, %f), rot: %f", pos.x, pos.y, pos.z, o.get_rot());
+				ECHO_WOW("name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d, mounted GUID: 0x%016llX", o.NPC_get_name().c_str(), o.NPC_get_health(), o.NPC_get_health_max(), o.NPC_get_target_GUID(), o.in_combat(), o.NPC_get_mounted_GUID());
+				ECHO_WOW("----------------------------------------------------------------------------");
 			}
 		}
 		else if (type == OBJECT_TYPE_UNIT && (type_filter == "" || type_filter == "UNIT")) {
 			vec3 pos = o.get_pos();
 			std::string name = o.unit_get_name();
 			if (name_filter == "" || (name_filter != "" && name.find(name_filter) != std::string::npos)) {
-				dual_echo("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-				dual_echo("coords = (%f, %f, %f), rot: %f", pos.x, pos.y, pos.z, o.get_rot());
-				dual_echo("name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d", o.unit_get_name().c_str(), o.unit_get_health(), o.unit_get_health_max(), o.unit_get_target_GUID(), o.in_combat());
-				dual_echo("----------------------------------------------------------------------------");
+				ECHO_WOW("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+				ECHO_WOW("coords = (%f, %f, %f), rot: %f", pos.x, pos.y, pos.z, o.get_rot());
+				ECHO_WOW("name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d", o.unit_get_name().c_str(), o.unit_get_health(), o.unit_get_health_max(), o.unit_get_target_GUID(), o.in_combat());
+				ECHO_WOW("----------------------------------------------------------------------------");
 			}
 		}
 		else if (type == OBJECT_TYPE_DYNAMICOBJECT && (type_filter == "" || type_filter == "DYNAMICOBJECT")) {
 			vec3 DO_pos = o.DO_get_pos();
-			dual_echo("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-			dual_echo("position: (%.1f, %.1f, %.1f), spellID: %d", DO_pos.x, DO_pos.y, DO_pos.z, o.DO_get_spellID());
-			dual_echo("----------------------------------------------------------------------------");
+			ECHO_WOW("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+			ECHO_WOW("position: (%.1f, %.1f, %.1f), spellID: %d", DO_pos.x, DO_pos.y, DO_pos.z, o.DO_get_spellID());
+			ECHO_WOW("----------------------------------------------------------------------------");
 		}
 		else if (type == OBJECT_TYPE_GAMEOBJECT && (type_filter == "" || type_filter == "GAMEOBJECT")) {
 			vec3 GO_pos = o.GO_get_pos();
-			dual_echo("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-			dual_echo("name: %s, position: (%.2f, %.2f, %.2f)", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
-			dual_echo("----------------------------------------------------------------------------");
+			ECHO_WOW("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
+			ECHO_WOW("name: %s, position: (%.2f, %.2f, %.2f)", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
+			ECHO_WOW("----------------------------------------------------------------------------");
 		}
 
 

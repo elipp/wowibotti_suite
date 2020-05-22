@@ -10,6 +10,14 @@ function LOP:add_debug_opcode(name)
 	self.NUM_DEBUG_OPCODES = self.NUM_DEBUG_OPCODES + 1
 end
 
+function LOP:call(opcode, ...)
+	if query_injected() then
+		return lop_exec(opcode, ...)
+	else
+		lole_error("LOP:call(" .. tostring(opcode) .. ") called, but we're not injected!")
+	end
+end
+
 -- kinda KlunKy, but helps keep track of these
 
 LOP:add_opcode("NOP")
@@ -80,12 +88,12 @@ function disable_all_cc_targets()
 end
 
 function target_unit_with_marker(marker)
-	lop_exec(LOP.TARGET_MARKER, marker)
+	LOP:call(LOP.TARGET_MARKER, marker)
 end
 
 function caster_range_check(minrange, maxrange)
 	if not playermode() then
-		if lop_exec(LOP.CASTER_RANGE_CHECK, minrange, maxrange) then
+		if LOP:call(LOP.CASTER_RANGE_CHECK, minrange, maxrange) then
 			return true
 		else
 			return false
@@ -94,31 +102,31 @@ function caster_range_check(minrange, maxrange)
 end
 
 function target_unit_with_GUID(GUID)
-	lop_exec(LOP.TARGET_GUID, GUID)
+	LOP:call(LOP.TARGET_GUID, GUID)
 end
 
 function melee_attack_behind(minrange) -- magic value is 1.5
 	if not playermode() then
-		lop_exec(LOP.MELEE_BEHIND, minrange);
+		LOP:call(LOP.MELEE_BEHIND, minrange);
 	end
 end
 
 function melee_avoid_aoe_buff(buff_spellID)
 	if not playermode() then
-		lop_exec(LOP.MELEE_AVOID_AOE_BUFF, buff_spellID);
+		LOP:call(LOP.MELEE_AVOID_AOE_BUFF, buff_spellID);
 	end
 
 end
 
 function hug_spell_with_spellID(spellID)
 	if not playermode() then
-		lop_exec(LOP.HUG_SPELL_OBJECT, spellID)
+		LOP:call(LOP.HUG_SPELL_OBJECT, spellID)
 	end
 end
 
 function avoid_spell_with_spellID(spellID, radius)
 	if not playermode() then
-		lop_exec(LOP.AVOID_SPELL_OBJECT, spellID, radius)
+		LOP:call(LOP.AVOID_SPELL_OBJECT, spellID, radius)
 	end
 end
 
@@ -128,73 +136,73 @@ end
 
 function walk_to_pulling_range()
 	-- assuming the pull target is already selected
-	lop_exec(LOP.WALK_TO_PULLING_RANGE)
+	LOP:call(LOP.WALK_TO_PULLING_RANGE)
 end
 
 function tank_face()
-	lop_exec(LOP.TANK_FACE)
+	LOP:call(LOP.TANK_FACE)
 end
 
 function get_CH_target_trio(heals_in_progress)
-	return lop_exec(LOP.CHAIN_HEAL_TARGET, heals_in_progress);
+	return LOP:call(LOP.CHAIN_HEAL_TARGET, heals_in_progress);
 end
 
 function warlock_maulgar_get_felhound()
-	local t = lop_exec(LOP.EXT_MAULGAR_GET_UNBANISHED_FELHOUND)
+	local t = LOP:call(LOP.EXT_MAULGAR_GET_UNBANISHED_FELHOUND)
 	return t;
 end
 
 function dscript(command, scriptname)
-	lop_exec(LOP.DUNGEON_SCRIPT, command, scriptname);
+	LOP:call(LOP.DUNGEON_SCRIPT, command, scriptname);
 end
 
 function get_unit_position(unitname)
-	return lop_exec(LOP.GET_UNIT_POSITION, unitname)
+	return LOP:call(LOP.GET_UNIT_POSITION, unitname)
 end
 
 function lole_debug_dump_wowobjects(type_filter, ...)
 	local name_filter = concatenate_args(" ", ...)
-	lop_exec(LOP.DUMP, type_filter, name_filter);
+	LOP:call(LOP.DUMP, type_filter, name_filter);
 	echo("|cFF00FF96Dumped WowObjects to terminal (if you're injected!) Valid type filters are ITEM, NPC, UNIT, DYNAMICOBJECT, GAMEOBJECT")
 	return true;
 end
 
 function lole_debug_loot_all()
-	lop_exec(LOP.LDOP_LOOT_ALL);
+	LOP:call(LOP.LDOP_LOOT_ALL);
 end
 
 function walk_to(x, y, z, prio)
 	-- the last argument is the priority level
 	--echo(x .. ", " .. y .. ", " .. z)
-	lop_exec(LOP.CTM, x, y, z, prio)
+	LOP:call(LOP.CTM, x, y, z, prio)
 end
 
 function follow_unit(name)
-	lop_exec(LOP.FOLLOW, name)
+	LOP:call(LOP.FOLLOW, name)
 end
 
 function stopfollow()
-	lop_exec(LOP.STOPFOLLOW)
+	LOP:call(LOP.STOPFOLLOW)
 end
 
 function is_walking()
-    return lop_exec(LOP.GET_WALKING_STATE)
+    return LOP:call(LOP.GET_WALKING_STATE)
 end
 
 function cast_GTAOE(spellID, x, y, z)
-	lop_exec(LOP.CAST_GTAOE, spellID, x, y, z);
+	LOP:call(LOP.CAST_GTAOE, spellID, x, y, z);
 end
 
 function has_aggro()
-	return lop_exec(LOP.HAS_AGGRO)
+	return LOP:call(LOP.HAS_AGGRO)
 end
 
 function get_cast_failed_msgid()
-    return lop_exec(LOP.GET_PREVIOUS_CAST_MSG);
+    return LOP:call(LOP.GET_PREVIOUS_CAST_MSG);
 end
 
 function set_selection(names_commaseparated)
-	return lop_exec(LOP.SL_SETSELECT, names_commaseparated)
+	return LOP:call(LOP.SL_SETSELECT, names_commaseparated)
 end
 
 function interact_with_object(...)
@@ -206,7 +214,7 @@ function interact_with_object(...)
 		return
 	end
 
-	return lop_exec(LOP.INTERACT_GOBJECT, name_concatenated)
+	return LOP:call(LOP.INTERACT_GOBJECT, name_concatenated)
 end
 
 function interact_with_spellnpc(...)
@@ -217,27 +225,32 @@ function interact_with_spellnpc(...)
 		return
 	end
 
-	return lop_exec(LOP.INTERACT_SPELLNPC, name_concatenated)
+	return LOP:call(LOP.INTERACT_SPELLNPC, name_concatenated)
 end
 
 local INJECTED_STATUS = 0
 
 function query_injected()
-	if INJECTED_STATUS == 1 then return 1 end
+	if INJECTED_STATUS == 1 then return true end
 
 	local lexec = _G.lop_exec; -- see if the function is registered
 	if not lexec then
-		return 0;
+		INJECTED_STATUS = 0
+		return nil;
 	else
-		lop_exec(LOP.LDOP_LUA_REGISTER);
-		INJECTED_STATUS = 1;
-		return 1;
+		return true;
 	end
+end
 
+function report_lua_registered()
+	if INJECTED_STATUS == 0 then
+		LOP:call(LOP.LDOP_LUA_REGISTER)
+		INJECTED_STATUS = 1;
+	end
 end
 
 function iccrocket(mirror_data)
-	lop_exec(LOP.ICCROCKET, mirror_data)
+	LOP:call(LOP.ICCROCKET, mirror_data)
 end
 
 local function get_indent(indentlevel)
@@ -264,42 +277,38 @@ local function print_nested_table(tbl, indentlevel)
 end
 
 function lole_debug_test()
-	local s = read_file(".\\Interface\\AddOns\\lole\\encounter_scripts\\encounter_template.json.tmpl")
-	local j = json.decode(s)
-	print_nested_table(j)
+	local s = read_file(".\\Interface\\AddOns\\lole\\encounters\\encounter_template.json")
+    local j = json.decode(s)
+	--print(LOP:call(LOP.LDOP_TEST))
 end
 
 function lole_debug_pull_test()
-	lop_exec(LOP.LDOP_PULL_TEST)
+	LOP:call(LOP.LDOP_PULL_TEST)
 end
 
 function cast_spell_packet(spellID)
 	if not UnitGUID("target") then return end
-	lop_exec(LOP.CAST_SPELL, spellID, UnitGUID("target"))
+	LOP:call(LOP.CAST_SPELL, spellID, UnitGUID("target"))
 end
 
 function get_combat_targets()
-	return lop_exec(LOP.GET_COMBAT_TARGETS)
+	return LOP:call(LOP.GET_COMBAT_TARGETS)
 end
 
 function execute_script(script)
-	lop_exec(LOP.EXECUTE, script)
+	LOP:call(LOP.EXECUTE, script)
 end
 
 function enable_wc3mode(enabled)
-	lop_exec(LOP.WC3MODE, tonumber(enabled))
+	LOP:call(LOP.WC3MODE, tonumber(enabled))
 end
 
 function get_aoe_feasibility(range)
-	return lop_exec(LOP.GET_AOE_FEASIBILITY, range)
-end
-
-function L_TargetUnit(name)
-    lop_exec(LOP.TARGET_GUID, UnitGUID(name))
+	return LOP:call(LOP.GET_AOE_FEASIBILITY, range)
 end
 
 function L_ClearTarget()
-	lop_exec(LOP.TARGET_GUID, "0x0000000000000000")
+	execute_script("ClearTarget()")
 end
 
 function L_CastSpellByName(spellname)
@@ -371,7 +380,7 @@ function L_TargetTotem(slot)
 end
 
 function reset_camera()
-	lop_exec(LOP_EXT.SL_RESETCAMERA)
+	LOP:call(LOP_EXT.SL_RESETCAMERA)
 end
 
 function avoid_npc_with_name(name, radius)
@@ -380,36 +389,36 @@ function avoid_npc_with_name(name, radius)
 	if not radius then RADIUS = 8
 	else RADIUS = radius end
 
-	return lop_exec(LOP.AVOID_NPC_WITH_NAME, name, RADIUS)
+	return LOP:call(LOP.AVOID_NPC_WITH_NAME, name, RADIUS)
 end
 
 function get_last_spell_error()
-	return lop_exec(LOP.GET_LAST_SPELL_ERRMSG)
+	return LOP:call(LOP.GET_LAST_SPELL_ERRMSG)
 end
 
 function boss_action(name)
-	lop_exec(LOP.BOSS_ACTION, name)
+	LOP:call(LOP.BOSS_ACTION, name)
 end
 
 function hconfig(args)
-	lop_exec(LOP.HCONFIG, args)
+	LOP:call(LOP.HCONFIG, args)
 end
 
 function capture_render_stages()
-	lop_exec(LOP.LDOP_CAPTURE_FRAME_RENDER_STAGES)
+	LOP:call(LOP.LDOP_CAPTURE_FRAME_RENDER_STAGES)
 end
 
 function report_status_to_governor()
 	local msg = UnitName("player") .. "," .. GetRealmName() .. "," .. GetMinimapZoneText()
-	lop_exec(LOP.LDOP_REPORT_CONNECTED, msg)
+	LOP:call(LOP.LDOP_REPORT_CONNECTED, msg)
 end
 
 function console_print(msg)
-	lop_exec(LOP.LDOP_CONSOLE_PRINT, msg)
+	LOP:call(LOP.LDOP_CONSOLE_PRINT, msg)
 end
 
 function eject_DLL()
-	lop_exec(LOP.LDOP_EJECT_DLL)
+	LOP:call(LOP.LDOP_EJECT_DLL)
 end
 
 local function get_available_taunt(taunt_spells)
@@ -426,10 +435,10 @@ end
 function get_loose_tank_target(taunt_spells, ignore_mobs_tanked_by_GUID)
 	local spell = get_available_taunt(taunt_spells)
 	if spell then
-		return lop_exec(LOP.TANK_TAUNT_LOOSE, spell, ignore_mobs_tanked_by_GUID), spell
+		return LOP:call(LOP.TANK_TAUNT_LOOSE, spell, ignore_mobs_tanked_by_GUID), spell
 	end
 end
 
 function read_file(filename)
-	return lop_exec(LOP.READ_FILE, filename)
+	return LOP:call(LOP.READ_FILE, filename)
 end

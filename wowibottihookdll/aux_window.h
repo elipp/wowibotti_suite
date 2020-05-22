@@ -28,6 +28,27 @@
 #define GL_VALIDATE_STATUS                0x8B83
 #define GL_INFO_LOG_LENGTH                0x8B84
 
+#define GL_ACTIVE_UNIFORMS                0x8B86
+#define GL_ACTIVE_UNIFORM_MAX_LENGTH      0x8B87
+
+#include "pathfinding.h"
+
+void hotness_convert_grid_astar(float* r);
+
+inline constexpr int HMAP_FLAT_INDEX(int x, int y) {
+	return (y * HMAP_SIZE + x);
+}
+
+struct ivec2 {
+	int x; int y;
+};
+
+inline constexpr ivec2 HMAP_UNRAVEL_FLATINDEX(int flatindex) {
+	return { flatindex % HMAP_SIZE, flatindex / HMAP_SIZE };
+}
+
+int HMAP_get_flatindex_from_worldpos(const vec3& pos);
+
 typedef struct arena_t {
 	float size;
 	vec2_t middle;
@@ -76,13 +97,12 @@ typedef struct rev_target_t {
 	float radius;
 } rev_target_t;
 
-enum {
+enum { // TODO: also add REV_HEALERS?
 	REV_SELF = 0x1,
 	REV_BOSS = 0x2,
 	REV_TARGET = 0x4,
 	REV_FOCUS = 0x8,
 	REV_DEFAULT = 0x3,
-
 };
 
 class hconfig_t {
@@ -124,6 +144,8 @@ void hotness_stop();
 
 void echo_queue_commit();
 
+BYTE hmap_get_pixel_float01(int x, int y);
+
 typedef char GLchar;
 typedef unsigned int GLsizeiptr;
 typedef int GLintptr;
@@ -161,6 +183,8 @@ typedef void (APIENTRY* fp_glUniform2fv) (GLint location, GLsizei count, const G
 typedef void (APIENTRY* fp_glUniform3fv) (GLint location, GLsizei count, const GLfloat* value);
 typedef void (APIENTRY* fp_glUniform4fv) (GLint location, GLsizei count, const GLfloat* value);
 typedef GLint (APIENTRY* fp_glGetUniformLocation) (GLuint program, const GLchar* name);
+typedef void (APIENTRY* fp_glGetActiveUniform)(GLuint program, GLuint index, GLsizei bufSize, GLsizei* length, GLint* size, GLenum* type, GLchar* name);
+
 typedef void (APIENTRY* fp_glBufferSubData) (GLenum target, GLintptr offset, GLsizeiptr size, const void* data);
 
 
@@ -186,6 +210,7 @@ extern fp_glBufferData glBufferData;
 extern fp_glUseProgram glUseProgram;
 extern fp_glCreateProgram glCreateProgram;
 extern fp_glGetUniformLocation glGetUniformLocation;
+extern fp_glGetActiveUniform glGetActiveUniform;
 
 extern fp_glUniform1f glUniform1f;
 extern fp_glUniform2f glUniform2f;

@@ -30,8 +30,6 @@ void DoString(const std::string format, ...) {
 //	PRINT("(DoString: executed script \"%s\")\n", cmd);
 }
 
-
-
 static void echo(const char* msg) {
 	//DoString("DEFAULT_CHAT_FRAME:AddMessage(\"|cff33ccff[C:%s]\")", msg); // colored text :D
 	DoString("print(\"|cff33ccff[C:%s]\")", msg); // colored text :D
@@ -54,19 +52,6 @@ void echo_queue_commit() {
 		echo(echo_msgqueue.front().c_str());
 		echo_msgqueue.pop();
 	}
-
-
-}
-
-void echo_wow(const char* format, ...) {
-	char msg[1024];
-
-	va_list args;
-	va_start(args, format);
-	vsprintf_s(msg, format, args);
-	va_end(args);
-
-	equeue_add(msg);
 }
 
 
@@ -111,13 +96,13 @@ static std::string echomsg_transform(const char* msg, int len) {
 		buf += toadd + first_occurrence->to;
 
 		prevpos = firstpos + first_occurrence->from.length();
-	
+
 	}
 
 	return buf;
 }
 
-void dual_echo(const char* format, ...) {
+void echo(ECHO TO, const char* format, ...) {
 	char msg[1024];
 
 	va_list args;
@@ -125,9 +110,8 @@ void dual_echo(const char* format, ...) {
 	int len = vsprintf_s(msg, format, args);
 	va_end(args);
 
-	PRINT("%s\n", msg); // console should be thread safe
-	equeue_add(echomsg_transform(msg, len));
-
+	if ((int)TO & (int)ECHO::STDOUT) PRINT("%s\n", msg); // console should be thread safe
+	if ((int)TO & (int)ECHO::WOW) equeue_add(echomsg_transform(msg, len));
 }
 
 taint_caller_reseter::taint_caller_reseter() : current_taint_caller(0) {
@@ -255,8 +239,7 @@ float WowObject::get_rot() const {
 }
 
 vec3 WowObject::get_rotvec() const {
-	float rot = get_rot();
-	return vec3(std::cos(rot), std::sin(rot), 0);
+	return unitvec_from_rot(get_rot());
 }
 
 
@@ -707,6 +690,11 @@ void ObjectManager::LoadAddresses() {
 
 }
 
+void ObjectManager::initialize() {
+	LoadAddresses();
+	construction_frame_num = get_current_frame_num();
+}
+
 
 int ObjectManager::get_first_object(WowObject *o) const {
 	unsigned int object_base_addr;
@@ -718,27 +706,21 @@ int ObjectManager::get_first_object(WowObject *o) const {
 	return 1;
 }
 
-ObjectManager::ObjectManager() {
-	LoadAddresses();
-	construction_frame_num = get_current_frame_num();
+ObjectManager::ObjectManager() : invalid(true) {
+	initialize();
 }
 
-ObjectManager* ObjectManager::thisframe_objectmanager = nullptr;
+ObjectManager ObjectManager::thisframe_objectmanager;
 
 ObjectManager* ObjectManager::get() {
 
 	// this is most likely not necessary anyway, but just in case we reload the addresses of OM every frame
 
-	if (!thisframe_objectmanager) {
-		thisframe_objectmanager = new ObjectManager;
+	if (get_current_frame_num() != thisframe_objectmanager.construction_frame_num) {
+		thisframe_objectmanager.initialize();
 	}
-	else {
-		if (get_current_frame_num() != thisframe_objectmanager->construction_frame_num) {
-			delete thisframe_objectmanager;
-			thisframe_objectmanager = new ObjectManager;
-		}
-	}
-	return thisframe_objectmanager;
+	
+	return &thisframe_objectmanager;
 }
 
 int ObjectManager::get_object_by_GUID(GUID_t GUID, WowObject *o) const {

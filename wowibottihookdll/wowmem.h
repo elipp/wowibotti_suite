@@ -11,12 +11,19 @@
 extern int const (*LUA_DoString)(const char*, const char*, const char*);
 extern int const (*SelectUnit)(GUID_t);
 
-void DoString(const std::string format, ...); // because must not have reference type
-void echo_wow(const char* format, ...);
-void dual_echo(const char* format, ...); // echo to both console and wow chat
+enum class ECHO : int {
+	NONE = 0,
+	STDOUT = 1,
+	WOW = 2,
+	BOTH = 3
+};
 
-void set_taint_caller_zero();
-void reset_taint_caller();
+ 
+void DoString(const std::string format, ...); // because va_start can't start from reference type
+void echo(ECHO TO, const char* msg, ...);
+
+#define ECHO_WOW(msg, ...) echo(ECHO::WOW, msg, __VA_ARGS__)
+#define ECHO_BOTH(msg, ...) echo(ECHO::BOTH, msg, __VA_ARGS__)
 
 BYTE get_spellcast_counter();
 void increment_spellcast_counter();
@@ -46,6 +53,10 @@ typedef struct type_string_mapentry {
 } type_string_mapentry;
 
 int get_type_index_from_string(const std::string &type);
+
+constexpr vec3 unitvec_from_rot(float rot) {
+	return vec3(std::cos(rot), std::sin(rot), 0);
+}
 
 class WowObject {
 private:
@@ -281,10 +292,12 @@ private:
 	unsigned int base_addr;                       // the base address of the object manager
 	GUID_t localGUID;
 
-	int invalid;
+	bool invalid;
 	long long construction_frame_num;
 
-	static ObjectManager* thisframe_objectmanager;
+	static ObjectManager thisframe_objectmanager;
+
+	void initialize();
 
 public:
 

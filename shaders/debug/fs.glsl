@@ -1,4 +1,3 @@
-
 #version 420 core
 
 uniform vec3 color;

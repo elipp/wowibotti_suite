@@ -232,7 +232,7 @@ static void __stdcall Present_hook() {
 	register_luafunc_if_not_registered();
 
 	if (!hello_shown) {
-		echo_wow("DLL loaded!");
+		ECHO_WOW("DLL loaded!");
 		hello_shown = 1;
 	}
 

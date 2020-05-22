@@ -33,7 +33,7 @@ public:
 
 	bool valid() const;
 
-	void cache_uniform_location(const std::vector<std::string>& uniform_name);
+	void cache_uniform_locations(const std::vector<std::string>& uniform_name);
 	GLint get_uniform_location(const std::string& name) const;
 	GLuint programHandle() const { return programHandle_; }
 };
