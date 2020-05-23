@@ -7,7 +7,7 @@
 #include "linalg.h"
 #include "wowmem.h"
 
-#define HMAP_SIZE 256
+#define HMAP_SIZE 512
 #define ARENA_SIZE 140.0f // yards
 
 #define GL_ARRAY_BUFFER                   0x8892

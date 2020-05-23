@@ -8,6 +8,7 @@
 #include <mutex>
 #include <cmath>
 #include <array>
+#include <numeric>
 
 #include "defs.h"
 #include "dllmain.h"
@@ -73,7 +74,7 @@ void hotness_enable(bool state) {
 static const std::unordered_map<std::string, hconfig_t> hconfigs = {
 	// this will leak memory when ejected :D NVM
 	{"Marrowgar", hconfig_t("Lord Marrowgar",
-		{ new avoid_npc_t(15, FALLOFF_LINEAR, "Lord Marrowgar"), new avoid_npc_t(9, FALLOFF_CUBIC, "Coldflame"), new avoid_spellobject_t(9, FALLOFF_CUBIC, 69146), new avoid_units_t(8, FALLOFF_LINEAR) },
+		{ new avoid_npc_t(15, FALLOFF_CONSTANT, "Lord Marrowgar"), new avoid_npc_t(9, FALLOFF_CUBIC, "Coldflame"), new avoid_spellobject_t(9, FALLOFF_CUBIC, 69146), new avoid_units_t(8, FALLOFF_LINEAR) },
 		//REV_SELF | REV_BOSS,
 		0,
 		{ 
@@ -538,74 +539,150 @@ struct heaparray {
 
 static std::vector<avoid_point_t> avoid_points;
 
-bool get_path_XD(const vec2_t& from, const vec2_t& to, std::vector<vec2_t> &waypoints, std::vector<circle> &ignore) {
+typedef std::vector<line_segment> lsv;
 
-	const line_segment ls(from, to);
+struct XDpathnode_t {
+	vec2_t point;
+	std::vector<XDpathnode_t> next; // if next.size() == 0, we're done, if 1, there's no more intersections, and if 2 there's an intersection
+	XDpathnode_t(const vec2_t& p) : point(p) {}
+	XDpathnode_t() : point{ 0, 0 } {}
+	void add_next(XDpathnode_t&& node) {
+		PRINT("XDpathnode@%p: adding next node: (%f, %f)\n", this, node.point.x, node.point.y);
+		next.emplace_back(node);
+	}
+	void add_next(const XDpathnode_t &node) {
+		PRINT("XDpathnode@%p: adding next node: (%f, %f)\n", this, node.point.x, node.point.y);
+		next.push_back(node);
+	}
+};
 
-	bool intersects = false;
+struct lsc {
+	line_segment ls;
+	std::vector<circle> unchecked_circles;
+	lsc(const line_segment& l) : ls(l) {}
+};
 
-	//auto apsorted = avoid_points;
+struct XDfork {
+	vec2_t wps[2];
+	XDfork(const vec2_t &a, const vec2_t &b) : wps{ a, b } {
 
-	for (const auto& ap : avoid_points) {
-		const circle c(ap.pos, ap.radius);
-		if (std::any_of(ignore.begin(), ignore.end(), [&](const circle& circ) { return c == circ; })) continue;
-		//if (inside(from, c)) {
-		//	ignore.push_back(c);
-		//	continue;
-		//}
-		if (intersection(ls, c)) {
+	}
+};
 
-			intersects = true;
+XDfork get_XDfork(const line_segment &ls, const circle& c) {
+	vec2_t b = c.center - ls.start;
+	vec2_t b_cwr = c.center + c.radius * unit(rotate90_cw(b));
+	vec2_t b_ccwr = c.center + c.radius * unit(rotate90_ccw(b));
 
-			vec2_t b = c.center - ls.start;
-			vec2_t b_cwr = c.center + ap.radius * unit(rotate90_cw(b));
-			vec2_t b_ccwr = c.center + ap.radius * unit(rotate90_ccw(b));
-			
-			vec2_t e = c.center - ls.end;
-			vec2_t e_cwr = c.center + ap.radius * unit(rotate90_cw(e));
-			vec2_t e_ccwr = c.center + ap.radius * unit(rotate90_ccw(e));
+	vec2_t e = c.center - ls.end;
+	vec2_t e_cwr = c.center + c.radius * unit(rotate90_cw(e));
+	vec2_t e_ccwr = c.center + c.radius * unit(rotate90_ccw(e));
 
-			vec2_t s1 = avg(b_cwr, e_ccwr);
-			vec2_t s2 = avg(b_ccwr, e_cwr);
+	vec2_t s1 = avg(b_cwr, e_ccwr);
+	vec2_t s2 = avg(b_ccwr, e_cwr);
 
-			float l1 = length(s1 - ls.start) + length(ls.end - s1);
-			float l2 = length(s2 - ls.start) + length(ls.end - s2);
-			
-			waypoints.push_back(ls.start);
+	return XDfork(s1, s2);
+}
 
-			const vec2_t* to_push = (l1 < l2) ? &s1 : &s2;
+std::vector<circle>::iterator find_offending_circle(const vec2_t& pos, std::vector<circle>& circles) {
+	for (auto it = circles.begin(); it != circles.end(); ++it) {
+		if (inside(pos, *it)) {
+			return it;
+		}
+	}
+	return circles.end();
+}
 
-			waypoints.push_back(*to_push);
-			ignore.push_back(c);
+std::vector<circle>::iterator find_intersecting_circle(const line_segment &ls, std::vector<circle>& circles) {
+	for (auto it = circles.begin(); it != circles.end(); ++it) {
+		if (intersection(ls, *it)) {
+			return it;
+		}
+	}
+	return circles.end();
+}
 
-		//	PRINT("pushing avoid_object at %p to ignore\n", &ap);
+bool find_valid_node(const line_segment &birdpath, const vec2_t& pos, std::vector<circle> &valid, XDpathnode_t *out) {
+	const vec2_t* wp = nullptr;
+	bool have_offending = false;
 
-			get_path_XD(*to_push, ls.end, waypoints, ignore);
+	auto offc = find_offending_circle(pos, valid);
+	while (offc != valid.end()) {
+		have_offending = true;
+		circle c = *offc;
+		auto f = get_XDfork(birdpath, c);
+		const vec2_t* wp = inside(f.wps[0], c) ? (inside(f.wps[1], c) ? nullptr : &f.wps[1]) : &f.wps[0]; // if BOTH are inside, we're fucked :D
+		valid.erase(offc);
+		offc = find_offending_circle(pos, valid);
+	}
 
-			break;
-			//waypoints.push_back(ls.end);
+	if (!have_offending) {
+		PRINT("no offending circles\n");
+		out->add_next(pos);
+		return true;
+	}
+
+	if (!wp) {
+		PRINT("have offending circles, but both forkpoints are inside :(\n");
+		return false;
+	}
+	
+	*out = XDpathnode_t(*wp);
+	return true;
+}
+
+void get_pathfork_XD(const line_segment &ls, std::vector<circle> valid_circles, XDpathnode_t *current) {
+	
+	bool have_intersection = false;
+
+	auto it = find_intersecting_circle(ls, valid_circles);
+
+	if (it == valid_circles.end()) {
+		current->add_next(ls.end);
+		return;
+	}
+
+	else {
+		PRINT("found intersecting circle at (%f, %f)\n", it->center.x, it->center.y);
+	}
+
+	auto f = get_XDfork(ls, *it);
+	valid_circles.erase(it);
+
+	for (auto& ff : f.wps) {
+		XDpathnode_t pn;
+		if (find_valid_node(ls, ff, valid_circles, &pn)) {
+			get_pathfork_XD({ pn.point, ls.end }, valid_circles, &pn);
+			current->add_next(pn);
 		}
 	}
 
-	if (!intersects) {
-		waypoints.push_back(ls.end);
-		return true;
-	}
-	
-	return false;
-
-	//if (l1 < l2) {
-//	path.push_back(e_ccwr);
-//	path.push_back(b_cwr);
-//}
-//else {
-//	path.push_back(e_cwr);
-//	path.push_back(b_ccwr);
-//}
-
 }
 
+inline void print_next(const XDpathnode_t& node) {
+	for (const auto& n : node.next) {
+		PRINT("point: (%f, %f)\n", n.point.x, n.point.y);
+	}
+}
 
+bool get_path_XD(const vec2_t& from, const vec2_t& to, lsv *out, std::vector<circle> &circles) {
+
+	const line_segment ls(from, to);
+	XDpathnode_t first(from);
+
+	get_pathfork_XD(ls, circles, &first);
+
+	PRINT("first point: (%f, %f), (aiming to %f, %f)\n", from.x, from.y, to.x, to.y);
+	PRINT("next.size(): %d\n", first.next.size());
+	auto next = first.next;
+	while (next.size() > 0) {
+		print_next(next[0]);
+		next = next[0].next;
+	}
+
+	return true;
+
+}
 
 static heaparray<int, HMAP_SIZE * HMAP_SIZE> path;
 static heaparray<float, HMAP_SIZE * HMAP_SIZE> weights;
@@ -662,10 +739,11 @@ static void draw_debug(Render* r) {
 	//vec3 path_to(path_from + 50*unitvec_from_rot(hcache.player.rot));
 
 	std::vector<vec2_t> pathpoints;
-	std::vector<circle> ignore;
-	std::sort(avoid_points.begin(), avoid_points.end(), [&](const avoid_point_t& a, const avoid_point_t& b) { return length(a.pos - path_from) < length(b.pos - path_from); });
+	std::vector<circle> circles;
+	std::transform(avoid_points.begin(), avoid_points.end(), std::back_inserter(circles), [](const avoid_point_t& p) { return circle{ p.pos, p.radius }; });
+	std::sort(circles.begin(), circles.end(), [&](const circle& a, const circle& b) { return length(a.center - path_from) < length(b.center - path_from); });
 
-	get_path_XD({ path_from.x, path_from.y }, { path_to.x, path_to.y }, pathpoints, ignore);
+	get_path_XD(path_from, path_to, nullptr, circles);
 
 	//std::vector<ivec2> pathpoints = get_path(path_from, path_to);
 
