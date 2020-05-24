@@ -1,6 +1,6 @@
 local ENCOUNTER_FOLDER = '.\\Interface\\AddOns\\lole\\encounters\\'
 local ENCOUNTER_TABLE = nil
-ENCOUNTER_STATE = nil
+ENCOUNTER_PHASE = 0
 
 local function get_mob_in_combat(name)
     L_TargetUnit(name)
@@ -50,25 +50,20 @@ function lole_parse_encounter()
     console_print(to_string(encounter_tbl))
 end
 
-local function update_encounter_state(encounter_tbl)
+local function update_encounter_phase(encounter_tbl)
     local phases = encounter_tbl.fight.phases
-    local current_phase = 0
-    if ENCOUNTER_STATE and starts_with(ENCOUNTER_STATE, "Phase") then
-        current_phase = tonumber(ENCOUNTER_STATE:sub(#ENCOUNTER_STATE))
-    end
-
-    local next_phase = current_phase + 1
-    if next_phase > #phases then
+    if ENCOUNTER_PHASE == #phases then
         return
     end
     
+    local next_phase = ENCOUNTER_PHASE + 1
     local check_phase_shifted = phases[next_phase].phaseShiftCondition
     local is_new_phase = run_action(check_phase_shifted)
 
     if is_new_phase then
-        ENCOUNTER_STATE = 'Phase ' .. tostring(next_phase)
+        ENCOUNTER_PHASE = next_phase
         if IsRaidLeader() then
-            SendChatMessage(ENCOUNTER_STATE .. ' started' , 'RAID_WARNING')
+            SendChatMessage('Phase ' .. ENCOUNTER_PHASE .. ' started' , 'RAID_WARNING')
         end
     end
 end
@@ -77,5 +72,5 @@ function run_encounter_actions()
     if ENCOUNTER_TABLE == nil then
         ENCOUNTER_TABLE = parse_encounter_file('encounter_template.json')
     end
-    update_encounter_state(ENCOUNTER_TABLE)
+    update_encounter_phase(ENCOUNTER_TABLE)
 end
