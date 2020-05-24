@@ -42,7 +42,7 @@
         "phaseShiftCondition": {
           "action": "MOB_IN_COMBAT", 
           "args": {
-            "name": "Shattered Hand Guard"
+            "name": "Professor Putricide"
           }
         },
         "targeting": {
@@ -205,7 +205,7 @@
         "phaseShiftCondition": {
           "action": "MOB_HEALTH_PCT_LTE", 
           "args": {
-            "name": "Shattered Hand Guard",
+            "name": "Professor Putricide",
             "pct": 80
           }
         },
@@ -324,7 +324,7 @@
         "phaseShiftCondition": {
           "action": "MOB_HEALTH_PCT_LTE", 
           "args": {
-            "name": "Shattered Hand Guard",
+            "name": "Professor Putricide",
             "pct": 35
           }
         },
