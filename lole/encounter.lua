@@ -58,6 +58,10 @@ local function update_encounter_state(encounter_tbl)
     end
 
     local next_phase = current_phase + 1
+    if next_phase > #phases then
+        return
+    end
+    
     local check_phase_shifted = phases[next_phase].phaseShiftCondition
     local is_new_phase = run_action(check_phase_shifted)
 
