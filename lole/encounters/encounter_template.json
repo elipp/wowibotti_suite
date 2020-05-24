@@ -9,7 +9,7 @@
         "tank": [
           {
             "action": "MOVE",
-            "actionArgs": {
+            "args": {
               "location": "[x, y]"
             }
           }
@@ -17,7 +17,7 @@
         "melee": [
           {
             "action": "MOVE",
-            "actionArgs": {
+            "args": {
               "location": "[x, y]"
             }
           }
@@ -26,7 +26,7 @@
           {
             "action": "DISPERSE",
             "_comment": "\"DISPERSE\" for demonstration reasons. \"MOVE\" should be used for Prof. Putricide.",
-            "actionArgs": {
+            "args": {
               "location": "[x, y]",
               "mode": "MAX_RANGE",
               "_comment": "[MAX_RANGE|ENTROPY|ZIGZAG]",
@@ -39,7 +39,12 @@
     "phases": [
       {
         "name": "Phase 1",
-        "phaseShiftCondition": ["MOB_IN_COMBAT", "Professor Putricide"],
+        "phaseShiftCondition": {
+          "action": "MOB_IN_COMBAT", 
+          "args": {
+            "name": "Shattered Hand Guard"
+          }
+        },
         "targeting": {
           "byName": null,
           "byRole": {
@@ -109,7 +114,7 @@
                   "rangedOrHealer": [
                     {
                       "action": "MOVE",
-                      "actionArgs": {
+                      "args": {
                         "location": "[x, y]"
                       }
                     }
@@ -124,7 +129,7 @@
                   "rangedOrHealer": [
                     {
                       "action": "MOVE",
-                      "actionArgs": {
+                      "args": {
                         "location": "[x, y]"
                       }
                     }
@@ -197,7 +202,13 @@
       },
       {
         "name": "Phase 2",
-        "phaseShiftCondition": ["MOB_HEALTH_PCT_LTE", "Professor Putricide", 80],
+        "phaseShiftCondition": {
+          "action": "MOB_HEALTH_PCT_LTE", 
+          "args": {
+            "name": "Shattered Hand Guard",
+            "pct": 80
+          }
+        },
         "targeting": {
           "byRole": {
             "melee": [
@@ -235,7 +246,7 @@
                   "rangedOrHealer": [
                     {
                       "action": "DISPERSE",
-                      "actionArgs": {
+                      "args": {
                         "location": "[x, y]",
                         "mode": "ENTROPY",
                         "intervalYds": 10
@@ -252,7 +263,7 @@
                   "rangedOrHealer": [
                     {
                       "action": "DISPERSE",
-                      "actionArgs": {
+                      "args": {
                         "location": "[x, y]",
                         "mode": "ENTROPY",
                         "intervalYds": 10
@@ -268,7 +279,7 @@
                 "everyone": [
                   {
                     "action": "MOVE_AWAY_FROM_PLAYER",
-                    "actionArgs": {
+                    "args": {
                       "playerName": "X",
                       "isTargetIncluded": true,
                       "evasionMarginYds": 12
@@ -310,7 +321,13 @@
       },
       {
         "name": "Phase 3",
-        "phaseShiftCondition": ["MOB_HEALTH_PCT_LTE", "Professor Putricide", 35],
+        "phaseShiftCondition": {
+          "action": "MOB_HEALTH_PCT_LTE", 
+          "args": {
+            "name": "Shattered Hand Guard",
+            "pct": 35
+          }
+        },
         "targeting": {
           "byRole": {
             "melee": [
@@ -357,7 +374,7 @@
                 "everyone": [
                   {
                     "action": "MOVE_AWAY_FROM_PLAYER",
-                    "actionArgs": {
+                    "args": {
                       "playerName": "X",
                       "isTargetIncluded": true,
                       "evasionMarginYds": 12

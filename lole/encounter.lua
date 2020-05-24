@@ -18,9 +18,25 @@ local function mob_health_pct_lte(name, pct)
 end
 
 local ENCOUNTER_ACTIONS = {
-    MOB_IN_COMBAT = get_mob_in_combat,
-    MOB_HEALTH_PCT_LTE = mob_health_pct_lte
+    MOB_IN_COMBAT = {
+        func = get_mob_in_combat, 
+        args = {"name"}
+    },
+    MOB_HEALTH_PCT_LTE = {
+        func = mob_health_pct_lte, 
+        args = {"name", "pct"}
+    }
 }
+
+local function run_action(action_tbl)
+    local func_tbl = ENCOUNTER_ACTIONS[action_tbl.action]
+    local action_func = func_tbl.func
+    local args = {}
+    for i, arg in ipairs(func_tbl.args) do
+        table.insert(args, action_tbl.args[arg])
+    end
+    return action_func(unpack(args))
+end
 
 local function parse_encounter_file(filename)
     local filepath = ENCOUNTER_FOLDER .. filename
@@ -34,12 +50,6 @@ function lole_parse_encounter()
     console_print(to_string(encounter_tbl))
 end
 
-local function get_encounter_func_and_args(array)
-    local args_tbl = shallowcopy(array)
-    local func = ENCOUNTER_ACTIONS[table.remove(args_tbl, 1)]
-    return func, args_tbl
-end
-
 local function update_encounter_state(encounter_tbl)
     local phases = encounter_tbl.fight.phases
     local current_phase = 0
@@ -48,8 +58,8 @@ local function update_encounter_state(encounter_tbl)
     end
 
     local next_phase = current_phase + 1
-    local check_phase_shifted, args_tbl = get_encounter_func_and_args(phases[next_phase].phaseShiftCondition)
-    local is_new_phase = check_phase_shifted(unpack(args_tbl))
+    local check_phase_shifted = phases[next_phase].phaseShiftCondition
+    local is_new_phase = run_action(check_phase_shifted)
 
     if is_new_phase then
         ENCOUNTER_STATE = 'Phase ' .. tostring(next_phase)
