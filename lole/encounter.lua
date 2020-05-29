@@ -18,13 +18,15 @@ local function mob_health_pct_lte(name, pct)
 end
 
 local ENCOUNTER_ACTIONS = {
+    --[[ Bit boilerplate to have to repeat the function params here but the alternatives 
+         were even less appealing. --]]
     MOB_IN_COMBAT = {
         func = get_mob_in_combat, 
-        args = {"name"}
+        params = {"name"}
     },
     MOB_HEALTH_PCT_LTE = {
         func = mob_health_pct_lte, 
-        args = {"name", "pct"}
+        params = {"name", "pct"}
     }
 }
 
@@ -32,8 +34,8 @@ local function run_action(action_tbl)
     local func_tbl = ENCOUNTER_ACTIONS[action_tbl.action]
     local action_func = func_tbl.func
     local args = {}
-    for i, arg in ipairs(func_tbl.args) do
-        table.insert(args, action_tbl.args[arg])
+    for i, param in ipairs(func_tbl.params) do
+        table.insert(args, action_tbl.args[param])
     end
     return action_func(unpack(args))
 end
