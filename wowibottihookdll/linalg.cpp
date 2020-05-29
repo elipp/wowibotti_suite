@@ -331,7 +331,8 @@ bool operator==(const vec2_t& a, const vec2_t& b) {
 }
 
 vec2_t unit(const vec2_t& v) {
-	return (1.0f / length(v)) * v;
+	float l = 1.0/length(v);
+	return {l * v.x, l * v.y};
 }
 
 vec2_t perp(const vec2_t& v) {
