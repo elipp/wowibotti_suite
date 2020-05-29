@@ -2,7 +2,7 @@ local ENCOUNTER_FOLDER = '.\\Interface\\AddOns\\lole\\encounters\\'
 local ENCOUNTER_TABLE = nil
 ENCOUNTER_PHASE = 0
 
-local function get_mob_in_combat(name)
+local function is_mob_in_combat(name)
     L_TargetUnit(name)
     if UnitAffectingCombat("target") then
         return true
@@ -11,7 +11,7 @@ local function get_mob_in_combat(name)
     end
 end
 
-local function mob_health_pct_lte(name, pct)
+local function is_mob_health_pct_lte(name, pct)
     L_TargetUnit(name)
     local health_pct = UnitHealth("target") / UnitHealthMax("target") * 100
     return health_pct <= pct
@@ -20,12 +20,12 @@ end
 local ENCOUNTER_ACTIONS = {
     --[[ Bit boilerplate to have to repeat the function params here but the alternatives 
          were even less appealing. --]]
-    MOB_IN_COMBAT = {
-        func = get_mob_in_combat, 
+    IS_MOB_IN_COMBAT = {
+        func = is_mob_in_combat, 
         params = {"name"}
     },
-    MOB_HEALTH_PCT_LTE = {
-        func = mob_health_pct_lte, 
+    IS_MOB_HEALTH_PCT_LTE = {
+        func = is_mob_health_pct_lte, 
         params = {"name", "pct"}
     }
 }

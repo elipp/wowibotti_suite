@@ -40,7 +40,7 @@
       {
         "name": "Phase 1",
         "phaseShiftCondition": {
-          "action": "MOB_IN_COMBAT", 
+          "action": "IS_MOB_IN_COMBAT", 
           "args": {
             "name": "Professor Putricide"
           }
@@ -203,7 +203,7 @@
       {
         "name": "Phase 2",
         "phaseShiftCondition": {
-          "action": "MOB_HEALTH_PCT_LTE", 
+          "action": "IS_MOB_HEALTH_PCT_LTE", 
           "args": {
             "name": "Professor Putricide",
             "pct": 80
@@ -322,7 +322,7 @@
       {
         "name": "Phase 3",
         "phaseShiftCondition": {
-          "action": "MOB_HEALTH_PCT_LTE", 
+          "action": "IS_MOB_HEALTH_PCT_LTE", 
           "args": {
             "name": "Professor Putricide",
             "pct": 35
