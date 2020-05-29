@@ -88,7 +88,7 @@ vec2_t vec2(float x, float y);
 vec2_t operator+(const vec2_t& a, const vec2_t& b);
 vec2_t operator-(const vec2_t& a, const vec2_t& b);
 vec2_t operator*(float d, const vec2_t& v);
-constexpr bool operator==(const vec2_t& a, const vec2_t& b);
+bool operator==(const vec2_t& a, const vec2_t& b);
 vec2_t unit(const vec2_t& v);
 vec2_t perp(const vec2_t& v);
 

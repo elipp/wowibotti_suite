@@ -326,7 +326,7 @@ vec2_t operator*(float d, const vec2_t& v) {
 	return { d * v.x, d * v.y };
 }
 
-constexpr bool operator==(const vec2_t& a, const vec2_t& b) {
+bool operator==(const vec2_t& a, const vec2_t& b) {
 	return a.x == b.x && a.y == b.y;
 }
 
