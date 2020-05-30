@@ -9,6 +9,7 @@
 #include <cmath>
 #include <array>
 #include <numeric>
+#include <list>
 
 #include "defs.h"
 #include "dllmain.h"
@@ -322,27 +323,27 @@ std::vector<rev_target_t> hconfig_t::get_rev_targets() const {
 
 	if (rev_flags & REV_SELF) {
 		const WO_cached *p = &hcache.player;
-		r.push_back({ p->pos.x, p->pos.y, 24 });
+		r.push_back({{p->pos.x, p->pos.y}, 24 });
 	}
 
 	if (rev_flags & REV_BOSS) {
 		const WO_cached* b = hcache.find(bossname);
 		if (b) {
-			r.push_back({ b->pos.x, b->pos.y, 30 });
+			r.push_back({{b->pos.x, b->pos.y}, 30 });
 		}
 	}
 
 	if (rev_flags & REV_TARGET) {
 		const WO_cached* t = hcache.find(hcache.target_GUID);
 		if (t) {
-			r.push_back({ t->pos.x, t->pos.y, 30 });
+			r.push_back({ {t->pos.x, t->pos.y}, 30 });
 		}
 	}
 
 	if (rev_flags & REV_FOCUS) {
 		const WO_cached* f = hcache.find(hcache.focus_GUID);
 		if (f) {
-			r.push_back({ f->pos.x, f->pos.y, 32 });
+			r.push_back({ {f->pos.x, f->pos.y}, 32 });
 		}
 	}
 
@@ -541,6 +542,7 @@ struct heaparray {
 static std::vector<avoid_point_t> avoid_points;
 
 typedef std::vector<vec2_t> waypoint_vec_t;
+typedef std::list<vec2_t> waypoint_list_t;
 
 struct XDpathnode_t;
 void get_pathfork_XD(const line_segment &ls, std::vector<circle> *valid_circles, XDpathnode_t *current);
@@ -553,12 +555,9 @@ struct XDpathnode_t {
 	int num_next;
 	XDpathnode_t(const line_segment &ls, std::vector<circle> *vc) : segment(ls), valid_circles(vc), prev(nullptr), num_next(0), next{nullptr, nullptr} {}
 	XDpathnode_t(const vec2_t& from, const vec2_t &to, std::vector<circle> *vc) : XDpathnode_t({from, to}, vc) {}
-	XDpathnode_t() : XDpathnode_t({0}, {0}, nullptr) {}
-	void compute_next(const vec2_t &wp) {
-		assert(num_next < 2);
-		auto *vn = add_waypoint(wp);
-		get_pathfork_XD(vn->segment, valid_circles, vn);
-		++num_next;
+	XDpathnode_t() : XDpathnode_t({0,0}, {0,0}, nullptr) {}
+	void compute_next() {
+		get_pathfork_XD(segment, valid_circles, this);
 	}
 
 	XDpathnode_t *add_waypoint(const vec2_t &wp) {
@@ -566,6 +565,15 @@ struct XDpathnode_t {
 		next[num_next]->prev = this;
 		++num_next;
 		return next[num_next - 1];
+	}
+
+	template <typename Container>
+	XDpathnode_t *add_waypoints(const Container &wl) {
+		XDpathnode_t *iter = this;
+		for (auto &wp : wl) {
+			iter = iter->add_waypoint(wp); // looks kind of strange, but add_waypoint returns the waypoint that was just added
+		}
+		return iter;
 	}
 
 	~XDpathnode_t() {
@@ -607,36 +615,52 @@ void SWAP(T &a, T &b) {
 }
 
 template <typename T>
+inline void back_insert(std::list<T> &v, std::initializer_list<T> &&stuff) {
+	v.insert(v.end(), stuff);
+}
+
+template <typename T>
 inline void back_insert(std::vector<T> &v, std::initializer_list<T> &&stuff) {
 	v.insert(v.end(), stuff);
 }
 
-static waypoint_vec_t interpolate_steps_between(const vec2_t &r1, const vec2_t &r2, int direction, int steps = 5) {
+
+static waypoint_vec_t interpolate_steps_between(const vec2_t &r1, const vec2_t &r2, const circle &c, int direction, int steps = 5) {
 	waypoint_vec_t r;
 
 	float angle = acosf(dot(r1, r2));
+	//PRINT("dot: %f (r1: %f, %f | r2: %f, %f)\n", dot(r1, r2), r1.x, r1.y, r2.x, r2.y);
 
 	float a_incr = angle / (float)steps;
 
 	for (int i = 0; i < steps; ++i) {
-		r.push_back(rotate(r1, direction * i * a_incr));
+		r.push_back(c.center + c.radius * rotate(r1, direction * i * a_incr));
 	}
-	
+
+	return r;
+
 }
 
 XDfork get_XDfork(const line_segment &ls, const circle& c) {
 
+	// the point cannot be inside the circle!!! ie. length(b) or length(e) !< c.radius
+
 	vec2_t b = ls.start - c.center;
 	float alpha = acosf(c.radius/length(b));
 
-	vec2_t b_cwr = c.center + c.radius * unit(rotate(b, alpha));
-	vec2_t b_ccwr = c.center + c.radius * unit(rotate(b, -alpha));
+	vec2_t rb1 = unit(rotate(b, alpha));
+	vec2_t rb2 = unit(rotate(b, -alpha));
+	vec2_t b_cwr = c.center + c.radius * rb1;
+	vec2_t b_ccwr = c.center + c.radius * rb2;
 
 	vec2_t e = ls.end - c.center;
 	float beta = acosf(c.radius/length(e));
 
-	vec2_t e_cwr = c.center + c.radius * unit(rotate(e, beta));
-	vec2_t e_ccwr = c.center + c.radius * unit(rotate(e, -beta));
+	vec2_t re1 = unit(rotate(e, beta));
+	vec2_t re2 = unit(rotate(e, -beta));
+
+	vec2_t e_cwr = c.center + c.radius * re1;
+	vec2_t e_ccwr = c.center + c.radius * re2;
 
 //	vec2_t s1 = c.center + c.radius * (unit(b_cwr + e_ccwr)); // average is ok, but we probably should use more steps 
 //  NOTE: this doesn't work when we add c.center already before this
@@ -649,11 +673,18 @@ XDfork get_XDfork(const line_segment &ls, const circle& c) {
 		return length(a - ls.start) < length(b - ls.start);
 	});
 
-	back_insert(r.path2, {e_cwr, b_ccwr});
+	auto interp = interpolate_steps_between(rb1, re2, c, 1);
+	r.path1.insert(r.path1.begin() + 1, interp.begin(), interp.end());
 
+	back_insert(r.path2, {e_cwr, b_ccwr});
 	std::sort(r.path2.begin(), r.path2.end(), [&](const vec2_t &a, const vec2_t &b) -> bool {
 		return length(a - ls.start) < length(b - ls.start);
 	});
+
+	interp = interpolate_steps_between(rb2, re1, c, -1);
+	r.path2.insert(std::next(r.path2.begin(), 1), interp.begin(), interp.end());
+
+
 
 	return r;
 }
@@ -689,7 +720,7 @@ void get_pathfork_XD(const line_segment &ls, std::vector<circle> *valid_circles,
 	auto it = find_intersecting_circle(ls, valid_circles);
 
 	if (it == valid_circles->end()) {
-		current->compute_next(ls.end); // no offending circles, so we simply assign start == end
+		current->add_waypoint(ls.end); // no offending circles, so we simply assign start == end
 		return;
 	}
 
@@ -724,11 +755,11 @@ void get_pathfork_XD(const line_segment &ls, std::vector<circle> *valid_circles,
 //		}
 //	}
 
-	auto *nc = current->add_waypoint(f.path1[0]);
-	nc->compute_next(f.path1[1]);
+	auto *nc = current->add_waypoints(f.path1);
+	nc->compute_next();
 
-	nc = current->add_waypoint(f.path2[0]);
-	nc->compute_next(f.path2[1]);
+	nc = current->add_waypoints(f.path2);
+	nc->compute_next();
 
 }
 
@@ -826,8 +857,8 @@ static void draw_debug(Render* r) {
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 
 	vec2_t path_from = { hcache.player.pos.x, hcache.player.pos.y };
-	vec2_t path_to{ -386, 2254 };
-	//vec3 path_to(path_from + 50*unitvec_from_rot(hcache.player.rot));
+	//vec2_t path_to{ -386, 2254 };
+	vec2_t path_to = path_from + 50*unitvec2_from_rot(hcache.player.rot);
 
 	std::vector<waypoint_vec_t> paths;
 	std::vector<circle> circles;
@@ -1110,6 +1141,7 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_ONE, GL_ONE);
+	glLineWidth(2.0);
 
 	try {
 		avoid_shader = new ShaderProgram("avoid");

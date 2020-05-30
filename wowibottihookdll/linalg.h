@@ -82,6 +82,8 @@ void set_wow_rot(const glm::mat4 &rot);
 
 typedef struct vec2_t {
 	float x; float y;
+	constexpr vec2_t(float xx, float yy) : x(xx), y(yy) {}
+	constexpr vec2_t() : x(0), y(0) {}
 } vec2_t;
 
 vec2_t vec2(float x, float y);
@@ -101,6 +103,10 @@ vec2_t avg(const vec2_t& a, const vec2_t& b);
 
 inline float length(const vec2_t& v) {
 	return sqrt(v.x * v.x + v.y * v.y);
+}
+
+constexpr vec2_t unitvec2_from_rot(float rot) {
+	return vec2_t(std::cos(rot), std::sin(rot));
 }
 
 inline constexpr float dot(const vec2_t& a, const vec2_t& b) {

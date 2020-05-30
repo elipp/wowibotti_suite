@@ -58,6 +58,7 @@ constexpr vec3 unitvec_from_rot(float rot) {
 	return vec3(std::cos(rot), std::sin(rot), 0);
 }
 
+
 class WowObject {
 private:
 	// these are offsets from the base addr of the object
