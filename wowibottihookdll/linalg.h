@@ -92,6 +92,8 @@ bool operator==(const vec2_t& a, const vec2_t& b);
 vec2_t unit(const vec2_t& v);
 vec2_t perp(const vec2_t& v);
 
+vec2_t rotate(const vec2_t &v, float angle);
+
 vec2_t rotate90_cw(const vec2_t& v);
 vec2_t rotate90_ccw(const vec2_t& v);
 

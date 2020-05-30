@@ -1,62 +1,37 @@
 #pragma once
 
-#include <Windows.h>
-#include <cstdio>
+#include <chrono>
 
-// TODO use std::chrono instead
+using std::chrono::high_resolution_clock;
+using std::chrono::duration;
+using std::chrono::duration_cast;
+
+typedef high_resolution_clock::time_point time_point;
+
+double get_time_difference_s(const time_point &now, const time_point &then);
+double get_time_difference_ms(const time_point &now, const time_point &then);
+
+double get_time_from_s(const time_point &then);
+double get_time_from_ms(const time_point &then);
 
 class Timer {
-
-	static double cpu_freq;	// in kHz
-	
-	static bool initialized;
-
-	__int64 counter_start;
-	__int64 get() const;
-
+	time_point init_time;
 public:
-
-	static bool init();
-	
 	void start();
-
-	inline double get_s() const {
-		return double(get() - counter_start) / Timer::cpu_freq;
-	}
-
-	inline double get_ms() const {
-		return double(1000 * get_s());
-	}
-
-	inline double get_us() const {
-		return double(1000000 * get_s());
-	}
-
-	Timer() {
-		if (!Timer::initialized) {
-			Timer::init();
-		}
-		counter_start = 0;
-
-	}
-
+	double get_s() const;
+	double get_ms() const;
+	double get_us() const;
+	Timer();
 };
 
 struct timer_interval_t {
 	Timer t;
-	int interval;
+	double interval_ms;
 
-	int passed() {
-		return t.get_ms() > interval;
-	}
+	int passed() const;
+	void reset();
+	double remaining_ms() const;
 
-	void reset() {
-		t.start();
-	}
-
-	timer_interval_t(int interval_ms) : interval(interval_ms) {
-		t.init();
-		t.start();
-	}
+	timer_interval_t(double i_ms);
 };
 

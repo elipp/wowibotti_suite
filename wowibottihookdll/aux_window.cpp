@@ -16,6 +16,7 @@
 #include "shader.h"
 #include "wowmem.h"
 #include "linalg.h"
+#include "timer.h"
 
 #pragma comment (lib, "opengl32.lib")
 
@@ -594,33 +595,8 @@ struct lsc {
 };
 
 struct XDfork {
-	vec2_t doublets[2][2];
-	XDfork(const vec2_t &a1, const vec2_t &a2, const vec2_t &b1, const vec2_t &b2) : doublets{ a1, a2, b1, b2 } {
-
-	}
-
-	XDfork() : XDfork({0}, {0}, {0}, {0}) {}
-
-	vec2_t* select_non_offending_or_closer(const circle &c, const vec2_t &closer_to) {
-//		bool i0 = inside(start[0], c);
-//		bool i1 = inside(start[1], c);
-//
-//		if (i0 && i1) {
-//			return nullptr;
-//		}
-//
-//		else if (i0) {
-//			return &start[1];
-//		}
-//		else if (i1) {
-//			return &start[0];
-//		}
-//
-//		else {
-//			return length(closer_to - start[0]) < length(closer_to - start[1]) ? &start[0] : &start[1];
-//		}
-		return nullptr;
-	}
+	waypoint_vec_t path1;
+	waypoint_vec_t path2;
 };
 
 template <typename T>
@@ -630,33 +606,54 @@ void SWAP(T &a, T &b) {
 	b = temp;
 }
 
-XDfork get_XDfork(const line_segment &ls, const circle& c) {
-	vec2_t b = c.center - ls.start;
-	vec2_t b_cwr = c.center + c.radius * unit(rotate90_cw(b));
-	vec2_t b_ccwr = c.center + c.radius * unit(rotate90_ccw(b));
+template <typename T>
+inline void back_insert(std::vector<T> &v, std::initializer_list<T> &&stuff) {
+	v.insert(v.end(), stuff);
+}
 
-	vec2_t e = c.center - ls.end;
-	vec2_t e_cwr = c.center + c.radius * unit(rotate90_cw(e));
-	vec2_t e_ccwr = c.center + c.radius * unit(rotate90_ccw(e));
+static waypoint_vec_t interpolate_steps_between(const vec2_t &r1, const vec2_t &r2, int direction, int steps = 5) {
+	waypoint_vec_t r;
+
+	float angle = acosf(dot(r1, r2));
+
+	float a_incr = angle / (float)steps;
+
+	for (int i = 0; i < steps; ++i) {
+		r.push_back(rotate(r1, direction * i * a_incr));
+	}
+	
+}
+
+XDfork get_XDfork(const line_segment &ls, const circle& c) {
+
+	vec2_t b = ls.start - c.center;
+	float alpha = acosf(c.radius/length(b));
+
+	vec2_t b_cwr = c.center + c.radius * unit(rotate(b, alpha));
+	vec2_t b_ccwr = c.center + c.radius * unit(rotate(b, -alpha));
+
+	vec2_t e = ls.end - c.center;
+	float beta = acosf(c.radius/length(e));
+
+	vec2_t e_cwr = c.center + c.radius * unit(rotate(e, beta));
+	vec2_t e_ccwr = c.center + c.radius * unit(rotate(e, -beta));
 
 //	vec2_t s1 = c.center + c.radius * (unit(b_cwr + e_ccwr)); // average is ok, but we probably should use more steps 
 //  NOTE: this doesn't work when we add c.center already before this
 //	vec2_t s2 = c.center + c.radius * (unit(b_ccwr + e_cwr));
+
 	XDfork r;
+	
+	back_insert(r.path1, {b_cwr, e_ccwr});
+	std::sort(r.path1.begin(), r.path1.end(), [&](const vec2_t &a, const vec2_t &b) -> bool {
+		return length(a - ls.start) < length(b - ls.start);
+	});
 
-	r.doublets[0][0] = b_cwr;
-	r.doublets[0][1] = e_ccwr;
+	back_insert(r.path2, {e_cwr, b_ccwr});
 
-	if (length(b_cwr - ls.start) > length(e_ccwr - ls.start)) {
-		SWAP(r.doublets[0][0], r.doublets[0][1]);
-	}
-
-	r.doublets[1][0] = b_ccwr;
-	r.doublets[1][1] = e_cwr;
-
-	if (length(b_ccwr - ls.start) > length(e_cwr - ls.start)) {
-		SWAP(r.doublets[1][0], r.doublets[1][1]);
-	}
+	std::sort(r.path2.begin(), r.path2.end(), [&](const vec2_t &a, const vec2_t &b) -> bool {
+		return length(a - ls.start) < length(b - ls.start);
+	});
 
 	return r;
 }
@@ -680,9 +677,9 @@ std::vector<circle>::iterator find_intersecting_circle(const line_segment &ls, s
 }
 
 inline void DELETE_CIRCLE(std::vector<circle> *cv, std::vector<circle>::iterator &it) {
-	PRINT("[%p] erased circle (%f, %f) - ", &cv, it->center.x, it->center.y);
+//	PRINT("[%p] erased circle (%f, %f) - ", &cv, it->center.x, it->center.y);
 	cv->erase(it);
-	PRINT("cv.size (after erase): %zu\n", cv->size());
+//	PRINT("cv.size (after erase): %zu\n", cv->size());
 }
 
 void get_pathfork_XD(const line_segment &ls, std::vector<circle> *valid_circles, XDpathnode_t *current) {
@@ -697,11 +694,12 @@ void get_pathfork_XD(const line_segment &ls, std::vector<circle> *valid_circles,
 	}
 
 	else {
-		PRINT("found intersecting circle at (%f, %f)\n", it->center.x, it->center.y);
+		//PRINT("found intersecting circle at (%f, %f)\n", it->center.x, it->center.y);
 	}
 
 	circle ic = *it; // take copy, it's needed in the next step
 	DELETE_CIRCLE(valid_circles, it);
+
 	auto f = get_XDfork(ls, ic);
 	
 	// maybe we should pre-prune any circles that are completely (or enough) inside each other
@@ -726,13 +724,11 @@ void get_pathfork_XD(const line_segment &ls, std::vector<circle> *valid_circles,
 //		}
 //	}
 
-	// TODO: make this doublets thing more readable
+	auto *nc = current->add_waypoint(f.path1[0]);
+	nc->compute_next(f.path1[1]);
 
-	auto *nc = current->add_waypoint(f.doublets[0][0]);
-	nc->compute_next(f.doublets[0][1]);
-
-	nc = current->add_waypoint(f.doublets[1][0]);
-	nc->compute_next(f.doublets[1][1]);
+	nc = current->add_waypoint(f.path2[0]);
+	nc->compute_next(f.path2[1]);
 
 }
 
@@ -764,6 +760,8 @@ void extract_all_paths(const XDpathnode_t *node, std::vector<waypoint_vec_t> *pa
 
 bool get_path_XD(const vec2_t& from, const vec2_t& to, std::vector<waypoint_vec_t> *paths_out, std::vector<circle> *circles) {
 
+	Timer t;
+
 	const line_segment ls(from, to);
 	XDpathnode_t root(ls, circles);
 
@@ -771,14 +769,7 @@ bool get_path_XD(const vec2_t& from, const vec2_t& to, std::vector<waypoint_vec_
 
 	extract_all_paths(&root, paths_out);
 
-	PRINT("paths_out->size(): %zu\n", paths_out->size());
-	for (const auto &P : *paths_out) {
-		for (int i = 0; i < P.size(); ++i) {
-			const auto &wp = P[i];
-			PRINT("wp[%d]: (%f, %f)\n", i, wp.x, wp.y);
-		}
-		PRINT("----- path terminating -----\n");
-	}
+	PRINT("get_path_XD took %f ms\n", t.get_ms());
 
 	return true;
 
@@ -939,8 +930,6 @@ void aux_draw() {
 
 	glClearColor(0, 0, 0, 1);
 
-	update_buffers();
-
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	for (auto& it : renders) {
@@ -950,7 +939,6 @@ void aux_draw() {
 	glReadPixels(0, 0, HMAP_SIZE, HMAP_SIZE, GL_RED, GL_UNSIGNED_BYTE, &pixbuf[0]);
 	update_hstatus();
 
-	SwapBuffers(hDC);
 
 }
 
@@ -1116,8 +1104,8 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 
 	initialize_gl_extensions();
 
-	typedef BOOL (WINAPI * PFNWGLSWAPINTERVALEXTPROC) (int interval);
-    ((PFNWGLSWAPINTERVALEXTPROC)wglGetProcAddress("wglSwapIntervalEXT"))(1);
+//	typedef BOOL (WINAPI * PFNWGLSWAPINTERVALEXTPROC) (int interval);
+//   ((PFNWGLSWAPINTERVALEXTPROC)wglGetProcAddress("wglSwapIntervalEXT"))(1);
 
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
@@ -1150,8 +1138,12 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 	running = 1;
 
 	MSG msg = { 0 };
+
+	timer_interval_t interval_25ms(25);
+
 	while (running && WM_QUIT != msg.message)
 	{
+		interval_25ms.reset();
 		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) > 0)
 		{
 			TranslateMessage(&msg);
@@ -1163,8 +1155,10 @@ static DWORD WINAPI createwindow(LPVOID lpParam) {
 			conf_to_set = "";
 		}
 		
+		update_buffers();
 		aux_draw();
-		Sleep(16);
+		Sleep((DWORD)std::max(interval_25ms.remaining_ms(), 0.0));
+		SwapBuffers(hDC);
 	}
 
 	return TRUE;

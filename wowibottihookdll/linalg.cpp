@@ -348,6 +348,12 @@ vec2_t rotate90_ccw(const vec2_t& v) {
 	return { v.y, -v.x };
 }
 
+vec2_t rotate(const vec2_t &v, float angle) {
+	float ca = cosf(angle);
+    float sa = sinf(angle);
+	return {ca*v.x - sa*v.y, sa*v.x + ca*v.y};
+}
+
 vec2_t avg(const vec2_t& a, const vec2_t& b) {
 	return 0.5f * (a + b);
 }
