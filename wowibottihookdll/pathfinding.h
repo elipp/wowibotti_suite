@@ -2,6 +2,35 @@
 
 #include "linalg.h"
 
+template <typename T, int S>
+struct heaparray {
+	std::array<T, S>* p;
+	heaparray() : p(new std::array<T, S>()) {}
+	~heaparray() { delete p; }
+	T& operator[](int flatindex) {
+		return (*p)[flatindex];
+	}
+	std::array<T, S>& operator*() {
+		return *p;
+	}
+
+	std::size_t size() const {
+		return p->size();
+	}
+
+	auto begin() {
+		return p->begin();
+	}
+
+	auto end() {
+		return p->end();
+	}
+
+	constexpr T* get() {
+		return &(*p)[0];
+	}
+};
+
 extern "C" bool astar(
     const float* weights, const int h, const int w,
     const int start, const int goal, bool diag_ok,

@@ -46,6 +46,9 @@ float l1_norm(int i0, int j0, int i1, int j1) {
 // start, goal:    index of start/goal in flattened grid
 // diag_ok:        if true, allows diagonal moves (8-conn.)
 // paths (output): for each node, stores previous node in path
+
+#pragma optimize("t", on)
+
 extern "C" bool astar(
     const float* weights, const int h, const int w,
     const int start, const int goal, bool diag_ok,
@@ -122,6 +125,8 @@ extern "C" bool astar(
 
     return solution_found;
 }
+
+#pragma optimize( "", on ) // turns the cmdline-provided optimization back on
 
 bool inside(const vec2_t& p, const circle& crc) {
     return length(p - crc.center) < crc.radius;

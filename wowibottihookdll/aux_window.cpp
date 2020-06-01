@@ -10,6 +10,7 @@
 #include <array>
 #include <numeric>
 #include <list>
+#include <execution>
 
 #include "defs.h"
 #include "dllmain.h"
@@ -510,35 +511,6 @@ static inline tri_t get_arrowhead(vec2_t pos, float size, float theta) {
 }
 
 
-template <typename T, int S>
-struct heaparray {
-	std::array<T, S>* p;
-	heaparray() : p(new std::array<T, S>()) {}
-	~heaparray() { delete p; }
-	T& operator[](int flatindex) {
-		return (*p)[flatindex];
-	}
-	std::array<T, S>& operator*() {
-		return *p;
-	}
-
-	std::size_t size() const {
-		return p->size();
-	}
-
-	auto begin() {
-		return p->begin();
-	}
-
-	auto end() {
-		return p->end();
-	}
-
-	constexpr T* get() {
-		return &(*p)[0];
-	}
-};
-
 static std::vector<avoid_point_t> avoid_points;
 
 typedef std::vector<vec2_t> waypoint_vec_t;
@@ -603,8 +575,8 @@ struct lsc {
 };
 
 struct XDfork {
-	waypoint_vec_t path1;
-	waypoint_vec_t path2;
+	waypoint_vec_t path_left;
+	waypoint_vec_t path_right;
 };
 
 template <typename T>
@@ -641,6 +613,12 @@ static waypoint_vec_t interpolate_steps_between(const vec2_t &r1, const vec2_t &
 
 }
 
+static void sort_wpvec_by_closeness_to(waypoint_vec_t &wps, const vec2_t &p) {
+	std::sort(wps.begin(), wps.end(), [&](const vec2_t &a, const vec2_t &b) -> bool {
+		return length(a - p) < length(b - p);
+	});
+}
+
 XDfork get_XDfork(const line_segment &ls, const circle& c) {
 
 	// the point cannot be inside the circle!!! ie. length(b) or length(e) !< c.radius
@@ -667,31 +645,26 @@ XDfork get_XDfork(const line_segment &ls, const circle& c) {
 //	vec2_t s2 = c.center + c.radius * (unit(b_ccwr + e_cwr));
 
 	XDfork r;
-	
-	back_insert(r.path1, {b_cwr, e_ccwr});
-	std::sort(r.path1.begin(), r.path1.end(), [&](const vec2_t &a, const vec2_t &b) -> bool {
-		return length(a - ls.start) < length(b - ls.start);
-	});
 
-	auto interp = interpolate_steps_between(rb1, re2, c, 1);
-	r.path1.insert(r.path1.begin() + 1, interp.begin(), interp.end());
+	back_insert(r.path_left, {e_cwr, b_ccwr});
+	sort_wpvec_by_closeness_to(r.path_left, ls.start);
 
-	back_insert(r.path2, {e_cwr, b_ccwr});
-	std::sort(r.path2.begin(), r.path2.end(), [&](const vec2_t &a, const vec2_t &b) -> bool {
-		return length(a - ls.start) < length(b - ls.start);
-	});
+	auto interp = interpolate_steps_between(rb2, re1, c, -1);
+	r.path_left.insert(std::next(r.path_left.begin(), 1), interp.begin(), interp.end());
 
-	interp = interpolate_steps_between(rb2, re1, c, -1);
-	r.path2.insert(std::next(r.path2.begin(), 1), interp.begin(), interp.end());
+	back_insert(r.path_right, {b_cwr, e_ccwr});
+	sort_wpvec_by_closeness_to(r.path_right, ls.start);
 
-
+	interp = interpolate_steps_between(rb1, re2, c, 1);
+	r.path_right.insert(std::next(r.path_right.begin(), 1), interp.begin(), interp.end());
 
 	return r;
 }
 
-std::vector<circle>::iterator find_offending_circle(const vec2_t& pos, std::vector<circle> *circles) {
+std::vector<circle>::iterator find_offending_circle(const waypoint_vec_t& waypoints, std::vector<circle> *circles) {
 	for (auto it = circles->begin(); it != circles->end(); ++it) {
-		if (inside(pos, *it)) {
+		if (std::any_of(std::execution::par_unseq, waypoints.begin(), waypoints.end(), 
+		[&](const auto &v) { return inside(pos, *it); })) {
 			return it;
 		}
 	}
@@ -737,28 +710,28 @@ void get_pathfork_XD(const line_segment &ls, std::vector<circle> *valid_circles,
 
 	// TODO: reimplement this
 	
-//	for (auto& ff : f.start) {
-//		// see if any of the waypoints are inside another circle
-//		auto oc = find_offending_circle(ff, valid_circles);
-//		while (oc != valid_circles->end()) {
-//			PRINT("found offending circle at %f, %f (r = %f)\n", oc->center.x, oc->center.y, oc->radius);
-//			XDfork xf = get_XDfork(ls, *oc);
-//			vec2_t *fine = xf.select_non_offending_or_closer(ic, ff);
-//			if (!fine) {
-//				PRINT("fine was nullptr (ie. both forkpoints were inside the original circle of intersection)\n");
-//				return;
-//			}
-//
-//			ff = *fine;
-//			DELETE_CIRCLE(valid_circles, oc);
-//			oc = find_offending_circle(ff, valid_circles);
-//		}
-//	}
+	for (auto& path : f.path_left) {
+		// see if any of the waypoints are inside another circle
+		auto oc = find_offending_circle(path, valid_circles);
+		while (oc != valid_circles->end()) {
+			PRINT("found offending circle at %f, %f (r = %f)\n", oc->center.x, oc->center.y, oc->radius);
+			XDfork xf = get_XDfork(ls, *oc);
+			vec2_t *fine = xf.select_non_offending_or_closer(ic, ff);
+			if (!fine) {
+				PRINT("fine was nullptr (ie. both forkpoints were inside the original circle of intersection)\n");
+				return;
+			}
 
-	auto *nc = current->add_waypoints(f.path1);
+			ff = *fine;
+			DELETE_CIRCLE(valid_circles, oc);
+			oc = find_offending_circle(ff, valid_circles);
+		}
+	}
+
+	auto *nc = current->add_waypoints(f.path_left);
 	nc->compute_next();
 
-	nc = current->add_waypoints(f.path2);
+	nc = current->add_waypoints(f.path_right);
 	nc->compute_next();
 
 }
