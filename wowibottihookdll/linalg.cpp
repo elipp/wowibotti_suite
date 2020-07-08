@@ -310,25 +310,6 @@ vec3 vec3::rotated_2d(float angle) {
 
 
 // just to keep this "integral"
-vec2_t vec2(float x, float y) {
-	return { x, y };
-}
-
-vec2_t operator+(const vec2_t& a, const vec2_t& b) {
-	return { a.x + b.x, a.y + b.y };
-}
-
-vec2_t operator-(const vec2_t& a, const vec2_t& b) {
-	return { a.x - b.x, a.y - b.y };
-}
-
-vec2_t operator*(float d, const vec2_t& v) {
-	return { d * v.x, d * v.y };
-}
-
-bool operator==(const vec2_t& a, const vec2_t& b) {
-	return a.x == b.x && a.y == b.y;
-}
 
 vec2_t unit(const vec2_t& v) {
 	float l = 1.0/length(v);
@@ -356,5 +337,21 @@ vec2_t rotate(const vec2_t &v, float angle) {
 
 vec2_t avg(const vec2_t& a, const vec2_t& b) {
 	return 0.5f * (a + b);
+}
+
+float angle_between(const vec2_t &a, const vec2_t &b) {
+	float d = dot(a,b);
+	float l = length(a) * length(b);
+	return acosf(d/l);
+}
+
+float cw_angle_between(const vec2_t &a, const vec2_t &b) {
+	float d = dot(a, b);
+	float det = a.x * b.y - a.y * b.x;
+	return atan2f(det, d);
+}
+
+float ccw_angle_between(const vec2_t &a, const vec2_t &b) {
+	return cw_angle_between(b, a);
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include "linalg.h"
 
 template <typename T, int S>
@@ -46,15 +47,47 @@ struct line_segment {
         return sqrt(dx * dx + dy * dy);
     }
     line_segment(vec2_t s, vec2_t e) : start(s), end(e) {}
+	constexpr vec2_t diff() const { return end - start; }
+};
+
+struct tangent_points {
+	vec2_t left;
+	vec2_t right;
+};
+
+struct tangent_paths {
+	std::array<vec2_t, 2> left;
+	std::array<vec2_t, 2> right;
 };
 
 struct circle {
     vec2_t center;
     float radius;
     circle(vec2_t c, float r) : center(c), radius(r) {}
+	tangent_points find_tangent_points(const vec2_t &from) const {
+		vec2_t d = from - center;
+		float alpha = acosf(radius/length(d));
+
+		vec2_t r1 = unit(rotate(d, alpha));
+		vec2_t r2 = unit(rotate(d, -alpha));
+		vec2_t cwr = center + radius * r1;
+		vec2_t ccwr = center + radius * r2;
+		return {cwr, ccwr};
+	}
+
+	tangent_paths get_tangent_paths(const line_segment &ls) const {
+		tangent_paths r;
+		auto b = find_tangent_points(ls.start);
+		auto e = find_tangent_points(ls.end);
+		r.left = {b.left, e.right};
+		r.right = {b.right, e.left};
+		return r;
+	}
 };
 
 bool intersection(const line_segment& ln, const circle& c);
+bool intersection(const circle &a, const circle &b);
+
 bool inside(const vec2_t& p, const circle& crc);
 
 constexpr bool operator==(const circle& a, const circle& b) {

@@ -86,11 +86,27 @@ typedef struct vec2_t {
 	constexpr vec2_t() : x(0), y(0) {}
 } vec2_t;
 
-vec2_t vec2(float x, float y);
-vec2_t operator+(const vec2_t& a, const vec2_t& b);
-vec2_t operator-(const vec2_t& a, const vec2_t& b);
-vec2_t operator*(float d, const vec2_t& v);
-bool operator==(const vec2_t& a, const vec2_t& b);
+constexpr vec2_t vec2(float x, float y) {
+	return { x, y };
+}
+
+constexpr vec2_t operator+(const vec2_t& a, const vec2_t& b) {
+	return { a.x + b.x, a.y + b.y };
+}
+
+constexpr vec2_t operator-(const vec2_t& a, const vec2_t& b) {
+	return { a.x - b.x, a.y - b.y };
+}
+
+constexpr vec2_t operator*(float d, const vec2_t& v) {
+	return { d * v.x, d * v.y };
+}
+
+constexpr bool operator==(const vec2_t& a, const vec2_t& b) {
+	return a.x == b.x && a.y == b.y;
+}
+
+
 vec2_t unit(const vec2_t& v);
 vec2_t perp(const vec2_t& v);
 
@@ -100,6 +116,10 @@ vec2_t rotate90_cw(const vec2_t& v);
 vec2_t rotate90_ccw(const vec2_t& v);
 
 vec2_t avg(const vec2_t& a, const vec2_t& b);
+
+float angle_between(const vec2_t &a, const vec2_t &b);
+float cw_angle_between(const vec2_t &a, const vec2_t &b);
+float ccw_angle_between(const vec2_t &a, const vec2_t &b); 
 
 inline float length(const vec2_t& v) {
 	return sqrt(v.x * v.x + v.y * v.y);

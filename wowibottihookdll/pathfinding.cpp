@@ -132,6 +132,10 @@ bool inside(const vec2_t& p, const circle& crc) {
     return length(p - crc.center) < crc.radius;
 }
 
+float intersection_distance(const line_segment &ln, const circle& c) {
+    
+}
+
 bool intersection(const line_segment& ln, const circle& crc) {
     vec2_t d = ln.end - ln.start;
     vec2_t f = ln.start - crc.center;
@@ -188,4 +192,8 @@ bool intersection(const line_segment& ln, const circle& crc) {
         // no intn: FallShort, Past, CompletelyInside
         return false;
     }
+}
+
+bool intersection(const circle &a, const circle &b) {
+    return length(a.center - b.center) < (a.radius + b.radius);
 }
