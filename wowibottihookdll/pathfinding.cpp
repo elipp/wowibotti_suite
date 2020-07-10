@@ -133,8 +133,11 @@ bool inside(const vec2_t& p, const circle& crc) {
 }
 
 float intersection_distance(const line_segment &ln, const circle& c) {
-    
+    return 0.0f;
 }
+
+template <typename T>
+constexpr bool BETWEEN(T x, float min, float max) { return static_cast<float>(x) >= min && static_cast<float>(x) <= max; }
 
 bool intersection(const line_segment& ln, const circle& crc) {
     vec2_t d = ln.end - ln.start;
@@ -165,6 +168,8 @@ bool intersection(const line_segment& ln, const circle& crc) {
         float t1 = (-b - discriminant) / (2 * a);
         float t2 = (-b + discriminant) / (2 * a);
 
+        PRINT("t1: %f, t2: %f\n", t1, t2);
+
         // 3x HIT cases:
         //          -o->             --|-->  |            |  --|->
         // Impale(t1 hit,t2 hit), Poke(t1 hit,t2>1), ExitWound(t1<0, t2 hit), 
@@ -173,7 +178,7 @@ bool intersection(const line_segment& ln, const circle& crc) {
         //       ->  o                     o ->              | -> |
         // FallShort (t1>1,t2>1), Past (t1<0,t2<0), CompletelyInside(t1<0, t2>1)
 
-        if (t1 >= 0 && t1 <= 1)
+        if (BETWEEN(t1, 0, 1))
         {
             // t1 is the intersection, and it's closer than t2
             // (since t1 uses -b - discriminant)
@@ -183,7 +188,7 @@ bool intersection(const line_segment& ln, const circle& crc) {
 
         // here t1 didn't intersect so we are either started
         // inside the sphere or completely past it
-        if (t2 >= 0 && t2 <= 1)
+        if (BETWEEN(t2, 0, 1))
         {
             // ExitWound
             return true;

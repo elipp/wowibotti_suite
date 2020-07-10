@@ -11,6 +11,7 @@
 #include <numeric>
 #include <list>
 #include <execution>
+#include <optional>
 
 #include "defs.h"
 #include "dllmain.h"
@@ -530,6 +531,17 @@ struct circle_bunch {
 		return circles.end();
 	}
 
+	auto first_intersection_with(const line_segment& ls) const {
+		for (auto it = circles.begin(); it != circles.end(); ++it) {
+			if (intersection(ls, *it)) {
+				PRINT("circle@%.2f, %.2f, r: %.2f intersects with line@(%.2f,%.2f->%.2f,%.2f)\n", it->center.x, it->center.y, it->radius, ls.start.x, ls.start.y, ls.end.x, ls.end.y);
+				return it;
+			}
+		}
+		return circles.end();
+	}
+
+
 	bool intersects_with(const line_segment &ls) const {
 		for (auto &c : circles) {
 			if (intersection(ls, c)) return true;
@@ -562,14 +574,39 @@ struct circle_bunch {
 	}
 };
 
-struct hazards_t {
-	std::vector<circle_bunch> bunches;
-	bool find_intersection_data(const line_segment &ls) const {
-		for (const auto &b : bunches) {
-			if (b.intersects_with(ls)) {
-				
+struct intersect_result {
+	int bunch_index;
+	int circle_index;
+};
+
+std::optional<std::vector<intersect_result>> find_intersecting_circles(const line_segment &ls, const std::vector<circle_bunch> &circles) {
+	std::vector<intersect_result> results;
+	for (auto b_it = circles.begin(); b_it != circles.end(); ++b_it) {
+		for (auto it = b_it->circles.begin(); it != b_it->circles.end(); ++it)
+		{
+			if (intersection(ls, *it))
+			{
+				results.push_back(intersect_result{std::distance(circles.begin(), b_it), std::distance(b_it->circles.begin(), it)});
 			}
 		}
+	}
+	if (results.size() == 0) {
+		return std::nullopt;
+	}
+	else return results;
+
+}
+
+
+struct hazards_t {
+	std::vector<circle_bunch> bunches;
+	std::optional<intersect_result> find_intersection_data(const line_segment &ls) const {
+		auto intr = find_intersecting_circles(ls, bunches);
+		if (intr) {
+			// sort by intersection distance
+			return intr->at(0);
+		}
+		else return std::nullopt;
 	}
 };
 
@@ -734,8 +771,8 @@ XDfork get_XDfork(const line_segment &ls, const circle& c) {
 	return r;
 }
 
-std::vector<circle_bunch> find_circle_bunches(const std::vector<circle> &circles) {
-	std::vector<circle_bunch> bunches;
+hazards_t find_circle_bunches(const std::vector<circle> &circles) {
+	hazards_t hazards;
 	std::vector<circle_checked> cc = make_checkable(circles);
 
 	for (auto &ca : cc) {
@@ -754,10 +791,10 @@ std::vector<circle_bunch> find_circle_bunches(const std::vector<circle> &circles
 			
 		}
 	//	PRINT("bunch_%zd size %zu\n--------------------------------\n", bunches.size(), bunch.circles.size());
-		bunches.emplace_back(std::move(bunch));
+		hazards.bunches.emplace_back(std::move(bunch));
 	}
 
-	return bunches;
+	return hazards;
 
 }
 
@@ -771,23 +808,6 @@ std::vector<circle>::iterator find_offending_circle(const waypoint_vec_t& waypoi
 	return circles->end();
 }
 
-struct intersect_result {
-	int bunch_index;
-	int circle_index;
-};
-
-intersect_result find_intersecting_circle(const line_segment &ls, const std::vector<circle_bunch> &circles) {
-	for (auto b_it = circles.begin(); b_it != circles.end(); ++b_it) {
-		for (auto it = b_it->circles.begin(); it != b_it->circles.end(); ++it)
-		{
-			if (intersection(ls, *it))
-			{
-				return {std::distance(circles.begin(), b_it), std::distance(b_it->circles.begin(), it)};
-			}
-		}
-	}
-	return {-1, -1};
-}
 
 inline void DELETE_CIRCLE(std::vector<circle> *cv, std::vector<circle>::iterator &it) {
 //	PRINT("[%p] erased circle (%f, %f) - ", &cv, it->center.x, it->center.y);
@@ -799,9 +819,11 @@ void get_pathfork_XD(const line_segment &ls, const std::vector<circle_bunch> &ci
 	
 	if (ls.start == ls.end) { return; }
 
-	auto it = find_intersecting_circle(ls, circle_bunches);
+	hazards_t h;
+	h.bunches = circle_bunches;
 
-	if (it.bunch_index == -1 || it.circle_index == -1) {
+	auto intr = h.find_intersection_data(ls);
+	if (intr) {
 		current->add_waypoint(ls.end); // no offending circles, so we simply assign start == end
 		return;
 	}
@@ -812,8 +834,8 @@ void get_pathfork_XD(const line_segment &ls, const std::vector<circle_bunch> &ci
 
 //	circle ic = *it; // take copy, it's needed in the next step
 //	DELETE_CIRCLE(valid_circles, it);
-	auto left = circle_bunches[it.bunch_index].circles[it.circle_index];
-	auto right = circle_bunches[it.bunch_index].circles[it.circle_index];
+	auto left = circle_bunches[intr->bunch_index].circles[intr->circle_index];
+	auto right = circle_bunches[intr->bunch_index].circles[intr->circle_index];
 
 	auto f = get_XDfork(ls, left);
 	
@@ -876,23 +898,37 @@ void extract_all_paths(const XDpathnode_t *node, std::vector<waypoint_vec_t> *pa
 bool get_path_2(const vec2_t &from, const vec2_t &to, const std::vector<circle_bunch> &hazards, std::vector<waypoint_vec_t> *paths_out) {
 	const line_segment ls(from, to);
 
-
+	return true;
 }
 
-bool get_path_XD(const vec2_t& from, const vec2_t& to, std::vector<waypoint_vec_t> *paths_out, const std::vector<circle_bunch> &circles) {
+bool get_path_XD(const vec2_t& from, const vec2_t& to, std::vector<waypoint_vec_t> *paths_out, const hazards_t &hazards) {
 
 	Timer t;
 
 	const line_segment ls(from, to);
-	//XDpathnode_t root(ls, circles);
 
 	//PRINT("cbs.size(): %zu\n", cbs.size());
 
 //	get_pathfork_XD(ls, circles, &root);
 
 //	extract_all_paths(&root, paths_out);
+	if (hazards.bunches.size() > 0 && hazards.bunches[0].circles.size() > 0) {
+		circle c = hazards.bunches[0].circles[0];
+		vec2_t L = ls.diff();
+		vec2_t A = c.center - from;
+		float alpha = angle_between(L, A);
+		float d1 = dot(L, A);
+		vec2_t L2 = length(A) * cos(alpha) * unit(L);
+		vec2_t R = A - L2;
+		float lR = length(R);
+		float x = sqrtf(c.radius*c.radius - lR * lR);
+		vec2_t shortest = (length(A) - x) * unit(L);
+		PRINT("L2: (%.3f, %.3f), R: (%.3f, %.3f), length(R): %f\n", L2.x, L2.y, R.x, R.y, length(R));
+		paths_out->push_back({from, from + shortest});
+	}
+	//paths_out->push_back({from, to});
 
-	PRINT("get_path_XD took %f ms\n", t.get_ms());
+	//PRINT("get_path_XD took %f ms\n", t.get_ms());
 
 	return true;
 
@@ -957,9 +993,9 @@ static void draw_debug(Render* r) {
 	std::transform(avoid_points.begin(), avoid_points.end(), std::back_inserter(circles), [](const avoid_point_t& p) { return circle{ p.pos, p.radius }; });
 	std::sort(circles.begin(), circles.end(), [&](const circle& a, const circle& b) { return length(a.center - path_from) < length(b.center - path_from); });
 
-	auto circle_bunches = find_circle_bunches(circles);
+	auto hazards = find_circle_bunches(circles);
 
-	get_path_XD(path_from, path_to, &paths, circle_bunches);
+	get_path_XD(path_from, path_to, &paths, hazards);
 
 	for (const auto &P : paths) {
 		std::vector<vec2_t> vertices;
