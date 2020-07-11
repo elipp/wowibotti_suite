@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 #include "linalg.h"
 
 template <typename T, int S>
@@ -85,7 +86,17 @@ struct circle {
 	}
 };
 
-bool intersection(const line_segment& ln, const circle& c);
+template <typename T>
+constexpr bool BETWEEN(T x, float min, float max) { return static_cast<float>(x) >= min && static_cast<float>(x) <= max; }
+
+struct intersect_data {
+	bool valid1, valid2;
+    float t1, t2;
+    vec2_t i1, i2;
+};
+
+std::optional<intersect_data> intersection(const line_segment& ln, const circle& crc);
+
 bool intersection(const circle &a, const circle &b);
 
 bool inside(const vec2_t& p, const circle& crc);

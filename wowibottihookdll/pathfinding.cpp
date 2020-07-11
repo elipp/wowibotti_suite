@@ -1,6 +1,7 @@
 #include <queue>
 #include <limits>
 #include <cmath>
+#include <optional>
 
 #include "pathfinding.h"
 
@@ -136,14 +137,12 @@ float intersection_distance(const line_segment &ln, const circle& c) {
     return 0.0f;
 }
 
-template <typename T>
-constexpr bool BETWEEN(T x, float min, float max) { return static_cast<float>(x) >= min && static_cast<float>(x) <= max; }
 
-bool intersection(const line_segment& ln, const circle& crc) {
+std::optional<intersect_data> intersection(const line_segment& ln, const circle& crc) {
     vec2_t d = ln.end - ln.start;
     vec2_t f = ln.start - crc.center;
 
-    const float& r = crc.radius;
+    auto& r = crc.radius;
 
     float a = dot(d, d);
     float b = 2 * dot(f, d);
@@ -152,7 +151,7 @@ bool intersection(const line_segment& ln, const circle& crc) {
     float discriminant = b * b - 4 * a * c;
     if (discriminant < 0)
     {
-        return false;
+        return std::nullopt;
     }
     else
     {
@@ -168,7 +167,10 @@ bool intersection(const line_segment& ln, const circle& crc) {
         float t1 = (-b - discriminant) / (2 * a);
         float t2 = (-b + discriminant) / (2 * a);
 
-        PRINT("t1: %f, t2: %f\n", t1, t2);
+        vec2_t vt1 = (1.0f - t1) * ln.start + t1 * ln.end;
+        vec2_t vt2 = (1.0f - t2) * ln.start + t2 * ln.end;
+
+        return intersect_data{BETWEEN(t1, 0, 1), BETWEEN(t2, 0, 1), t1, t2, vt1, vt2};
 
         // 3x HIT cases:
         //          -o->             --|-->  |            |  --|->
@@ -178,24 +180,59 @@ bool intersection(const line_segment& ln, const circle& crc) {
         //       ->  o                     o ->              | -> |
         // FallShort (t1>1,t2>1), Past (t1<0,t2<0), CompletelyInside(t1<0, t2>1)
 
-        if (BETWEEN(t1, 0, 1))
-        {
+      //  if (BETWEEN(t1, 0, 1))
+       // {
             // t1 is the intersection, and it's closer than t2
             // (since t1 uses -b - discriminant)
             // Impale, Poke
-            return true;
-        }
+        //    return true;
+//        }
 
         // here t1 didn't intersect so we are either started
         // inside the sphere or completely past it
-        if (BETWEEN(t2, 0, 1))
-        {
+ //       if (BETWEEN(t2, 0, 1))
+  //      {
             // ExitWound
-            return true;
-        }
+  //          return true;
+   //     }
 
         // no intn: FallShort, Past, CompletelyInside
-        return false;
+    //    return false;
+    }
+}
+
+std::optional<vec2_t> first_intersection(const line_segment& ln, const circle& crc)  {
+    vec2_t d = ln.end - ln.start;
+    vec2_t f = ln.start - crc.center;
+
+    auto& r = crc.radius;
+
+    float a = dot(d, d);
+    float b = 2 * dot(f, d);
+    float c = dot(f, f) - r * r;
+
+    float discriminant = b * b - 4 * a * c;
+    if (discriminant < 0)
+    {
+        return std::nullopt;
+    }
+    else
+    {
+        // ray didn't totally miss sphere,
+        // so there is a solution to
+        // the equation.
+
+        discriminant = sqrt(discriminant);
+
+        // either solution may be on or off the ray so need to test both
+        // t1 is always the smaller value, because BOTH discriminant and
+        // a are nonnegative.
+        float t1 = (-b - discriminant) / (2 * a);
+        if (t1 < 0) return std::nullopt;
+
+        vec2_t vt1 = (1.0f - t1) * ln.start + t1 * ln.end;
+
+        return vt1;
     }
 }
 

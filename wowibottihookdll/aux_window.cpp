@@ -574,19 +574,25 @@ struct circle_bunch {
 	}
 };
 
-struct intersect_result {
+struct intersect_info {
 	int bunch_index;
 	int circle_index;
+	float distance;
 };
 
-std::optional<std::vector<intersect_result>> find_intersecting_circles(const line_segment &ls, const std::vector<circle_bunch> &circles) {
-	std::vector<intersect_result> results;
-	for (auto b_it = circles.begin(); b_it != circles.end(); ++b_it) {
+std::optional<std::vector<intersect_info>> find_intersecting_circles(const line_segment &ls, const hazards_t &hazards) {
+	std::vector<intersect_info> results;
+	for (auto b_it = hazards.bunches.begin(); b_it != hazards.bunches.end(); ++b_it) {
 		for (auto it = b_it->circles.begin(); it != b_it->circles.end(); ++it)
 		{
-			if (intersection(ls, *it))
-			{
-				results.push_back(intersect_result{std::distance(circles.begin(), b_it), std::distance(b_it->circles.begin(), it)});
+			auto intr = intersection(ls, *it); 
+			if (intr) {
+				float d = 0;
+				if (intr->valid1) { d = length(intr->i1 - ls.start); }
+				else if (intr->valid2) { d = length(intr->i2 - ls.start); }
+				else { continue; } // at least one of the intersection points needs to be valid
+
+				results.push_back(intersect_info{std::distance(hazards.bunches.begin(), b_it), std::distance(b_it->circles.begin(), it), d});
 			}
 		}
 	}
@@ -600,9 +606,10 @@ std::optional<std::vector<intersect_result>> find_intersecting_circles(const lin
 
 struct hazards_t {
 	std::vector<circle_bunch> bunches;
-	std::optional<intersect_result> find_intersection_data(const line_segment &ls) const {
+	std::optional<intersect_info> find_closest_intersecting_bunch(const line_segment &ls) const {
 		auto intr = find_intersecting_circles(ls, bunches);
 		if (intr) {
+			std::sort(intr->begin(), intr->end(), [&](const intersect_info &i, const intersect_info &o) { return i.distance < o.distance; });
 			// sort by intersection distance
 			return intr->at(0);
 		}
@@ -822,7 +829,7 @@ void get_pathfork_XD(const line_segment &ls, const std::vector<circle_bunch> &ci
 	hazards_t h;
 	h.bunches = circle_bunches;
 
-	auto intr = h.find_intersection_data(ls);
+	auto intr = h.find_closest_intersecting_bunch(ls);
 	if (intr) {
 		current->add_waypoint(ls.end); // no offending circles, so we simply assign start == end
 		return;
@@ -901,6 +908,19 @@ bool get_path_2(const vec2_t &from, const vec2_t &to, const std::vector<circle_b
 	return true;
 }
 
+bool alt_intersect(const line_segment &ls, const circle &c) {
+	vec2_t L = ls.diff();
+	vec2_t A = c.center - ls.start;
+	float alpha = angle_between(L, A);
+	float d1 = dot(L, A);
+	vec2_t L2 = length(A) * cos(alpha) * unit(L);
+	vec2_t R = A - L2;
+	float lR = length(R);
+
+// NOT IMPLEMENTED :D
+	return true;
+}
+
 bool get_path_XD(const vec2_t& from, const vec2_t& to, std::vector<waypoint_vec_t> *paths_out, const hazards_t &hazards) {
 
 	Timer t;
@@ -910,22 +930,7 @@ bool get_path_XD(const vec2_t& from, const vec2_t& to, std::vector<waypoint_vec_
 	//PRINT("cbs.size(): %zu\n", cbs.size());
 
 //	get_pathfork_XD(ls, circles, &root);
-
 //	extract_all_paths(&root, paths_out);
-	if (hazards.bunches.size() > 0 && hazards.bunches[0].circles.size() > 0) {
-		circle c = hazards.bunches[0].circles[0];
-		vec2_t L = ls.diff();
-		vec2_t A = c.center - from;
-		float alpha = angle_between(L, A);
-		float d1 = dot(L, A);
-		vec2_t L2 = length(A) * cos(alpha) * unit(L);
-		vec2_t R = A - L2;
-		float lR = length(R);
-		float x = sqrtf(c.radius*c.radius - lR * lR);
-		vec2_t shortest = (length(A) - x) * unit(L);
-		PRINT("L2: (%.3f, %.3f), R: (%.3f, %.3f), length(R): %f\n", L2.x, L2.y, R.x, R.y, length(R));
-		paths_out->push_back({from, from + shortest});
-	}
 	//paths_out->push_back({from, to});
 
 	//PRINT("get_path_XD took %f ms\n", t.get_ms());
