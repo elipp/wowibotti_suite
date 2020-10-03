@@ -98,6 +98,10 @@ constexpr vec2_t operator-(const vec2_t& a, const vec2_t& b) {
 	return { a.x - b.x, a.y - b.y };
 }
 
+constexpr vec2_t operator-(const vec2_t &a) {
+	return { -a.x, -a.y };
+}
+
 constexpr vec2_t operator*(float d, const vec2_t& v) {
 	return { d * v.x, d * v.y };
 }

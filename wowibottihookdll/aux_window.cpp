@@ -490,33 +490,6 @@ static void init_debug_render(Render* r) {
 	glBindVertexArray(0);
 }
 
-static const double halfpi = 0.5 * M_PI;
-static const double dpi = 2.0 * M_PI / 3.0;
-
-static inline tri_t get_tri(vec2_t pos, float size) {
-
-	return { 
-		pos + size * vec2(cos(halfpi),				sin(halfpi)),
-		pos + size * vec2(cos(halfpi + dpi),		sin(halfpi + dpi)),
-		pos + size * vec2(cos(halfpi + 2.0 * dpi),	sin(halfpi + 2.0 * dpi)) };
-
-}
-
-static inline tri_t get_arrowhead(vec2_t pos, float size, float theta) {
-
-	return {
-		pos + 1.8*size * vec2(cos(halfpi + theta),				sin(halfpi + theta)),
-		pos + size * vec2(cos(halfpi + dpi + theta),		sin(halfpi + dpi + theta)),
-		pos + size * vec2(cos(halfpi + 2.0 * dpi + theta),	sin(halfpi + 2.0 * dpi + theta)) };
-
-}
-
-
-static std::vector<avoid_point_t> avoid_points;
-
-typedef std::vector<vec2_t> waypoint_vec_t;
-typedef std::list<vec2_t> waypoint_list_t;
-
 struct circle_bunch {
 	std::vector<circle> circles;
 	circle_bunch() {}
@@ -580,34 +553,14 @@ struct intersect_info {
 	float distance;
 };
 
-std::optional<std::vector<intersect_info>> find_intersecting_circles(const line_segment &ls, const hazards_t &hazards) {
-	std::vector<intersect_info> results;
-	for (auto b_it = hazards.bunches.begin(); b_it != hazards.bunches.end(); ++b_it) {
-		for (auto it = b_it->circles.begin(); it != b_it->circles.end(); ++it)
-		{
-			auto intr = intersection(ls, *it); 
-			if (intr) {
-				float d = 0;
-				if (intr->valid1) { d = length(intr->i1 - ls.start); }
-				else if (intr->valid2) { d = length(intr->i2 - ls.start); }
-				else { continue; } // at least one of the intersection points needs to be valid
+struct hazards_t;
 
-				results.push_back(intersect_info{std::distance(hazards.bunches.begin(), b_it), std::distance(b_it->circles.begin(), it), d});
-			}
-		}
-	}
-	if (results.size() == 0) {
-		return std::nullopt;
-	}
-	else return results;
-
-}
 
 
 struct hazards_t {
 	std::vector<circle_bunch> bunches;
 	std::optional<intersect_info> find_closest_intersecting_bunch(const line_segment &ls) const {
-		auto intr = find_intersecting_circles(ls, bunches);
+		auto intr = find_intersecting_circles(ls);
 		if (intr) {
 			std::sort(intr->begin(), intr->end(), [&](const intersect_info &i, const intersect_info &o) { return i.distance < o.distance; });
 			// sort by intersection distance
@@ -615,7 +568,148 @@ struct hazards_t {
 		}
 		else return std::nullopt;
 	}
+	std::optional<std::vector<intersect_info>> find_intersecting_circles(const line_segment &ls) const {
+		std::vector<intersect_info> results;
+		for (auto b_it = bunches.begin(); b_it != bunches.end(); ++b_it)
+		{
+			for (auto it = b_it->circles.begin(); it != b_it->circles.end(); ++it)
+			{
+				auto intr = intersection(ls, *it);
+				if (intr)
+				{
+					float d = 0;
+					if (intr->valid1)
+					{
+						d = length(intr->i1 - ls.start);
+					}
+					else if (intr->valid2)
+					{
+						d = length(intr->i2 - ls.start);
+					}
+					else
+					{
+						continue;
+					} // at least one of the intersection points needs to be valid
+
+					results.push_back(intersect_info{std::distance(bunches.begin(), b_it), std::distance(b_it->circles.begin(), it), d});
+				}
+			}
+		}
+		if (results.size() == 0)
+		{
+			return std::nullopt;
+		}
+		else
+			return results;
+	}
 };
+
+
+
+static const double halfpi = 0.5 * M_PI;
+static const double dpi = 2.0 * M_PI / 3.0;
+
+static inline tri_t get_tri(vec2_t pos, float size) {
+
+	return { 
+		pos + size * vec2(cos(halfpi),				sin(halfpi)),
+		pos + size * vec2(cos(halfpi + dpi),		sin(halfpi + dpi)),
+		pos + size * vec2(cos(halfpi + 2.0 * dpi),	sin(halfpi + 2.0 * dpi)) };
+
+}
+
+static inline tri_t get_arrowhead(vec2_t pos, float size, float theta) {
+
+	return {
+		pos + 1.8*size * vec2(cos(halfpi + theta),				sin(halfpi + theta)),
+		pos + size * vec2(cos(halfpi + dpi + theta),		sin(halfpi + dpi + theta)),
+		pos + size * vec2(cos(halfpi + 2.0 * dpi + theta),	sin(halfpi + 2.0 * dpi + theta)) };
+
+}
+
+std::array<vec2_t, 2> bitangent_helper(float a, float b, float xp, float yp, float r) {
+	float xp_ma = (xp - a);
+	float xp_ma2 = xp_ma * xp_ma;
+	float yp_mb = (yp - b);
+	float yp_mb2 = yp_mb * yp_mb;
+	float r2 = r * r;
+
+	float temp1 = xp_ma2 + yp_mb2;
+
+	float xtemp = r * yp_mb * sqrt(temp1 - r2);
+	float ytemp = r * xp_ma * sqrt(temp1 - r2);
+
+	float xt1 = (r2 * xp_ma + xtemp) / temp1 + a;
+	float yt1 = (r2 * yp_mb - ytemp) / temp1 + b;
+
+	float xt2 = (r2 * xp_ma - xtemp) / temp1 + a;
+	float yt2 = (r2 * yp_mb + ytemp) / temp1 + b;
+
+	return {vec2_t(xt1, yt1), vec2_t(xt2, yt2)};
+}
+
+std::array<line_segment, 2> find_bitangents(const circle &ca, const circle &cb) {
+	// only finds "outer" ones
+	if (ca.radius == cb.radius) {
+		auto dl = line_segment(ca.center, cb.center);
+		//auto p = b.radius*unit(perp(dl.diff()));
+		//return {dl.translated(p), dl.translated(-p)};
+		auto p = unit(perp(dl.diff()));
+
+		line_segment t1(dl.start + ca.radius * p, dl.end + cb.radius * p); 
+		line_segment t2(dl.start - ca.radius * p, dl.end - cb.radius * p);
+
+		return {t1, t2};
+	}
+	else {
+		float a = ca.center.x;
+		float b = ca.center.y;
+		float c = cb.center.x;
+		float d = cb.center.y;
+		float r0 = ca.radius;
+		float r1 = cb.radius;
+		float xp = (c*r0 - a*r1)/(r0 - r1);
+		float yp = (d*r0 - b*r1)/(r0 - r1);
+
+		auto p1 = bitangent_helper(a, b, xp, yp, r0);
+		auto p2 = bitangent_helper(c, d, xp, yp, r1);
+
+		auto left = line_segment(p1[0], p2[0]);
+		auto right = line_segment(p1[1], p2[1]);
+
+		return {left, right};
+				
+
+		// wikipedia implementation (couldn't get it to work tho)
+		// auto dl = line_segment(a.center, b.center);
+		// auto d = dl.diff();
+		// float gamma = -atanf(d.x/d.y);
+		// float beta = asin((b.radius - a.radius)/sqrt(d.x * d.x + d.y * d.y));
+		// float alpha = gamma - beta;
+		// float sinalpha = sin(alpha);
+		// float cosalpha = cos(alpha);
+
+		// const float &x1 = a.center.x; const float &y1 = a.center.y;
+		// const float &x2 = b.center.x; const float &y2 = b.center.y;
+
+		// vec2_t t1_beg(x1 + a.radius * sinalpha, y1 - a.radius * cosalpha);
+		// vec2_t t1_end(x2 - b.radius * sinalpha, y2 + b.radius * cosalpha);
+
+		// vec2_t t2_beg(x1 - a.radius * sinalpha, y1 - a.radius * cosalpha);
+		// vec2_t t2_end(x2 - b.radius * sinalpha, y2 - b.radius * cosalpha);
+
+		// return { line_segment(t1_beg, t1_end), line_segment(t2_beg, t2_end) };
+
+	}
+}
+
+static std::vector<avoid_point_t> avoid_points;
+
+typedef std::vector<vec2_t> waypoint_vec_t;
+typedef std::list<vec2_t> waypoint_list_t;
+
+
+
 
 
 struct XDpathnode_t;
@@ -931,7 +1025,14 @@ bool get_path_XD(const vec2_t& from, const vec2_t& to, std::vector<waypoint_vec_
 
 //	get_pathfork_XD(ls, circles, &root);
 //	extract_all_paths(&root, paths_out);
-	//paths_out->push_back({from, to});
+
+	if (hazards.bunches.size() > 1) {
+		auto t = find_bitangents(hazards.bunches[0].circles[0], hazards.bunches[1].circles[0]);
+		paths_out->push_back({t[0].start, t[0].end});
+		paths_out->push_back({t[1].start, t[1].end});
+	}
+
+//	paths_out->push_back({from, to});
 
 	//PRINT("get_path_XD took %f ms\n", t.get_ms());
 
@@ -989,7 +1090,9 @@ static void draw_debug(Render* r) {
 	r->update_buffer(&tri, sizeof(tri));
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 
-	vec2_t path_from = { hcache.player.pos.x, hcache.player.pos.y };
+	vec2_t ppos(hcache.player.pos.x, hcache.player.pos.y);
+
+	vec2_t path_from = ppos;
 	//vec2_t path_to{ -386, 2254 };
 	vec2_t path_to = path_from + 50*unitvec2_from_rot(hcache.player.rot);
 
@@ -1026,7 +1129,6 @@ static void update_buffers() {
 	WowObject p;
 	
 	avoid_points = std::vector<avoid_point_t>();
-	avoid_points.reserve(256 * sizeof(avoid_point_t));
 
 	if (!OMgr->get_local_object(&p)) return;
 	
@@ -1034,6 +1136,7 @@ static void update_buffers() {
 		auto v = a->get_points();
 		avoid_points.insert(std::end(avoid_points), std::begin(v), std::end(v));
 	}
+	avoid_points.emplace_back(hcache.player.pos.x, hcache.player.pos.y, 15, 0);
 
 	num_avoid_points = avoid_points.size();
 	if (num_avoid_points == 0) return;

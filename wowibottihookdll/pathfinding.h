@@ -49,6 +49,7 @@ struct line_segment {
     }
     line_segment(vec2_t s, vec2_t e) : start(s), end(e) {}
 	constexpr vec2_t diff() const { return end - start; }
+	line_segment translated(vec2_t by) { return line_segment(start + by, end + by); }
 };
 
 struct tangent_points {
@@ -65,6 +66,7 @@ struct circle {
     vec2_t center;
     float radius;
     circle(vec2_t c, float r) : center(c), radius(r) {}
+	circle(float x, float y, float r) : center(vec2_t(x, y)), radius(r) {}
 	tangent_points find_tangent_points(const vec2_t &from) const {
 		vec2_t d = from - center;
 		float alpha = acosf(radius/length(d));
