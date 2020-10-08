@@ -86,6 +86,7 @@ typedef struct vec2_t {
 	constexpr vec2_t() : x(0), y(0) {}
 } vec2_t;
 
+
 constexpr vec2_t vec2(float x, float y) {
 	return { x, y };
 }

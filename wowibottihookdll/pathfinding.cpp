@@ -5,6 +5,11 @@
 
 #include "pathfinding.h"
 
+tangent_points find_tangent_points(vec2_t p, const circle &c) {
+	auto t = c.find_tangent_points(p);
+	return {t.right, t.left};
+}
+
 // represents a single pixel
 class Node {
 public:
@@ -41,6 +46,7 @@ float euclidean(int i0, int j0, int i1, int j1) {
 float l1_norm(int i0, int j0, int i1, int j1) {
     return std::abs(i0 - i1) + std::abs(j0 - j1);
 }
+
 
 // weights:        flattened h x w grid of costs
 // h, w:           height and width of grid

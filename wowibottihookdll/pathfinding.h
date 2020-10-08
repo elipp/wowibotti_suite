@@ -50,6 +50,7 @@ struct line_segment {
     line_segment(vec2_t s, vec2_t e) : start(s), end(e) {}
 	constexpr vec2_t diff() const { return end - start; }
 	line_segment translated(vec2_t by) { return line_segment(start + by, end + by); }
+	line_segment() {}
 };
 
 struct tangent_points {
@@ -62,20 +63,22 @@ struct tangent_paths {
 	std::array<vec2_t, 2> right;
 };
 
+
 struct circle {
     vec2_t center;
     float radius;
     circle(vec2_t c, float r) : center(c), radius(r) {}
 	circle(float x, float y, float r) : center(vec2_t(x, y)), radius(r) {}
+
 	tangent_points find_tangent_points(const vec2_t &from) const {
 		vec2_t d = from - center;
 		float alpha = acosf(radius/length(d));
 
 		vec2_t r1 = unit(rotate(d, alpha));
 		vec2_t r2 = unit(rotate(d, -alpha));
-		vec2_t cwr = center + radius * r1;
-		vec2_t ccwr = center + radius * r2;
-		return {cwr, ccwr};
+		vec2_t left = center + radius * r1;
+		vec2_t right = center + radius * r2;
+		return {left, right};
 	}
 
 	tangent_paths get_tangent_paths(const line_segment &ls) const {
@@ -88,8 +91,27 @@ struct circle {
 	}
 };
 
+tangent_points find_tangent_points(vec2_t p, const circle &c);
+
 template <typename T>
 constexpr bool BETWEEN(T x, float min, float max) { return static_cast<float>(x) >= min && static_cast<float>(x) <= max; }
+
+struct intersect_indices {
+	int bunch, circle;
+};
+
+constexpr bool operator==(const intersect_indices &a, const intersect_indices &b) {
+	return a.bunch == b.bunch && a.circle == b.circle;
+}
+
+struct intersect_info {
+	intersect_indices indices;
+	float distance;
+};
+
+struct bitangents {
+	line_segment left, right;
+};
 
 struct intersect_data {
 	bool valid1, valid2;

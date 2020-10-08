@@ -140,6 +140,12 @@ fp_glUseProgram glUseProgram;
 fp_glCreateProgram glCreateProgram;
 fp_glBufferSubData glBufferSubData;
 fp_glGetActiveUniform glGetActiveUniform;
+fp_glGenFramebuffers glGenFramebuffers;
+fp_glBindFramebuffer glBindFramebuffer;
+fp_glFramebufferTexture2D glFramebufferTexture2D;
+fp_glRenderbufferStorage glRenderbufferStorage;
+fp_glFramebufferRenderbuffer glFramebufferRenderbuffer;
+fp_glBindRenderbuffer glBindRenderbuffer;
 
 fp_glUniform1f glUniform1f;
 fp_glUniform2f glUniform2f;
@@ -189,6 +195,11 @@ static int initialize_gl_extensions() {
 	LOADEXT(glUniform4fv);
 	LOADEXT(glGetUniformLocation);
 	LOADEXT(glBufferSubData);
+	LOADEXT(glGenFramebuffers);
+	LOADEXT(glBindFramebuffer);
+	LOADEXT(glRenderbufferStorage);
+	LOADEXT(glFramebufferRenderbuffer);
+	LOADEXT(glBindRenderbuffer);
 
 	return 1;
 
@@ -256,7 +267,7 @@ static vec2i_t world2tex(float x, float y) {
 	return screen2tex(scr.x, scr.y);
 }
 
-int HMAP_get_flatindex_from_worldpos(const vec3& pos) {
+int HMAP_get_flatindex_from_worldpos(const vec2_t& pos) {
 	vec2i_t tex = world2tex(pos.x, pos.y);
 	return HMAP_FLAT_INDEX(tex.x, tex.y);
 }
@@ -490,6 +501,10 @@ static void init_debug_render(Render* r) {
 	glBindVertexArray(0);
 }
 
+struct extreme_circle_indices {
+	int left, right;
+};
+
 struct circle_bunch {
 	std::vector<circle> circles;
 	circle_bunch() {}
@@ -522,39 +537,31 @@ struct circle_bunch {
 		return false;
 	}
 
-	std::array<const circle*, 2> find_extreme(const line_segment &ls) const {
+	extreme_circle_indices find_extreme(const line_segment &ls) const {
 		float theta_max_l = 0;
 		float theta_max_r = 0;
-		const circle *max_l = nullptr;
-		const circle *max_r = nullptr;
 
 		const vec2_t d = ls.diff();
+		int index_l = 0;
+		int index_r = 0;
 
-		for (const auto &c : circles) {
-			auto tanp = c.find_tangent_points(ls.start);	
-			float al = ccw_angle_between(d, tanp.left);
-			float ar = cw_angle_between(d, tanp.right);
+		for (int i = 0; i < circles.size(); ++i) {
+			const circle &c = circles[i];
+			auto tanp = find_tangent_points(ls.start, c);	
+			float al = cw_angle_between(d, tanp.left - ls.start);
+			float ar = ccw_angle_between(d, tanp.right - ls.start);
 			if (al > theta_max_l) {
-				max_l = &c;
+				index_l = i;
 				theta_max_l = al;
 			}
 			if (ar > theta_max_r) {
-				max_r = &c;
+				index_r = i;
 				theta_max_r = ar;
 			}
 		}
-		return {max_l, max_r};
+		return {index_l, index_r};
 	}
 };
-
-struct intersect_info {
-	int bunch_index;
-	int circle_index;
-	float distance;
-};
-
-struct hazards_t;
-
 
 
 struct hazards_t {
@@ -568,15 +575,33 @@ struct hazards_t {
 		}
 		else return std::nullopt;
 	}
-	std::optional<std::vector<intersect_info>> find_intersecting_circles(const line_segment &ls) const {
+
+	const circle &get_circle(const intersect_info &i) const {
+		return bunches[i.indices.bunch].circles[i.indices.circle];
+	}
+
+	const circle &get_circle(const intersect_indices &i) const {
+		return bunches[i.bunch].circles[i.circle];
+	}
+
+
+	std::optional<std::vector<intersect_info>> find_intersecting_circles(const line_segment &ls, bool break_on_first = false, const intersect_indices *ignore = nullptr) const { 
 		std::vector<intersect_info> results;
 		for (auto b_it = bunches.begin(); b_it != bunches.end(); ++b_it)
 		{
 			for (auto it = b_it->circles.begin(); it != b_it->circles.end(); ++it)
 			{
+				int bunch_index = std::distance(bunches.begin(), b_it);
+				int circle_index = std::distance(b_it->circles.begin(), it);
+
+				intersect_indices ind = {bunch_index, circle_index};
+				if (ignore && *ignore == ind) {
+					PRINT("ignoring circle %d, %d\n", ind.bunch, ind.circle);
+					continue;
+				}
+
 				auto intr = intersection(ls, *it);
-				if (intr)
-				{
+				if (intr) {
 					float d = 0;
 					if (intr->valid1)
 					{
@@ -591,17 +616,35 @@ struct hazards_t {
 						continue;
 					} // at least one of the intersection points needs to be valid
 
-					results.push_back(intersect_info{std::distance(bunches.begin(), b_it), std::distance(b_it->circles.begin(), it), d});
+					results.push_back(intersect_info{bunch_index, circle_index, d});
+					if (break_on_first) return results;
 				}
 			}
 		}
-		if (results.size() == 0)
-		{
+		if (results.empty()) {
 			return std::nullopt;
 		}
-		else
-			return results;
+		else return results;
 	}
+
+	std::optional<intersect_indices> peek_around_circle(const intersect_indices &i, const vec2_t &goal, bool clockwise) const {
+		circle c = get_circle(i);
+		auto t = c.find_tangent_points(goal);
+		line_segment ls;
+		if (clockwise) ls = line_segment(t.left, goal);
+		else ls = line_segment(t.right, goal);
+
+		auto ic = find_intersecting_circles(ls, true, &i);
+		if (ic) {
+			PRINT("peek: have post-peek intersection (with %d, %d) (ic->size(): %lu)\n", ic->at(0).indices.bunch, ic->at(0).indices.circle, ic->size());
+			return ic->at(0).indices;
+		}
+		else {
+			PRINT("peek: no intersection\n");
+			return std::nullopt;
+		}
+}
+
 };
 
 
@@ -648,7 +691,7 @@ std::array<vec2_t, 2> bitangent_helper(float a, float b, float xp, float yp, flo
 	return {vec2_t(xt1, yt1), vec2_t(xt2, yt2)};
 }
 
-std::array<line_segment, 2> find_bitangents(const circle &ca, const circle &cb) {
+bitangents find_bitangents(const circle &ca, const circle &cb) {
 	// only finds "outer" ones
 	if (ca.radius == cb.radius) {
 		auto dl = line_segment(ca.center, cb.center);
@@ -708,9 +751,10 @@ static std::vector<avoid_point_t> avoid_points;
 typedef std::vector<vec2_t> waypoint_vec_t;
 typedef std::list<vec2_t> waypoint_list_t;
 
-
-
-
+template <typename T>
+void vec_append(std::vector<T> &v, const std::vector<T> &another) {
+	v.insert(v.end(), another.begin(), another.end());
+}
 
 struct XDpathnode_t;
 void get_pathfork_XD(const line_segment &ls, const std::vector<circle_bunch> &valid_circles, XDpathnode_t *current);
@@ -836,6 +880,8 @@ static waypoint_vec_t slerp2d_steps(const vec2_t &r1, const vec2_t &r2, const ve
 		r.push_back(n);
 	}
 
+	r.push_back(r2);
+
 	return r;
 }
 
@@ -916,27 +962,22 @@ inline void DELETE_CIRCLE(std::vector<circle> *cv, std::vector<circle>::iterator
 //	PRINT("cv.size (after erase): %zu\n", cv->size());
 }
 
-void get_pathfork_XD(const line_segment &ls, const std::vector<circle_bunch> &circle_bunches, XDpathnode_t *current) {
+
+void get_pathfork_XD(const line_segment &ls, const hazards_t &hazards, XDpathnode_t *current) {
 	
 	if (ls.start == ls.end) { return; }
 
-	hazards_t h;
-	h.bunches = circle_bunches;
-
-	auto intr = h.find_closest_intersecting_bunch(ls);
-	if (intr) {
+	auto intr = hazards.find_closest_intersecting_bunch(ls);
+	if (!intr) {
 		current->add_waypoint(ls.end); // no offending circles, so we simply assign start == end
 		return;
 	}
 
-	else {
-		//PRINT("found intersecting circle at (%f, %f)\n", it->center.x, it->center.y);
-	}
 
 //	circle ic = *it; // take copy, it's needed in the next step
 //	DELETE_CIRCLE(valid_circles, it);
-	auto left = circle_bunches[intr->bunch_index].circles[intr->circle_index];
-	auto right = circle_bunches[intr->bunch_index].circles[intr->circle_index];
+	auto left = hazards.get_circle(*intr);
+	auto L = hazards.bunches[intr->indices.bunch].find_extreme(ls);
 
 	auto f = get_XDfork(ls, left);
 	
@@ -1019,22 +1060,58 @@ bool get_path_XD(const vec2_t& from, const vec2_t& to, std::vector<waypoint_vec_
 
 	Timer t;
 
-	const line_segment ls(from, to);
-
-	//PRINT("cbs.size(): %zu\n", cbs.size());
-
-//	get_pathfork_XD(ls, circles, &root);
-//	extract_all_paths(&root, paths_out);
-
-	if (hazards.bunches.size() > 1) {
-		auto t = find_bitangents(hazards.bunches[0].circles[0], hazards.bunches[1].circles[0]);
-		paths_out->push_back({t[0].start, t[0].end});
-		paths_out->push_back({t[1].start, t[1].end});
+	if (paths_out->size() > 10) {
+		PRINT("paths_out->size() > 10, aborting\n");
+		return false;
 	}
 
-//	paths_out->push_back({from, to});
+	const line_segment ls(from, to);
 
-	//PRINT("get_path_XD took %f ms\n", t.get_ms());
+	auto in = hazards.find_closest_intersecting_bunch(ls);
+
+	if (!in) {
+		PRINT("No intersections\n");
+		paths_out->push_back(waypoint_vec_t{from, to});
+		return true;
+	}
+	else {
+		PRINT("have intersections\n");
+	}
+
+	const circle_bunch &bunch = hazards.bunches[in->indices.bunch];
+	auto extr = bunch.find_extreme(ls);
+
+	intersect_indices tc = {in->indices.bunch, extr.left};
+	const circle eleft_c = hazards.get_circle(tc);
+
+	PRINT("currently making way around circle %lu, %lu; pos: %f, %f\n", in->indices.bunch, extr.left, eleft_c.center.x, eleft_c.center.y);
+
+	auto p = hazards.peek_around_circle(tc, to, true);
+
+	if (p) {
+		// the circle indicated by p had a post-peek collision, so we do a bitangent
+		circle c2 = hazards.get_circle(*p);
+		auto bt = find_bitangents(eleft_c, c2);
+		auto r1 = find_tangent_points(from, eleft_c).left;
+		auto itpl = interpolate_steps_between(r1, bt.left.start, eleft_c, 8);
+		auto v = waypoint_vec_t();
+		v.push_back(from);
+		vec_append(v, itpl);
+		v.push_back(bt.left.end);
+		paths_out->push_back(v);
+		get_path_XD(bt.left.end, to, paths_out, hazards);
+	}
+
+	else {
+		auto r1 = find_tangent_points(from, eleft_c).left;
+		auto r2 = eleft_c.find_tangent_points(to).left;
+		auto itpl = interpolate_steps_between(r1, r2, eleft_c, 8);
+		auto v = waypoint_vec_t();
+		v.push_back(from);
+		vec_append(v, itpl);
+		v.push_back(to);
+		paths_out->push_back(v);
+	}
 
 	return true;
 
@@ -1043,7 +1120,10 @@ bool get_path_XD(const vec2_t& from, const vec2_t& to, std::vector<waypoint_vec_
 static heaparray<int, HMAP_SIZE * HMAP_SIZE> path;
 static heaparray<float, HMAP_SIZE * HMAP_SIZE> weights;
 
-static std::vector<ivec2> get_path(const vec3& from, const vec3& to) {
+
+#pragma optimize("t", on)
+
+static std::vector<vec2_t> get_path(const vec2_t& from, const vec2_t& to) {
 	hotness_convert_grid_astar(weights.get());
 
 	int start = HMAP_get_flatindex_from_worldpos(from);
@@ -1065,10 +1145,20 @@ static std::vector<ivec2> get_path(const vec3& from, const vec3& to) {
 		//ECHO_WOW("total_length: %f\n", total_length);
 	}
 
+	std::vector<vec2_t> path_screen;
+	std::transform(coords.begin(), coords.end(), std::back_inserter(path_screen), [](const ivec2 &pi) -> vec2_t { return tex2screen(pi.x, pi.y); });
 
-	return coords;
+	return path_screen;
 
 }
+
+std::vector<vec2_t> vector_world2screen(const std::vector<vec2_t> &P) {
+	std::vector<vec2_t> vertices;
+	std::transform(P.begin(), P.end(), std::back_inserter(vertices), [](const vec2_t &wp) -> vec2_t { return world2screen(wp.x, wp.y); });
+	return vertices;
+}
+
+#pragma optimize("", on)
 
 static void draw_debug(Render* r) {
 	glUseProgram(r->shader->programHandle());
@@ -1093,23 +1183,22 @@ static void draw_debug(Render* r) {
 	vec2_t ppos(hcache.player.pos.x, hcache.player.pos.y);
 
 	vec2_t path_from = ppos;
-	//vec2_t path_to{ -386, 2254 };
 	vec2_t path_to = path_from + 50*unitvec2_from_rot(hcache.player.rot);
 
 	std::vector<waypoint_vec_t> paths;
 	std::vector<circle> circles;
 	std::transform(avoid_points.begin(), avoid_points.end(), std::back_inserter(circles), [](const avoid_point_t& p) { return circle{ p.pos, p.radius }; });
-	std::sort(circles.begin(), circles.end(), [&](const circle& a, const circle& b) { return length(a.center - path_from) < length(b.center - path_from); });
+    std::sort(circles.begin(), circles.end(), [&](const circle& a, const circle& b) { return length(a.center - path_from) < length(b.center - path_from); });
 
 	auto hazards = find_circle_bunches(circles);
+	//paths.push_back({path_from, path_to});
 
-	get_path_XD(path_from, path_to, &paths, hazards);
+	auto path = get_path_XD(path_from, path_to, &paths, hazards);
 
-	for (const auto &P : paths) {
-		std::vector<vec2_t> vertices;
-		std::transform(P.begin(), P.end(), std::back_inserter(vertices), [](const vec2_t &wp) -> vec2_t { return world2screen(wp.x, wp.y); });
-		r->update_buffer(&vertices[0], vertices.size() * sizeof(vec2_t));
-		glDrawArrays(GL_LINE_STRIP, 0, vertices.size());
+	for (const auto &p : paths) {
+		auto v = vector_world2screen(p);
+		r->update_buffer(v);
+		glDrawArrays(GL_LINE_STRIP, 0, v.size());
 	}
 }
 
@@ -1136,7 +1225,7 @@ static void update_buffers() {
 		auto v = a->get_points();
 		avoid_points.insert(std::end(avoid_points), std::begin(v), std::end(v));
 	}
-	avoid_points.emplace_back(hcache.player.pos.x, hcache.player.pos.y, 15, 0);
+	//avoid_points.emplace_back(hcache.player.pos.x, hcache.player.pos.y, 15, 0);
 
 	num_avoid_points = avoid_points.size();
 	if (num_avoid_points == 0) return;
@@ -1246,6 +1335,20 @@ typedef struct window_parms_t {
 } window_parms_t;
 
 #define CLASSNAME "ogl hotness"
+
+static void setup_framebuffer(int width, int height) {
+	GLuint fbo, tex, rbo;
+	glGenFramebuffers(1, &fbo);
+	glGenTextures(1, &tex);
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, HMAP_SIZE, HMAP_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+	glGenRenderbuffers(1, &rbo);
+	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB565, HMAP_SIZE, HMAP_SIZE);
+}
 
 static DWORD WINAPI createwindow(LPVOID lpParam) {
 

@@ -161,6 +161,11 @@ typedef char GLchar;
 typedef unsigned int GLsizeiptr;
 typedef int GLintptr;
 
+#define GL_FRAMEBUFFER 0x8D40
+#define GL_RENDERBUFFER 0x8D41
+#define GL_COLOR_ATTACHMENT0 0x8CE0
+#define GL_RGB565 0x8D62
+
 typedef void (APIENTRY* fp_glGenVertexArrays)(GLsizei n, GLuint* arrays);
 typedef void (APIENTRY* fp_glBindVertexArray)(GLuint array);
 typedef void (APIENTRY* fp_glGenBuffers)(GLsizei n, GLuint* buffers);
@@ -198,8 +203,15 @@ typedef GLint (APIENTRY* fp_glGetUniformLocation) (GLuint program, const GLchar*
 typedef void (APIENTRY* fp_glGetActiveUniform)(GLuint program, GLuint index, GLsizei bufSize, GLsizei* length, GLint* size, GLenum* type, GLchar* name);
 
 typedef void (APIENTRY* fp_glBufferSubData) (GLenum target, GLintptr offset, GLsizeiptr size, const void* data);
+typedef void (APIENTRY* fp_glGenFramebuffers) (GLsizei n, GLuint *ids);
+typedef void (APIENTRY* fp_glBindFramebuffer)(	GLenum target, GLuint framebuffer);
+typedef void (APIENTRY* fp_glFramebufferTexture2D) (GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
+typedef void (APIENTRY* fp_glGenRenderbuffers)(	GLsizei n, GLuint * renderbuffers);
+typedef void (APIENTRY* fp_glBindRenderbuffer)(	GLenum target, GLuint renderbuffer);
 
-
+typedef void (APIENTRY* fp_glRenderbufferStorage)(	GLenum target, GLenum internalformat, GLsizei width, GLsizei height);
+typedef void (APIENTRY* fp_glFramebufferRenderbuffer) (	GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer);
+ 
 extern fp_glGenVertexArrays glGenVertexArrays;
 extern fp_glBindVertexArray glBindVertexArray;
 extern fp_glGenBuffers glGenBuffers;
@@ -224,6 +236,13 @@ extern fp_glUseProgram glUseProgram;
 extern fp_glCreateProgram glCreateProgram;
 extern fp_glGetUniformLocation glGetUniformLocation;
 extern fp_glGetActiveUniform glGetActiveUniform;
+extern fp_glGenFramebuffers glGenFramebuffers;
+extern fp_glBindFramebuffer glBindFramebuffer;
+extern fp_glFramebufferTexture2D glFramebufferTexture2D;
+extern fp_glGenRenderbuffers glGenRenderbuffers;
+extern fp_glBindRenderbuffer glBindRenderbuffer;
+extern fp_glRenderbufferStorage glRenderbufferStorage;
+extern fp_glFramebufferRenderbuffer glFramebufferRenderbuffer;
 
 extern fp_glUniform1f glUniform1f;
 extern fp_glUniform2f glUniform2f;

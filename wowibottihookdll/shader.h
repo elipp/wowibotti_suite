@@ -53,10 +53,18 @@ public:
 
 		_init(this);
 	}
+	
 	void update_buffer(const void* data, size_t s) {
 		glBindBuffer(GL_ARRAY_BUFFER, VBOid);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, s, data);
 	}
+	template <typename T>
+	void update_buffer(const std::vector<T> &data) {
+		glBindBuffer(GL_ARRAY_BUFFER, VBOid);
+		std::size_t s = data.size() * sizeof(T);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, s, &data[0]);
+	}
+
 
 	void draw() {
 		_draw(this);
