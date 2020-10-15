@@ -70,8 +70,8 @@ struct circle {
     circle(vec2_t c, float r) : center(c), radius(r) {}
 	circle(float x, float y, float r) : center(vec2_t(x, y)), radius(r) {}
 
-	tangent_points find_tangent_points(const vec2_t &from) const {
-		vec2_t d = from - center;
+	tangent_points find_tangent_points(const vec2_t &to) const {
+		vec2_t d = to - center;
 		float alpha = acosf(radius/length(d));
 
 		vec2_t r1 = unit(rotate(d, alpha));
@@ -98,6 +98,8 @@ constexpr bool BETWEEN(T x, float min, float max) { return static_cast<float>(x)
 
 struct intersect_indices {
 	int bunch, circle;
+	intersect_indices(int b, int c) : bunch(b), circle(c) {}
+	intersect_indices() : intersect_indices(-1, -1) {}
 };
 
 constexpr bool operator==(const intersect_indices &a, const intersect_indices &b) {
@@ -107,6 +109,7 @@ constexpr bool operator==(const intersect_indices &a, const intersect_indices &b
 struct intersect_info {
 	intersect_indices indices;
 	float distance;
+	intersect_info(int b, int c, float d) : indices(b,c), distance(d) {}
 };
 
 struct bitangents {
@@ -119,6 +122,14 @@ struct intersect_data {
     vec2_t i1, i2;
 };
 
+struct extr_ignore {
+	int bunch;
+	std::vector<int> circles;
+	extr_ignore() : bunch(-1) {}
+	extr_ignore(int b, std::initializer_list<int> &&indices) : bunch(b), circles(indices) {}
+};
+
+
 std::optional<intersect_data> intersection(const line_segment& ln, const circle& crc);
 
 bool intersection(const circle &a, const circle &b);
@@ -127,4 +138,14 @@ bool inside(const vec2_t& p, const circle& crc);
 
 constexpr bool operator==(const circle& a, const circle& b) {
     return a.center.x == b.center.x && a.radius == b.radius;
+}
+
+template <typename T, typename pred>
+bool any_matches(const std::vector<T> &v, pred p) {
+	return std::any_of(v.begin(), v.end(), p);
+}
+
+template <typename T>
+bool any_matches(const std::vector<T> &v, const T &value) {
+	return any_matches(v, [=](const T& i) { return i == value; });
 }

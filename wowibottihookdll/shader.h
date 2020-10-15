@@ -60,6 +60,7 @@ public:
 	}
 	template <typename T>
 	void update_buffer(const std::vector<T> &data) {
+		if (data.empty()) return;
 		glBindBuffer(GL_ARRAY_BUFFER, VBOid);
 		std::size_t s = data.size() * sizeof(T);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, s, &data[0]);
