@@ -160,6 +160,9 @@ struct potti_config {
 	std::vector<wowaccount_t> accounts;
 
 	int read_from_file(const char* filename) {
+		CHAR buffer[MAX_PATH] = { 0 };
+		GetModuleFileName(NULL, buffer, MAX_PATH);
+		printf("%s\n", buffer);
 		std::ifstream conf_file(filename);
 		if (!conf_file.is_open()) {
 			error_box("Couldn't find config file (potti.conf) from the working directory.");
@@ -650,10 +653,10 @@ static DWORD WINAPI inject_threadfunc(LPVOID param) {
 		return 0;
 	}
 
-	if (!do_pipe_operations(cl->pid)) {
-		printf("do_pipe_operations() failed. Exiting.\n");
-		return 0;
-	}
+	//if (!do_pipe_operations(cl->pid)) {
+	//	printf("do_pipe_operations() failed. Exiting.\n");
+	//	return 0;
+	//}
 
 	return 1;
 }

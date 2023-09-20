@@ -59,6 +59,11 @@
 
 #define SetFacing (0x00989B70)
 
+enum TBC {
+	D3D9Device = 0xD2A15C,
+	D3D9DeviceOffset = 0x3864,
+};
+
 
 
 //#define TicksSinceLastHWEvent 0xBE10FC // <-- tbc

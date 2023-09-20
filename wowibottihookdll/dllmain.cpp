@@ -199,10 +199,7 @@ void __cdecl DO_STUFF(void *args) {
 
 	DLL_base_path = DLL_path.substr(0, c) + "\\";
 
-#ifdef DEBUG_CONSOLE
-	AllocConsole();
-	freopen_s(&out, "CONOUT$", "wb", stdout);
-#endif
+
 
 	PRINT("DLL_path: %s\nbase_path: %s\n", DLL_path.c_str(), DLL_base_path.c_str());
 
@@ -212,13 +209,55 @@ void __cdecl DO_STUFF(void *args) {
 
 }
 
+#define PUSHAD (BYTE)0x60
+#define POPAD (BYTE)0x61
+#define RET (BYTE)0xC3
+
+static void __stdcall EndScene_hook() {
+	//	draw_custom_d3d();
+	printf("MOJ\n");
+}
+
+
+static const trampoline_t* prepare_EndScene_patch(patch_t* p) {
+
+	static trampoline_t tr;
+
+	PRINT("Preparing EndScene patch...\n");
+
+	DWORD EndScene = get_EndScene();
+	PRINT("Found EndScene at 0x%X\n", EndScene);
+	p->patch_addr = EndScene;
+
+	tr << PUSHAD;
+
+	tr.append_CALL((DWORD)EndScene_hook);
+	tr << POPAD;
+
+	memcpy(p->original, (LPVOID)EndScene, p->size);
+	tr.append_bytes(p->original, p->size);
+
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
+
+	tr << RET;
+
+	return &tr;
+
+}
+
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
 
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH: {
 		inj_hModule = hModule;
-		prepare_pipe_data();
-		_beginthread(DO_STUFF, 0, NULL);
+		AllocConsole();
+		freopen("CONOUT$", "wb", stdout);
+		printf("%p\n", get_EndScene());
+		glhProcess = GetCurrentProcess();
+		auto endscene_patch = patch_t(PATCHADDR_LATER, 7, prepare_EndScene_patch);
+		endscene_patch.enable();
+		//prepare_pipe_data();
+		//_beginthread(DO_STUFF, 0, NULL);
 		break;
 	}
 	case DLL_THREAD_ATTACH:

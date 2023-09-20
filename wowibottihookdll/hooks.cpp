@@ -207,9 +207,7 @@ static int hello_shown = 0;
 
 static void __stdcall EndScene_hook() {
 	//	draw_custom_d3d();
-
-
-
+	printf("MOJ\n");
 }
 
 
@@ -573,11 +571,25 @@ static void __stdcall CTM_finished_hookfunc() {
 	c->handle_posthook();
 }
 
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg)
+	{
+	case WM_CLOSE:
+		PostQuitMessage(0);
+		break;
+	default:
+		return DefWindowProc(hwnd, uMsg, wParam, lParam);
+	}
+	return 0;
+}
+
 static const trampoline_t *prepare_EndScene_patch(patch_t *p) {
 
 	static trampoline_t tr;
 
 	PRINT("Preparing EndScene patch...\n");
+	return &tr;
 
 	DWORD EndScene = get_EndScene();
 	PRINT("Found EndScene at 0x%X\n", EndScene);
@@ -1211,7 +1223,7 @@ static const trampoline_t *prepare_SpellErrMsg_patch(patch_t *p) {
 	return &tr;
 }
 
-static hookable_t hookable_functions[] = {
+//static hookable_t* hookable_functions;
 	//{ "EndScene", 0x0, EndScene_original, EndScene_patch, EndScene_original, prepare_EndScene_patch },
 	//{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, ClosePetStables_original, prepare_ClosePetStables_patch },
 	//{ "CTM_update", (LPVOID)CTM_update_hookaddr, CTM_finished_original, CTM_finished_patch, CTM_finished_original, prepare_CTM_finished_patch },
@@ -1223,28 +1235,29 @@ static hookable_t hookable_functions[] = {
 	//{ "mbuttonup_handler", (LPVOID)mbuttonup_handler, mbuttonup_original, mbuttonup_patch, mbuttonup_patch, prepare_mbuttonup_patch },
 	//{ "DrawIndexedPrimitive", 0x0, drawindexedprimitive_original, drawindexedprimitive_patch, drawindexedprimitive_patch, prepare_drawindexedprimitive_patch },
 
-	{ "EndScene", patch_t(PATCHADDR_LATER, 7, prepare_EndScene_patch) },
-	{ "Present", patch_t(PATCHADDR_LATER, 5, prepare_Present_patch) },
-	{ "CTM_finished", patch_t(CTM_finished_patchaddr, 10, prepare_CTM_finished_patch) },
-	{ "ClosePetStables", patch_t(ClosePetStables_patchaddr, 5, prepare_ClosePetStables_patch) },
-	{ "mbuttondown_handler", patch_t(mbuttondown_handler, 6, prepare_mbuttondown_patch) },
-	{ "mbuttonup_handler", patch_t(mbuttonup_handler, 7, prepare_mbuttonup_patch) },
-	{ "DrawIndexedPrimitive", patch_t(PATCHADDR_LATER, 5, prepare_DrawIndexedPrimitive_patch) },
-	{ "pylpyr", patch_t(pylpyr_patchaddr, 9, prepare_pylpyr_patch) },
-	{ "mwheel_handler", patch_t(mwheel_hookaddr, 6, prepare_mwheel_patch) },
-	{ "CTM_main", patch_t(CTM_main_hookaddr, 6, prepare_CTM_main_patch)},
-	{ "AddInputEvent", patch_t(AddInputEvent, 8, prepare_AddInputEvent_patch) },
-	{ "SendPacket", patch_t(SendPacket_hookaddr, 5, prepare_sendpacket_patch) },
-	{ "RecvPacket", patch_t(RecvPacket_hookaddr, 6, prepare_recvpacket_patch) },
-	{ "SARC4_encrypt", patch_t(SARC4_encrypt, 6, prepare_SARC4_patch)},
-	{ "WS2_send", patch_t((DWORD)&send, 5, prepare_WS2send_patch)}, 
-	{ "WS2_recv", patch_t(((DWORD)&recv) + 0x18A, 6, prepare_WS2recv_patch) },
-	{ "SpellErrMsg", patch_t(SpellErrMsg, 9, prepare_SpellErrMsg_patch) },
+	//{ "EndScene", patch_t(PATCHADDR_LATER, 7, prepare_EndScene_patch) },
+	//{ "Present", patch_t(PATCHADDR_LATER, 5, prepare_Present_patch) },
+	//{ "CTM_finished", patch_t(CTM_finished_patchaddr, 10, prepare_CTM_finished_patch) },
+	//{ "ClosePetStables", patch_t(ClosePetStables_patchaddr, 5, prepare_ClosePetStables_patch) },
+	//{ "mbuttondown_handler", patch_t(mbuttondown_handler, 6, prepare_mbuttondown_patch) },
+	//{ "mbuttonup_handler", patch_t(mbuttonup_handler, 7, prepare_mbuttonup_patch) },
+	//{ "DrawIndexedPrimitive", patch_t(PATCHADDR_LATER, 5, prepare_DrawIndexedPrimitive_patch) },
+	//{ "pylpyr", patch_t(pylpyr_patchaddr, 9, prepare_pylpyr_patch) },
+	//{ "mwheel_handler", patch_t(mwheel_hookaddr, 6, prepare_mwheel_patch) },
+	//{ "CTM_main", patch_t(CTM_main_hookaddr, 6, prepare_CTM_main_patch)},
+	//{ "AddInputEvent", patch_t(AddInputEvent, 8, prepare_AddInputEvent_patch) },
+	//{ "SendPacket", patch_t(SendPacket_hookaddr, 5, prepare_sendpacket_patch) },
+	//{ "RecvPacket", patch_t(RecvPacket_hookaddr, 6, prepare_recvpacket_patch) },
+	//{ "SARC4_encrypt", patch_t(SARC4_encrypt, 6, prepare_SARC4_patch)},
+	//{ "WS2_send", patch_t((DWORD)&send, 5, prepare_WS2send_patch)}, 
+	//{ "WS2_recv", patch_t(((DWORD)&recv) + 0x18A, 6, prepare_WS2recv_patch) },
+	//{ "SpellErrMsg", patch_t(SpellErrMsg, 9, prepare_SpellErrMsg_patch) },
 
-};
+//};
 
 hookable_t *find_hookable(const std::string &funcname) {
-	for (auto &h : hookable_functions) {
+	std::vector<hookable_t> vec;
+	for (auto& h : vec) {
 		if (h.funcname == funcname) {
 			return &h;
 		}
