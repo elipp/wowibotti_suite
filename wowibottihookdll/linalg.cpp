@@ -204,7 +204,7 @@ int get_wow_view_matrix(mat4 *m) {
 
 
 DWORD get_wow_camera() {
-	DWORD c1 = DEREF(Camera_static);
+	DWORD c1 = DEREF(Wotlk::Camera_static);
 	if (!c1) return 0;
 	DWORD camera = DEREF(c1 + 0x7E20);
 

@@ -19,7 +19,6 @@
 #include "lua.h"
 #include "packet.h"
 #include "linalg.h"
-#include "dipcapture.h"
 #include "lua.h"
 #include "aux_window.h"
 

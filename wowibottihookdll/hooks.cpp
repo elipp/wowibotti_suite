@@ -22,7 +22,6 @@
 #include "lua.h"
 #include "linalg.h"
 #include "patch.h"
-#include "dipcapture.h"
 #include "patch.h"
 #include "govconn.h"
 #include "dllmain.h"
@@ -159,20 +158,10 @@ static void register_luafunc_if_not_registered() {
 static void update_hwevent_tick() {
 	typedef int tick_count_t(void);
 	//int ticks = ((tick_count_t*)GetOSTickCount)();
-	DWORD ticks = *(DWORD*)CurrentTicks;
+	DWORD ticks = *(DWORD*)Wotlk::CurrentTicks;
 
-	*(DWORD*)(LastHardwareAction) = ticks;
+	*(DWORD*)(Wotlk::LastHardwareAction) = ticks;
 	// this should make us immune to AFK ^^
-}
-
-void hook_DrawIndexedPrimitive() {
-	hookable_t *h = find_hookable("DrawIndexedPrimitive");
-	h->patch.enable();
-}
-
-void unhook_DrawIndexedPrimitive() {
-	hookable_t *h = find_hookable("DrawIndexedPrimitive");
-	h->patch.disable();
 }
 
 static DWORD WINAPI eject_DLL(LPVOID lpParameter) {
@@ -205,9 +194,13 @@ extern time_t in_world; // from opcodes.cpp
 
 static int hello_shown = 0;
 
+static int addresses_patched = 0;
+
 static void __stdcall EndScene_hook() {
-	//	draw_custom_d3d();
-	printf("MOJ\n");
+	if (!addresses_patched) {
+		addresses_patched = 1;
+	}
+
 }
 
 
@@ -878,81 +871,6 @@ static const trampoline_t *prepare_Present_patch(patch_t *p) {
 		
 }
 
-static void __stdcall DrawIndexedPrimitive_hook() {
-
-	IDirect3DDevice9 *d3dd = (IDirect3DDevice9*)get_wow_d3ddevice();
-
-	IDirect3DSwapChain9 *sc;
-	if (FAILED(d3dd->GetSwapChain(0, &sc))) {
-		PRINT("GetSwapChain failed\n");
-		return;
-	}
-	IDirect3DSurface9 *s;
-
-	if (FAILED(sc->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &s))) {
-		PRINT("GetBackBuffer failed\n");
-		return;
-	}
-
-	D3DLOCKED_RECT r;
-
-	if (FAILED(s->LockRect(&r, NULL, D3DLOCK_DONOTWAIT))) {
-		PRINT("%d LockRect failed\n", GetTickCount());
-		return;
-	}
-
-	D3DSURFACE_DESC d;
-	s->GetDesc(&d);
-
-	rdmpheader_t hdr;
-	memset(&hdr, 0, sizeof(hdr));
-	hdr.MAGIC = 0x700FF000;
-	hdr.pitch = r.Pitch;
-	hdr.width = d.Width;
-	hdr.height = d.Height;
-	hdr.stagenum = capture.drawcall_count;
-
-	PRINT("stagenum: %d, pitch: %d\n", hdr.stagenum, hdr.pitch);
-
-	CaptureStackBackTrace(0, 8, (PVOID*)&hdr.callstack[0], NULL); 
-
-	capture.append_to_file(&hdr, r.pBits, r.Pitch * d.Height);
-
-	s->UnlockRect();
-
-	s->Release();
-	sc->Release();
-
-	++capture.drawcall_count;
-
-}
-
-static const trampoline_t *prepare_DrawIndexedPrimitive_patch(patch_t *p) {
-
-	static trampoline_t tr;
-
-	PRINT("Preparing DrawIndexedPrimitive patch...\n");
-
-	DWORD DrawIndexedPrimitive = get_DrawIndexedPrimitive();
-	PRINT("Found DrawIndexedPrimitive at 0x%X\n", DrawIndexedPrimitive);
-
-	p->patch_addr = DrawIndexedPrimitive;
-	tr << PUSHAD; 
-
-	tr.append_CALL((DWORD)DrawIndexedPrimitive_hook);
-	tr << POPAD; 
-
-	memcpy(p->original, (LPVOID)DrawIndexedPrimitive, p->size);
-	tr.append_bytes(p->original, p->size);
-
-	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
-
-	tr << RET; // RET
-
-	return &tr;
-
-}
-
 static int __stdcall mbuttondown_hook(DWORD wParam) {
 	return 1;
 }
@@ -1221,116 +1139,4 @@ static const trampoline_t *prepare_SpellErrMsg_patch(patch_t *p) {
 	tr << RET;
 
 	return &tr;
-}
-
-//static hookable_t* hookable_functions;
-	//{ "EndScene", 0x0, EndScene_original, EndScene_patch, EndScene_original, prepare_EndScene_patch },
-	//{ "ClosePetStables", (LPVOID)ClosePetStables, ClosePetStables_original, ClosePetStables_patch, ClosePetStables_original, prepare_ClosePetStables_patch },
-	//{ "CTM_update", (LPVOID)CTM_update_hookaddr, CTM_finished_original, CTM_finished_patch, CTM_finished_original, prepare_CTM_finished_patch },
-	//{ "SpellErrMsg", (LPVOID)SpellErrMsg, spell_errmsg_original, spell_errmsg_patch, spell_errmsg_original, prepare_spell_errmsg_patch },
-	//{ "SendPacket", (LPVOID)SendPacket_hookaddr, sendpacket_original, sendpacket_patch, sendpacket_original, prepare_sendpacket_patch },
-	//{ "RecvPacket", (LPVOID)RecvPacket_hookaddr, recvpacket_original, recvpacket_patch, recvpacket_original, prepare_recvpacket_patch },
-	//{ "Present", (LPVOID)0x0, present_original, present_patch, present_original, prepare_present_patch },
-	//{ "mbuttondown_handler", (LPVOID)mbuttondown_handler, mbuttondown_original, mbuttondown_patch, mbuttondown_patch, prepare_mbuttondown_patch },
-	//{ "mbuttonup_handler", (LPVOID)mbuttonup_handler, mbuttonup_original, mbuttonup_patch, mbuttonup_patch, prepare_mbuttonup_patch },
-	//{ "DrawIndexedPrimitive", 0x0, drawindexedprimitive_original, drawindexedprimitive_patch, drawindexedprimitive_patch, prepare_drawindexedprimitive_patch },
-
-	//{ "EndScene", patch_t(PATCHADDR_LATER, 7, prepare_EndScene_patch) },
-	//{ "Present", patch_t(PATCHADDR_LATER, 5, prepare_Present_patch) },
-	//{ "CTM_finished", patch_t(CTM_finished_patchaddr, 10, prepare_CTM_finished_patch) },
-	//{ "ClosePetStables", patch_t(ClosePetStables_patchaddr, 5, prepare_ClosePetStables_patch) },
-	//{ "mbuttondown_handler", patch_t(mbuttondown_handler, 6, prepare_mbuttondown_patch) },
-	//{ "mbuttonup_handler", patch_t(mbuttonup_handler, 7, prepare_mbuttonup_patch) },
-	//{ "DrawIndexedPrimitive", patch_t(PATCHADDR_LATER, 5, prepare_DrawIndexedPrimitive_patch) },
-	//{ "pylpyr", patch_t(pylpyr_patchaddr, 9, prepare_pylpyr_patch) },
-	//{ "mwheel_handler", patch_t(mwheel_hookaddr, 6, prepare_mwheel_patch) },
-	//{ "CTM_main", patch_t(CTM_main_hookaddr, 6, prepare_CTM_main_patch)},
-	//{ "AddInputEvent", patch_t(AddInputEvent, 8, prepare_AddInputEvent_patch) },
-	//{ "SendPacket", patch_t(SendPacket_hookaddr, 5, prepare_sendpacket_patch) },
-	//{ "RecvPacket", patch_t(RecvPacket_hookaddr, 6, prepare_recvpacket_patch) },
-	//{ "SARC4_encrypt", patch_t(SARC4_encrypt, 6, prepare_SARC4_patch)},
-	//{ "WS2_send", patch_t((DWORD)&send, 5, prepare_WS2send_patch)}, 
-	//{ "WS2_recv", patch_t(((DWORD)&recv) + 0x18A, 6, prepare_WS2recv_patch) },
-	//{ "SpellErrMsg", patch_t(SpellErrMsg, 9, prepare_SpellErrMsg_patch) },
-
-//};
-
-hookable_t *find_hookable(const std::string &funcname) {
-	std::vector<hookable_t> vec;
-	for (auto& h : vec) {
-		if (h.funcname == funcname) {
-			return &h;
-		}
-	}
-	return NULL;
-}
-
-static int get_patch_from_hookable(const std::string &funcname, patch_serialized *p) {
-	hookable_t *hook = find_hookable(funcname);
-	if (!hook) {
-		PRINT("get_patch_from_hookable: find_hookable for %s failed, expecting a disaster.\n", funcname.c_str());
-		return 0;
-	}
-
-	*p = patch_serialized(hook->patch.patch_addr, hook->patch.size, hook->patch.original, hook->patch.patch);
-	return 1;
-}
-
-int prepare_pipe_data() {
-	
-	patch_serialized p;
-
-#define ADD_PATCH_SAFE(patchname) do { int r = get_patch_from_hookable(patchname, &p); assert(r); PIPEDATA.add_patch(p); ENABLED_PATCHES.push_back(patchname); } while(0)
-
-	ADD_PATCH_SAFE("EndScene");
-	ADD_PATCH_SAFE("Present");
-	ADD_PATCH_SAFE("CTM_finished");
-	ADD_PATCH_SAFE("CTM_main");
-	ADD_PATCH_SAFE("SpellErrMsg");
-	ADD_PATCH_SAFE("SendPacket");
-
-	//ADD_PATCH_SAFE("ClosePetStables");
-	//ADD_PATCH_SAFE("pylpyr");
-	//ADD_PATCH_SAFE("AddInputEvent");
-
-//	ADD_PATCH_SAFE("RecvPacket");
-	//ADD_PATCH_SAFE("SARC4_encrypt");
-//	ADD_PATCH_SAFE("WS2_send");
-//	ADD_PATCH_SAFE("WS2_recv");
-
-	// don't add DrawIndexedPrimitive to this list, it will be patched manually later by a /lole subcommand
-	//ADD_PATCH_SAFE("DrawIndexedPrimitive");
-
-	return 1;
-}
-
-
-patch_serialized::patch_serialized(UINT32 patch_addr, UINT32 patch_size, const BYTE *original_opcodes, const BYTE *patch_opcodes) {
-	buffer_size = 2 * sizeof(UINT32) + 2 * patch_size;
-	
-	buffer = new BYTE[buffer_size];
-
-	memcpy(buffer + 0 * sizeof(UINT32), &patch_addr, sizeof(UINT32));
-	memcpy(buffer + 1 * sizeof(UINT32), &patch_size, sizeof(UINT32));
-	memcpy(buffer + 2 * sizeof(UINT32), original_opcodes, patch_size);
-	memcpy(buffer + 2 * sizeof(UINT32) + patch_size, patch_opcodes, patch_size);
-
-
-}
-
-int pipe_data::add_patch(const patch_serialized &p) {
-	data.insert(data.end(), &p.buffer[0], &p.buffer[p.buffer_size]);
-	++num_patches;
-	memcpy(&data[4], &num_patches, sizeof(UINT32));
-
-	return num_patches;
-}
-
-int unpatch_all() {
-	for (auto &p : ENABLED_PATCHES) {
-		hookable_t *h = find_hookable(p);
-		WriteProcessMemory(glhProcess, (LPVOID)h->patch.patch_addr, h->patch.original, h->patch.size, NULL);
-		PRINT("Unpatched %s at location %X, size %d\n", p.c_str(), h->patch.patch_addr, h->patch.size);
-	}
-	return 1;
 }

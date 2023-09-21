@@ -10,8 +10,8 @@
 #include "creds.h"
 #include "hooks.h"
 
-int const (*LUA_DoString)(const char*, const char*, const char*) = (int const(*)(const char*, const char*, const char*)) LUA_DoString_addr;
-int const (*SelectUnit)(GUID_t) = (int const(*)(GUID_t)) SelectUnit_addr;
+int const (*LUA_DoString)(const char*, const char*, const char*) = (int const(*)(const char*, const char*, const char*)) TBC::LUA_DoString_addr;
+int const (*SelectUnit)(GUID_t) = (int const(*)(GUID_t)) TBC::SelectUnit_addr;
 
 std::mutex hcache_t::mutex;
 
@@ -169,11 +169,11 @@ GUID_t get_raid_target_GUID(const std::string &marker_name) {
 
 
 GUID_t get_target_GUID() {
-	return *(GUID_t*)PLAYER_TARGET_ADDR;
+	return *(GUID_t*)TBC::PLAYER_TARGET_ADDR;
 }
 
 GUID_t get_focus_GUID() {
-	return *(GUID_t*)PLAYER_FOCUS_ADDR;
+	return *(GUID_t*)Wotlk::PLAYER_FOCUS_ADDR;
 }
 
 

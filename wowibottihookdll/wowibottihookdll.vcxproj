@@ -154,7 +154,6 @@
     <ClInclude Include="creds.h" />
     <ClInclude Include="ctm.h" />
     <ClInclude Include="defs.h" />
-    <ClInclude Include="dipcapture.h" />
     <ClInclude Include="dllmain.h" />
     <ClInclude Include="dungeon_script.h" />
     <ClInclude Include="aux_window.h" />
@@ -175,7 +174,6 @@
     <ClCompile Include="aux_window.cpp" />
     <ClCompile Include="creds.cpp" />
     <ClCompile Include="ctm.cpp" />
-    <ClCompile Include="dipcapture.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="dungeon_script.cpp" />
     <ClCompile Include="hooks.cpp" />

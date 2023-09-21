@@ -99,8 +99,6 @@ typedef struct inpevent_t {
 } inpevent_t;
 
 
-hookable_t *find_hookable(const std::string &funcname);
-
 int unpatch_all();
 
 int hexstr_to_bytearray(BYTE* bytes, int bytes_max, const char* hexstr);
