@@ -2,6 +2,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 
+#include <optional>
 #include <Windows.h>
 #include <d3d9.h>
 #include <string>
@@ -68,7 +69,9 @@ enum {
 
 extern HWND wow_hWnd;
 
-#define DEREF(x) *(DWORD*)(x)
+template <typename T> T DEREF(DWORD addr) {
+	return *(T*)(addr);
+};
 
 struct vec2;
 struct vec3;
@@ -168,7 +171,7 @@ inline int find_stuff_between(const std::string &in_str, char cbegin, char cend,
 
 }
 
-inline GUID_t convert_str_to_GUID(const std::string &GUID_str) {
+inline std::optional<GUID_t> convert_str_to_GUID(const std::string &GUID_str) {
 	std::string GUID_numstr(GUID_str.substr(2, 16)); // better make a copy of it. the GUID_str still has the "0x" prefix in it 
 
 	char *end;
@@ -176,7 +179,7 @@ inline GUID_t convert_str_to_GUID(const std::string &GUID_str) {
 
 	if (end != GUID_numstr.c_str() + GUID_numstr.length()) {
 		PRINT("[WARNING]: convert_str_to_GUID: couldn't wholly convert GUID string argument (strtoull(\"%s\", &end, 16) failed, bailing out\n", GUID_numstr.c_str());
-		return 0;
+		return std::nullopt;
 	}
 
 	return GUID;

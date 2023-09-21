@@ -111,7 +111,8 @@ hotness_status_t hotness_status() {
 
 void update_hotness_cache() {
 	hcache_t::mutex.lock();
-	hcache = OMgr->get_snapshot();
+	ObjectManager OM;
+	hcache = OM.get_snapshot();
 	hcache_t::mutex.unlock();
 }
 
@@ -305,7 +306,8 @@ std::vector<avoid_point_t> avoid_spellobject_t::get_points() const {
 
 std::vector<avoid_point_t> avoid_units_t::get_points() const {
 	std::vector<avoid_point_t> p;
-	GUID_t player_guid = OMgr->get_local_GUID();
+	ObjectManager OM;
+	GUID_t player_guid = OM.get_local_GUID();
 
 	std::lock_guard<std::mutex> lg(hcache_t::mutex);
 	for (const auto &o : hcache.objects) {
@@ -1175,11 +1177,11 @@ static void update_buffers() {
 
 	if (!hotness_enabled()) return;
 
-	WowObject p;
-	
 	avoid_points = std::vector<avoid_point_t>();
 
-	if (!OMgr->get_local_object(&p)) return;
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	if (!p) return;
 	
 	for (const auto& a : current_hconfig->avoid) {
 		auto v = a->get_points();
@@ -1233,9 +1235,10 @@ static void update_hstatus() {
 	vec2_t w = tex2world(lowest.pos.x, lowest.pos.y);
 	vec2_t bu = 1.5 * unit(w - vec2(hcache.player.pos.x, hcache.player.pos.y));
 	hstatus.best_world_pos = vec3(w.x + bu.x, w.y + bu.y, hcache.player.pos.z); // the boss arenas are generally flat
-	WowObject p;
-	OMgr->get_local_object(&p);
-	vec3 ppos = p.get_pos();
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	if (!p) return;
+	vec3 ppos = p->get_pos();
 	vec2i_t ppos_tex = world2tex(ppos.x, ppos.y);
 	hstatus.current_hotness = get_pixel(ppos_tex.x, ppos_tex.y);
 

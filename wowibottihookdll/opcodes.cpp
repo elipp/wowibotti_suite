@@ -148,18 +148,18 @@ static inline POSFLAG get_position_flags_ranged(float minrange, float maxrange, 
 
 static void SetFacing_local(float angle) {
 	ObjectManager OM;
-	WowObject p;
-	OM.get_local_object(&p);
+	auto p = OM.get_local_object();
+	if (!p) { return; }
 
-	static DWORD SetFacing_wow = 0x989B70;
-	DWORD facing_object = (DEREF(p.get_base() + 0xD8));// + 0x20);
+	DWORD facing_object = DEREF<DWORD>(p->get_base() + 0xD8);// + 0x20);
 	
+	DWORD SetFacing = Addresses::Wotlk::SetFacing;
 	_asm {
 		fld angle;
 		push angle;
 		fstp angle;
 		mov ecx, facing_object;
-		call SetFacing_wow;
+		call SetFacing;
 	}
 	//PRINT("current facing_angle: %f\n", *facing_angle);
 	//*facing_angle = angle;
@@ -210,12 +210,12 @@ static void synthetize_CMSG_SET_FACING(float angle) {
 
 	packet.append_bytes(packet_flags, sizeof(packet_flags));
 
-	DWORD ticks = *(DWORD*)Wotlk::CurrentTicks;
+	DWORD ticks = DEREF<DWORD>(Addresses::Wotlk::CurrentTicks);
 	packet.append_bytes(&ticks, sizeof(ticks));
 
-	WowObject player;
-	OM.get_local_object(&player);
-	vec3 ppos = player.get_pos();
+	auto player = OM.get_local_object();
+	if (!player) { return; }
+	vec3 ppos = player->get_pos();
 
 	packet.append_bytes(&ppos.data[0], sizeof(ppos.data));
 	packet << angle;
@@ -261,18 +261,19 @@ static int LOP_melee_behind(lua_State *L) {
 
 	float minrange = lua_tonumber(L, 2);
 
-	WowObject p, t;
-	if (!OMgr->get_local_object(&p) || !OMgr->get_object_by_GUID(get_target_GUID(), &t)) {
-		return 0;
-	}
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	if (!p) return 0;
+	auto t = OM.get_object_by_GUID(get_target_GUID());
+	if (!t) return 0;
 
 	minrange = minrange > 2 ? minrange - 2 : minrange; // can't remember what this is for
 
-	vec3 ppos = p.get_pos();
-	vec3 prot_unit = p.get_rotvec();
+	vec3 ppos = p->get_pos();
+	vec3 prot_unit = p->get_rotvec();
 
-	vec3 tpos = t.get_pos();
-	vec3 trot_unit = t.get_rotvec();
+	vec3 tpos = t->get_pos();
+	vec3 trot_unit = t->get_rotvec();
 
 	static const float MELEE_NUKE_ANGLE = 0.35;
 
@@ -314,14 +315,13 @@ static int LOP_melee_avoid_aoe_buff(lua_State *L) {
 	
 	int spellID = lua_tointeger(L, 2);
 
-	WowObject p;
-	if (!OMgr->get_local_object(&p)) return 0;
-	vec3 ppos = p.get_pos();
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	if (!p) { return 0; }
+	vec3 ppos = p->get_pos();
 
-	for (const auto &o : *OMgr) {
-
+	for (const auto o : OM) {
 		if (o.get_type() == OBJECT_TYPE_NPC) {
-
 			if (o.NPC_has_buff(spellID) || o.NPC_has_debuff(spellID)) {
 
 				float dist = (o.get_pos() - ppos).length();
@@ -346,8 +346,9 @@ static void target_unit_with_GUID(GUID_t guid) {
 }
 
 static int LOP_target_GUID(lua_State* L) {
-	GUID_t guid = convert_str_to_GUID(lua_tostring(L, 2));
-	target_unit_with_GUID(guid);
+	auto guid = convert_str_to_GUID(lua_tostring(L, 2));
+	if (!guid) { return 0; }
+	target_unit_with_GUID(*guid);
 	return 0;
 }
 
@@ -359,17 +360,18 @@ static int LOP_caster_range_check(lua_State *L) {
 	GUID_t target_GUID = get_target_GUID();
 	if (!target_GUID) return 0;
 
-	WowObject p, t;
-	if (!OMgr->get_local_object(&p) || !OMgr->get_object_by_GUID(get_target_GUID(), &t)) {
-		return 0;
-	}
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	if (!p) return 0;
+	auto t = OM.get_object_by_GUID(get_target_GUID());
+	if (!t) return 0;
 
-	vec3 ppos = p.get_pos();
-	vec3 tpos = t.get_pos();
+	vec3 ppos = p->get_pos();
+	vec3 tpos = t->get_pos();
 	vec3 tpdiff = tpos - ppos;
 	vec3 tpdiff_unit = tpdiff.unit();
 
-	auto R = get_position_flags_ranged(minrange, maxrange, tpdiff, p.get_rotvec());
+	auto R = get_position_flags_ranged(minrange, maxrange, tpdiff, p->get_rotvec());
 
 	//PRINT("got R == %s\n", to_string(R));
 
@@ -402,23 +404,23 @@ static int LOP_caster_range_check(lua_State *L) {
 }
 
 static void followunit(const std::string& targetname) {
-	WowObject p, t;
-	if (!OMgr->get_local_object(&p)
-		|| !OMgr->get_unit_by_name(targetname, &t)) {
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	if (!p) { return; }
+	auto t = OM.get_unit_by_name(targetname);
+	if (!t) { return; }
+
+	if (p->get_GUID() == t->get_GUID()) {
 		return;
 	}
 
-	if (p.get_GUID() == t.get_GUID()) {
-		return;
-	}
+	GUID_t tGUID = t->get_GUID();
 
-	GUID_t tGUID = t.get_GUID();
+	ctm_add(CTM_t(t->get_pos(), CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
 
-	ctm_add(CTM_t(t.get_pos(), CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
-
-	if ((t.get_pos() - p.get_pos()).length() < 10) {
+	if ((t->get_pos() - p->get_pos()).length() < 10) {
 		PRINT("follow difference < 10! calling WOWAPI FollowUnit()\n");
-		DoString("FollowUnit(\"%s\")", t.unit_get_name());
+		DoString("FollowUnit(\"%s\")", t->unit_get_name());
 		follow_state.clear();
 		ctm_queue_reset();
 		return;
@@ -444,14 +446,15 @@ static int LOP_follow(lua_State *L) {
 
 void stopfollow() {
 
-	WowObject p;
-	OMgr->get_local_object(&p);
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	if (!p) { return; }
 
 	// TODO: could also just set the CTM action to DONE
 
-	float prot = p.get_rot();
+	float prot = p->get_rot();
 	vec3 rot_unit = vec3(std::cos(prot), std::sin(prot), 0.0);
-	ctm_add(CTM_t(p.get_pos() + 0.51*rot_unit, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
+	ctm_add(CTM_t(p->get_pos() + 0.51*rot_unit, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
 	follow_state.clear();
 }
 
@@ -475,10 +478,10 @@ static int LOP_nop(lua_State *L) {
 }
 
 static int LOP_hug_spell_object(lua_State *L) {
-
+	ObjectManager OM;
 	int spellID = lua_tointeger(L, 2);
 
-	auto objs = OMgr->get_spell_objects_with_spellID(spellID);
+	auto objs = OM.get_spell_objects_with_spellID(spellID);
 
 	if (objs.empty()) {
 		PRINT("No objects with spellid %ld\n", spellID);
@@ -495,10 +498,11 @@ static int LOP_hug_spell_object(lua_State *L) {
 
 static int LOP_avoid_spell_object(lua_State *L) {
 	
+	ObjectManager OM;
 	int spellID = lua_tointeger(L, 2);
 	float radius = lua_tonumber(L, 3);
 
-	auto objs = OMgr->get_spell_objects_with_spellID(spellID);
+	auto objs = OM.get_spell_objects_with_spellID(spellID);
 
 	if (objs.empty()) {
 		return 0;
@@ -507,12 +511,12 @@ static int LOP_avoid_spell_object(lua_State *L) {
 	vec3 escape_pos;
 	int need_to_escape = 0;
 
-	WowObject p;
-	if (!OMgr->get_local_object(&p)) return 0;
+	auto p = OM.get_local_object();
+	if (!p) return 0;
 	
-	vec3 ppos = p.get_pos();
+	vec3 ppos = p->get_pos();
 
-	for (auto &s : objs) {
+	for (auto s : objs) {
 		vec3 spos = s.DO_get_pos();
 		vec3 dist = ppos - spos;
 		if (dist.length() < radius) {
@@ -555,15 +559,13 @@ static void set_target_and_blast(void *noarg) {
 }
 
 static int LOP_tank_pull(lua_State *L) {
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	if (!p) return 0;
+	auto t = OM.get_object_by_GUID(get_target_GUID());
+	if (!t) return 0;
 
-	WowObject p, t;
-
-	if (!OMgr->get_local_object(&p) 
-		|| !OMgr->get_object_by_GUID(get_target_GUID(), &t)) {
-		return 0;
-	}
-
-	vec3 ppos = p.get_pos(), tpos = t.get_pos();
+	vec3 ppos = p->get_pos(), tpos = t->get_pos();
 	vec3 d = tpos - ppos, dn = d.unit();
 
 	if (d.length() > 30) {
@@ -642,29 +644,28 @@ static std::vector<std::string> LOP_chain_heal_target(const std::string &arg) {
 
 	ObjectManager OM;
 	
-	WowObject next;
-	if (!OM.get_first_object(&next)) return std::vector<std::string>();
-
 	// cache units for easier access
 
 	std::vector <WO_cached> units;
 	uint maxmaxHP = 0;
-	while (next.valid()) {
-		if (next.get_type() == OBJECT_TYPE_UNIT) {
-			uint hp = next.unit_get_health();
-			uint hp_max = next.unit_get_health_max();
+
+	auto next = OM.get_first_object();
+	while (next) {
+		if (next->get_type() == OBJECT_TYPE_UNIT) {
+			uint hp = next->unit_get_health();
+			uint hp_max = next->unit_get_health_max();
 			if (hp_max > maxmaxHP) {
 				maxmaxHP = hp_max;
 			}
 			int deficit = hp_max - hp;
-			std::string name = next.unit_get_name();
+			std::string name = next->unit_get_name();
 			uint inc_heals = (target_heals_map.count(name) > 0 ? target_heals_map[name] : 0);
 			PRINT("unit %s with %u/%u hp checked (deficit: %d, incoming heals: %u)\n", name.c_str(), hp, hp_max, deficit, inc_heals);
 			if (hp > 0 && deficit - int(inc_heals) > 1500) {
-				units.push_back(WO_cached(next.get_GUID(), next.get_pos(), hp, next.unit_get_health_max(), inc_heals, 0.0, name));
+				units.push_back(WO_cached(next->get_GUID(), next->get_pos(), hp, next->unit_get_health_max(), inc_heals, 0.0, name));
 			}
 		}
-		next = next.next();
+		next = next->next();
 	}
 
 	std::vector<WO_cached> deficit_candidates;
@@ -743,20 +744,20 @@ static int mob_has_debuff(const WowObject &mob, uint debuff_spellID) {
 }
 
 static int LOP_tank_face(lua_State *L) {
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	if (!p) return 0;
+	auto t = OM.get_object_by_GUID(get_target_GUID());
+	if (!t) return 0;
 
-	WowObject p, t;
-	if (!OMgr->get_local_object(&p) || !OMgr->get_object_by_GUID(get_target_GUID(), &t)) {
-		return 0;
-	}
+	auto mobs = OM.get_all_combat_mobs();
+	const auto ppos = p->get_pos();
+	const auto prot_unit = p->get_rotvec();
 
-	auto mobs = OMgr->get_all_combat_mobs();
-	const auto ppos = p.get_pos();
-	const auto prot_unit = p.get_rotvec();
-
-	if (mobs.size() == 0) return 0;
+	if (mobs.empty()) return 0;
 
 	vec3 diffsum(0, 0, 0);
-	for (const auto& m : mobs) {
+	for (const auto m : mobs) {
 		diffsum = diffsum + (m.get_pos() - ppos);
 	}
 
@@ -804,19 +805,20 @@ WowObject get_obj_closest_to(const std::vector<WowObject>& objs, const vec3& to)
 }
 
 static int LOP_interact_spellnpc(lua_State *L) {
+	ObjectManager OM;
 
 	std::string objname = lua_tostring(L, 2);
 
-	WowObject p;
-	OMgr->get_local_object(&p);
+	auto p = OM.get_local_object();
+	if (!p) { return 0; }
 
-	auto n = OMgr->get_NPCs_by_name(objname);
-	if (n.size() == 0) {
+	auto n = OM.get_NPCs_by_name(objname);
+	if (n.empty()) {
 		PRINT("LOP_interact_spellnpc: error: couldn't find NPC with name \"%s\"!\n", objname.c_str());
 		return 0;
 	}
 	
-	vec3 ppos = p.get_pos();
+	vec3 ppos = p->get_pos();
 	WowObject o = get_obj_closest_to(n, ppos);
 	GUID_t oGUID = o.get_GUID();
 	float dist = (o.get_pos() - ppos).length();
@@ -848,7 +850,7 @@ static int LOP_interact_gobject(lua_State *L) {
 	// for Meeting Stones, the game sends two opcodes:
 	// with opcodes 0xB1 (CMSG_GAMEOBJ_USE) and 0x4B1 (CMSG_GAMEOBJ_REPORT_USE)
 	// BUT! for Light/Dark essence in twin val'kyr, the object is actually a NPC (type 3) and not a "GAMEOBJECT"
-	
+
 
 	BYTE sockbuf[14] = {
 		0x00, 0x0C, 0xB1, 0x00, 0x00, 0x00, 
@@ -862,17 +864,18 @@ static int LOP_interact_gobject(lua_State *L) {
 
 	std::string objname = lua_tostring(L, 2);
 
-	WowObject o;
-	if (!OMgr->get_GO_by_name(objname, &o)) {
+	ObjectManager OM;
+	auto o = OM.get_GO_by_name(objname);
+	if (!o) {
 		PRINT("LOP_interact_gobject: error: couldn't find gobject with name \"%s\"!\n", objname.c_str());
 		return 0;
 	}
 
 
-	WowObject p;
-	OMgr->get_local_object(&p);
+	auto p = OM.get_local_object();
+	if (!p) { return 0; }
 
-	vec3 diff = o.GO_get_pos() - p.get_pos();
+	vec3 diff = o->GO_get_pos() - p->get_pos();
 	float dist = diff.length();
 
 	if (dist > 5.0) {
@@ -880,7 +883,7 @@ static int LOP_interact_gobject(lua_State *L) {
 		return 0;
 	}
 
-	GUID_t oGUID = o.get_GUID();
+	GUID_t oGUID = o->get_GUID();
 
 	memcpy(sockbuf + 6, &oGUID, sizeof(GUID_t));
 	memcpy(sockbuf2 + 6, &oGUID, sizeof(GUID_t));
@@ -902,10 +905,10 @@ static int LOP_execute(lua_State *L) {
 
 static int LOPDBG_loot(lua_State *L) {
 	ObjectManager OM;
-	WowObject corpse;
-	if (!OM.get_object_by_GUID(get_target_GUID(), &corpse)) return 0;
+	auto corpse = OM.get_object_by_GUID(get_target_GUID());
+	if (!corpse) return 0;
 	
-	ctm_add(CTM_t(corpse.get_pos(), CTM_LOOT, CTM_PRIO_EXCLUSIVE, corpse.get_GUID(), 0.5));
+	ctm_add(CTM_t(corpse->get_pos(), CTM_LOOT, CTM_PRIO_EXCLUSIVE, corpse->get_GUID(), 0.5));
 	return 1;
 }
 
@@ -915,15 +918,14 @@ static void LOPDBG_query_injected(const std::string &arg) {
 
 static int LOPDBG_pull_test() {
 
-	ObjectManager OM;	
-	
-	WowObject p, t;
-	if (!OM.get_local_object(&p) || !OM.get_object_by_GUID(get_target_GUID(), &t)) {
-		return 0;
-	}
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	if (!p) return 0;
+	auto t = OM.get_object_by_GUID(get_target_GUID());
+	if (!t) return 0;
 
-	vec3 ppos = p.get_pos();
-	vec3 tpos = t.get_pos();
+	vec3 ppos = p->get_pos();
+	vec3 tpos = t->get_pos();
 	vec3 diff = tpos - ppos;
 	vec3 dir = diff.unit();
 
@@ -943,45 +945,45 @@ static int LOPDBG_pull_test() {
 }
 
 static int LOP_get_unit_position(lua_State *L) {
-
+	ObjectManager OM;
 	std::string arg = lua_tostring(L, 2);
-
-	WowObject o;
+	std::optional<WowObject> o;
 
 	if (arg.rfind("0x", 0) == 0) {
 		// we're dealing with a GUID
-		GUID_t object_GUID = convert_str_to_GUID(arg);
-		if (!OMgr->get_object_by_GUID(object_GUID, &o)) return 0;
+		auto object_GUID = convert_str_to_GUID(arg);
+		if (!object_GUID) { return 0; }
+		o = OM.get_object_by_GUID(*object_GUID);
 	}
 	
 	else if (arg == "player") {
-		if (!OMgr->get_local_object(&o)) return 0;
+		o = OM.get_local_object();
 	}
 
 	else if (arg == "target") {
 		GUID_t target_GUID = get_target_GUID();
 		if (!target_GUID) { return 0; }
-	
-		if (!OMgr->get_object_by_GUID(target_GUID, &o)) return 0;
+		o = OM.get_object_by_GUID(target_GUID);
 	}
 
 	else if (arg == "focus") { // useful for blast target
 		GUID_t focus_GUID = get_focus_GUID();
 		if (!focus_GUID) { return 0; }
 
-		if (!OMgr->get_object_by_GUID(focus_GUID, &o)) return 0;
+		o = OM.get_object_by_GUID(focus_GUID);
 	}
 
 	else {
-		if (!OMgr->get_unit_by_name(arg, &o)) { return 0; }
+		o = OM.get_unit_by_name(arg);
 	}
 
+	if (!o) return 0;
 
 	vec3 pos;
 	double rot;
 
-	pos = o.get_pos(); 
-	rot = o.get_rot();
+	pos = o->get_pos(); 
+	rot = o->get_rot();
 
 	lua_pushnumber(L, pos.x);
 	lua_pushnumber(L, pos.y);
@@ -993,14 +995,15 @@ static int LOP_get_unit_position(lua_State *L) {
 
 static int LOP_get_combat_targets(lua_State *L) {
 
-	WowObject p;
-	if (!OMgr->get_local_object(&p)) return 0; 
-	vec3 ppos = p.get_pos();
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	if (!p) return 0; 
+	vec3 ppos = p->get_pos();
 
 	std::vector<std::string> out;
-	for (const auto &i : *OMgr) {
+	for (const auto i : OM) {
 	if (i.get_type() == OBJECT_TYPE_NPC) {
-			int reaction = get_reaction(p, i);
+			int reaction = get_reaction(*p, i);
 
 			if (reaction < 5 && i.in_combat() && !i.NPC_unit_is_dead() && i.NPC_get_health_max() > 2500) {
 				//float dist = (i.get_pos() - ppos).length();
@@ -1020,7 +1023,8 @@ static int LOP_get_combat_targets(lua_State *L) {
 }
 
 static void tank_filter_wellbehaving_mobs(std::vector<WowObject>* mobs, const std::vector<GUID_t>& ignore_tanked_by_GUID) {
-	GUID_t pGUID = OMgr->get_local_GUID();
+	ObjectManager OM;
+	GUID_t pGUID = OM.get_local_GUID();
 	mobs->erase(
 		std::remove_if(mobs->begin(), mobs->end(),
 		[&](const WowObject& mob) {
@@ -1040,8 +1044,9 @@ static void tank_filter_wellbehaving_mobs(std::vector<WowObject>* mobs, const st
 }
 
 static int LOP_tank_taunt_loose(lua_State *L) {
-	auto mobs = OMgr->get_all_combat_mobs();
-	if (mobs.size() == 0) return 0;
+	ObjectManager OM;
+	auto mobs = OM.get_all_combat_mobs();
+	if (mobs.empty()) return 0;
 
 	std::string tauntspell = lua_tostring(L, 2);
 
@@ -1053,7 +1058,13 @@ static int LOP_tank_taunt_loose(lua_State *L) {
 
 	std::vector<GUID_t> ig;
 	for (const auto& G : ignore_tanked_by_GUID) {
-		ig.push_back(convert_str_to_GUID(G));
+		auto as_guid = convert_str_to_GUID(G);
+		if (as_guid) {
+			ig.push_back(*as_guid);
+		}
+		else {
+			PRINT("warning: GUID conversion went to shit\n");
+		}
 	}
 
 	tank_filter_wellbehaving_mobs(&mobs, ig);
@@ -1100,28 +1111,27 @@ static int LOP_read_file(lua_State *L) {
 
 
 static int LOP_get_aoe_feasibility(lua_State *L) {
+
 	GUID_t target_GUID = get_target_GUID();
 	if (!target_GUID) return 0;
 
 	float radius = lua_tonumber(L, 2);
 
-	WowObject p, t;
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	if (!p) return 0;
+	auto t = OM.get_object_by_GUID(target_GUID);
+	if (!t) return 0;
 
-	OMgr->get_local_object(&p);
-
-	if (!OMgr->get_object_by_GUID(target_GUID, &t)) {
-		return 0;
-	}
-
-	const vec3 tpos = t.get_pos();
+	const vec3 tpos = t->get_pos();
 
 	float feasibility = 0; // the mob itself will be counted in the loop, so that's an automatic +1
 
-	for (const auto& i : *OMgr) {
+	for (const auto i : OM) {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
-			int reaction = get_reaction(p, i);
+			int reaction = get_reaction(*p, i);
 			if (reaction < 5 && !i.NPC_unit_is_dead() && i.NPC_get_health_max() > 2500) {
-				float dist = get_distance2(t, i);
+				float dist = get_distance2(*t, i);
 				if (dist < radius) {
 					feasibility += -(dist / radius) + 1;
 					//PRINT("0x%llX (%s) is in combat, dist: %f, feasibility: %f, reaction: %d\n", i.get_GUID(), i.NPC_get_name().c_str(), dist, feasibility, reaction);
@@ -1167,12 +1177,13 @@ static int LOPDBG_test() {
 }
 
 static int LOP_has_aggro(lua_State *L) {
-	WowObject p;
-	OMgr->get_local_object(&p);
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	if (!p) return 0;
 
-	GUID_t pGUID = p.get_GUID();
+	GUID_t pGUID = p->get_GUID();
 
-	for (const auto &o : *OMgr) {
+	for (const auto o : OM) {
 		if (o.get_type() == OBJECT_TYPE_NPC) {
 			GUID_t tGUID = o.NPC_get_target_GUID();
 			if (pGUID == tGUID) {
@@ -1234,10 +1245,10 @@ static void try_wowctm() {
 	// 527360 is some 
 
 
-	DWORD something = DEREF(0xD3F78C);
-	DWORD something2 = DEREF(0xC24954);
+	DWORD something = DEREF<DWORD>(0xD3F78C);
+	DWORD something2 = DEREF<DWORD>(0xC24954);
 
-	DWORD ticks = DEREF(0xB499A4) + 1;
+	DWORD ticks = DEREF<DWORD>(0xB499A4) + 1;
 
 	BYTE skiphax[] = {
 		0xB8, 0x01, 0x00, 0x00, 0x00
@@ -1306,8 +1317,9 @@ static int LOP_hconfig(lua_State* L) {
 			return 0;
 		}
 
-		WowObject player;
-		OMgr->get_local_object(&player);
+		ObjectManager OM;
+		auto player = OM.get_local_object();
+		if (!player) return NO_RVALS;
 
 		auto m = hotness_status();
 
@@ -1316,7 +1328,7 @@ static int LOP_hconfig(lua_State* L) {
 		int dh = abs((int)m.current_hotness - (int)m.best_hotness);
 
 		if (m.current_hotness > HOTNESS_THRESHOLD && dh > DH_THRESHOLD) {
-			ECHO_WOW("HOTNESS: %s - best world pos: %.1f, %.1f (best hotness %u, current %u, threshold: %u)?", player.unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
+			ECHO_WOW("HOTNESS: %s - best world pos: %.1f, %.1f (best hotness %u, current %u, threshold: %u)?", player->unit_get_name().c_str(), m.best_world_pos.x, m.best_world_pos.y, m.best_hotness, m.current_hotness, HOTNESS_THRESHOLD);
 			ECHO_WOW("walking to a better position ^");
 			DoString("SpellStopCasting()");
 			ctm_add(CTM_t(m.best_world_pos, CTM_MOVE, CTM_PRIO_FOLLOW, 0, 1.5));
@@ -1328,9 +1340,9 @@ static int LOP_hconfig(lua_State* L) {
 static int LOP_boss_action(lua_State *L) {
 	std::vector<std::string> args;
 	tokenize_string(lua_tostring(L, 2), " ", args);
-
-	WowObject player;
-	OMgr->get_local_object(&player);
+	ObjectManager OM;
+	auto player = OM.get_local_object();
+	if (!player) return 0;
 	
 	if (args[0] == "Gormok_reset") {
 		PRINT("Running gormok angle reset\n");
@@ -1340,19 +1352,14 @@ static int LOP_boss_action(lua_State *L) {
 	}
 		
 	else if (args[0] == "Gormok") {
-
 		if (ctm_queue_get_top_prio() == CTM_PRIO_NOOVERRIDE) return 0;
-
 		size_t len;
-		WowObject P;
-		OMgr->get_local_object(&P);
-		auto n = OMgr->get_NPCs_by_name("Fire Bomb");
+		auto n = OM.get_NPCs_by_name("Fire Bomb");
 		if (n.size() == 0) {
 			return 0;
 		}
 		else {
-			vec3 ppos = P.get_pos();
-
+			vec3 ppos = player->get_pos();
 			int needed = 0;
 			for (auto &o : n) {
 				if ((o.get_pos() - ppos).length() < 12) {
@@ -1363,9 +1370,9 @@ static int LOP_boss_action(lua_State *L) {
 
 			if (!needed) return 0;
 
-			WowObject F;
-			if (!OMgr->get_object_by_GUID(get_focus_GUID(), &F)) return 0;
-			vec3 fpos = F.get_pos();
+			auto F = OM.get_object_by_GUID(get_focus_GUID());
+			if (!F) return 0;
+			vec3 fpos = F->get_pos();
 
 			static float angle = 0;
 			if (!initial_angle_set) {
@@ -1400,15 +1407,13 @@ static int LOP_iccrocket(lua_State *L) {
 	std::string packet_hexstr = lua_tostring(L, 2);
 
 	ObjectManager OM;
-	WowObject rocket_pack;
 
 	DoString("RunMacroText(\"/equip Goblin Rocket Pack\")");
 
-	if (!OM.get_item_by_itemID(49278, &rocket_pack)) {
-		return 0;
-	}
+	auto rocket_pack = OM.get_item_by_itemID(49278);
+	if (!rocket_pack) return 0;
 
-	GUID_t g = rocket_pack.get_GUID();
+	GUID_t g = rocket_pack->get_GUID();
 
 	// during a legit item cast, the packet is constructed at 46772E (call to 467190)
 	// the data is input at 46720B (call to 40CB10)
@@ -1490,15 +1495,14 @@ static int LOP_get_previous_cast_msg(lua_State *L) {
 }
 
 static int LOP_avoid_npc_with_name(lua_State* L) {
+	ObjectManager OM;
 	std::string name = lua_tostring(L, 2);
 	lua_Number radius = lua_tonumber(L, 3);
 	
-	WowObject p;
-	OMgr->get_local_object(&p);
-	vec3 ppos = p.get_pos();
-	auto n = OMgr->get_NPCs_by_name(name);
-
-	for (auto &i : n) {
+	auto p = OM.get_local_object();
+	if (!p) return 0;
+	vec3 ppos = p->get_pos();
+	for (auto i : OM.get_NPCs_by_name(name)) {
 		if (i.get_type() == OBJECT_TYPE_NPC) {
 			if ((ppos - i.get_pos()).length() < radius) {
 				PRINT("Should avoid %s with GUID 0x%llX\n", name.c_str(), i.get_GUID());
@@ -1830,52 +1834,50 @@ static int dump_wowobjects_to_log(const std::string &type_filter, const std::str
 	ObjectManager OM;
 
 	ECHO_WOW("Basic info: ObjectManager base: %X, local GUID = 0x%016llX", OM.get_base_address(), OM.get_local_GUID());
-	WowObject o;
-	if (!OM.get_first_object(&o)) return 0;
-
-	for (; o.valid(); o = o.next()) {
-		uint type = o.get_type();
+	auto o = OM.get_first_object();
+	while (o) {
+		uint type = o->get_type();
 		if (type == OBJECT_TYPE_CONTAINER) {
 			continue;
 		}
 
 		else if (type == OBJECT_TYPE_ITEM && (type_filter == "ITEM")) {
-			ECHO_WOW("object GUID: 0x%016llX, base addr: 0x%X, type: %s, itemID: %u", o.get_GUID(), o.get_base(), o.get_type_name().c_str(), o.item_get_ID());
+			ECHO_WOW("object GUID: 0x%016llX, base addr: 0x%X, type: %s, itemID: %u", o->get_GUID(), o->get_base(), o->get_type_name().c_str(), o->item_get_ID());
 		}
 		
 		else if (type == OBJECT_TYPE_NPC && (type_filter == "" || type_filter == "NPC")) {
-			vec3 pos = o.get_pos();
-			std::string name = o.NPC_get_name();
+			vec3 pos = o->get_pos();
+			std::string name = o->NPC_get_name();
 			if (name_filter == "" || (name_filter != "" && name.find(name_filter) != std::string::npos)) {
-				ECHO_WOW("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-				ECHO_WOW("coords = (%f, %f, %f), rot: %f", pos.x, pos.y, pos.z, o.get_rot());
-				ECHO_WOW("name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d, mounted GUID: 0x%016llX", o.NPC_get_name().c_str(), o.NPC_get_health(), o.NPC_get_health_max(), o.NPC_get_target_GUID(), o.in_combat(), o.NPC_get_mounted_GUID());
+				ECHO_WOW("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o->get_GUID(), o->get_base(), o->get_type_name().c_str());
+				ECHO_WOW("coords = (%f, %f, %f), rot: %f", pos.x, pos.y, pos.z, o->get_rot());
+				ECHO_WOW("name: %s, health: %d/%d, target GUID: 0x%016llX, combat = %d, mounted GUID: 0x%016llX", o->NPC_get_name().c_str(), o->NPC_get_health(), o->NPC_get_health_max(), o->NPC_get_target_GUID(), o->in_combat(), o->NPC_get_mounted_GUID());
 				ECHO_WOW("----------------------------------------------------------------------------");
 			}
 		}
 		else if (type == OBJECT_TYPE_UNIT && (type_filter == "" || type_filter == "UNIT")) {
-			vec3 pos = o.get_pos();
-			std::string name = o.unit_get_name();
+			vec3 pos = o->get_pos();
+			std::string name = o->unit_get_name();
 			if (name_filter == "" || (name_filter != "" && name.find(name_filter) != std::string::npos)) {
-				ECHO_WOW("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-				ECHO_WOW("coords = (%f, %f, %f), rot: %f", pos.x, pos.y, pos.z, o.get_rot());
-				ECHO_WOW("name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d", o.unit_get_name().c_str(), o.unit_get_health(), o.unit_get_health_max(), o.unit_get_target_GUID(), o.in_combat());
+				ECHO_WOW("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o->get_GUID(), o->get_base(), o->get_type_name().c_str());
+				ECHO_WOW("coords = (%f, %f, %f), rot: %f", pos.x, pos.y, pos.z, o->get_rot());
+				ECHO_WOW("name: %s, health: %u/%u, target GUID: 0x%016llX, combat = %d", o->unit_get_name().c_str(), o->unit_get_health(), o->unit_get_health_max(), o->unit_get_target_GUID(), o->in_combat());
 				ECHO_WOW("----------------------------------------------------------------------------");
 			}
 		}
 		else if (type == OBJECT_TYPE_DYNAMICOBJECT && (type_filter == "" || type_filter == "DYNAMICOBJECT")) {
-			vec3 DO_pos = o.DO_get_pos();
-			ECHO_WOW("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-			ECHO_WOW("position: (%.1f, %.1f, %.1f), spellID: %d", DO_pos.x, DO_pos.y, DO_pos.z, o.DO_get_spellID());
+			vec3 DO_pos = o->DO_get_pos();
+			ECHO_WOW("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o->get_GUID(), o->get_base(), o->get_type_name().c_str());
+			ECHO_WOW("position: (%.1f, %.1f, %.1f), spellID: %d", DO_pos.x, DO_pos.y, DO_pos.z, o->DO_get_spellID());
 			ECHO_WOW("----------------------------------------------------------------------------");
 		}
 		else if (type == OBJECT_TYPE_GAMEOBJECT && (type_filter == "" || type_filter == "GAMEOBJECT")) {
-			vec3 GO_pos = o.GO_get_pos();
-			ECHO_WOW("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o.get_GUID(), o.get_base(), o.get_type_name().c_str());
-			ECHO_WOW("name: %s, position: (%.2f, %.2f, %.2f)", o.GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
+			vec3 GO_pos = o->GO_get_pos();
+			ECHO_WOW("object GUID: 0x%016llX, base addr = 0x%X, type: %s", o->get_GUID(), o->get_base(), o->get_type_name().c_str());
+			ECHO_WOW("name: %s, position: (%.2f, %.2f, %.2f)", o->GO_get_name().c_str(), GO_pos.x, GO_pos.y, GO_pos.z);
 			ECHO_WOW("----------------------------------------------------------------------------");
 		}
-
+		o = o->next();
 
 	}
 	

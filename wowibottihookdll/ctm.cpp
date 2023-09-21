@@ -124,18 +124,18 @@ void ctm_act() {
 	if (ctm_posthook_delay_active()) return;
 
 	ObjectManager OM;
-	WowObject p;
-	if (!OM.get_local_object(&p)) return;
+	auto p = OM.get_local_object();
+	if (!p) return;
 
 	CTM_t &ctm = ctm_queue.front();
 	PRINT("called ctm_act with %.3f, %.3f, %.3f, ID=%ld prio %d, action 0x%X\n", ctm.destination.x, ctm.destination.y, ctm.destination.z, ctm.ID, ctm.priority, ctm.action);
 
-	CTM_direction = ctm.destination - p.get_pos();
+	CTM_direction = ctm.destination - p->get_pos();
 
 	if (CTM_direction.length() > 0.01) {
 		CTM_direction = CTM_direction.unit();
 	}
-	CTM_START.startpos = p.get_pos();
+	CTM_START.startpos = p->get_pos();
 	CTM_START.timer.start();
 
 	PRINT("CTM_direction: (%.3f, %.3f, %.3f)\n", CTM_direction.x, CTM_direction.y, CTM_direction.z);
@@ -150,10 +150,10 @@ void ctm_abort_if_not_moving() {
 	if (!ctm_job_in_progress()) { return; }
 
 	ObjectManager OM;
-	WowObject p;
-	if (!OM.get_local_object(&p)) return;
+	auto p = OM.get_local_object();
+	if (!p) return;
 
-	if (!CTM_START.is_moving(p.get_pos())) {
+	if (!CTM_START.is_moving(p->get_pos())) {
 		PRINT("ctm_next(): determined that we have not been moving, aborting CTM task!\n");
 	//	DoString("SendChatMessage(\"I'm stuck, halp plx!\", \"GUILD\")");
 		ctm_cancel();
@@ -169,10 +169,10 @@ void ctm_next() {
 	CTM_t &ctm = ctm_queue.front();
 
 	ObjectManager OM;
-	WowObject p;
-	OM.get_local_object(&p);
+	auto p = OM.get_local_object();
+	if (!p) { return; }
 
-	vec3 ppos = p.get_pos();
+	vec3 ppos = p->get_pos();
 	float dist = (ppos - ctm.destination).length();
 	if (dist > ctm.min_distance + 1) {
 		PRINT("ctm_next() called, but we're not actually within 1 yd of the destination point, retrying...\n");
@@ -312,9 +312,9 @@ int ctm_check_direction() {
 
 	if (c->action != CTM_FACE) {
 		ObjectManager OM;
-		WowObject P;
-		OM.get_local_object(&P);
-		vec3 ppos = P.get_pos();
+		auto p = OM.get_local_object();
+		if (!p) { return 0; }
+		vec3 ppos = p->get_pos();
 		if (prevpos_index == 0) {
 			prevpos = ppos;
 			prevpos_index = 1;
@@ -390,10 +390,9 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 	}
 
 	ObjectManager OM;
-
-	WowObject p;
-	if (!OM.get_local_object(&p)) return;
-	vec3 pp = p.get_pos();
+	auto p = OM.get_local_object();
+	if (!p) return;
+	vec3 pp = p->get_pos();
 	vec3 diff = pp - point; // this is kinda weird, since usually one would take dest - current_loc, but np
 	//float directed_angle = atan2(diff.y, diff.x);
 	float directed_angle = atan2(point.y, point.x) - atan2(pp.y, pp.x) - 0.5*M_PI;

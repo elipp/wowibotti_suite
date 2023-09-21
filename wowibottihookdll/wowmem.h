@@ -62,40 +62,6 @@ constexpr vec3 unitvec_from_rot(float rot) {
 class WowObject {
 private:
 	// these are offsets from the base addr of the object
-
-	const unsigned int
-		GUID = 0x30,
-		Next = 0x3C,
-		Type = 0x14,
-		X = 0xBF0,
-		Y = X + 4,
-		Z = X + 8,
-		R = X + 12,
-		unit_info_field = 0x120,
-		Name = 0xDB8,
-
-		UnitHealth = 0x40,
-		UnitHealthMax = 0x58,
-		UnitPosX = 0x798,
-		UnitPosY = UnitPosX + 0x4,
-		UnitPosZ = UnitPosX + 0x8,
-		UnitRot = 0x7A8,
-
-
-		NPCHealth = 0x11E8,
-		NPCMana = 0x11EC,
-		NPCRage = 0x11F0,
-		NPCEnergy = 0x11F4,
-		NPCFocus = 0x11F8,
-
-		NPCHealthMax = 0x1200,
-		NPCManaMax = 0x1204,
-		NPCRageMax = 0x1208,
-		NPCEnergyMax = 0x120C,
-		NPCFocusMax = 0x1210,
-
-		UnitTargetGUID = 0x2680;
-
 	unsigned int base;
 
 	float get_pos_x() const;
@@ -105,7 +71,7 @@ private:
 public:
 
 	bool valid() const;
-	WowObject next() const;
+	std::optional<WowObject> next() const;
 
 	vec3 get_pos() const; // works for units and NPCs
 	float get_rot() const;
@@ -280,14 +246,7 @@ class ObjectManager {
 
 
 private:
-	const unsigned int clientConnection_addr_static = 0xC79CE0,
-		clientConnection = 0,
-		objectManagerOffset = 0x2ED0, 
-		localGUIDOffset = 0xC0,                                             // offset from the object manager to the local guid
-
-		firstObjectOffset = 0xAC,                                          // offset from the object manager to the first object
-		nextObjectOffset = 0x3C;                                       // offset from one object to the next
-
+		
 	void LoadAddresses();
 
 	unsigned int base_addr;                       // the base address of the object manager
@@ -304,18 +263,18 @@ public:
 
 	int valid() const;
 
-	int get_first_object(WowObject *o) const;
-
 	ObjectManager();
 
-	int get_object_by_GUID(GUID_t GUID, WowObject *o) const;
-	int get_unit_by_name(const std::string &name, WowObject *o) const;
-	int get_GO_by_name(const std::string &name, WowObject *o) const;
-	int get_item_by_itemID(uint itemID, WowObject *o) const;
+	std::optional<WowObject> get_first_object() const;
+	std::optional<WowObject> get_object_by_GUID(GUID_t GUID) const;
+	std::optional<WowObject> get_unit_by_name(const std::string &name) const;
+	std::optional<WowObject> get_GO_by_name(const std::string &name) const;
+	std::optional<WowObject> get_item_by_itemID(uint itemID) const;
+	std::optional<WowObject> get_local_object() const;
 
 	GUID_t get_local_GUID() const;
-	int get_local_object(WowObject *o) const;
 	uint get_base_address() const { return base_addr; }
+
 	std::vector<WowObject> get_all_NPCs_at(const vec3 &pos, float radius) const;
 	std::vector<WowObject> get_all_units() const;
 	std::vector<WowObject> get_all_combat_mobs() const;
@@ -329,8 +288,6 @@ public:
 	ObjectManager::iterator end() const;
 
 };
-
-#define OMgr (ObjectManager::get())
 
 DWORD get_wow_d3ddevice();
 DWORD get_BeginScene();

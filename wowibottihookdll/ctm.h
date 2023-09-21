@@ -93,9 +93,9 @@ struct CTM_t {
 	// this is only for CTM_FACE :D
 	static CTM_t construct_CTM_face(int prio, float angle) {
 		ObjectManager OM;
-		WowObject p;
-		OM.get_local_object(&p);
-		CTM_t r(p.get_pos(), CTM_FACE, prio, 0, 0);
+		auto p = OM.get_local_object();
+		// FIXME no checking for validity
+		CTM_t r(p->get_pos(), CTM_FACE, prio, 0, 0);
 		r.angle = angle;
 		return r;
 	}

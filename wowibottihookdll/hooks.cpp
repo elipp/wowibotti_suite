@@ -34,11 +34,6 @@ static std::vector<std::string> ENABLED_PATCHES;
 
 int should_unpatch = 0;
 
-//static HRESULT(*EndScene)(void);
-pipe_data PIPEDATA;
-
-const UINT32 PIPE_PROTOCOL_MAGIC = 0xAB30DD13;
-
 static long long framenum = 0;
 long long get_current_frame_num() {
 	return framenum;
@@ -158,9 +153,9 @@ static void register_luafunc_if_not_registered() {
 static void update_hwevent_tick() {
 	typedef int tick_count_t(void);
 	//int ticks = ((tick_count_t*)GetOSTickCount)();
-	DWORD ticks = *(DWORD*)Wotlk::CurrentTicks;
+	DWORD ticks = *(DWORD*)Addresses::Wotlk::CurrentTicks;
 
-	*(DWORD*)(Wotlk::LastHardwareAction) = ticks;
+	*(DWORD*)(Addresses::Wotlk::LastHardwareAction) = ticks;
 	// this should make us immune to AFK ^^
 }
 
@@ -204,7 +199,7 @@ static const trampoline_t *prepare_Lua_prot_patch(patch_t *p) {
 
 static void patch_lua_prot() {
 	static char original_opcodes[9];
-	patch_t lua_prot_patch(TBC::LUA_Prot_patchaddr, sizeof(original_opcodes), prepare_Lua_prot_patch);
+	patch_t lua_prot_patch(Addresses::TBC::LUA_Prot_patchaddr, sizeof(original_opcodes), prepare_Lua_prot_patch);
 	lua_prot_patch.enable(glhProcess);
 }
 
@@ -494,16 +489,16 @@ static void __stdcall dump_sendpacket(BYTE *packet) {
 
 		if (total_bytes != 47) break; // for the exact skybreaker scenario, we want a packet of size 47. explanation below
 
-		GUID_t itemguid;
-		memcpy(&itemguid, packet + 13, sizeof(GUID_t));
+		GUID_t itemGUID;
+		memcpy(&itemGUID, packet + 13, sizeof(GUID_t));
 
 		ObjectManager OM;
-		WowObject item;
-		if (!OM.get_object_by_GUID(itemguid, &item)) {
+		auto item = OM.get_object_by_GUID(itemGUID);
+		if (!item) {
 			return;
 		}
 
-		if (item.item_get_ID() == 49278) {
+		if (item->item_get_ID() == 49278) {
 			if (packet[30] == 0xC3) { // C3 means we're jumping on a gameobject (gameobject GUID is right after that)
 				// then we want to relay this packet to the other clients
 				// only use the last 5 + 12 bytes, because those are the important ones
@@ -533,7 +528,7 @@ static void __stdcall dump_sendpacket(BYTE *packet) {
 		//float fs[5];
 		//memcpy(fs, &packet[21], sizeof(fs));
 		//PRINT("opcode: 0x%04X (total_length %d)\n", opcode, total_bytes);
-		//PRINT("first int: %u (tickcount: %u, straight DEREF: %u\n", lollo, *(DWORD*)CurrentTicks);
+		//PRINT("first int: %u (tickcount: %u, straight DEREF<DWORD>: %u\n", lollo, *(DWORD*)CurrentTicks);
 		//for (auto& f : fs) {
 		//	PRINT("%f ", f);
 		//}
