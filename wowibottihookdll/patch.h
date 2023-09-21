@@ -23,10 +23,14 @@ typedef struct patch_t {
 	patch_t() {}
 	
 	// the psize argument must be ABSOLUTELY correct!
-
 	patch_t(DWORD paddr, DWORD psize, preparepatchfunc f);
-	void enable() { WriteProcessMemory(glhProcess, (LPVOID)patch_addr, patch, size, NULL); }
-	void disable() { WriteProcessMemory(glhProcess, (LPVOID)patch_addr, original, size, NULL); }
+
+	void enable(HANDLE processHandle) {
+		WriteProcessMemory(processHandle, (LPVOID)patch_addr, patch, size, NULL);
+	}
+	void disable(HANDLE processHandle) {
+		WriteProcessMemory(processHandle, (LPVOID)patch_addr, original, size, NULL);
+	}
 } patch_t;
 
 typedef struct hookable_t {

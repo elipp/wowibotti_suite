@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+extern HANDLE glhProcess;
+
 typedef unsigned long long GUID_t;
 typedef unsigned int uint; // looks kinda messy with all the "unsigned int"s
 
@@ -64,7 +66,6 @@ enum {
 	CTM_DONE = 0xD // methinks
 };
 
-extern HANDLE glhProcess;
 extern HWND wow_hWnd;
 
 #define DEREF(x) *(DWORD*)(x)

@@ -57,7 +57,8 @@ namespace TBC {
 		ClosePetStables = 0x4FACA0,
 		PLAYER_TARGET_ADDR = 0xC6E960,
 		LUA_DoString_addr = 0x706C80,
-		LUA_Prot_patchaddr = 0x49DBA0,
+		LUA_Prot = 0x49DBA0,
+		LUA_Prot_patchaddr = 0x49DBA1,
 		SelectUnit_addr = 0x4A6690,
 	};
 }

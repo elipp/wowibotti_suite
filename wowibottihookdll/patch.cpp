@@ -2,6 +2,7 @@
 
 patch_t::patch_t(DWORD paddr, DWORD psize, preparepatchfunc f) : patch_addr(paddr), size(psize), preparef(f) {
 	// get original opcodes
+
 	if (paddr != PATCHADDR_LATER) {
 		memcpy(original, (LPVOID)patch_addr, size);
 	}

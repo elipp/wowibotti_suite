@@ -194,18 +194,54 @@ extern time_t in_world; // from opcodes.cpp
 
 static int hello_shown = 0;
 
-static int addresses_patched = 0;
+static bool addresses_patched = false;
+
+static const trampoline_t *prepare_Lua_prot_patch(patch_t *p) {
+	static trampoline_t tr;
+	tr.append_hexstring("B8010000005DC3");
+	return &tr;		
+}
+
+static void patch_lua_prot() {
+	static char original_opcodes[9];
+	patch_t lua_prot_patch(TBC::LUA_Prot_patchaddr, sizeof(original_opcodes), prepare_Lua_prot_patch);
+	lua_prot_patch.enable(glhProcess);
+}
 
 static void __stdcall EndScene_hook() {
 	if (!addresses_patched) {
-		addresses_patched = 1;
+		AllocConsole();
+		freopen("CONOUT$", "wb", stdout);
+		patch_lua_prot();
+		addresses_patched = true;
+		printf("wowibottihookdll: initialization done :D\n");
 	}
 
 }
 
+const trampoline_t* prepare_EndScene_patch(patch_t* p) {
+	static trampoline_t tr;
+
+	DWORD EndScene = get_EndScene();
+	p->patch_addr = EndScene;
+
+	tr << PUSHAD;
+
+	tr.append_CALL((DWORD)EndScene_hook);
+	tr << POPAD;
+
+	memcpy(p->original, (LPVOID)EndScene, p->size);
+	tr.append_bytes(p->original, p->size);
+
+	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
+
+	tr << RET;
+
+	return &tr;
+
+}
 
 static void __stdcall Present_hook() {
-
 	if (!create_aux_window("the hotness :D", HMAP_SIZE, HMAP_SIZE)) {
 		throw std::exception("FATAL ERROR!");
 	}
@@ -564,45 +600,6 @@ static void __stdcall CTM_finished_hookfunc() {
 	c->handle_posthook();
 }
 
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-	switch (uMsg)
-	{
-	case WM_CLOSE:
-		PostQuitMessage(0);
-		break;
-	default:
-		return DefWindowProc(hwnd, uMsg, wParam, lParam);
-	}
-	return 0;
-}
-
-static const trampoline_t *prepare_EndScene_patch(patch_t *p) {
-
-	static trampoline_t tr;
-
-	PRINT("Preparing EndScene patch...\n");
-	return &tr;
-
-	DWORD EndScene = get_EndScene();
-	PRINT("Found EndScene at 0x%X\n", EndScene);
-	p->patch_addr = EndScene;
-	
-	tr << PUSHAD;
-
-	tr.append_CALL((DWORD)EndScene_hook);
-	tr << POPAD;
-		
-	memcpy(p->original, (LPVOID)EndScene, p->size);
-	tr.append_bytes(p->original, p->size);
-
-	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
-
-	tr << RET; 
-	
-	return &tr;
-
-}
 
 
 static const trampoline_t *prepare_ClosePetStables_patch(patch_t *p) {

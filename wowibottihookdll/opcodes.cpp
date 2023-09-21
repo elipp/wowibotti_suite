@@ -210,7 +210,7 @@ static void synthetize_CMSG_SET_FACING(float angle) {
 
 	packet.append_bytes(packet_flags, sizeof(packet_flags));
 
-	DWORD ticks = *(DWORD*)CurrentTicks;
+	DWORD ticks = *(DWORD*)Wotlk::CurrentTicks;
 	packet.append_bytes(&ticks, sizeof(ticks));
 
 	WowObject player;

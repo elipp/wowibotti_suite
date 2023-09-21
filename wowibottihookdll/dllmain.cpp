@@ -38,8 +38,6 @@ std::string DLL_base_path;
 int afkjump_keyup_queued = 0;
 static int enter_world = 0;
 
-PPIPE_t *PIPE;
-
 static FILE *out;
 
 void close_console() {
@@ -71,193 +69,14 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam) {
 	return TRUE;
 }
 
-PPIPE_t *create_pipe() {
-	
-	PPIPE_t *p = new PPIPE_t;
-
-	p->path = "\\\\.\\pipe\\" + std::to_string(GetCurrentProcessId());
-
-	p->hPipe = CreateNamedPipe(p->path.c_str(), PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
-		1, PIPE_READ_BUF_SIZE, PIPE_WRITE_BUF_SIZE, 0, NULL);
-
-	if (!p->hPipe) {
-		PRINT("CreateNamedPipe for pipe %s returned INVALID_HANDLE_VALUE; GetLastError() = %d. Retrying.\n", p->path.c_str(), GetLastError());
-		delete p;
-		return NULL;
-	}
-
-	p->write_buf = new char[PIPE_WRITE_BUF_SIZE];
-	p->read_buf = new char[PIPE_READ_BUF_SIZE];
-
-	return p;
-}
-
-void destroy_pipe(PPIPE_t *p) {
-	FlushFileBuffers(p->hPipe);
-	DisconnectNamedPipe(p->hPipe);
-
-	CloseHandle(p->hPipe);
-
-	delete[] p->read_buf;
-	delete[] p->write_buf;
-
-	delete p;
-}
-
-int request_patch() {
-
-	int r = 0;
-
-	while ((r = PIPE->write(&PIPEDATA.data[0], PIPEDATA.data.size())) == 0); // 0 means ERROR_PIPE_LISTENING
-
-	// now listen to what wowipotti's answer
-	r = PIPE->read();
-
-	std::vector<std::string> tokens;
-	tokenize_string(PIPE->read_buf, ";", tokens);
-
-	if (tokens.size() > 1) {
-		PRINT("DEBUG got more than 1 tokens\n");
-
-		for (auto &s : tokens) {
-			std::vector<std::string> L2;
-			tokenize_string(s, "=", L2);
-
-			if (L2.size() > 1) {
-
-				if (L2[0] == "CREDENTIALS") {
-					if (L2.size() != 2) {
-						PRINT("parse_credentials: error: malformed credentials (tokenized vector size != 2!)\n");
-						break;
-					}
-					std::vector<std::string> L3;
-					tokenize_string(L2[1], ",", L3);
-
-					if (L3.size() != 3) {
-						PRINT("parse_credentials: error: invalid number of tokens in credential string! Expected 3, got %d\n", L3.size());
-						break;
-					}
-
-					credentials = cred_t(L3[0], L3[1], L3[2]);
-				}
-			}
-		}
-	}
-	else {
-		if (tokens[0] == "PATCH_FAIL") {
-			PRINT("Got PATCH_FAIL. RIP.\n");
-			return 0;
-		}
-		else if (tokens[0] == "PATCH_OK") {
-			PRINT("Got PATCH_OK. No login credentials sent.\n");
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-int handle_patching() {
-
-	DWORD num_bytes;
-	DWORD sc;
-
-	if (!PIPE) {
-		PIPE = create_pipe();
-	}
-
-	if (PIPE) {
-		PRINT("Successfully created pipe %s!\n", PIPE->path.c_str());
-		PRINT("PIPEDATA.data.size() = %d\n", PIPEDATA.data.size());
-	}
-	else {
-		return 0;
-	}
-
-	int r = request_patch();
-	
-	destroy_pipe(PIPE);
-	PIPE = NULL;
-
-	return 1;
-
-}
-
-void __cdecl DO_STUFF(void *args) {
-	glhProcess = GetCurrentProcess();
-
-	char path[512];
-	GetModuleFileName(inj_hModule, path, 512);
-
-	DLL_path = std::string(path);
-	auto c = DLL_path.find("\\Debug");
-	if (c == std::string::npos) {
-		c = DLL_path.find("\\Release");
-	}
-
-	assert(c != std::string::npos);
-
-	DLL_base_path = DLL_path.substr(0, c) + "\\";
-
-
-
-	PRINT("DLL_path: %s\nbase_path: %s\n", DLL_path.c_str(), DLL_base_path.c_str());
-
-	handle_patching();
-
-	EnumWindows(EnumWindowsProc, NULL);
-
-}
-
-#define PUSHAD (BYTE)0x60
-#define POPAD (BYTE)0x61
-#define RET (BYTE)0xC3
-
-static void __stdcall EndScene_hook() {
-	//	draw_custom_d3d();
-	printf("MOJ\n");
-}
-
-
-static const trampoline_t* prepare_EndScene_patch(patch_t* p) {
-
-	static trampoline_t tr;
-
-	PRINT("Preparing EndScene patch...\n");
-
-	DWORD EndScene = get_EndScene();
-	PRINT("Found EndScene at 0x%X\n", EndScene);
-	p->patch_addr = EndScene;
-
-	tr << PUSHAD;
-
-	tr.append_CALL((DWORD)EndScene_hook);
-	tr << POPAD;
-
-	memcpy(p->original, (LPVOID)EndScene, p->size);
-	tr.append_bytes(p->original, p->size);
-
-	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
-
-	tr << RET;
-
-	return &tr;
-
-}
-
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
 
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH: {
 		inj_hModule = hModule;
-		AllocConsole();
-		freopen("CONOUT$", "wb", stdout);
-		printf("%p\n", get_EndScene());
 		glhProcess = GetCurrentProcess();
 		auto endscene_patch = patch_t(PATCHADDR_LATER, 7, prepare_EndScene_patch);
-		endscene_patch.enable();
-		//prepare_pipe_data();
-		//_beginthread(DO_STUFF, 0, NULL);
+		endscene_patch.enable(glhProcess);
 		break;
 	}
 	case DLL_THREAD_ATTACH:
