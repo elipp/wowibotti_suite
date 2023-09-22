@@ -571,7 +571,7 @@ int WowObject::DO_get_spellID() const {
 
 vec3 WowObject::DO_get_pos() const {
 	float coords[3];
-	readAddr(this->base + 0xE8, coords);
+	readAddr(this->base + 0xE8, &coords);
 	return vec3(coords[0], coords[1], coords[2]);
 }
 
@@ -592,7 +592,7 @@ std::string WowObject::GO_get_name() const {
 
 vec3 WowObject::GO_get_pos() const {
 	float coords[3];
-	readAddr(this->base + 0xE8, coords);
+	readAddr(this->base + 0xE8, &coords);
 	return vec3(coords[0], coords[1], coords[2]);
 }
 

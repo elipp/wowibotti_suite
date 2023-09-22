@@ -127,17 +127,8 @@ struct point_timestamp {
 
 
 template <typename T>
-inline SIZE_T readAddr(unsigned int mem, T& to) {
-	SIZE_T read;
-	ReadProcessMemory(glhProcess, (LPVOID)mem, &to, sizeof(T), &read);
-	return read;
-}
-
-template <typename T>
-inline SIZE_T readAddr(unsigned int mem, T* to) {
-	SIZE_T read;
-	ReadProcessMemory(glhProcess, (LPVOID)mem, to, sizeof(T), &read);
-	return read;
+inline void readAddr(unsigned int mem, T* to) {
+	memcpy(to, (const void*)mem, sizeof(T));
 }
 
 

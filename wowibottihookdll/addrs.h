@@ -68,6 +68,57 @@ namespace Addresses {
 				FACEANGLE_MAYBE = 0xCA11EC,
 			};
 		}
+
+		namespace Lua {
+			enum {
+				State = 0xD3F78C,
+				vfp_min = 0xD415B8,
+				vfp_max = 0xD415BC,
+			};
+			namespace Lib {
+				enum {
+					lua_unregisterfunction = 0x00817FD0,
+					lua_getvariable = 0x00818010,
+					lua_execute = 0x00819210,
+					lua_gettext = 0x00819D40,
+					lua_signalevent = 0x0081B530,
+					lua_gettop = 0x0084DBD0,
+					lua_settop = 0x0084DBF0,
+					lua_isnumber = 0x0084DF20,
+					lua_isstring = 0x0084DF60,
+					lua_equal = 0x0084DFE0,
+					lua_tonumber = 0x0084E030,
+					lua_tointeger = 0x0084E070,
+					lua_toboolean = 0x0084E0B0,
+					lua_tolstring = 0x0084E0E0,
+					lua_objlen = 0x0084E150,
+					lua_tocfunction = 0x0084E1C0,
+					lua_tothread = 0x0084E1F0,
+					lua_touserdata = 0x0084E210,
+					lua_pushnil = 0x0084E280,
+					lua_pushnumber = 0x0084E2A0,
+					lua_pushinteger = 0x0084E2D0,
+					lua_pushlstring = 0x0084E300,
+					lua_pushstring = 0x0084E350,
+					lua_pushcclosure = 0x0084E400,
+					lua_pushboolean = 0x0084E4D0,
+					lua_gettable = 0x0084E560,
+					lua_findtable = 0x0084E590,
+					lua_createtable = 0x0084E6E0,
+					lua_setfield = 0x0084E900,
+					lua_displayerror = 0x0084F280,
+					lua_getfield = 0x0084F3B0,
+					lua_next = 0x0084EF50,
+					
+					// wowlua335_next 0x00854690,
+					// #define wowlua335_type 0x00854660
+
+					// semi-custom stuff
+					lua_gettype = 0x84DEB0,
+					lua_gettypestring = 0x84DED0,
+				};
+			}
+		}
 	}
 
 	namespace TBC {
@@ -157,6 +208,13 @@ namespace Addresses {
 				MYSTERY_C8 = 0xD689C8,
 				MYSTERY_90 = 0xD68A90,
 				MYSTERY_94 = 0xD68A94
+			};
+		}
+		namespace Lua {
+			enum {
+				State = 0xE1DB84,
+				vfp_min = 0xE1F830,
+				vfp_max = 0xE1F834,
 			};
 		}
 	}
