@@ -74,9 +74,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH: {
 		inj_hModule = hModule;
-		glhProcess = GetCurrentProcess();
 		auto endscene_patch = patch_t(PATCHADDR_LATER, 7, prepare_EndScene_patch);
-		endscene_patch.enable(glhProcess);
+		endscene_patch.enable(GetCurrentProcess());
 		break;
 	}
 	case DLL_THREAD_ATTACH:

@@ -4,6 +4,8 @@
 
 //#define LUA_prot 0x49DBA0
 
+#define TODO 0xFFFFFFFF
+
 namespace Addresses {
 	namespace Wotlk {
 		enum Addresses {
@@ -48,6 +50,7 @@ namespace Addresses {
 			Camera_static = 0xB7436C,
 
 			SetFacing = 0x00989B70,
+			UnitReaction = 0x7251C0,
 		};
 	}
 
@@ -57,12 +60,13 @@ namespace Addresses {
 			D3D9DeviceOffset = 0x3864,
 			ClosePetStables = 0x4FACA0,
 			PLAYER_TARGET_ADDR = 0xC6E960,
-			PLAYER_FOCUS_ADDR = 0x0,
+			PLAYER_FOCUS_ADDR = TODO,
 			LUA_DoString_addr = 0x706C80,
 			LUA_Prot = 0x49DBA0,
 			LUA_Prot_patchaddr = 0x49DBA1,
 			SelectUnit_addr = 0x4A6690,
 			TicksSinceLastHWEvent = 0xBE10FC,
+			GetUnitOrNPCNameAddr = 0x614520,
 		};
 
 		namespace ObjectManager {
@@ -71,42 +75,50 @@ namespace Addresses {
 				CurrentObjectManager = 0x2218,
 				LocalGUIDOffset = 0xC0, // offset from the object manager to the local guid
 				FirstObjectOffset = 0xAC, // offset from the object manager to the first object
-				NextObjectOffset = 0x3C, // offset from one object to the next
 			};
 		}
 
 		namespace WowObject {
 			enum {
+				Type = 0x14,
 				GUID = 0x30,
 				Next = 0x3C,
-				Type = 0x14,
+				// For UNITs, both the UnitPosX... and these seem to contain these coord values
 				X = 0xBF0,
 				Y = X + 4,
 				Z = X + 8,
 				R = X + 12,
-				unit_info_field = 0x120,
-				Name = 0xDB8,
 
-				UnitHealth = 0x40,
-				UnitHealthMax = 0x58,
-				UnitPosX = 0x798,
+				unit_info_field = 0x120,
+				UnitHealth = 0x2698,
+				UnitMana = UnitHealth + 0x4,
+				UnitRage = UnitHealth + 0x8,
+				UnitFocus = UnitHealth + 0xC,
+				UnitHealthMax = UnitHealth + 0x18,
+				UnitManaMax = UnitHealthMax + 0x4,
+				UnitRageMax = UnitHealthMax + 0x8,
+				UnitFocusMax = UnitHealthMax + 0xC,
+
+				UnitPosX = 0xBE8,
 				UnitPosY = UnitPosX + 0x4,
 				UnitPosZ = UnitPosX + 0x8,
-				UnitRot = 0x7A8,
+				UnitRot = UnitPosX + 0xC,
+
 				UnitTargetGUID = 0x2680,
 
 				NPCHealth = 0x11E8,
-				NPCMana = 0x11EC,
-				NPCRage = 0x11F0,
-				NPCEnergy = 0x11F4,
-				NPCFocus = 0x11F8,
+				NPCMana = NPCHealth + 0x4,
+				NPCRage = NPCHealth + 0x8,
+				NPCEnergy = NPCHealth + 0xC,
+				NPCFocus = NPCHealth + 0x10,
 
 				NPCHealthMax = 0x1200,
-				NPCManaMax = 0x1204,
-				NPCRageMax = 0x1208,
-				NPCEnergyMax = 0x120C,
-				NPCFocusMax = 0x1210,
+				NPCManaMax = NPCHealthMax + 0x4,
+				NPCRageMax = NPCHealthMax + 0x8,
+				NPCEnergyMax = NPCHealthMax + 0xC,
+				NPCFocusMax = NPCHealthMax + 0x10,
 
+				NPCTargetGUID = 0xF08,
 			};
 		}
 

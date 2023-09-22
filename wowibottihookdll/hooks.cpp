@@ -205,11 +205,30 @@ static void patch_lua_prot() {
 
 static void __stdcall EndScene_hook() {
 	if (!addresses_patched) {
+		glhProcess = GetCurrentProcess();
 		AllocConsole();
 		freopen("CONOUT$", "wb", stdout);
 		patch_lua_prot();
 		addresses_patched = true;
 		printf("wowibottihookdll: initialization done :D\n");
+	}
+
+	ObjectManager OM;
+	printf("valid: %d, %p\n", OM.valid(), OM.get_base_address());
+	if (OM.valid()) {
+		for (const auto o : OM) {
+			switch (o.get_type()) {
+				case WOWOBJECT_TYPE::ITEM:
+				case WOWOBJECT_TYPE::CONTAINER:
+					break;
+				case WOWOBJECT_TYPE::NPC:
+				case WOWOBJECT_TYPE::UNIT:
+					printf("WowObject base: %p - type: %s (%d), GUID: %llX, name: %s, health: (%d/%d), mana: (%d/%d)\n", o.get_base(), o.get_type_name(), o.get_type(), o.get_GUID(), o.get_name(), o.get_health(), o.get_health_max(), o.get_mana(), o.get_mana_max());
+					break;
+				default:
+					printf("WowObject base: %p - type: %s (%d), GUID: %llX\n", o.get_base(), o.get_type_name(), o.get_type(), o.get_GUID(), o.get_name());
+			}
+		}
 	}
 
 }

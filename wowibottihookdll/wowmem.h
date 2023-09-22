@@ -34,18 +34,20 @@ GUID_t get_raid_target_GUID(const std::string &marker_name);
 GUID_t get_target_GUID();
 
 
-enum {
-	OBJECT_TYPE_OBJECT = 0,
-	OBJECT_TYPE_ITEM = 1,
-	OBJECT_TYPE_CONTAINER = 2,
-	OBJECT_TYPE_NPC = 3,
-	OBJECT_TYPE_UNIT = 4,
-	OBJECT_TYPE_GAMEOBJECT = 5,
-	OBJECT_TYPE_DYNAMICOBJECT = 6,
-	OBJECT_TYPE_CORPSE = 7,
-	OBJECT_TYPE_AREATRIGGER = 8,
-	OBJECT_TYPE_SCENEOBJECT = 9
-};
+namespace WOWOBJECT_TYPE {
+	enum {
+		OBJECT = 0,
+		ITEM = 1,
+		CONTAINER = 2,
+		NPC = 3,
+		UNIT = 4,
+		GAMEOBJECT = 5,
+		DYNAMICOBJECT = 6,
+		CORPSE = 7,
+		AREATRIGGER = 8,
+		SCENEOBJECT = 9
+	};
+}
 
 typedef struct type_string_mapentry {
 	std::string typestring;
@@ -69,36 +71,21 @@ private:
 	float get_pos_z() const;
 
 public:
-
+	DWORD get_base() const;
 	bool valid() const;
-	std::optional<WowObject> next() const;
+	int get_type() const;
+	const char* get_type_name() const;
+	const char* get_name() const;
 
+	std::optional<WowObject> next() const;
+	
 	vec3 get_pos() const; // works for units and NPCs
 	float get_rot() const;
 	vec3 get_rotvec() const;
 
 	GUID_t get_GUID() const;
 
-	int get_type() const;
-
-	int NPC_get_health() const;
-	int NPC_get_health_max() const;
-
-	int NPC_get_mana() const;
-	int NPC_get_mana_max() const;
-
-	int NPC_get_rage() const;
-	int NPC_get_rage_max() const;
-
-	int NPC_get_energy() const;
-	int NPC_get_energy_max() const;
-
-	int NPC_get_focus() const;
-	int NPC_get_focus_max() const;
-
 	int NPC_unit_is_dead() const;
-
-	std::string NPC_get_name() const;
 	GUID_t NPC_get_target_GUID() const;
 
 	uint NPC_get_buff(int index) const;
@@ -112,18 +99,25 @@ public:
 
 	GUID_t NPC_get_mounted_GUID() const;
 
-	std::string unit_get_name() const;
-	GUID_t unit_get_target_GUID() const;
+	GUID_t get_target_GUID() const;
 
 	int in_combat() const;
 
-	uint unit_get_health() const;
-	uint unit_get_health_max() const;
+	uint get_health() const;
+	uint get_health_max() const;
+
+	uint get_mana() const;
+	uint get_mana_max() const;
+
+	uint get_rage() const;
+	uint get_rage_max() const;
+
+	uint get_focus() const;
+	uint get_focus_max() const;
 
 	uint unit_get_buff(int index) const;
 	uint unit_get_debuff(int index) const;
 
-	std::string get_type_name() const;
 
 	int DO_get_spellID() const;
 	vec3 DO_get_pos() const;
@@ -133,10 +127,7 @@ public:
 
 	uint item_get_ID() const;
 
-	WowObject(unsigned int addr);
-	WowObject();
-
-	unsigned int get_base() const;
+	WowObject(DWORD base_addr);
 
 	const WowObject& operator=(const WowObject &o);
 };
@@ -167,24 +158,24 @@ struct WO_cached {
 		GUID = o.get_GUID();
 		type = o.get_type();
 
-		if (type == OBJECT_TYPE_NPC) {
+		if (type == WOWOBJECT_TYPE::NPC) {
 			pos = o.get_pos();
-			health = o.NPC_get_health();
-			health_max = o.NPC_get_health_max();
-			name = o.NPC_get_name();
+			health = o.get_health();
+			health_max = o.get_health_max();
+			name = o.get_name();
 			in_combat = o.in_combat();
 			dead = o.NPC_unit_is_dead();
 			rot = o.get_rot();
 			reaction = react;
 		}
-		else if (type == OBJECT_TYPE_UNIT) {
+		else if (type == WOWOBJECT_TYPE::UNIT) {
 			pos = o.get_pos();
-			health = o.unit_get_health();
-			health_max = o.unit_get_health_max();
+			health = o.get_health();
+			health_max = o.get_health_max();
 			rot = o.get_rot();
-			name = o.unit_get_name();
+			name = o.get_name();
 		}
-		else if (type == OBJECT_TYPE_DYNAMICOBJECT) {
+		else if (type == WOWOBJECT_TYPE::DYNAMICOBJECT) {
 			pos = o.DO_get_pos();
 			DO_spellid = o.DO_get_spellID();
 		}
@@ -237,7 +228,7 @@ class ObjectManager {
 	class iterator {
 	public:
 		iterator(DWORD base_addr);
-		iterator operator++();
+		iterator& operator++();
 		bool operator!=(const iterator& other) const;
 		WowObject operator*() const;
 	private:
@@ -246,18 +237,11 @@ class ObjectManager {
 
 
 private:
-		
-	void LoadAddresses();
-
 	unsigned int base_addr;                       // the base address of the object manager
 	GUID_t localGUID;
 
 	bool invalid;
 	long long construction_frame_num;
-
-	static ObjectManager thisframe_objectmanager;
-
-	void initialize();
 
 public:
 

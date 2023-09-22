@@ -177,17 +177,17 @@ GUID_t get_focus_GUID() {
 }
 
 
-static const std::string wowobject_type_names[] = {
-	"0 : OBJECT",
-	"1 : ITEM",
-	"2 : CONTAINER",
-	"3 : NPC",
-	"4 : PLAYER",
-	"5 : GAMEOBJECT",
-	"6 : DYNAMICOBJECT",
-	"7 : CORPSE",
-	"8 : AREATRIGGER",
-	"9 : SCENEOBJECT"
+static const char* wowobject_type_names[] = {
+	"OBJECT",
+	"ITEM",
+	"CONTAINER",
+	"NPC",
+	"PLAYER",
+	"GAMEOBJECT",
+	"DYNAMICOBJECT",
+	"CORPSE",
+	"AREATRIGGER",
+	"SCENEOBJECT"
 };
 
 float WowObject::get_pos_x() const {
@@ -210,8 +210,8 @@ vec3 WowObject::get_pos() const {
 	if (mg == 0 || !mount) goto normal;
 	
 	mount_type = mount->get_type(); // this business is needed in order not to bug out in Skybreaker fight (the "mounted GUID" is also set for mobs on the skybreaker :D)
-	if (this->get_type() == OBJECT_TYPE_NPC && 
-		(mount_type == OBJECT_TYPE_NPC || mount_type == OBJECT_TYPE_UNIT)) {
+	if (this->get_type() == WOWOBJECT_TYPE::NPC && 
+		(mount_type == WOWOBJECT_TYPE::NPC || mount_type == WOWOBJECT_TYPE::UNIT)) {
 		// the coordinates for such "mounted" mobs are fucked up (stored relative to the mount), so have a separate block for those ^_^
 		// eg. vassals in Gormok (TOC)
 		return vec3(this->get_pos_x(), this->get_pos_y(), this->get_pos_z()) + vec3(mount->get_pos_x(), mount->get_pos_y(), mount->get_pos_z());
@@ -245,20 +245,24 @@ bool WowObject::valid() const {
 std::optional<WowObject> WowObject::next() const {
 	if (!this->valid()) { return std::nullopt; }
 	DWORD next_base = DEREF<DWORD>(this->base + Addresses::TBC::WowObject::Next);
-	if (!next_base) { return std::nullopt; }
+	if (next_base == 0 || (next_base & 0x3) != 0) { return std::nullopt; }
 	return WowObject(next_base);
 }
 
 
 GUID_t WowObject::get_GUID() const {
-	return DEREF<GUID_t>(this->base + Addresses::TBC::WowObject::Next);
+	return DEREF<GUID_t>(this->base + Addresses::TBC::WowObject::GUID);
 }
 
 int WowObject::get_type() const {
 	return DEREF<DWORD>(this->base + Addresses::TBC::WowObject::Type);
 }
 
-std::string WowObject::get_type_name() const {
+const char* WowObject::get_type_name() const {
+	auto type = this->get_type();
+	if (type < 0 || type >= sizeof(wowobject_type_names)) {
+		return "?";
+	}
 	return wowobject_type_names[get_type()];
 }
 
@@ -269,119 +273,115 @@ int WowObject::NPC_unit_is_dead() const {
 	return d == 0;
 }
 
-int WowObject::NPC_get_health() const {
-	int h = DEREF<DWORD>(base + 0xFB0);
-	return h;
-}
-
-int WowObject::NPC_get_health_max() const {
-	int h = (DEREF<DWORD>(DEREF<DWORD>(base + 0xD0) + 0x68));
-	return h;
-}
-
-int WowObject::NPC_get_mana() const {
-	return DEREF<int>(this->base + Addresses::TBC::WowObject::NPCMana);
-}
-
-int WowObject::NPC_get_mana_max() const {
-	return DEREF<int>(this->base + Addresses::TBC::WowObject::NPCManaMax);
-}
-
-int WowObject::NPC_get_rage() const {
-	return DEREF<int>(this->base + Addresses::TBC::WowObject::NPCRage);
-}
-
-int WowObject::NPC_get_rage_max() const {
-	return DEREF<int>(this->base + Addresses::TBC::WowObject::NPCRageMax);
-}
-
-int WowObject::NPC_get_energy() const {
-	return DEREF<int>(this->base + Addresses::TBC::WowObject::NPCEnergy);
-}
-
-int WowObject::NPC_get_energy_max() const {
-	return DEREF<int>(this->base + Addresses::TBC::WowObject::NPCEnergyMax);
-}
-
-int WowObject::NPC_get_focus() const {
-	return DEREF<int>(this->base + Addresses::TBC::WowObject::NPCFocus);
-}
-
-int WowObject::NPC_get_focus_max() const {
-	return DEREF<int>(this->base + Addresses::TBC::WowObject::NPCFocusMax);
-}
-
-std::string WowObject::NPC_get_name() const {
-	DWORD interm = DEREF<DWORD>(this->base + 0x964);
-	if (!interm) {
-		return "null";
+const char* WowObject::get_name() const {
+	switch (this->get_type()) {
+		case WOWOBJECT_TYPE::NPC:
+		case WOWOBJECT_TYPE::UNIT: {
+			const DWORD get_name_addr = Addresses::TBC::GetUnitOrNPCNameAddr;
+			const char* result;
+			DWORD base = this->base;
+			DWORD ecx_prev;
+			_asm {
+				mov ecx_prev, ecx
+				mov ecx, base
+				push 0
+				call get_name_addr
+				mov result, eax
+				mov ecx, ecx_prev
+			}
+			return result ? result : "null";
+		}
+		default:
+			return "Unknown";
 	}
-	return std::string(DEREF<const char*>(interm + 0x5C));
 }
 
-std::string WowObject::unit_get_name() const {
-
-	//// 0xD29BB0 is some kind of static / global string-related thing, resides in the .data segment. (look at Wow.exe:0x6D9850)
-	const uint ecx = 0xC5D940; // tbc: 0xD29BB0
-
-	uint ECX24 = ecx + 0x24;
-	readAddr(ECX24, &ECX24, sizeof(ECX24));
-
-	uint ECX1C = ecx + 0x1C;
-	readAddr(ECX1C, &ECX1C, sizeof(ECX1C));
-
-	uint ESI_GUID = (uint)get_GUID();
-	uint AND = ESI_GUID & ECX24;
-
-	uint eax = AND * 0x2 + AND;
-
-	eax = eax * 0x4 + ECX1C;
-	eax = eax + 0x4;
-	eax = eax + 0x4;
-
-	eax = DEREF<DWORD>(eax);
-
-	//fprintf(fp, "ECX + 0x24 = %X, ECX + 0x1C = %X, AND = %X, eax = %X, [eax] = %X\n", ECX24, ECX1C, AND, eax, DEREF<DWORD>(eax));
-	// absolutely no fucking idea how this works :DD
-
-	while (DEREF<DWORD>(eax) != ESI_GUID) {
-		//fprintf(fp, "eax = %X, GUID ([eax]) = %X\n", eax, DEREF<DWORD>(eax));
-		uint edx = AND * 0x2 + AND;
-		edx = edx * 0x4 + ECX1C;
-		edx = DEREF<DWORD>(edx) + eax;
-		eax = DEREF<DWORD>(edx + 0x4);
-
-		// THERES STILL THAT WEIRD EAX+0x18 thing to figure out. the GUID is at [eax], but is also at [eax + 0x18]? :D
+uint WowObject::get_health() const {
+	switch (this->get_type()) {
+		case WOWOBJECT_TYPE::NPC:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::NPCHealth);
+		case WOWOBJECT_TYPE::UNIT:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::UnitHealth);
+		default:
+			return 0xFFFFFFFF;
 	}
-
-	const char *ret = (const char*)(eax + 0x20);
-
-	//const char *ret = NULL;
-
-	//typedef const char*(*getnamefunc_t)(GUID_t, void*);
-	//getnamefunc_t getname = (getnamefunc_t)0x67D770;
-
-	//ret = getname(get_GUID(), (void*)0xC5D938);
-
-	return ret;
 }
 
-uint WowObject::unit_get_health() const {
-	//uint info_field;
-	//readAddr(base + unit_info_field, &info_field, sizeof(uint));
-
-	uint cur_HP = 0;
-	readAddr(base + 0xFB0, &cur_HP, sizeof(cur_HP));
-	return cur_HP;
+uint WowObject::get_health_max() const {
+	switch (this->get_type()) {
+		case WOWOBJECT_TYPE::NPC:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::NPCHealthMax);
+		case WOWOBJECT_TYPE::UNIT:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::UnitHealthMax);
+		default:
+			return 0xFFFFFFFF;
+	}
 }
 
-uint WowObject::unit_get_health_max() const {
-	uint info_field;
-	readAddr(base + 0xD0, &info_field, sizeof(uint));
+uint WowObject::get_mana() const {
+	switch (this->get_type()) {
+		case WOWOBJECT_TYPE::NPC:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::NPCMana);
+		case WOWOBJECT_TYPE::UNIT:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::UnitMana);
+		default:
+			return 0xFFFFFFFF;
+	}
+}
 
-	uint max_HP = 0;
-	readAddr(info_field + 0x68, &max_HP, sizeof(max_HP));
-	return max_HP;
+uint WowObject::get_mana_max() const {
+	switch (this->get_type()) {
+		case WOWOBJECT_TYPE::NPC:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::NPCManaMax);
+		case WOWOBJECT_TYPE::UNIT:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::UnitManaMax);
+		default:
+			return 0xFFFFFFFF;
+	}
+}
+
+uint WowObject::get_rage() const {
+	switch (this->get_type()) {
+		case WOWOBJECT_TYPE::NPC:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::NPCRage);
+		case WOWOBJECT_TYPE::UNIT:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::UnitRage);
+		default:
+			return 0xFFFFFFFF;
+	}
+}
+
+uint WowObject::get_rage_max() const {
+	switch (this->get_type()) {
+		case WOWOBJECT_TYPE::NPC:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::NPCRageMax);
+		case WOWOBJECT_TYPE::UNIT:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::UnitRageMax);
+		default:
+			return 0xFFFFFFFF;
+	}
+}
+
+uint WowObject::get_focus() const {
+	switch (this->get_type()) {
+		case WOWOBJECT_TYPE::NPC:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::NPCFocus);
+		case WOWOBJECT_TYPE::UNIT:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::UnitFocus);
+		default:
+			return 0xFFFFFFFF;
+	}
+}
+
+uint WowObject::get_focus_max() const {
+	switch (this->get_type()) {
+		case WOWOBJECT_TYPE::NPC:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::NPCFocusMax);
+		case WOWOBJECT_TYPE::UNIT:
+			return DEREF<uint>(this->base + Addresses::TBC::WowObject::UnitFocusMax);
+		default:
+			return 0xFFFFFFFF;
+	}
 }
 
 GUID_t WowObject::NPC_get_target_GUID() const {
@@ -503,8 +503,15 @@ int WowObject::NPC_has_debuff(uint spellID) const {
 	return 0;
 }
 
-GUID_t WowObject::unit_get_target_GUID() const {
-	return DEREF<GUID_t>(this->base + Addresses::TBC::WowObject::UnitTargetGUID);
+GUID_t WowObject::get_target_GUID() const {
+	switch (this->get_type()) {
+		case WOWOBJECT_TYPE::NPC:
+			return DEREF<GUID_t>(this->base + Addresses::TBC::WowObject::NPCTargetGUID);
+		case WOWOBJECT_TYPE::UNIT:
+			return DEREF<GUID_t>(this->base + Addresses::TBC::WowObject::UnitTargetGUID);
+		default:
+			return 0;
+	}
 }
 
 uint WowObject::unit_get_buff(int index) const {
@@ -560,10 +567,9 @@ void increment_item_usecount() {
 	++*usecount;
 }
 
-WowObject::WowObject(unsigned int addr) : base(addr) {};
-WowObject::WowObject() : base(0) {};
+WowObject::WowObject(DWORD base_addr) : base(base_addr) {};
 
-unsigned int WowObject::get_base() const { return base; }
+DWORD WowObject::get_base() const { return base; }
 
 const WowObject& WowObject::operator=(const WowObject &o) {
 	this->base = o.base;
@@ -613,9 +619,9 @@ vec3 WowObject::GO_get_pos() const {
 
 ObjectManager::iterator::iterator(DWORD base_addr) : base(base_addr) {}
 
-ObjectManager::iterator ObjectManager::iterator::operator++() {
-	auto next = WowObject(base).next();
-	if (next->valid()) {
+ObjectManager::iterator& ObjectManager::iterator::operator++() {
+	auto next = WowObject(this->base).next();
+	if (next) {
 		this->base = next->get_base();
 	}
 	else {
@@ -633,32 +639,20 @@ WowObject ObjectManager::iterator::operator*() const {
 }
 
 ObjectManager::iterator ObjectManager::begin() const {
+	if (!this->valid()) { return this->end(); }
 	auto o = this->get_first_object();
-	if (!o) return 0;
-	else return iterator(o->get_base());
+	if (!o) return this->end();
+	else {
+		return iterator(o->get_base());
+	}
 }
 ObjectManager::iterator ObjectManager::end() const { 
 	return iterator(0); 
 }
 
 
-void ObjectManager::LoadAddresses() {
-
-	//if (!credentials.logged_in) { this->invalid = 1; return; }
-
-	DWORD clientConnection = DEREF<DWORD>(Addresses::TBC::ObjectManager::ClientConnection);
-	this->base_addr = DEREF<DWORD>(clientConnection + Addresses::TBC::ObjectManager::CurrentObjectManager);
-	this->localGUID = DEREF<GUID_t>(this->base_addr + Addresses::TBC::ObjectManager::LocalGUIDOffset);
-	this->invalid = 0;
-}
-
-void ObjectManager::initialize() {
-	LoadAddresses();
-	construction_frame_num = get_current_frame_num();
-}
-
-
 std::optional<WowObject> ObjectManager::get_first_object() const {
+	if (this->invalid) { return std::nullopt; }
 	unsigned int object_base_addr = DEREF<DWORD>(this->base_addr + Addresses::TBC::ObjectManager::FirstObjectOffset);
 	if (!object_base_addr) return std::nullopt;
 
@@ -666,23 +660,24 @@ std::optional<WowObject> ObjectManager::get_first_object() const {
 }
 
 ObjectManager::ObjectManager() : invalid(true) {
-	initialize();
-}
-
-ObjectManager ObjectManager::thisframe_objectmanager;
-
-ObjectManager* ObjectManager::get() {
-
-	// this is most likely not necessary anyway, but just in case we reload the addresses of OM every frame
-
-	if (get_current_frame_num() != thisframe_objectmanager.construction_frame_num) {
-		thisframe_objectmanager.initialize();
+	DWORD clientConnection = DEREF<DWORD>(Addresses::TBC::ObjectManager::ClientConnection);
+	if (!clientConnection) {
+		printf("Couldn't get ClientConnection!\n");
+		return;
 	}
-	
-	return &thisframe_objectmanager;
+	this->base_addr = DEREF<DWORD>(clientConnection + Addresses::TBC::ObjectManager::CurrentObjectManager);
+	if (!this->base_addr) {
+		printf("Couldn't get CurrentObjectManager!\n");
+		return;
+	}
+
+	this->localGUID = DEREF<GUID_t>(this->base_addr + Addresses::TBC::ObjectManager::LocalGUIDOffset);
+	this->construction_frame_num = get_current_frame_num();
+	this->invalid = false;
 }
 
 std::optional<WowObject> ObjectManager::get_object_by_GUID(GUID_t GUID) const {
+	if (!this->valid()) { return std::nullopt; }
 	auto next = this->get_first_object();
 	while (next) {
 		if (next->get_GUID() == GUID) {
@@ -693,11 +688,12 @@ std::optional<WowObject> ObjectManager::get_object_by_GUID(GUID_t GUID) const {
 }
 
 std::optional<WowObject> ObjectManager::get_unit_by_name(const std::string &name) const {
+	if (!this->valid()) { return std::nullopt; }
 	auto next = this->get_first_object();
 	while (next) {
-		if (next->get_type() == OBJECT_TYPE_UNIT) {
-			if (next->unit_get_name() == name) {
-				//PRINT("Found %s!\n", next.unit_get_name().c_str());
+		if (next->get_type() == WOWOBJECT_TYPE::UNIT) {
+			if (next->get_name() == name) {
+				//PRINT("Found %s!\n", next.get_name().c_str());
 				return next;
 			}
 		}
@@ -710,21 +706,18 @@ std::optional<WowObject> ObjectManager::get_unit_by_name(const std::string &name
 
 std::vector<WowObject> ObjectManager::get_NPCs_by_name(const std::string &name) {
 	std::vector<WowObject> ret;
+	if (!this->valid()) { return ret; }
 	auto i = this->get_first_object();
 	while (i) {
-		if (i->get_type() == OBJECT_TYPE_NPC) {
-			if (i->NPC_get_name().find(name) != std::string::npos) {
-				ret.push_back(*i);
-			}
+		std::string iname(i->get_name());
+		if (iname.find(name) != std::string::npos) {
+			ret.push_back(*i);
 		}
-
 		i = i->next();
 	}
 
 	return ret;
 }
-
-
 
 hcache_t ObjectManager::get_snapshot() const {
 
@@ -735,18 +728,16 @@ hcache_t ObjectManager::get_snapshot() const {
 
 	auto player = this->get_local_object();
 	if (!player) { return c; }
-	auto iter = this->get_first_object();
-	while (iter) {
-		int type = iter->get_type();
-		if (type == OBJECT_TYPE_NPC || type == OBJECT_TYPE_UNIT || type == OBJECT_TYPE_DYNAMICOBJECT) {
-			if (iter->get_GUID() == this->get_local_GUID()) {
-				c.player = WO_cached(*iter);
+	for (const auto iter : (*this)) {
+		int type = iter.get_type();
+		if (type == WOWOBJECT_TYPE::NPC || type == WOWOBJECT_TYPE::UNIT || type == WOWOBJECT_TYPE::DYNAMICOBJECT) {
+			if (iter.get_GUID() == this->get_local_GUID()) {
+				c.player = WO_cached(iter);
 			}
 			else {
-				c.push(WO_cached(*iter, get_reaction(*player, *iter))); // get_reaction returns -1 if the types are incorrect
+				c.push(WO_cached(iter, get_reaction(*player, iter))); // get_reaction returns -1 if the types are incorrect
 			}
 		}
-		iter = iter->next();
 	}
 	
 	return c;
@@ -756,7 +747,7 @@ hcache_t ObjectManager::get_snapshot() const {
 std::optional<WowObject> ObjectManager::get_GO_by_name(const std::string &name) const {
 	auto n = this->get_first_object();
 	while (n) {
-		if (n->get_type() == OBJECT_TYPE_GAMEOBJECT) {
+		if (n->get_type() == WOWOBJECT_TYPE::GAMEOBJECT) {
 			if (n->GO_get_name() == name) {
 				return n;
 			}
@@ -769,7 +760,7 @@ std::optional<WowObject> ObjectManager::get_GO_by_name(const std::string &name) 
 std::optional<WowObject> ObjectManager::get_item_by_itemID(uint itemID) const {
 	auto n = this->get_first_object();
 	while (n) {
-		if (n->get_type() == OBJECT_TYPE_ITEM) {
+		if (n->get_type() == WOWOBJECT_TYPE::ITEM) {
 			if (n->item_get_ID() == itemID) {
 				return n;
 			}
@@ -785,7 +776,7 @@ std::optional<WowObject> ObjectManager::get_item_by_itemID(uint itemID) const {
 GUID_t ObjectManager::get_local_GUID() const { return localGUID; }
 
 int ObjectManager::valid() const {
-	return !base_addr || !invalid;
+	return base_addr && !invalid;
 }
 
 std::optional<WowObject> ObjectManager::get_local_object() const {
@@ -801,7 +792,7 @@ std::vector<WowObject> ObjectManager::get_spell_objects_with_spellID(long spellI
 	}
 
 	while (next->valid()) {
-		if (next->get_type() == OBJECT_TYPE_DYNAMICOBJECT) {
+		if (next->get_type() == WOWOBJECT_TYPE::DYNAMICOBJECT) {
 			if (next->DO_get_spellID() == spellID) {
 				matches.push_back(*next);
 			}
@@ -817,7 +808,7 @@ std::vector<WowObject> ObjectManager::get_all_NPCs_at(const vec3 &pos, float rad
 
 	auto o = this->get_first_object();
 	while (o) {
-		if (o->get_type() == OBJECT_TYPE_NPC) {
+		if (o->get_type() == WOWOBJECT_TYPE::NPC) {
 			vec3 opos = o->get_pos();
 			float dist = (opos - pos).length();
 			if (dist < radius) { NPCs.push_back(*o); }
@@ -833,7 +824,7 @@ std::vector<WowObject> ObjectManager::get_all_units() const {
 	std::vector<WowObject> units;
 	auto i = this->get_first_object();
 	while (i) {
-		if (i->get_type() == OBJECT_TYPE_UNIT) {
+		if (i->get_type() == WOWOBJECT_TYPE::UNIT) {
 			units.push_back(*i);
 		}
 		i = i->next();
@@ -846,7 +837,7 @@ std::vector<WowObject> ObjectManager::get_all_combat_mobs() const {
 	std::vector<WowObject> units;
 
 	for (const auto &o : *this) {
-		if (o.get_type() == OBJECT_TYPE_NPC && o.in_combat()) {
+		if (o.get_type() == WOWOBJECT_TYPE::NPC && o.in_combat()) {
 			units.push_back(o);
 		}
 	}
@@ -911,13 +902,13 @@ float get_distance2(const WowObject &a, const WowObject &b) {
 }	
 
 int get_reaction(const WowObject &A, const WowObject &B) {
-	static const DWORD UnitReaction = 0x7251C0;
+	const DWORD UnitReaction = Addresses::Wotlk::UnitReaction;
 	
 	DWORD typeA = A.get_type();
 	DWORD typeB = B.get_type();
 
-	if (!(typeA == OBJECT_TYPE_UNIT || typeA == OBJECT_TYPE_NPC)) return -1;
-	if (!(typeB == OBJECT_TYPE_UNIT || typeB == OBJECT_TYPE_NPC)) return -1;
+	if (!(typeA == WOWOBJECT_TYPE::UNIT || typeA == WOWOBJECT_TYPE::NPC)) return -1;
+	if (!(typeB == WOWOBJECT_TYPE::UNIT || typeB == WOWOBJECT_TYPE::NPC)) return -1;
 	
 	DWORD baseA = A.get_base();
 	DWORD baseB = B.get_base();
@@ -941,16 +932,16 @@ GUID_t WowObject::NPC_get_mounted_GUID() const {
 }
 
 static const type_string_mapentry typestring_index_map[] = {
-	{ "OBJECT", OBJECT_TYPE_OBJECT },
-	{ "ITEM", OBJECT_TYPE_ITEM },
-	{ "CONTAINER", OBJECT_TYPE_CONTAINER },
-	{ "NPC", OBJECT_TYPE_NPC },
-	{ "UNIT", OBJECT_TYPE_UNIT },
-	{ "GAMEOBJECT", OBJECT_TYPE_GAMEOBJECT },
-	{ "DYNAMICOBJECT", OBJECT_TYPE_DYNAMICOBJECT},
-	{"CORPSE", OBJECT_TYPE_CORPSE },
-	{ "AREATRIGGER", OBJECT_TYPE_AREATRIGGER },
-	{ "SCENEOBJECT", OBJECT_TYPE_SCENEOBJECT },
+	{ "OBJECT", WOWOBJECT_TYPE::OBJECT },
+	{ "ITEM", WOWOBJECT_TYPE::ITEM },
+	{ "CONTAINER", WOWOBJECT_TYPE::CONTAINER },
+	{ "NPC", WOWOBJECT_TYPE::NPC },
+	{ "UNIT", WOWOBJECT_TYPE::UNIT },
+	{ "GAMEOBJECT", WOWOBJECT_TYPE::GAMEOBJECT },
+	{ "DYNAMICOBJECT", WOWOBJECT_TYPE::DYNAMICOBJECT},
+	{"CORPSE", WOWOBJECT_TYPE::CORPSE },
+	{ "AREATRIGGER", WOWOBJECT_TYPE::AREATRIGGER },
+	{ "SCENEOBJECT", WOWOBJECT_TYPE::SCENEOBJECT },
 };
 
 int get_type_index_from_string(const std::string &type) {

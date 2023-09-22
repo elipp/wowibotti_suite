@@ -279,7 +279,7 @@ std::vector<avoid_point_t> avoid_npc_t::get_points() const {
 
 	std::lock_guard<std::mutex> lg(hcache_t::mutex);
 	for (const auto &o : hcache.objects) {
-		if (o.type == OBJECT_TYPE_NPC) {
+		if (o.type == WOWOBJECT_TYPE::NPC) {
 			if (o.name == this->name) {
 				p.emplace_back(avoid_point_t(o.pos.x, o.pos.y, this->radius, this->falloff));
 			}
@@ -294,7 +294,7 @@ std::vector<avoid_point_t> avoid_spellobject_t::get_points() const {
 
 	std::lock_guard<std::mutex> lg(hcache_t::mutex);
 	for (const auto &o : hcache.objects) {
-		if (o.type == OBJECT_TYPE_DYNAMICOBJECT) {
+		if (o.type == WOWOBJECT_TYPE::DYNAMICOBJECT) {
 			if (o.DO_spellid == this->spellID) {
 				p.emplace_back(avoid_point_t(o.pos.x, o.pos.y, this->radius, this->falloff));
 			}
@@ -311,7 +311,7 @@ std::vector<avoid_point_t> avoid_units_t::get_points() const {
 
 	std::lock_guard<std::mutex> lg(hcache_t::mutex);
 	for (const auto &o : hcache.objects) {
-		if (o.type == OBJECT_TYPE_UNIT) {
+		if (o.type == WOWOBJECT_TYPE::UNIT) {
 			if (o.GUID != player_guid) {
 				p.emplace_back(avoid_point_t(o.pos.x, o.pos.y, this->radius, this->falloff));
 			}

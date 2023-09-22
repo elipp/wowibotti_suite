@@ -34,11 +34,11 @@ struct mob_t {
 	std::string name;
 	GUID_t guid;
 	mob_t(const WowObject &o) {
-		current_health = o.NPC_get_health();
-		max_health = o.NPC_get_health_max();
+		current_health = o.get_health();
+		max_health = o.get_health_max();
 		dead = o.NPC_unit_is_dead();
 		in_combat = o.in_combat();
-		name = o.NPC_get_name();
+		name = o.get_name();
 		guid = o.get_GUID();
 	}
 };
