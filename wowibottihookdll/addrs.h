@@ -134,6 +134,7 @@ namespace Addresses {
 			SelectUnit_addr = 0x4A6690,
 			TicksSinceLastHWEvent = 0xBE10FC,
 			GetUnitOrNPCNameAddr = 0x614520,
+			UnitReaction = 0x610C00,
 		};
 
 		namespace ObjectManager {
@@ -195,6 +196,7 @@ namespace Addresses {
 				Y = 0xD68A1C,
 				Z = 0xD68A20,
 				ACTION = 0xD689BC,
+				TIMESTAMP = 0xD689B8,
 				GUID = 0xD689C0, // this is for interaction
 				MOVE_ATTACK_ZERO = 0xD689CC,
 
@@ -216,6 +218,29 @@ namespace Addresses {
 				vfp_min = 0xE1F830,
 				vfp_max = 0xE1F834,
 			};
+
+			namespace Lib {
+				enum {
+					lua_isstring = 0x0072DE70,
+					lua_gettop = 0x0072DAE0,
+					lua_tonumber = 0x0072DF40,
+					lua_tointeger = 0x0072DF80,
+					lua_tostring = 0x0072DFF0,
+					lua_touserdata = 0x0072E120,
+					lua_toboolean = 0x0072DFC0,
+					lua_pushnumber = 0x0072E1A0,
+					lua_pushinteger = 0x0072E1D0,
+					lua_pushstring = 0x0072E200,
+					lua_pushstring2 = 0x0072E250,
+					lua_pushboolean = 0x0072E3B0,
+					lua_pushcclosure = 0x0072E2F0,
+					lua_pushnil = 0x0072E180,
+					lua_setfield = 0x0072E7E0,
+					lua_getfield = 0x0072F710,
+					lua_replace = 0x0072DC80,
+					FrameScript_Register = 0x007059B0,
+				};
+			}
 		}
 	}
 }
