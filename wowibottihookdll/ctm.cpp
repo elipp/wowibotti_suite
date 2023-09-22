@@ -241,53 +241,12 @@ void ctm_purge_old() {
 	}
 }
 
-
-
-// TBC:
-//static const uint
-//	CTM_X = 0xD68A18,
-//	CTM_Y = 0xD68A1C,
-//	CTM_Z = 0xD68A20,
-//	CTM_ACTION = 0xD689BC,
-//	CTM_GUID = 0xD689C0, // this is for interaction
-//	CTM_MOVE_ATTACK_ZERO = 0xD689CC,
-//
-//	CTM_walking_angle = 0xD689A0,
-//	CTM_FL_A4 = 0xD689A4,
-//	CTM_FL_A8 = 0xD689A8,
-//	CTM_min_distance = 0xD689AC,
-//
-//	CTM_increment = 0xD689B8,
-//
-//	CTM_mystery_C8 = 0xD689C8,
-//	CTM_mystery_A90 = 0xD68A90,
-//	CTM_mystery_A94 = 0xD68A94;
-
-// the lowest-level unique function to setting CTM is 0x5FC680
-// maybe some interesting static at 0xD3F78C
-
-
-static const uint
-CTM_X = 0xCA1264,
-CTM_Y = 0xCA1268,
-CTM_Z = 0xCA126C,
-CTM_ACTION = 0xCA11F4,
-CTM_GUID = 0xCA11FC, // this is for interaction
-
-CTM_walking_angle = 0xCA11D8,
-CTM_GLOBAL_CONST1 = 0xCA11DC,
-CTM_CONST2 = 0xCA11E0,
-CTM_min_distance = 0xCA11E4,
-CTM_faceangle_maybe = 0xCA11EC;
-
 int get_wow_CTM_state() {
-	int state;
-	readAddr(CTM_ACTION, &state, sizeof(state));
-	return state;
+	return DEREF<int>(Addresses::TBC::CTM::ACTION);
 }
 
-SIZE_T set_wow_CTM_state(int state) {
-	return writeAddr(CTM_ACTION, &state, sizeof(state));
+SIZE_T set_wow_CTM_state(DWORD state) {
+	return writeAddr(Addresses::TBC::CTM::ACTION, state);
 }
 
 void ctm_lock() {
@@ -351,30 +310,27 @@ void ctm_face_angle(float angle) {
 	// these don't really seem to matter
 	float zero = 0.0;
 
-	writeAddr(0xCA11F8, &zero, 4);
-	writeAddr(0xCA11FC, &zero, 4);
-	writeAddr(0xCA1200, &zero, 4);
+	writeAddr(0xCA11F8, zero);
+	writeAddr(0xCA11FC, zero);
+	writeAddr(0xCA1200, zero);
 
-	writeAddr(0xCA11D4, &zero, 4);
-	writeAddr(0xCA11F4, &zero, 4);
+	writeAddr(0xCA11D4, zero);
+	writeAddr(0xCA11F4, zero);
 
-	writeAddr(0xCA1258, &zero, 4);
-	writeAddr(0xCA125C, &zero, 4);
-	writeAddr(0xCA1260, &zero, 4);
+	writeAddr(0xCA1258, zero);
+	writeAddr(0xCA125C, zero);
+	writeAddr(0xCA1260, zero);
 
-	writeAddr(0xCA1264, &zero, 4);
-	writeAddr(0xCA1268, &zero, 4);
-	writeAddr(0xCA126C, &zero, 4);
+	writeAddr(0xCA1264, zero);
+	writeAddr(0xCA1268, zero);
+	writeAddr(0xCA126C, zero);
 
 	// this is, for whatever reason, crucial!!
-	static const uint
-		GLOBAL_CONST1 = 0x415F66F3;
+	static const float GLOBAL_CONST1 = 13.9626340866;
 
-	writeAddr(CTM_GLOBAL_CONST1, &GLOBAL_CONST1, sizeof(float));
-
-	writeAddr(CTM_faceangle_maybe, &angle_normalized, 4);
-	unsigned int two = 2;
-	writeAddr(CTM_ACTION, &two, 4);
+	writeAddr(Addresses::Wotlk::CTM::GLOBAL_CONST1, GLOBAL_CONST1);
+	writeAddr(Addresses::Wotlk::CTM::FACEANGLE_MAYBE, angle_normalized);
+	writeAddr(Addresses::Wotlk::CTM::ACTION, (DWORD)2);
 }
 
 
@@ -400,10 +356,10 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 
 	//PRINT("directed angle: %f, diff: %.3f, %.3f, %.3f\n", directed_angle, diff.x, diff.y, diff.z);
 
-	writeAddr(CTM_walking_angle, &directed_angle, sizeof(directed_angle));
+	writeAddr(Addresses::Wotlk::CTM::WALKING_ANGLE, &directed_angle);
 
-	static const uint
-		GLOBAL_CONST1 = 0x415F66F3;
+	static const float 
+		GLOBAL_CONST1 = 13.9626340866;
 
 	static const float
 		MOVE_CONST2 = 0.25, // 0.25, don't really know what this is
@@ -436,16 +392,16 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 		break;
 	}
 
-	writeAddr(CTM_GLOBAL_CONST1, &GLOBAL_CONST1, sizeof(float));
-	writeAddr(CTM_CONST2, &float_CONST2, sizeof(float));
-	writeAddr(CTM_min_distance, &min_dist, sizeof(float));
-	writeAddr(CTM_GUID, &interact, sizeof(GUID_t));
+	writeAddr(Addresses::Wotlk::CTM::GLOBAL_CONST1, GLOBAL_CONST1);
+	writeAddr(Addresses::Wotlk::CTM::CONST2, float_CONST2);
+	writeAddr(Addresses::Wotlk::CTM::MIN_DISTANCE, min_dist);
+	writeAddr(Addresses::Wotlk::CTM::GUID, interact);
 
-	writeAddr(CTM_X, &point.x, sizeof(point.x));
-	writeAddr(CTM_Y, &point.y, sizeof(point.y));
-	writeAddr(CTM_Z, &point.z, sizeof(point.z));
+	writeAddr(Addresses::Wotlk::CTM::X, point.x);
+	writeAddr(Addresses::Wotlk::CTM::Y, point.y);
+	writeAddr(Addresses::Wotlk::CTM::Z, point.z);
 
-	writeAddr(CTM_ACTION, &action, sizeof(action));
+	writeAddr(Addresses::Wotlk::CTM::ACTION, action);
 
 }
 

@@ -14,12 +14,8 @@ static DWORD get_sockobj() {
 
 	//return DEREFD(A + 0x2198);
 
-	DWORD S1;
-	readAddr(0xC79CF4, &S1, sizeof(S1));
-	
-	DWORD sockobj;
-	readAddr(S1 + 0x2E38, &sockobj, sizeof(sockobj));
-
+	DWORD S1 = DEREF<DWORD>(0xC79CF4);
+	DWORD sockobj = DEREF<DWORD>(S1+0x2E38);
 	return sockobj;
 
 }
@@ -30,10 +26,7 @@ SOCKET get_wow_socket_handle() {
 	DWORD sockobj = get_sockobj();
 	if (!sockobj) return NULL;
 
-	SOCKET s;
-	readAddr(sockobj + 0x4, &s, sizeof(s));
-
-	return s;
+	return DEREF<SOCKET>(sockobj + 0x4);
 }
 
 struct encrypt_t {

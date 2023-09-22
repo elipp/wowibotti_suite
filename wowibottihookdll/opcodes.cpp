@@ -1028,7 +1028,7 @@ static void tank_filter_wellbehaving_mobs(std::vector<WowObject>* mobs, const st
 	mobs->erase(
 		std::remove_if(mobs->begin(), mobs->end(),
 		[&](const WowObject& mob) {
-				GUID_t mtguid = mob.NPC_get_target_GUID();
+				GUID_t mtguid = mob.get_target_GUID();
 				if (std::any_of(ignore_tanked_by_GUID.begin(), ignore_tanked_by_GUID.end(),
 					[&](GUID_t guid) {
 						return mtguid == guid;
@@ -1167,7 +1167,7 @@ static int LOPDBG_test() {
 	//	}
 	//	else if (i.get_type() == WOWOBJECT_TYPE::NPC) {
 	//		vec3 pos = i.get_pos();
-	//		PRINT("name: %s, (%f, %f, %f), %f, 0x%llX\n", i.NPC_get_name().c_str(), pos.x, pos.y, pos.z, i.get_rot(), i.NPC_get_target_GUID());
+	//		PRINT("name: %s, (%f, %f, %f), %f, 0x%llX\n", i.NPC_get_name().c_str(), pos.x, pos.y, pos.z, i.get_rot(), i.get_target_GUID());
 	//	}
 
 	//	i = i.next();
@@ -1185,7 +1185,7 @@ static int LOP_has_aggro(lua_State *L) {
 
 	for (const auto o : OM) {
 		if (o.get_type() == WOWOBJECT_TYPE::NPC) {
-			GUID_t tGUID = o.NPC_get_target_GUID();
+			GUID_t tGUID = o.get_target_GUID();
 			if (pGUID == tGUID) {
 				lua_pushboolean(L, true);
 				return 1;

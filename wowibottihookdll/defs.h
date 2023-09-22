@@ -126,16 +126,26 @@ struct point_timestamp {
 };
 
 
-inline SIZE_T readAddr(unsigned int mem, void *to, size_t bytes) {
+template <typename T>
+inline SIZE_T readAddr(unsigned int mem, T& to) {
 	SIZE_T read;
-	ReadProcessMemory(glhProcess, (LPVOID)mem, to, bytes, &read);
+	ReadProcessMemory(glhProcess, (LPVOID)mem, &to, sizeof(T), &read);
 	return read;
 }
 
-inline SIZE_T writeAddr(unsigned int mem, const void *data, size_t bytes) {
+template <typename T>
+inline SIZE_T readAddr(unsigned int mem, T* to) {
 	SIZE_T read;
-	WriteProcessMemory(glhProcess, (LPVOID)mem, data, bytes, &read);
+	ReadProcessMemory(glhProcess, (LPVOID)mem, to, sizeof(T), &read);
 	return read;
+}
+
+
+template <typename T>
+inline SIZE_T writeAddr(unsigned int mem, const T &data) {
+	SIZE_T written;
+	WriteProcessMemory(glhProcess, (LPVOID)mem, &data, sizeof(T), &written);
+	return written;
 }
 
 inline void tokenize_string(const std::string& str, const std::string& delim, std::vector<std::string>& tokens) {

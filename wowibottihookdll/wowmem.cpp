@@ -115,12 +115,11 @@ void echo(ECHO TO, const char* format, ...) {
 }
 
 taint_caller_reseter::taint_caller_reseter() : current_taint_caller(0) {
-	readAddr(taint_caller_addr_wow, &current_taint_caller, sizeof(current_taint_caller));
-	DWORD zero = 0;
-	writeAddr(taint_caller_addr_wow, &zero, sizeof(zero));
+	readAddr(this->taint_caller_addr_wow, &this->current_taint_caller);
+	writeAddr(this->taint_caller_addr_wow, (DWORD)0);
 }
 taint_caller_reseter::~taint_caller_reseter() {
-	writeAddr(taint_caller_addr_wow, &current_taint_caller, sizeof(current_taint_caller));
+	writeAddr(this->taint_caller_addr_wow, &this->current_taint_caller);
 }
 
 const DWORD taint_caller_reseter::taint_caller_addr_wow = 0xD4139C;
@@ -137,9 +136,7 @@ void increment_spellcast_counter() {
 }
 
 GUID_t get_raid_target_GUID(int index) {
-	GUID_t GUID;
-	readAddr(0xC6F700 + index * 8, &GUID, sizeof(GUID)); // these are stored at the static address C6F700 until C6F764
-	return GUID;
+	return DEREF<GUID_t>(0xC6F700 + index * 8);
 }
 
 GUID_t get_raid_target_GUID(const std::string &marker_name) {
@@ -384,13 +381,6 @@ uint WowObject::get_focus_max() const {
 	}
 }
 
-GUID_t WowObject::NPC_get_target_GUID() const {
-	GUID_t target_GUID;
-	readAddr(base + 0xA20, &target_GUID, sizeof(target_GUID));
-	return target_GUID;
-}
-
-
 uint WowObject::NPC_get_buff(int index) const {
 	if (!(DEREF<DWORD>(base + 0xF18) & 0x40000)) {
 		// the function 615D40 will set up this flag. The first time one calls WOWAPI UnitBuff(), this is called. 
@@ -422,18 +412,16 @@ uint WowObject::NPC_get_debuff(int index) const {
 uint WowObject::NPC_get_buff_duration(int index, uint spellID) const {
 	
 	// if the mob has debuffs from another player, this segfaults
-	
-	uint EDX1;
-	readAddr(base + 0x116C, &EDX1, sizeof(EDX1));
+	// 2023: :D:D
+
+	DWORD EDX1 = DEREF<DWORD>(this->base + 0x116C);
 
 	if (EDX1 == 0) {
 		PRINT("EDX1 was 0\n");
 		return 0;
 	}
 
-	uint EDI1;
-	readAddr(base + 0x1170, &EDI1, sizeof(EDI1));
-
+	DWORD EDI1 = DEREF<DWORD>(this->base + 0x1170);
 	uint EAX1 = (EDX1 << 0x4) + EDI1;
 
 	while(1) {
@@ -577,16 +565,13 @@ const WowObject& WowObject::operator=(const WowObject &o) {
 }
 
 int WowObject::DO_get_spellID() const {
-	int spellID = 0;
 	// this seems to work for wotlk (the spellid is written in about 100 different locations in the struct?)
-	readAddr(base + 0x17C, &spellID, sizeof(spellID)); 
-	return spellID;
+	return DEREF<DWORD>(this->base + 0x17C);
 }
 
 vec3 WowObject::DO_get_pos() const {
 	float coords[3];
-
-	readAddr(base + 0xE8, coords, 3 * sizeof(float));
+	readAddr(this->base + 0xE8, coords);
 	return vec3(coords[0], coords[1], coords[2]);
 }
 
@@ -597,22 +582,17 @@ std::string WowObject::GO_get_name() const {
 	// GO NAME IS FETCHED FOR TOOLTIPS AT 0x6267AB
 	// 0x70CDF0 is the function that actually fetches it
 
-	DWORD step1 = 0;
-	readAddr(base + 0x1A4, &step1, sizeof(step1));
-
+	DWORD step1 = DEREF<DWORD>(base + 0x1A4);
 	if (!step1) { return "error"; }
 
-	const char* namestr = NULL;
-	readAddr(step1 + 0x90, &namestr, sizeof(namestr));
-
+	const char* namestr = (const char*)DEREF<DWORD>(step1 + 0x90);
 	return namestr;
 
 }
 
 vec3 WowObject::GO_get_pos() const {
 	float coords[3];
-	readAddr(base + 0xE8, coords, 3 * sizeof(float));
-
+	readAddr(this->base + 0xE8, coords);
 	return vec3(coords[0], coords[1], coords[2]);
 }
 

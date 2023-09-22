@@ -52,6 +52,22 @@ namespace Addresses {
 			SetFacing = 0x00989B70,
 			UnitReaction = 0x7251C0,
 		};
+
+		namespace CTM {
+			enum {
+				X = 0xCA1264,
+				Y = 0xCA1268,
+				Z = 0xCA126C,
+				ACTION = 0xCA11F4,
+				GUID = 0xCA11FC, // this is for interaction
+
+				WALKING_ANGLE = 0xCA11D8,
+				GLOBAL_CONST1 = 0xCA11DC,
+				CONST2 = 0xCA11E0,
+				MIN_DISTANCE = 0xCA11E4,
+				FACEANGLE_MAYBE = 0xCA11EC,
+			};
+		}
 	}
 
 	namespace TBC {
@@ -127,10 +143,21 @@ namespace Addresses {
 				X = 0xD68A18,
 				Y = 0xD68A1C,
 				Z = 0xD68A20,
+				ACTION = 0xD689BC,
+				GUID = 0xD689C0, // this is for interaction
+				MOVE_ATTACK_ZERO = 0xD689CC,
+
+				WALKING_ANGLE = 0xD689A0,
+				FL_A4 = 0xD689A4,
+				FL_A8 = 0xD689A8,
+				MIN_DISTANCE = 0xD689AC,
+
+				INCREMENT = 0xD689B8,
+
+				MYSTERY_C8 = 0xD689C8,
+				MYSTERY_90 = 0xD68A90,
+				MYSTERY_94 = 0xD68A94
 			};
 		}
 	}
 }
-
-
-
