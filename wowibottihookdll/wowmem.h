@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <algorithm>
 #include <mutex>
@@ -81,6 +82,9 @@ public:
 	
 	vec3 get_pos() const; // works for units and NPCs
 	float get_rot() const;
+
+	std::tuple<float, float, float, float> get_xyzr() const;
+
 	vec3 get_rotvec() const;
 
 	GUID_t get_GUID() const;

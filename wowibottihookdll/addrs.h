@@ -152,10 +152,10 @@ namespace Addresses {
 				GUID = 0x30,
 				Next = 0x3C,
 				// For UNITs, both the UnitPosX... and these seem to contain these coord values
-				X = 0xBF0,
-				Y = X + 4,
-				Z = X + 8,
-				R = X + 12,
+				PosX = 0xBF0,
+				PosY = PosX + 0x4,
+				PosZ = PosX + 0x8,
+				Rot = PosX + 0xC,
 
 				unit_info_field = 0x120,
 				UnitHealth = 0x2698,
@@ -195,14 +195,15 @@ namespace Addresses {
 				X = 0xD68A18,
 				Y = 0xD68A1C,
 				Z = 0xD68A20,
+				CONST1 = 0xD68A24,
 				ACTION = 0xD689BC,
 				TIMESTAMP = 0xD689B8,
 				GUID = 0xD689C0, // this is for interaction
 				MOVE_ATTACK_ZERO = 0xD689CC,
 
 				WALKING_ANGLE = 0xD689A0,
-				FL_A4 = 0xD689A4,
-				FL_A8 = 0xD689A8,
+				GLOBAL_CONST1 = 0xD689A4,
+				GLOBAL_CONST2 = 0xD689A8,
 				MIN_DISTANCE = 0xD689AC,
 
 				INCREMENT = 0xD689B8,

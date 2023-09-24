@@ -188,13 +188,13 @@ static const char* wowobject_type_names[] = {
 };
 
 float WowObject::get_pos_x() const {
-	return DEREF<float>(this->base + Addresses::TBC::WowObject::UnitPosX);
+	return DEREF<float>(this->base + Addresses::TBC::WowObject::PosX);
 }
 float WowObject::get_pos_y() const {
-	return DEREF<float>(this->base + Addresses::TBC::WowObject::UnitPosY);
+	return DEREF<float>(this->base + Addresses::TBC::WowObject::PosY);
 }
 float WowObject::get_pos_z() const {
-	return DEREF<float>(this->base + Addresses::TBC::WowObject::UnitPosZ);
+	return DEREF<float>(this->base + Addresses::TBC::WowObject::PosZ);
 }
 
 
@@ -219,15 +219,11 @@ normal:
 }
 
 float WowObject::get_rot() const {
-	//float r;
-	//readAddr(base + UnitRot, &r, sizeof(r));
-	//return r;
+	return DEREF<float>(this->get_base() + Addresses::TBC::WowObject::Rot);
+}
 
-	DWORD temp = DEREF<DWORD>(get_base() + 0xD8);
-	if (!temp) return 0;
-
-	float* facing_angle = (float*)(temp + 0x20);
-	return *facing_angle;
+std::tuple<float, float, float, float> WowObject::get_xyzr() const {
+	return std::make_tuple(this->get_pos_x(), this->get_pos_y(), this->get_pos_z(), this->get_rot());
 }
 
 vec3 WowObject::get_rotvec() const {
@@ -658,10 +654,9 @@ ObjectManager::ObjectManager() : invalid(true) {
 
 std::optional<WowObject> ObjectManager::get_object_by_GUID(GUID_t GUID) const {
 	if (!this->valid()) { return std::nullopt; }
-	auto next = this->get_first_object();
-	while (next) {
-		if (next->get_GUID() == GUID) {
-			return next;
+	for (const auto o : *this) {
+		if (o.get_GUID() == GUID) {
+			return o;
 		}
 	}
 	return std::nullopt;

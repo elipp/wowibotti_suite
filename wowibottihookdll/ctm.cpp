@@ -356,7 +356,7 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 
 	//PRINT("directed angle: %f, diff: %.3f, %.3f, %.3f\n", directed_angle, diff.x, diff.y, diff.z);
 
-	writeAddr(Addresses::Wotlk::CTM::WALKING_ANGLE, &directed_angle);
+	writeAddr(Addresses::TBC::CTM::WALKING_ANGLE, &directed_angle);
 
 	static const float 
 		GLOBAL_CONST1 = 13.9626340866;
@@ -392,16 +392,16 @@ void click_to_move(vec3 point, uint action, GUID_t interact_GUID, float min_dist
 		break;
 	}
 
-	writeAddr(Addresses::Wotlk::CTM::GLOBAL_CONST1, GLOBAL_CONST1);
-	writeAddr(Addresses::Wotlk::CTM::CONST2, float_CONST2);
-	writeAddr(Addresses::Wotlk::CTM::MIN_DISTANCE, min_dist);
-	writeAddr(Addresses::Wotlk::CTM::GUID, interact);
+	writeAddr(Addresses::TBC::CTM::GLOBAL_CONST1, GLOBAL_CONST1);
+	writeAddr(Addresses::TBC::CTM::GLOBAL_CONST2, float_CONST2);
+	writeAddr(Addresses::TBC::CTM::MIN_DISTANCE, min_dist);
+	writeAddr(Addresses::TBC::CTM::GUID, interact);
 
-	writeAddr(Addresses::Wotlk::CTM::X, point.x);
-	writeAddr(Addresses::Wotlk::CTM::Y, point.y);
-	writeAddr(Addresses::Wotlk::CTM::Z, point.z);
+	writeAddr(Addresses::TBC::CTM::X, point.x);
+	writeAddr(Addresses::TBC::CTM::Y, point.y);
+	writeAddr(Addresses::TBC::CTM::Z, point.z);
 
-	writeAddr(Addresses::Wotlk::CTM::ACTION, action);
+	writeAddr(Addresses::TBC::CTM::ACTION, action);
 
 }
 

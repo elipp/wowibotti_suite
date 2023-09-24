@@ -94,6 +94,15 @@ static int op_handler_NYI(lua_State* L) {
 	return 0;
 }
 
+static int LDOP_debug_test(lua_State* L) {
+	ObjectManager OM;
+	auto p = OM.get_local_object();
+	if (p) {
+		auto [x,y,z,r] = p->get_xyzr();
+		printf("base: %p, player pos: %f, %f, %f, %f\n", p->get_base(), x, y, z, r);
+	}
+	return 0;
+}
 
 static int send_wowpacket(const BYTE* sockbuf, unsigned len) {
 	static BYTE dup[256];
@@ -1533,14 +1542,6 @@ static int LOP_avoid_npc_with_name(lua_State* L) {
 	return 0;
 }
 
-
-
-static int LDOP_debug_test(lua_State* L) {
-
-	lua_pushstring(L, "vittu");
-	return 1;
-}
-
 static int LDOP_eject_dll(lua_State* L) {
 	should_unpatch = 1;
 	return NO_RVALS;
@@ -1575,7 +1576,7 @@ static const lop_func_t LOP_FUNCS[] = {
 {{"unitGUID", LUA_TYPE::STRING, LUA_ARG_REQUIRED}},
 	NO_RVALS, LOP_follow },
 
-{ OPCODE_AND_STRINGIFY(LOP::CTM),
+{ OPCODE_AND_STRINGIFY(LOP::CLICK_TO_MOVE),
 {{"x", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
  {"y", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
  {"z", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
@@ -1680,12 +1681,12 @@ static const lop_func_t LOP_FUNCS[] = {
 
 static const lop_func_t LDOP_FUNCS[] = {
 	{OPCODE_AND_STRINGIFY(LOP::LDOP_NOP), {}, NO_RVALS, op_handler_NYI},
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_DEBUG_TEST), {}, NO_RVALS, LDOP_debug_test},
 	{OPCODE_AND_STRINGIFY(LOP::LDOP_DUMP), {}, NO_RVALS, op_handler_NYI},
 	{OPCODE_AND_STRINGIFY(LOP::LDOP_LOOT_ALL), {}, NO_RVALS, op_handler_NYI},
 	{OPCODE_AND_STRINGIFY(LOP::LDOP_PULL_TEST), {}, NO_RVALS, op_handler_NYI},
 	{OPCODE_AND_STRINGIFY(LOP::LDOP_LUA_REGISTER), {}, NO_RVALS, LDOP_lua_register},
 	{OPCODE_AND_STRINGIFY(LOP::LDOP_LOS_TEST), {}, NO_RVALS, op_handler_NYI},
-	{OPCODE_AND_STRINGIFY(LOP::LDOP_TEST), {}, NO_RVALS, LDOP_debug_test},
 	{OPCODE_AND_STRINGIFY(LOP::LDOP_CAPTURE_FRAME_RENDER_STAGES), {}, NO_RVALS, op_handler_NYI},
 	{OPCODE_AND_STRINGIFY(LOP::LDOP_CONSOLE_PRINT), {}, NO_RVALS, LDOP_console_print},
 	{OPCODE_AND_STRINGIFY(LOP::LDOP_REPORT_CONNECTED), {}, NO_RVALS, op_handler_NYI},
@@ -1709,22 +1710,31 @@ int lop_exec(lua_State* L) {
 	}
 
 	int op = (int)lua_tointeger(L, 1);
-	if (op < 0 || op >= (sizeof(LOP_FUNCS) - 1)) {
-		// TODO: debug opcodes
-		printf("Invalid op %d\n", op);
-		return 0;
-	}
+	bool is_debug = LDOP_MASK & op;
+	if (!is_debug) {
+		if (op < 0 || op >= (sizeof(LOP_FUNCS) - 1)) {
+			printf("Invalid op %d\n", op);
+			return 0;
+		}
 
-	const lop_func_t &op_func = LOP_FUNCS[op];
-	if (!op_func.check_args(L)) {
-		printf("(lop_exec: error: %s: invalid number of/kind of arguments)\n", op_func.opcode_name.c_str());
-		return 0;
+		const lop_func_t &op_func = LOP_FUNCS[op];
+		if (!op_func.check_args(L)) {
+			printf("(lop_exec: error: %s: invalid number of/kind of arguments)\n", op_func.opcode_name.c_str());
+			return 0;
+		}
+		else {
+			return op_func.handler(L);
+		}
 	}
 	else {
-		return op_func.handler(L);
+		op = (~LDOP_MASK) & op;
+		if (op < 0 || op >= (sizeof(LDOP_FUNCS) - 1)) {
+			printf("Invalid debug op %d\n", op);
+			return 0;
+		}
+		const lop_func_t &d_op_func = LDOP_FUNCS[op];
+		return d_op_func.handler(L);
 	}
-
-
 }
 
 static std::vector<std::string> lua_rvals;

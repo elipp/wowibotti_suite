@@ -42,7 +42,7 @@ struct CTM_posthook_t {
 };
 
 enum {
-	CTM_PRIO_NONE,
+	CTM_PRIO_NONE = 0,
 	CTM_PRIO_LOW,
 	CTM_PRIO_REPLACE,
 	CTM_PRIO_EXCLUSIVE,
