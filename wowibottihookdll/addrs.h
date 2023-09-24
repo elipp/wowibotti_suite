@@ -135,6 +135,7 @@ namespace Addresses {
 			TicksSinceLastHWEvent = 0xBE10FC,
 			GetUnitOrNPCNameAddr = 0x614520,
 			UnitReaction = 0x610C00,
+			CTM_finished_patchaddr = 0x612A53,
 		};
 
 		namespace ObjectManager {

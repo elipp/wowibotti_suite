@@ -43,6 +43,8 @@ long long get_current_frame_num() {
 #define POPAD (BYTE)0x61
 #define RET (BYTE)0xC3
 
+static void __stdcall EndScene_hook();
+
 template <typename T> trampoline_t &trampoline_t::operator << (const T& arg) {
 	int size = sizeof(arg);
 	BYTE buf[16];
@@ -203,36 +205,6 @@ static void patch_lua_prot() {
 	lua_prot_patch.enable(glhProcess);
 }
 
-static void __stdcall EndScene_hook() {
-	if (!addresses_patched) {
-		glhProcess = GetCurrentProcess();
-		AllocConsole();
-		freopen("CONOUT$", "wb", stdout);
-		patch_lua_prot();
-		register_lop_exec();
-		addresses_patched = true;
-		printf("wowibottihookdll: initialization done :D\n");
-	}
-
-	// ObjectManager OM;
-	// printf("valid: %d, %p\n", OM.valid(), OM.get_base_address());
-	// if (OM.valid()) {
-	// 	for (const auto o : OM) {
-	// 		switch (o.get_type()) {
-	// 			case WOWOBJECT_TYPE::ITEM:
-	// 			case WOWOBJECT_TYPE::CONTAINER:
-	// 				break;
-	// 			case WOWOBJECT_TYPE::NPC:
-	// 			case WOWOBJECT_TYPE::UNIT:
-	// 				printf("WowObject base: %p - type: %s (%d), GUID: %llX, name: %s, health: (%d/%d), mana: (%d/%d)\n", o.get_base(), o.get_type_name(), o.get_type(), o.get_GUID(), o.get_name(), o.get_health(), o.get_health_max(), o.get_mana(), o.get_mana_max());
-	// 				break;
-	// 			default:
-	// 				printf("WowObject base: %p - type: %s (%d), GUID: %llX\n", o.get_base(), o.get_type_name(), o.get_type(), o.get_GUID(), o.get_name());
-	// 		}
-	// 	}
-	// }
-
-}
 
 const trampoline_t* prepare_EndScene_patch(patch_t* p) {
 	static trampoline_t tr;
@@ -607,7 +579,8 @@ static void __stdcall broadcast_CTM(float *coords, int action) {
 
 static void __stdcall CTM_finished_hookfunc() {
 
-	CTM_t *c = ctm_get_current_action();
+	printf("ctm finished lolz\n");
+	auto c = ctm_get_current_action();
 	if (!c) { return; }
 	
 	PRINT("called CTM_finished with ID = %ld\n", c->ID);
@@ -646,8 +619,6 @@ static const trampoline_t *prepare_CTM_finished_patch(patch_t *p) {
 	tr << POPAD; // POPAD
 
 	tr.append_bytes(p->original, p->size);
-
-// NOTE: COULD BE THIS INSTEAD OF (p->patch_addr + p->size): DWORD ret_addr = 0x7273EF;
 
 	tr << (BYTE)0x68 << (DWORD)(p->patch_addr + p->size); // push RET addr
 
@@ -1151,4 +1122,41 @@ static const trampoline_t *prepare_SpellErrMsg_patch(patch_t *p) {
 	tr << RET;
 
 	return &tr;
+}
+
+static void __stdcall EndScene_hook() {
+	if (!addresses_patched) {
+		glhProcess = GetCurrentProcess();
+		AllocConsole();
+		freopen("CONOUT$", "wb", stdout);
+		patch_lua_prot();
+		register_lop_exec();
+		addresses_patched = true;
+		patch_t ctm_finished_patch(Addresses::TBC::CTM_finished_patchaddr, 12, prepare_CTM_finished_patch);
+		ctm_finished_patch.enable(glhProcess);
+		printf("wowibottihookdll: initialization done :D\n");
+	}
+
+	if (should_unpatch) {
+		// TODO
+	}
+
+	// ObjectManager OM;
+	// printf("valid: %d, %p\n", OM.valid(), OM.get_base_address());
+	// if (OM.valid()) {
+	// 	for (const auto o : OM) {
+	// 		switch (o.get_type()) {
+	// 			case WOWOBJECT_TYPE::ITEM:
+	// 			case WOWOBJECT_TYPE::CONTAINER:
+	// 				break;
+	// 			case WOWOBJECT_TYPE::NPC:
+	// 			case WOWOBJECT_TYPE::UNIT:
+	// 				printf("WowObject base: %p - type: %s (%d), GUID: %llX, name: %s, health: (%d/%d), mana: (%d/%d)\n", o.get_base(), o.get_type_name(), o.get_type(), o.get_GUID(), o.get_name(), o.get_health(), o.get_health_max(), o.get_mana(), o.get_mana_max());
+	// 				break;
+	// 			default:
+	// 				printf("WowObject base: %p - type: %s (%d), GUID: %llX\n", o.get_base(), o.get_type_name(), o.get_type(), o.get_GUID(), o.get_name());
+	// 		}
+	// 	}
+	// }
+
 }

@@ -62,7 +62,7 @@ static struct {
 static int ctm_posthook_delay_active() {
 	if (ctm_queue.empty()) { return 0; }
 
-	CTM_t *c = ctm_get_current_action();
+	auto c = ctm_get_current_action();
 	if (!c) return 0;
 	if (!c->get_current_posthook()) return 0;
 
@@ -195,9 +195,9 @@ CTM_t ctm_pop() {
 }
 
 
-CTM_t *ctm_get_current_action() {
-	if (ctm_queue.empty()) { return NULL;  }
-	return &ctm_queue.front();
+std::optional<CTM_t> ctm_get_current_action() {
+	if (ctm_queue.empty()) { return std::nullopt;  }
+	return ctm_queue.front();
 }
 
 

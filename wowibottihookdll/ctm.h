@@ -148,7 +148,7 @@ void ctm_add(const CTM_t&);
 CTM_t ctm_pop();
 void click_to_move(const CTM_t&);
 void ctm_queue_reset();
-CTM_t *ctm_get_current_action();
+std::optional<CTM_t> ctm_get_current_action();
 void ctm_cancel();
 int ctm_queue_get_top_prio();
 
