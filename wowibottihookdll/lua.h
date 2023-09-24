@@ -87,24 +87,41 @@ inline void lua_pushstring(lua_State* L, const std::string& str) {
 
 extern int lua_registered;
 
-enum class lua_type : int {
-	nil = 0,
-	boolean_ = 1, // there's some weird redefinition error, hence underscore
-	userdata = 2,
-	number = 3,
-	integer = 3, // NOT OFFICIAL!
-	string = 4,
-	table = 5,
-	function = 6,
-	userdata2 = 7,
-	thread = 8,
-	proto = 9,
+enum class LUA_TYPE : int {
+	NIL = 0,
+	BOOLEAN = 1, // there's some weird redefinition error, hence underscore
+	USERDATA = 2,
+	NUMBER = 3,
+	INTEGER = 3, // NOT OFFICIAL!
+	STRING = 4,
+	TABLE = 5,
+	FUNCTION = 6,
+	USERDATA2 = 7,
+	PROTO = 8,
+	UPVAL = 9,
 };
+// TBC CLIENT:
+// CPU Dump
+// Address   Value      Comments
+// 008D7890   008919D0  ; ASCII "nil"
+// 008D7894   00891994  ; ASCII "boolean"
+// 008D7898   008D7884  ; ASCII "userdata"
+// 008D789C   0089198C  ; ASCII "number"
+// 008D78A0   008909C0  ; ASCII "string"
+// 008D78A4   008D6FE4  ; ASCII "table"
+// 008D78A8   008D7878  ; ASCII "function"
+// 008D78AC   008D7884  ; ASCII "userdata"
+// 008D78B0   008D7870  ; ASCII "thread"
+// 008D78B4   008D7868  ; ASCII "proto"
+// 008D78B8   008D7860  ; ASCII "upval"
 
-typedef lua_type (__cdecl *p_lua_gettype) (lua_State* L, int idx);
+
+// these are officially LUA_TYPE(lua_State *L, int idx);
+// and lua_typename(lua_State *L, int tp);
+typedef LUA_TYPE (__cdecl *p_lua_gettype) (lua_State* L, int idx);
 extern const p_lua_gettype lua_gettype;
 
-typedef const char*(__cdecl *p_lua_gettypestring) (lua_State* L, lua_type type);
+typedef const char*(__cdecl *p_lua_gettypestring) (lua_State* L, LUA_TYPE type);
 extern const p_lua_gettypestring lua_gettypestring;
 
 #define lua_gettypestr(STATE, idx) lua_gettypestring(STATE, lua_gettype(STATE, idx))

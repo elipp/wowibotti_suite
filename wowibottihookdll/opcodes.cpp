@@ -56,7 +56,7 @@ enum {
 
 struct lua_arg {
 	std::string name;
-	lua_type type;
+	LUA_TYPE type;
 	bool required;
 };
 
@@ -1586,46 +1586,46 @@ static const lopfunc_list lop_funcs = {
 { OPSTR(LOP::NOP), {}, 0, LOP_nop },
 
 { OPSTR(LOP::TARGET_GUID),
-{{"targetGUID", lua_type::string, LUA_ARG_REQUIRED}},
+{{"targetGUID", LUA_TYPE::STRING, LUA_ARG_REQUIRED}},
 	RVALS_1, LOP_target_GUID },
 
 { OPSTR(LOP::CASTER_RANGE_CHECK),
-{{"minrange", lua_type::number, LUA_ARG_REQUIRED},
- {"maxrange", lua_type::number, LUA_ARG_REQUIRED}},
+{{"minrange", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
+ {"maxrange", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED}},
 	RVALS_1, LOP_caster_range_check },
 
 { OPSTR(LOP::FOLLOW),
-{{"unitGUID", lua_type::string, LUA_ARG_REQUIRED}},
+{{"unitGUID", LUA_TYPE::STRING, LUA_ARG_REQUIRED}},
 	NO_RVALS, LOP_follow },
 
 { OPSTR(LOP::CTM),
-{{"x", lua_type::number, LUA_ARG_REQUIRED},
- {"y", lua_type::number, LUA_ARG_REQUIRED},
- {"z", lua_type::number, LUA_ARG_REQUIRED},
- {"priority", lua_type::integer, LUA_ARG_REQUIRED}},
+{{"x", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
+ {"y", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
+ {"z", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
+ {"priority", LUA_TYPE::INTEGER, LUA_ARG_REQUIRED}},
 	NO_RVALS, LOP_CTM },
 
 { OPSTR(LOP::TARGET_MARKER), {}, NO_RVALS, op_handler_NYI }, // this would actually be NYI
 
 { OPSTR(LOP::MELEE_BEHIND), 
-{{"minrange", lua_type::number, LUA_ARG_REQUIRED}}, 
+{{"minrange", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED}}, 
 	NO_RVALS, LOP_melee_behind },
 
 { OPSTR(LOP::AVOID_SPELL_OBJECT), 
-{{"spellID", lua_type::integer, LUA_ARG_REQUIRED},
- {"radius", lua_type::number, LUA_ARG_REQUIRED}}, 
+{{"spellID", LUA_TYPE::INTEGER, LUA_ARG_REQUIRED},
+ {"radius", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED}}, 
 	RVALS_1, LOP_avoid_spell_object },
 
 { OPSTR(LOP::HUG_SPELL_OBJECT), 
-{{"spellID", lua_type::integer, LUA_ARG_REQUIRED}}, 
+{{"spellID", LUA_TYPE::INTEGER, LUA_ARG_REQUIRED}}, 
 	RVALS_1, LOP_hug_spell_object },
 
 { OPSTR(LOP::SPREAD), {}, NO_RVALS, LOP_spread },
 
-{ OPSTR(LOP::CHAIN_HEAL_TARGET), {{"NOT_IN_USE", lua_type::table, LUA_ARG_REQUIRED}}, RVALS_1, op_handler_NYI },
+{ OPSTR(LOP::CHAIN_HEAL_TARGET), {{"NOT_IN_USE", LUA_TYPE::TABLE, LUA_ARG_REQUIRED}}, RVALS_1, op_handler_NYI },
 
 { OPSTR(LOP::MELEE_AVOID_AOE_BUFF), 
-{{"spellID", lua_type::integer, LUA_ARG_REQUIRED}}, 
+{{"spellID", LUA_TYPE::INTEGER, LUA_ARG_REQUIRED}}, 
 	NO_RVALS, LOP_melee_avoid_aoe_buff },
 
 { OPSTR(LOP::TANK_FACE), {}, NO_RVALS, LOP_tank_face },
@@ -1633,7 +1633,7 @@ static const lopfunc_list lop_funcs = {
 { OPSTR(LOP::TANK_PULL), {}, NO_RVALS, LOP_tank_pull },
 
 { OPSTR(LOP::GET_UNIT_POSITION), 
-{{"unitname", lua_type::string, LUA_ARG_REQUIRED}}, 
+{{"unitname", LUA_TYPE::STRING, LUA_ARG_REQUIRED}}, 
 	RVALS_4, LOP_get_unit_position },
 
 { OPSTR(LOP::GET_WALKING_STATE), {}, RVALS_1, LOP_get_walking_state },
@@ -1645,59 +1645,59 @@ static const lopfunc_list lop_funcs = {
 { OPSTR(LOP::STOPFOLLOW), {}, NO_RVALS, LOP_stopfollow },
 
 { OPSTR(LOP::CAST_GTAOE),
-{{"spellID", lua_type::integer, LUA_ARG_REQUIRED},
- {"x", lua_type::number, LUA_ARG_REQUIRED},
- {"y", lua_type::number, LUA_ARG_REQUIRED},
- {"z", lua_type::number, LUA_ARG_REQUIRED}},
+{{"spellID", LUA_TYPE::INTEGER, LUA_ARG_REQUIRED},
+ {"x", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
+ {"y", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
+ {"z", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED}},
 	NO_RVALS, LOP_cast_gtaoe },
 
 { OPSTR(LOP::HAS_AGGRO), {}, RVALS_1, LOP_has_aggro },
 
 { OPSTR(LOP::INTERACT_GOBJECT),
-{{"objname", lua_type::string, LUA_ARG_REQUIRED}},
+{{"objname", LUA_TYPE::STRING, LUA_ARG_REQUIRED}},
 	RVALS_1, LOP_interact_gobject },
 
 { OPSTR(LOP::EXECUTE),
-{{"objname", lua_type::string, LUA_ARG_REQUIRED}}, 
+{{"objname", LUA_TYPE::STRING, LUA_ARG_REQUIRED}}, 
 	NO_RVALS, LOP_execute },
 
 { OPSTR(LOP::GET_COMBAT_TARGETS), {}, RVALS_1, LOP_get_combat_targets },
 
 { OPSTR(LOP::GET_AOE_FEASIBILITY),
-{{"radius", lua_type::number, LUA_ARG_REQUIRED},
- {"unitname", lua_type::string, LUA_ARG_OPTIONAL}},
+{{"radius", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
+ {"unitname", LUA_TYPE::STRING, LUA_ARG_OPTIONAL}},
 	RVALS_1, LOP_get_aoe_feasibility },
 
 { OPSTR(LOP::AVOID_NPC_WITH_NAME),
-{{"npcname", lua_type::string, LUA_ARG_REQUIRED},
- {"radius", lua_type::number, LUA_ARG_REQUIRED}},
+{{"npcname", LUA_TYPE::STRING, LUA_ARG_REQUIRED},
+ {"radius", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED}},
 	NO_RVALS, LOP_avoid_npc_with_name },
 
 { OPSTR(LOP::BOSS_ACTION), 
-{ {"commandstring", lua_type::string, LUA_ARG_REQUIRED} }, // separated by spaces
+{ {"commandstring", LUA_TYPE::STRING, LUA_ARG_REQUIRED} }, // separated by spaces
 	RVALS_1, LOP_boss_action },
 
 { OPSTR(LOP::INTERACT_SPELLNPC),
-{{"npcGUID", lua_type::string, LUA_ARG_REQUIRED}}, 
+{{"npcGUID", LUA_TYPE::STRING, LUA_ARG_REQUIRED}}, 
 	RVALS_1, LOP_interact_spellnpc },
 
 { OPSTR(LOP::GET_LAST_SPELL_ERRMSG), {}, RVALS_3, LOP_get_previous_cast_msg },
 
 { OPSTR(LOP::ICCROCKET),
-{{"packethexstr", lua_type::string, LUA_ARG_REQUIRED}}, 
+{{"packethexstr", LUA_TYPE::STRING, LUA_ARG_REQUIRED}}, 
 	NO_RVALS, LOP_iccrocket },
 
 { OPSTR(LOP::HCONFIG),
-{{"commandstring", lua_type::string, LUA_ARG_REQUIRED} }, // separated by spaces
+{{"commandstring", LUA_TYPE::STRING, LUA_ARG_REQUIRED} }, // separated by spaces
 	RVALS_1, LOP_hconfig },
 
 { OPSTR(LOP::TANK_TAUNT_LOOSE),
-{{"tauntspellname", lua_type::string, LUA_ARG_REQUIRED},
- {"ignoretargetedbyGUID", lua_type::table, LUA_ARG_OPTIONAL}}, 
+{{"tauntspellname", LUA_TYPE::STRING, LUA_ARG_REQUIRED},
+ {"ignoretargetedbyGUID", LUA_TYPE::TABLE, LUA_ARG_OPTIONAL}}, 
 	RVALS_1, LOP_tank_taunt_loose },
 
 { OPSTR(LOP::READ_FILE),
-{{"filename", lua_type::string, LUA_ARG_REQUIRED} }, 
+{{"filename", LUA_TYPE::STRING, LUA_ARG_REQUIRED} }, 
 	RVALS_1, LOP_read_file },
 },
 
@@ -1784,6 +1784,7 @@ static bool check_lop_args(lua_State* L) {
 int lop_exec(lua_State* L) {
 
 	// NOTE: the return value of this function --> number of values returned to caller in LUA
+	printf("Hello from lop_exec blyat :D %d\n", lua_gettop(L));
 
 	if (check_lop_args(L)) {
 		LOP op = (LOP)lua_tointeger(L, 1);
