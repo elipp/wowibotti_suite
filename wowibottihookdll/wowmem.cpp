@@ -201,18 +201,18 @@ float WowObject::get_pos_z() const {
 vec3 WowObject::get_pos() const {
 	ObjectManager OM;
 
-	GUID_t mg = NPC_get_mounted_GUID();
-	int mount_type = 0;
-	auto mount = OM.get_object_by_GUID(mg);
-	if (mg == 0 || !mount) goto normal;
+	// GUID_t mg = NPC_get_mounted_GUID();
+	// int mount_type = 0;
+	// auto mount = OM.get_object_by_GUID(mg);
+	// if (mg == 0 || !mount) goto normal;
 	
-	mount_type = mount->get_type(); // this business is needed in order not to bug out in Skybreaker fight (the "mounted GUID" is also set for mobs on the skybreaker :D)
-	if (this->get_type() == WOWOBJECT_TYPE::NPC && 
-		(mount_type == WOWOBJECT_TYPE::NPC || mount_type == WOWOBJECT_TYPE::UNIT)) {
-		// the coordinates for such "mounted" mobs are fucked up (stored relative to the mount), so have a separate block for those ^_^
-		// eg. vassals in Gormok (TOC)
-		return vec3(this->get_pos_x(), this->get_pos_y(), this->get_pos_z()) + vec3(mount->get_pos_x(), mount->get_pos_y(), mount->get_pos_z());
-	}
+	// mount_type = mount->get_type(); // this business is needed in order not to bug out in Skybreaker fight (the "mounted GUID" is also set for mobs on the skybreaker :D)
+	// if (this->get_type() == WOWOBJECT_TYPE::NPC && 
+	// 	(mount_type == WOWOBJECT_TYPE::NPC || mount_type == WOWOBJECT_TYPE::UNIT)) {
+	// 	// the coordinates for such "mounted" mobs are fucked up (stored relative to the mount), so have a separate block for those ^_^
+	// 	// eg. vassals in Gormok (TOC)
+	// 	return vec3(this->get_pos_x(), this->get_pos_y(), this->get_pos_z()) + vec3(mount->get_pos_x(), mount->get_pos_y(), mount->get_pos_z());
+	// }
 
 normal:
 	return vec3(this->get_pos_x(), this->get_pos_y(), this->get_pos_z());

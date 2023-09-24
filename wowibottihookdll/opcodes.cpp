@@ -68,6 +68,25 @@ struct lop_func_t {
 	std::vector<lua_arg> args;
 	int num_return_values;
 	opcode_handler handler;
+
+	bool check_args(lua_State *L) const {
+		int nargs = lua_gettop(L);
+		if (nargs < this->args.size()) {
+			return false;
+		}
+
+		for (int i = 0; i < this->args.size(); ++i) {
+			const lua_arg& arg = this->args[i];
+			if (arg.type != lua_gettype(L, i + 2)) {
+				ECHO_WOW("lop_exec(%s): check_arg_types: wrong type for argument number %d (\"%s\")! Expected %s, got %s\n",
+					this->opcode_name.c_str(), i + 1, arg.name.c_str(), lua_gettypestring(L, arg.type), lua_gettypestr(L, i + 2));
+				return false;
+			}
+		}
+
+		return true;
+
+	}
 };
 
 static int op_handler_NYI(lua_State* L) {
@@ -1538,263 +1557,174 @@ static int LDOP_lua_register(lua_State* L) {
 	return NO_RVALS;
 }
 
-class lopfunc_list {
-	std::vector<lop_func_t> funcs;
-	std::vector<lop_func_t> debug_funcs;
+#define OPCODE_AND_STRINGIFY(OPCODE_ID) OPCODE_ID, #OPCODE_ID
 
-public:
-	const lop_func_t& operator[](LOP op) const {
-		if (IS_DEBUG_OPCODE(op)) {
-		//	ECHO_WOW("op: 0x%X, LDOP_MASK: 0x%X\n", (int)op, LDOP_MASK);
-			int stripped_index = (int)op & (~LDOP_MASK);
-			ASSERT(stripped_index, <, debug_funcs.size());
-			return debug_funcs[stripped_index];
-		}
-		else {
-			ASSERT((int)op, <, funcs.size());
-			return funcs[(int)op];
-		}
-	}
+static const lop_func_t LOP_FUNCS[] = {
+{ OPCODE_AND_STRINGIFY(LOP::NOP), {}, 0, LOP_nop },
 
-	lopfunc_list(std::vector<lop_func_t>&& f, std::vector<lop_func_t>&& df)
-		: funcs(std::move(f)), debug_funcs(std::move(df))
-	{
-		ECHO_WOW("lopfunc_list loaded! Have %d funcs, and %d debug funcs", funcs.size(), debug_funcs.size());
-		
-		// just check that there are no loops in the table :D
-		
-		int i = 0;
-		for (const auto& f : funcs) {
-			ASSERT(i, ==, (int)f.opcode);
-			++i;
-		}
-
-		i = 0;
-		for (const auto& f : debug_funcs) {
-			ASSERT(i | LDOP_MASK, ==, (int)f.opcode);
-			++i;
-		}
-	}
-
-};
-
-
-#define OPSTR(OPCODE_ID) OPCODE_ID, #OPCODE_ID
-
-static const lopfunc_list lop_funcs = {
-{
-{ OPSTR(LOP::NOP), {}, 0, LOP_nop },
-
-{ OPSTR(LOP::TARGET_GUID),
+{ OPCODE_AND_STRINGIFY(LOP::TARGET_GUID),
 {{"targetGUID", LUA_TYPE::STRING, LUA_ARG_REQUIRED}},
 	RVALS_1, LOP_target_GUID },
 
-{ OPSTR(LOP::CASTER_RANGE_CHECK),
+{ OPCODE_AND_STRINGIFY(LOP::CASTER_RANGE_CHECK),
 {{"minrange", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
  {"maxrange", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED}},
 	RVALS_1, LOP_caster_range_check },
 
-{ OPSTR(LOP::FOLLOW),
+{ OPCODE_AND_STRINGIFY(LOP::FOLLOW),
 {{"unitGUID", LUA_TYPE::STRING, LUA_ARG_REQUIRED}},
 	NO_RVALS, LOP_follow },
 
-{ OPSTR(LOP::CTM),
+{ OPCODE_AND_STRINGIFY(LOP::CTM),
 {{"x", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
  {"y", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
  {"z", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
  {"priority", LUA_TYPE::INTEGER, LUA_ARG_REQUIRED}},
 	NO_RVALS, LOP_CTM },
 
-{ OPSTR(LOP::TARGET_MARKER), {}, NO_RVALS, op_handler_NYI }, // this would actually be NYI
+{ OPCODE_AND_STRINGIFY(LOP::TARGET_MARKER), {}, NO_RVALS, op_handler_NYI }, // this would actually be NYI
 
-{ OPSTR(LOP::MELEE_BEHIND), 
+{ OPCODE_AND_STRINGIFY(LOP::MELEE_BEHIND), 
 {{"minrange", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED}}, 
 	NO_RVALS, LOP_melee_behind },
 
-{ OPSTR(LOP::AVOID_SPELL_OBJECT), 
+{ OPCODE_AND_STRINGIFY(LOP::AVOID_SPELL_OBJECT), 
 {{"spellID", LUA_TYPE::INTEGER, LUA_ARG_REQUIRED},
  {"radius", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED}}, 
 	RVALS_1, LOP_avoid_spell_object },
 
-{ OPSTR(LOP::HUG_SPELL_OBJECT), 
+{ OPCODE_AND_STRINGIFY(LOP::HUG_SPELL_OBJECT), 
 {{"spellID", LUA_TYPE::INTEGER, LUA_ARG_REQUIRED}}, 
 	RVALS_1, LOP_hug_spell_object },
 
-{ OPSTR(LOP::SPREAD), {}, NO_RVALS, LOP_spread },
+{ OPCODE_AND_STRINGIFY(LOP::SPREAD), {}, NO_RVALS, LOP_spread },
 
-{ OPSTR(LOP::CHAIN_HEAL_TARGET), {{"NOT_IN_USE", LUA_TYPE::TABLE, LUA_ARG_REQUIRED}}, RVALS_1, op_handler_NYI },
+{ OPCODE_AND_STRINGIFY(LOP::CHAIN_HEAL_TARGET), {{"NOT_IN_USE", LUA_TYPE::TABLE, LUA_ARG_REQUIRED}}, RVALS_1, op_handler_NYI },
 
-{ OPSTR(LOP::MELEE_AVOID_AOE_BUFF), 
+{ OPCODE_AND_STRINGIFY(LOP::MELEE_AVOID_AOE_BUFF), 
 {{"spellID", LUA_TYPE::INTEGER, LUA_ARG_REQUIRED}}, 
 	NO_RVALS, LOP_melee_avoid_aoe_buff },
 
-{ OPSTR(LOP::TANK_FACE), {}, NO_RVALS, LOP_tank_face },
+{ OPCODE_AND_STRINGIFY(LOP::TANK_FACE), {}, NO_RVALS, LOP_tank_face },
 
-{ OPSTR(LOP::TANK_PULL), {}, NO_RVALS, LOP_tank_pull },
+{ OPCODE_AND_STRINGIFY(LOP::TANK_PULL), {}, NO_RVALS, LOP_tank_pull },
 
-{ OPSTR(LOP::GET_UNIT_POSITION), 
+{ OPCODE_AND_STRINGIFY(LOP::GET_UNIT_POSITION), 
 {{"unitname", LUA_TYPE::STRING, LUA_ARG_REQUIRED}}, 
 	RVALS_4, LOP_get_unit_position },
 
-{ OPSTR(LOP::GET_WALKING_STATE), {}, RVALS_1, LOP_get_walking_state },
+{ OPCODE_AND_STRINGIFY(LOP::GET_WALKING_STATE), {}, RVALS_1, LOP_get_walking_state },
 
-{ OPSTR(LOP::GET_CTM_STATE), {}, RVALS_1, LOP_get_ctm_state },
+{ OPCODE_AND_STRINGIFY(LOP::GET_CTM_STATE), {}, RVALS_1, LOP_get_ctm_state },
 
-{ OPSTR(LOP::GET_PREVIOUS_CAST_MSG), {}, RVALS_1, LOP_get_previous_cast_msg },
+{ OPCODE_AND_STRINGIFY(LOP::GET_PREVIOUS_CAST_MSG), {}, RVALS_1, LOP_get_previous_cast_msg },
 
-{ OPSTR(LOP::STOPFOLLOW), {}, NO_RVALS, LOP_stopfollow },
+{ OPCODE_AND_STRINGIFY(LOP::STOPFOLLOW), {}, NO_RVALS, LOP_stopfollow },
 
-{ OPSTR(LOP::CAST_GTAOE),
+{ OPCODE_AND_STRINGIFY(LOP::CAST_GTAOE),
 {{"spellID", LUA_TYPE::INTEGER, LUA_ARG_REQUIRED},
  {"x", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
  {"y", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
  {"z", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED}},
 	NO_RVALS, LOP_cast_gtaoe },
 
-{ OPSTR(LOP::HAS_AGGRO), {}, RVALS_1, LOP_has_aggro },
+{ OPCODE_AND_STRINGIFY(LOP::HAS_AGGRO), {}, RVALS_1, LOP_has_aggro },
 
-{ OPSTR(LOP::INTERACT_GOBJECT),
+{ OPCODE_AND_STRINGIFY(LOP::INTERACT_GOBJECT),
 {{"objname", LUA_TYPE::STRING, LUA_ARG_REQUIRED}},
 	RVALS_1, LOP_interact_gobject },
 
-{ OPSTR(LOP::EXECUTE),
+{ OPCODE_AND_STRINGIFY(LOP::EXECUTE),
 {{"objname", LUA_TYPE::STRING, LUA_ARG_REQUIRED}}, 
 	NO_RVALS, LOP_execute },
 
-{ OPSTR(LOP::GET_COMBAT_TARGETS), {}, RVALS_1, LOP_get_combat_targets },
+{ OPCODE_AND_STRINGIFY(LOP::GET_COMBAT_TARGETS), {}, RVALS_1, LOP_get_combat_targets },
 
-{ OPSTR(LOP::GET_AOE_FEASIBILITY),
+{ OPCODE_AND_STRINGIFY(LOP::GET_AOE_FEASIBILITY),
 {{"radius", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED},
  {"unitname", LUA_TYPE::STRING, LUA_ARG_OPTIONAL}},
 	RVALS_1, LOP_get_aoe_feasibility },
 
-{ OPSTR(LOP::AVOID_NPC_WITH_NAME),
+{ OPCODE_AND_STRINGIFY(LOP::AVOID_NPC_WITH_NAME),
 {{"npcname", LUA_TYPE::STRING, LUA_ARG_REQUIRED},
  {"radius", LUA_TYPE::NUMBER, LUA_ARG_REQUIRED}},
 	NO_RVALS, LOP_avoid_npc_with_name },
 
-{ OPSTR(LOP::BOSS_ACTION), 
+{ OPCODE_AND_STRINGIFY(LOP::BOSS_ACTION), 
 { {"commandstring", LUA_TYPE::STRING, LUA_ARG_REQUIRED} }, // separated by spaces
 	RVALS_1, LOP_boss_action },
 
-{ OPSTR(LOP::INTERACT_SPELLNPC),
+{ OPCODE_AND_STRINGIFY(LOP::INTERACT_SPELLNPC),
 {{"npcGUID", LUA_TYPE::STRING, LUA_ARG_REQUIRED}}, 
 	RVALS_1, LOP_interact_spellnpc },
 
-{ OPSTR(LOP::GET_LAST_SPELL_ERRMSG), {}, RVALS_3, LOP_get_previous_cast_msg },
+{ OPCODE_AND_STRINGIFY(LOP::GET_LAST_SPELL_ERRMSG), {}, RVALS_3, LOP_get_previous_cast_msg },
 
-{ OPSTR(LOP::ICCROCKET),
+{ OPCODE_AND_STRINGIFY(LOP::ICCROCKET),
 {{"packethexstr", LUA_TYPE::STRING, LUA_ARG_REQUIRED}}, 
 	NO_RVALS, LOP_iccrocket },
 
-{ OPSTR(LOP::HCONFIG),
+{ OPCODE_AND_STRINGIFY(LOP::HCONFIG),
 {{"commandstring", LUA_TYPE::STRING, LUA_ARG_REQUIRED} }, // separated by spaces
 	RVALS_1, LOP_hconfig },
 
-{ OPSTR(LOP::TANK_TAUNT_LOOSE),
+{ OPCODE_AND_STRINGIFY(LOP::TANK_TAUNT_LOOSE),
 {{"tauntspellname", LUA_TYPE::STRING, LUA_ARG_REQUIRED},
  {"ignoretargetedbyGUID", LUA_TYPE::TABLE, LUA_ARG_OPTIONAL}}, 
 	RVALS_1, LOP_tank_taunt_loose },
 
-{ OPSTR(LOP::READ_FILE),
+{ OPCODE_AND_STRINGIFY(LOP::READ_FILE),
 {{"filename", LUA_TYPE::STRING, LUA_ARG_REQUIRED} }, 
 	RVALS_1, LOP_read_file },
-},
-
- {
-	 { OPSTR(LOP::LDOP_NOP), {}, NO_RVALS, op_handler_NYI },
-	 { OPSTR(LOP::LDOP_DUMP), {}, NO_RVALS, op_handler_NYI },
-	 { OPSTR(LOP::LDOP_LOOT_ALL), {}, NO_RVALS, op_handler_NYI },
-	 { OPSTR(LOP::LDOP_PULL_TEST), {}, NO_RVALS, op_handler_NYI },
-	 { OPSTR(LOP::LDOP_LUA_REGISTER), {}, NO_RVALS, LDOP_lua_register },
-	 { OPSTR(LOP::LDOP_LOS_TEST), {}, NO_RVALS, op_handler_NYI },
-	 { OPSTR(LOP::LDOP_TEST), {}, NO_RVALS, LDOP_debug_test },
-	 { OPSTR(LOP::LDOP_CAPTURE_FRAME_RENDER_STAGES), {}, NO_RVALS, op_handler_NYI },
-	 { OPSTR(LOP::LDOP_CONSOLE_PRINT), {}, NO_RVALS, LDOP_console_print },
-	 { OPSTR(LOP::LDOP_REPORT_CONNECTED), {}, NO_RVALS, op_handler_NYI },
-	 { OPSTR(LOP::LDOP_EJECT_DLL), {}, NO_RVALS, LDOP_eject_dll },
-	 
-	 // EXT stuff
-
-	 { OPSTR(LOP::LDOP_SL_RESETCAMERA), {}, NO_RVALS, op_handler_NYI },
-	 { OPSTR(LOP::LDOP_WC3MODE), {}, NO_RVALS, op_handler_NYI },
-	 { OPSTR(LOP::LDOP_SL_SETSELECT), {}, NO_RVALS, op_handler_NYI },
-
- }
-
 };
 
+static const lop_func_t LDOP_FUNCS[] = {
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_NOP), {}, NO_RVALS, op_handler_NYI},
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_DUMP), {}, NO_RVALS, op_handler_NYI},
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_LOOT_ALL), {}, NO_RVALS, op_handler_NYI},
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_PULL_TEST), {}, NO_RVALS, op_handler_NYI},
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_LUA_REGISTER), {}, NO_RVALS, LDOP_lua_register},
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_LOS_TEST), {}, NO_RVALS, op_handler_NYI},
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_TEST), {}, NO_RVALS, LDOP_debug_test},
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_CAPTURE_FRAME_RENDER_STAGES), {}, NO_RVALS, op_handler_NYI},
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_CONSOLE_PRINT), {}, NO_RVALS, LDOP_console_print},
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_REPORT_CONNECTED), {}, NO_RVALS, op_handler_NYI},
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_EJECT_DLL), {}, NO_RVALS, LDOP_eject_dll},
 
-static bool check_num_args(LOP opcode, int nargs) {
+	// EXT stuff
 
-	if (opcode >= LOP::NUM_OPCODES) return 1;
-
-	const lop_func_t& f = lop_funcs[opcode];
-	if (nargs < f.args.size()) { // TODO check types also
-		PRINT("error: %s: expected at least %d argument(s), got %d\n", f.opcode_name.c_str(), f.args.size(), nargs);
-		return false;
-	}
-
-	return true;
-}
-
-static bool check_arg_types(lua_State* L, LOP opcode) {
-	const lop_func_t& lf = lop_funcs[opcode];
-	for (int i = 0; i < lf.args.size(); ++i) {
-		const lua_arg& arg = lf.args[i];
-		if (arg.type != lua_gettype(L, i + 2)) {
-			ECHO_WOW("lop_exec(%s): check_arg_types: wrong type for argument number %d (\"%s\")! Expected %s, got %s\n",
-				lf.opcode_name.c_str(), i + 1, arg.name.c_str(), lua_gettypestring(L, arg.type), lua_gettypestr(L, i + 2));
-			return false;
-		}
-	}
-
-	return true;
-}
-
-static bool check_lop_args(lua_State* L) {
-	int nargs = lua_gettop(L);
-
-	if (nargs < 1) {
-		ECHO_WOW("lop_exec: error: no arguments (or nil) passed\n");
-		return false;
-	}
-
-	LOP opcode = (LOP)lua_tointeger(L, 1);
-
-	//PRINT("opcode: 0x%X\n", (int)opcode);
-
-	if (IS_DEBUG_OPCODE(opcode)) {
-		return true; // we don't check these
-	}
-
-	if (!check_num_args(opcode, nargs)) {
-		return false;
-	}
-
-	if (!check_arg_types(L, opcode)) {
-		return false;
-	}
-
-	return true;
-}
-
-
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_SL_RESETCAMERA), {}, NO_RVALS, op_handler_NYI},
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_WC3MODE), {}, NO_RVALS, op_handler_NYI},
+	{OPCODE_AND_STRINGIFY(LOP::LDOP_SL_SETSELECT), {}, NO_RVALS, op_handler_NYI},
+};
 
 int lop_exec(lua_State* L) {
 
 	// NOTE: the return value of this function --> number of values returned to caller in LUA
 	printf("Hello from lop_exec blyat :D %d\n", lua_gettop(L));
-
-	if (check_lop_args(L)) {
-		LOP op = (LOP)lua_tointeger(L, 1);
-		const auto& f = lop_funcs[op];
-		int r = f.handler(L);
-	//	if (r != f.num_return_values) {	ECHO_BOTH("warning: handler for %s: expected %d return values, got %d\n", f.opcode_name.c_str(), f.num_return_values, r); }
-		return r;
+	int nargs = lua_gettop(L);
+	if (nargs < 1) {
+		printf("(warning: lop_exec: no opcode provided)\n");
+		return 0;
 	}
-	 
-	return 0;
+
+	int op = (int)lua_tointeger(L, 1);
+	if (op < 0 || op >= (sizeof(LOP_FUNCS) - 1)) {
+		// TODO: debug opcodes
+		printf("Invalid op %d\n", op);
+		return 0;
+	}
+
+	const lop_func_t &op_func = LOP_FUNCS[op];
+	if (!op_func.check_args(L)) {
+		printf("(lop_exec: error: %s: invalid number of/kind of arguments)\n", op_func.opcode_name.c_str());
+		return 0;
+	}
+	else {
+		return op_func.handler(L);
+	}
+
+
 }
 
 static std::vector<std::string> lua_rvals;
