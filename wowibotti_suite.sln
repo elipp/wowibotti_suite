@@ -1,11 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Express 14 for Windows Desktop
-VisualStudioVersion = 14.0.23107.0
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34031.279
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wowibottihookdll", "wowibottihookdll\wowibottihookdll.vcxproj", "{C719CD27-96BD-4CA9-B951-4DD20E9FC376}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wowipotti2", "wowipotti2\wowipotti2.vcxproj", "{8A0CBB77-1831-4EF8-94FE-DA179D65EFEB}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Py_wowmem", "Py_wowmem\Py_wowmem.vcxproj", "{A5E5B78F-9F20-4C84-A0DE-5019A23DE674}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -31,6 +33,14 @@ Global
 		{8A0CBB77-1831-4EF8-94FE-DA179D65EFEB}.Release|Win32.Build.0 = Release|Win32
 		{8A0CBB77-1831-4EF8-94FE-DA179D65EFEB}.Release|x64.ActiveCfg = Release|x64
 		{8A0CBB77-1831-4EF8-94FE-DA179D65EFEB}.Release|x64.Build.0 = Release|x64
+		{A5E5B78F-9F20-4C84-A0DE-5019A23DE674}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A5E5B78F-9F20-4C84-A0DE-5019A23DE674}.Debug|Win32.Build.0 = Debug|Win32
+		{A5E5B78F-9F20-4C84-A0DE-5019A23DE674}.Debug|x64.ActiveCfg = Debug|x64
+		{A5E5B78F-9F20-4C84-A0DE-5019A23DE674}.Debug|x64.Build.0 = Debug|x64
+		{A5E5B78F-9F20-4C84-A0DE-5019A23DE674}.Release|Win32.ActiveCfg = Release|Win32
+		{A5E5B78F-9F20-4C84-A0DE-5019A23DE674}.Release|Win32.Build.0 = Release|Win32
+		{A5E5B78F-9F20-4C84-A0DE-5019A23DE674}.Release|x64.ActiveCfg = Release|x64
+		{A5E5B78F-9F20-4C84-A0DE-5019A23DE674}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

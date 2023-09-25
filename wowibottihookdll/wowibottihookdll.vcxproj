@@ -71,16 +71,16 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(VC_SourcePath);$(IncludePath);$(ProjectDir);</IncludePath>
-    <LibraryPath>$(LibraryPath);$(ProjectDir);</LibraryPath>
+    <IncludePath>$(VC_SourcePath);$(IncludePath);$(ProjectDir);$(ProjectDir)/../cpython/Include;$(ProjectDir)/../cpython/PC;</IncludePath>
+    <LibraryPath>$(LibraryPath);$(ProjectDir);$(ProjectDir)/../cpython/PCbuild/win32/;</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(VC_SourcePath);$(IncludePath);$(ProjectDir);</IncludePath>
-    <LibraryPath>$(LibraryPath);$(ProjectDir);</LibraryPath>
+    <IncludePath>$(VC_SourcePath);$(IncludePath);$(ProjectDir);$(ProjectDir)/../cpython/Include;$(ProjectDir)/../cpython/PC;</IncludePath>
+    <LibraryPath>$(LibraryPath);$(ProjectDir);$(ProjectDir)/../cpython/PCbuild/win32/;</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -177,6 +177,7 @@
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="dungeon_script.cpp" />
     <ClCompile Include="hooks.cpp" />
+    <ClCompile Include="om_python.cpp" />
     <ClCompile Include="pathfinding.cpp" />
     <ClCompile Include="linalg.cpp" />
     <ClCompile Include="lua.cpp" />

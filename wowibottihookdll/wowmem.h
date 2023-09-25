@@ -229,16 +229,6 @@ public:
 
 class ObjectManager {
 
-	class iterator {
-	public:
-		iterator(DWORD base_addr);
-		iterator& operator++();
-		bool operator!=(const iterator& other) const;
-		WowObject operator*() const;
-	private:
-		DWORD base;
-	};
-
 
 private:
 	unsigned int base_addr;                       // the base address of the object manager
@@ -248,6 +238,16 @@ private:
 	long long construction_frame_num;
 
 public:
+
+	class iterator {
+	public:
+		iterator(DWORD base_addr);
+		iterator& operator++();
+		bool operator!=(const iterator& other) const;
+		WowObject operator*() const;
+	private:
+		DWORD base;
+	};
 
 	int valid() const;
 
