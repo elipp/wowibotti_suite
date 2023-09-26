@@ -244,9 +244,9 @@ public:
 		iterator(DWORD base_addr);
 		iterator& operator++();
 		bool operator!=(const iterator& other) const;
-		WowObject operator*() const;
+		WowObject& operator*();
 	private:
-		DWORD base;
+		WowObject current;
 	};
 
 	int valid() const;

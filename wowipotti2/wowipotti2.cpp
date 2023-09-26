@@ -67,7 +67,7 @@ struct wowcl_t {
 	int index;
 	HANDLE library_handle;
 	wowcl_t() {};
-	wowcl_t(HWND hWnd, std::string &title, int client_index)
+	wowcl_t(HWND hWnd, std::string title, int client_index)
 		: window_handle(hWnd), window_title(title), valid(1), index(client_index) {
 		tid = GetWindowThreadProcessId(hWnd, &pid);
 		char *endptr;
@@ -247,7 +247,7 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam) {
 
 	if (strcmp(title, "World of Warcraft") == 0) {
 
-		wow_handles.push_back(new wowcl_t(hWnd, std::string(title), clindex));
+		wow_handles.push_back(new wowcl_t(hWnd, title, clindex));
 		++clindex;
 	}
 
@@ -411,6 +411,8 @@ static int remote_thread_dll(wowcl_t *cl) {
 		return 0;
 	}
 
+	int res = 0;
+
 	printf("Attempting to inject DLL %s to process %d...\n", DLL_path.c_str(), cl->pid);
 
 	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, cl->pid);
@@ -431,10 +433,14 @@ static int remote_thread_dll(wowcl_t *cl) {
 
 	if (rt == NULL) { printf("CreateRemoteThread failed: %d\n", GetLastError()); return 0; }
 
-	DWORD library_handle;
+	DWORD library_handle = 0;
 
 	WaitForSingleObject(rt, INFINITE);
 	GetExitCodeThread(rt, &library_handle);
+	if (library_handle == 0) {
+		printf("Error: LoadLibraryAddr returned 0: %d\n", GetLastError());
+		return 0;
+	}
 
 	cl->library_handle = (HANDLE)library_handle;
 
@@ -1249,7 +1255,7 @@ int APIENTRY WinMain(_In_ HINSTANCE hInstance,
 	char FullPath[MAX_PATH];
 	GetCurrentDirectory(MAX_PATH, DirPath);
 
-	sprintf_s(FullPath, MAX_PATH, "%s\\wowibottihookdll.dll", DirPath);
+	sprintf_s(FullPath, MAX_PATH, "%s\\wowibottihookdll_rust.dll", DirPath);
 
 	DLL_path = std::string(FullPath);
 

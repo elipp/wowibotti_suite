@@ -1,0 +1,3 @@
+[submodule "Py_wowmem/cpython"]
+	path = Py_wowmem/cpython
+	url = git@github.com:python/cpython

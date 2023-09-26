@@ -83,7 +83,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		break;
 
 	case DLL_THREAD_DETACH:
-	//	printf("THREAD_DETAHCH\n");
+	//	printf("THREAD_DETACH\n");
 		break;
 
 	case DLL_PROCESS_DETACH:

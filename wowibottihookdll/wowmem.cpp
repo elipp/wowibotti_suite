@@ -593,25 +593,25 @@ vec3 WowObject::GO_get_pos() const {
 }
 
 
-ObjectManager::iterator::iterator(DWORD base_addr) : base(base_addr) {}
+ObjectManager::iterator::iterator(DWORD base_addr) : current(WowObject(base_addr)) {}
 
 ObjectManager::iterator& ObjectManager::iterator::operator++() {
-	auto next = WowObject(this->base).next();
+	auto next = this->current.next();
 	if (next) {
-		this->base = next->get_base();
+		this->current = *next;
 	}
 	else {
-		this->base = 0;
+		this->current = WowObject(0);
 	}
 	return *this;
 }
 
 bool ObjectManager::iterator::operator!=(const ObjectManager::iterator& other) const {
-	return base != other.base;
+	return this->current.get_base() != other.current.get_base();
 }
 
-WowObject ObjectManager::iterator::operator*() const { 
-	return WowObject(base); 
+WowObject& ObjectManager::iterator::operator*() { 
+	return current; 
 }
 
 ObjectManager::iterator ObjectManager::begin() const {
@@ -635,7 +635,7 @@ std::optional<WowObject> ObjectManager::get_first_object() const {
 	return WowObject(object_base_addr);
 }
 
-ObjectManager::ObjectManager() : invalid(true) {
+ObjectManager::ObjectManager() : base_addr(0), construction_frame_num(0), localGUID(0), invalid(true) {
 	DWORD clientConnection = DEREF<DWORD>(Addresses::TBC::ObjectManager::ClientConnection);
 	if (!clientConnection) {
 		printf("Couldn't get ClientConnection!\n");

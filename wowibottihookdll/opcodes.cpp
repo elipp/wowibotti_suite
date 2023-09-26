@@ -1,3 +1,5 @@
+#pragma comment(lib, "Ws2_32.lib")
+
 #include "defs.h"
 
 #include <Windows.h>
