@@ -5,7 +5,12 @@ use std::io::prelude::*;
 use std::pin::{pin, Pin};
 use std::sync::RwLock;
 
-use windows::Win32::System::Console::AllocConsole;
+use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
+use windows::Win32::Storage::FileSystem::{
+    CreateFileW, FILE_FLAGS_AND_ATTRIBUTES, FILE_GENERIC_WRITE, FILE_SHARE_WRITE, OPEN_EXISTING,
+};
+use windows::Win32::System::Console::SetStdHandle;
+use windows::Win32::System::Console::{AllocConsole, GetStdHandle, STD_OUTPUT_HANDLE};
 use windows::Win32::System::Diagnostics::Debug::WriteProcessMemory;
 use windows::Win32::System::Memory::{VirtualProtect, PAGE_PROTECTION_FLAGS};
 use windows::Win32::System::Threading::GetCurrentProcess;
@@ -18,10 +23,15 @@ const INSTRBUF_SIZE: usize = 64;
 
 lazy_static! {
     static ref TRAMPOLINES: RwLock<Vec<Trampoline>> = RwLock::new(vec![]);
+    static ref NEED_INIT: RwLock<bool> = RwLock::new(true);
 }
 
 type Addr = u32;
 type Offset = u32;
+
+pub fn wide_null(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain(Some(0)).collect()
+}
 
 macro_rules! dump_to_logfile {
     ($fmt:literal, $($args:expr),*) => {{
@@ -50,9 +60,41 @@ mod asm {
     pub const JMP: u8 = 0xE9;
 }
 
+fn reopen_stdout() -> HANDLE {
+    match unsafe {
+        CreateFileW(
+            PCWSTR::from_raw(wide_null("CONOUT$").as_ptr()),
+            (GENERIC_READ | GENERIC_WRITE).0,
+            FILE_SHARE_WRITE,
+            None,
+            OPEN_EXISTING,
+            FILE_FLAGS_AND_ATTRIBUTES(0),
+            None,
+        )
+    } {
+        Ok(handle) => handle,
+        _ => INVALID_HANDLE_VALUE,
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "stdcall" fn EndScene_hook() {
-    println!("XD");
+    let need_init = match NEED_INIT.read() {
+        Ok(need_init) => *need_init,
+        _ => return,
+    };
+
+    if need_init {
+        AllocConsole();
+        let handle = reopen_stdout();
+        SetStdHandle(STD_OUTPUT_HANDLE, handle);
+
+        if let Ok(mut need_init) = NEED_INIT.write() {
+            *need_init = false;
+        }
+
+        println!("Init done :)");
+    }
 }
 
 #[derive(Debug)]
@@ -149,13 +191,6 @@ impl Trampoline {
                 None,
             );
         }
-        // unsafe {
-        //     std::ptr::copy_nonoverlapping(
-        //         self.instruction_buffer.get_address() as *const u8,
-        //         self.patch_addr as *mut u8,
-        //         self.instruction_buffer.len(),
-        //     );
-        // }
         Ok(())
     }
     fn disable(&self) {
@@ -214,7 +249,6 @@ extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) 
         DLL_PROCESS_ATTACH => {
             let tramp = prepare_endscene_trampoline();
             tramp.enable();
-            dump_to_logfile!("{:x?}", tramp);
             TRAMPOLINES.write().unwrap().push(tramp);
         }
         // DLL_PROCESS_DETACH => ),
