@@ -29,6 +29,8 @@ lazy_static! {
 type Addr = u32;
 type Offset = u32;
 
+pub mod objectmanager;
+
 pub fn wide_null(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
 }
