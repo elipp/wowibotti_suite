@@ -3,13 +3,22 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::pin::{pin, Pin};
+use std::sync::RwLock;
+
 use windows::Win32::System::Console::AllocConsole;
 use windows::Win32::System::Diagnostics::Debug::WriteProcessMemory;
 use windows::Win32::System::Memory::{VirtualProtect, PAGE_PROTECTION_FLAGS};
 use windows::Win32::System::Threading::GetCurrentProcess;
-
 use windows::{core::*, Win32::UI::WindowsAndMessaging::MessageBoxA};
 use windows::{Win32::Foundation::*, Win32::System::SystemServices::*};
+
+use lazy_static::lazy_static;
+
+const INSTRBUF_SIZE: usize = 64;
+
+lazy_static! {
+    static ref TRAMPOLINES: RwLock<Vec<Trampoline>> = RwLock::new(vec![]);
+}
 
 type Addr = u32;
 type Offset = u32;
@@ -46,24 +55,18 @@ pub unsafe extern "stdcall" fn EndScene_hook() {
     println!("XD");
 }
 
-const INSTRBUF_SIZE: usize = 64;
-
 #[derive(Debug)]
-struct InstructionBuffer<const N: usize> {
-    instructions: Pin<Box<[u8; N]>>,
+struct InstructionBuffer {
+    instructions: Pin<Box<[u8; INSTRBUF_SIZE]>>,
     current_offset: usize,
 }
 
-impl<const N: usize> InstructionBuffer<N> {
+impl InstructionBuffer {
     fn new() -> Self {
         Self {
-            instructions: Pin::new(Box::new([asm::INT3; N])),
+            instructions: Pin::new(Box::new([asm::INT3; INSTRBUF_SIZE])),
             current_offset: 0,
         }
-    }
-
-    const fn N(&self) -> usize {
-        N
     }
 
     fn len(&self) -> usize {
@@ -106,10 +109,10 @@ impl<const N: usize> InstructionBuffer<N> {
 }
 
 #[derive(Debug)]
-struct Trampoline<const PatchSize: usize, const TrampolineSize: usize> {
+struct Trampoline {
     patch_addr: Addr,
-    original_instructions: [u8; PatchSize],
-    instruction_buffer: InstructionBuffer<TrampolineSize>,
+    original_instructions: Vec<u8>,
+    instruction_buffer: InstructionBuffer,
 }
 
 #[derive(Debug)]
@@ -117,27 +120,21 @@ pub enum LoleError {
     TrampolineError(String),
 }
 
-impl<const N: usize, const I: usize> Trampoline<N, I> {
-    const fn patch_size(&self) -> usize {
-        N
-    }
-    const fn trampoline_size(&self) -> usize {
-        I
-    }
+impl Trampoline {
     fn enable(&self) -> std::result::Result<(), LoleError> {
         const PAGE_EXECUTE_READWRITE: u32 = 0x40;
         let mut old_flags = PAGE_PROTECTION_FLAGS(0);
         unsafe {
             VirtualProtect(
                 self.instruction_buffer.get_address() as *const c_void,
-                I,
+                self.instruction_buffer.len(),
                 PAGE_PROTECTION_FLAGS(PAGE_EXECUTE_READWRITE),
                 &mut old_flags,
             )
         }
         .map_err(|e| LoleError::TrampolineError(format!("{:?}", e)))?;
 
-        let mut patch = InstructionBuffer::<N>::new();
+        let mut patch = InstructionBuffer::new();
         patch.push(asm::JMP);
         let jmp_target = self.instruction_buffer.get_address() as i32 - self.patch_addr as i32 - 5;
         patch.push_slice(&jmp_target.to_le_bytes());
@@ -148,7 +145,7 @@ impl<const N: usize, const I: usize> Trampoline<N, I> {
                 process_handle,
                 self.patch_addr as *const c_void,
                 patch.get_address() as *const c_void,
-                N,
+                patch.len(),
                 None,
             );
         }
@@ -186,9 +183,9 @@ fn copy_original_opcodes<const N: usize>(addr: Addr) -> [u8; N] {
     destination.into()
 }
 
-fn prepare_endscene_trampoline() -> Trampoline<7, INSTRBUF_SIZE> {
+fn prepare_endscene_trampoline() -> Trampoline {
     let EndScene = find_EndScene();
-    let original_instructions = copy_original_opcodes::<7>(EndScene);
+    let original_instructions = Vec::from_iter(copy_original_opcodes::<7>(EndScene));
 
     let mut instruction_buffer = InstructionBuffer::new();
     instruction_buffer.push(asm::PUSHAD);
@@ -218,7 +215,7 @@ extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) 
             let tramp = prepare_endscene_trampoline();
             tramp.enable();
             dump_to_logfile!("{:x?}", tramp);
-            Box::leak(Box::new(tramp));
+            TRAMPOLINES.write().unwrap().push(tramp);
         }
         // DLL_PROCESS_DETACH => ),
         _ => (),
