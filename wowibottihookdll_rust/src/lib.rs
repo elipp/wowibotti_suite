@@ -29,7 +29,10 @@ lazy_static! {
 type Addr = u32;
 type Offset = u32;
 
+pub mod asm;
 pub mod objectmanager;
+
+use objectmanager::ObjectManager;
 
 pub fn wide_null(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
@@ -46,21 +49,7 @@ macro_rules! dump_to_logfile {
     }}
 }
 
-mod addresses {
-    use crate::{Addr, Offset};
-    pub const D3D9Device: Addr = 0xD2A15C;
-    pub const D3D9DeviceOffset: Offset = 0x3864;
-}
-
-mod asm {
-    pub const PUSHAD: u8 = 0x60;
-    pub const POPAD: u8 = 0x61;
-    pub const CALL: u8 = 0xE8;
-    pub const RET: u8 = 0xC3;
-    pub const INT3: u8 = 0xCC;
-    pub const PUSH: u8 = 0x68;
-    pub const JMP: u8 = 0xE9;
-}
+pub mod addresses;
 
 fn reopen_stdout() -> HANDLE {
     match unsafe {
@@ -87,15 +76,22 @@ pub unsafe extern "stdcall" fn EndScene_hook() {
     };
 
     if need_init {
-        AllocConsole();
-        let handle = reopen_stdout();
-        SetStdHandle(STD_OUTPUT_HANDLE, handle);
+        AllocConsole().expect("AllocConsole");
+        SetStdHandle(STD_OUTPUT_HANDLE, reopen_stdout()).expect("Reopen CONOUT$");
 
         if let Ok(mut need_init) = NEED_INIT.write() {
             *need_init = false;
         }
-
-        println!("Init done :)");
+        println!("wowibottihookdll_rust: init done! :D");
+    } else {
+        match ObjectManager::new() {
+            Ok(om) => {
+                for o in om {
+                    println!("{o}");
+                }
+            }
+            _ => {}
+        };
     }
 }
 
@@ -162,6 +158,8 @@ struct Trampoline {
 #[derive(Debug)]
 pub enum LoleError {
     TrampolineError(String),
+    ClientConnectionIsNull,
+    ObjectManagerIsNull,
 }
 
 impl Trampoline {
