@@ -6,6 +6,7 @@ use std::pin::{pin, Pin};
 use std::sync::RwLock;
 
 use addresses::LUA_Prot_patchaddr;
+use lua::get_lua_State;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_FLAGS_AND_ATTRIBUTES, FILE_GENERIC_WRITE, FILE_SHARE_WRITE, OPEN_EXISTING,
@@ -31,7 +32,10 @@ type Addr = u32;
 type Offset = u32;
 
 pub mod asm;
+pub mod lua;
 pub mod objectmanager;
+
+use lua::lua_gettop;
 
 use objectmanager::ObjectManager;
 
@@ -71,14 +75,17 @@ fn reopen_stdout() -> HANDLE {
 }
 
 fn main_entrypoint() {
-    match ObjectManager::new() {
-        Ok(om) => {
-            for o in om {
-                println!("{o}");
-            }
-        }
-        _ => {}
+    if let Some(lua) = get_lua_State() {
+        println!("{}", lua_gettop(lua));
     }
+    // match ObjectManager::new() {
+    //     Ok(om) => {
+    //         for o in om {
+    //             println!("{o}");
+    //         }
+    //     }
+    //     _ => {}
+    // }
 }
 
 fn prepare_lua_prot_patch() -> Patch {
@@ -97,7 +104,7 @@ fn prepare_lua_prot_patch() -> Patch {
 }
 
 #[no_mangle]
-pub unsafe extern "stdcall" fn EndScene_hook() {
+pub unsafe extern "cdecl" fn EndScene_hook() {
     if *NEED_INIT.read().expect("read lock for NEED_INIT") {
         AllocConsole().expect("AllocConsole");
         SetStdHandle(STD_OUTPUT_HANDLE, reopen_stdout()).expect("Reopen CONOUT$");
@@ -114,7 +121,7 @@ pub unsafe extern "stdcall" fn EndScene_hook() {
 
         println!("wowibottihookdll_rust: init done! :D enabled_patches:");
         for p in patches.iter() {
-            println!("* {}", p.name);
+            println!("* {}@{:08X}", p.name, p.patch_addr);
         }
     } else {
         main_entrypoint();
@@ -287,7 +294,7 @@ extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) 
         DLL_PROCESS_ATTACH => {
             let tramp = prepare_endscene_trampoline();
             unsafe {
-                tramp.enable();
+                tramp.enable().expect("EndScene patch");
             }
             ENABLED_PATCHES.write().unwrap().push(tramp);
         }
