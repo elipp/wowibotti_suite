@@ -5,6 +5,7 @@ use std::io::prelude::*;
 use std::pin::{pin, Pin};
 use std::sync::RwLock;
 
+use addresses::LUA_Prot_patchaddr;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_FLAGS_AND_ATTRIBUTES, FILE_GENERIC_WRITE, FILE_SHARE_WRITE, OPEN_EXISTING,
@@ -22,7 +23,7 @@ use lazy_static::lazy_static;
 const INSTRBUF_SIZE: usize = 64;
 
 lazy_static! {
-    static ref TRAMPOLINES: RwLock<Vec<Trampoline>> = RwLock::new(vec![]);
+    static ref ENABLED_PATCHES: RwLock<Vec<Patch>> = RwLock::new(vec![]);
     static ref NEED_INIT: RwLock<bool> = RwLock::new(true);
 }
 
@@ -38,12 +39,13 @@ pub fn wide_null(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
 }
 
+// this is pre-AllocConsole era :D
 macro_rules! dump_to_logfile {
     ($fmt:literal, $($args:expr),*) => {{
         let mut file = OpenOptions::new()
             .write(true)
             .append(true)
-            .open("C:\\Users\\elias\\pylly.txt")
+            .open("C:\\Users\\elias\\log.txt")
             .unwrap();
         writeln!(file, $fmt, $($args),*).unwrap();
     }}
@@ -68,30 +70,54 @@ fn reopen_stdout() -> HANDLE {
     }
 }
 
+fn main_entrypoint() {
+    match ObjectManager::new() {
+        Ok(om) => {
+            for o in om {
+                println!("{o}");
+            }
+        }
+        _ => {}
+    }
+}
+
+fn prepare_lua_prot_patch() -> Patch {
+    let original_instructions = Vec::from_iter(copy_original_opcodes::<9>(LUA_Prot_patchaddr));
+
+    let mut instruction_buffer = InstructionBuffer::new();
+    instruction_buffer.push_slice(&[0xB8, 0x01, 0x00, 0x00, 0x00, 0x5D, 0xC3]);
+
+    Patch {
+        name: "Lua_Prot".to_string(),
+        patch_addr: LUA_Prot_patchaddr,
+        original_instructions,
+        instruction_buffer,
+        kind: PatchKind::OverWrite,
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "stdcall" fn EndScene_hook() {
-    let need_init = match NEED_INIT.read() {
-        Ok(need_init) => *need_init,
-        _ => return,
-    };
-
-    if need_init {
+    if *NEED_INIT.read().expect("read lock for NEED_INIT") {
         AllocConsole().expect("AllocConsole");
         SetStdHandle(STD_OUTPUT_HANDLE, reopen_stdout()).expect("Reopen CONOUT$");
 
-        if let Ok(mut need_init) = NEED_INIT.write() {
-            *need_init = false;
+        *NEED_INIT.write().expect("write lock for NEED_INIT") = false;
+
+        let lua_prot_patch = prepare_lua_prot_patch();
+        lua_prot_patch.enable();
+        let mut patches = ENABLED_PATCHES
+            .write()
+            .expect("write lock for ENABLED_PATCHES");
+
+        patches.push(lua_prot_patch);
+
+        println!("wowibottihookdll_rust: init done! :D enabled_patches:");
+        for p in patches.iter() {
+            println!("* {}", p.name);
         }
-        println!("wowibottihookdll_rust: init done! :D");
     } else {
-        match ObjectManager::new() {
-            Ok(om) => {
-                for o in om {
-                    println!("{o}");
-                }
-            }
-            _ => {}
-        };
+        main_entrypoint();
     }
 }
 
@@ -126,12 +152,6 @@ impl InstructionBuffer {
     fn push_call_to(&mut self, to: Addr) {
         self.push(asm::CALL);
         let target = to - (self.get_address() as u32 + self.current_offset as u32) - 4;
-        dump_to_logfile!(
-            "self.get_address(): {:p}, target: {:x}, {}",
-            self.get_address(),
-            target,
-            self.current_offset
-        );
         self.push_slice(&target.to_le_bytes());
     }
 
@@ -149,47 +169,63 @@ impl InstructionBuffer {
 }
 
 #[derive(Debug)]
-struct Trampoline {
+enum PatchKind {
+    JmpToTrampoline,
+    OverWrite,
+}
+
+#[derive(Debug)]
+struct Patch {
+    name: String,
     patch_addr: Addr,
     original_instructions: Vec<u8>,
     instruction_buffer: InstructionBuffer,
+    kind: PatchKind,
 }
 
 #[derive(Debug)]
 pub enum LoleError {
-    TrampolineError(String),
+    PatchError(String),
     ClientConnectionIsNull,
     ObjectManagerIsNull,
 }
 
-impl Trampoline {
-    fn enable(&self) -> std::result::Result<(), LoleError> {
-        const PAGE_EXECUTE_READWRITE: u32 = 0x40;
-        let mut old_flags = PAGE_PROTECTION_FLAGS(0);
-        unsafe {
-            VirtualProtect(
-                self.instruction_buffer.get_address() as *const c_void,
-                self.instruction_buffer.len(),
-                PAGE_PROTECTION_FLAGS(PAGE_EXECUTE_READWRITE),
-                &mut old_flags,
-            )
-        }
-        .map_err(|e| LoleError::TrampolineError(format!("{:?}", e)))?;
+impl Patch {
+    unsafe fn commit(&self, patch: &InstructionBuffer) {
+        let process_handle = GetCurrentProcess();
+        WriteProcessMemory(
+            process_handle,
+            self.patch_addr as *const c_void,
+            patch.get_address() as *const c_void,
+            patch.len(),
+            None,
+        )
+        .expect("WriteProcessMemory")
+    }
 
-        let mut patch = InstructionBuffer::new();
-        patch.push(asm::JMP);
-        let jmp_target = self.instruction_buffer.get_address() as i32 - self.patch_addr as i32 - 5;
-        patch.push_slice(&jmp_target.to_le_bytes());
+    unsafe fn enable(&self) -> std::result::Result<(), LoleError> {
+        match self.kind {
+            PatchKind::JmpToTrampoline => {
+                const PAGE_EXECUTE_READWRITE: u32 = 0x40;
+                let mut old_flags = PAGE_PROTECTION_FLAGS(0);
+                VirtualProtect(
+                    self.instruction_buffer.get_address() as *const c_void,
+                    self.instruction_buffer.len(),
+                    PAGE_PROTECTION_FLAGS(PAGE_EXECUTE_READWRITE),
+                    &mut old_flags,
+                )
+                .map_err(|e| LoleError::PatchError(format!("{:?}", e)))?;
 
-        unsafe {
-            let process_handle = GetCurrentProcess();
-            WriteProcessMemory(
-                process_handle,
-                self.patch_addr as *const c_void,
-                patch.get_address() as *const c_void,
-                patch.len(),
-                None,
-            );
+                let mut patch = InstructionBuffer::new();
+                patch.push(asm::JMP);
+                let jmp_target =
+                    self.instruction_buffer.get_address() as i32 - self.patch_addr as i32 - 5;
+                patch.push_slice(&jmp_target.to_le_bytes());
+                self.commit(&patch);
+            }
+            PatchKind::OverWrite => unsafe {
+                self.commit(&self.instruction_buffer);
+            },
         }
         Ok(())
     }
@@ -218,7 +254,7 @@ fn copy_original_opcodes<const N: usize>(addr: Addr) -> [u8; N] {
     destination.into()
 }
 
-fn prepare_endscene_trampoline() -> Trampoline {
+fn prepare_endscene_trampoline() -> Patch {
     let EndScene = find_EndScene();
     let original_instructions = Vec::from_iter(copy_original_opcodes::<7>(EndScene));
 
@@ -229,10 +265,12 @@ fn prepare_endscene_trampoline() -> Trampoline {
     instruction_buffer.push_slice(&original_instructions);
     instruction_buffer.push_default_return(EndScene, 7);
 
-    Trampoline {
+    Patch {
+        name: "EndScene".to_string(),
         patch_addr: EndScene,
         original_instructions,
         instruction_buffer,
+        kind: PatchKind::JmpToTrampoline,
     }
 }
 
@@ -248,8 +286,10 @@ extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) 
     match call_reason {
         DLL_PROCESS_ATTACH => {
             let tramp = prepare_endscene_trampoline();
-            tramp.enable();
-            TRAMPOLINES.write().unwrap().push(tramp);
+            unsafe {
+                tramp.enable();
+            }
+            ENABLED_PATCHES.write().unwrap().push(tramp);
         }
         // DLL_PROCESS_DETACH => ),
         _ => (),
