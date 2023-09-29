@@ -1,4 +1,4 @@
-use std::ffi::CStr;
+use std::ffi::{c_char, CStr};
 
 use crate::deref;
 use crate::{Addr, LoleError, Offset};
@@ -59,26 +59,22 @@ mod wowobject {
 #[repr(u8)]
 #[derive(Debug)]
 pub enum WowObjectType {
-    Object = 0,
-    Item = 1,
-    Container = 2,
-    Npc = 3,
-    Unit = 4,
-    GameObject = 5,
-    DynamicObject = 6,
-    Corpse = 7,
-    AreaTrigger = 8,
-    SceneObject = 9,
-    Unknown = 10,
+    Object,
+    Item,
+    Container,
+    Npc,
+    Unit,
+    GameObject,
+    DynamicObject,
+    Corpse,
+    AreaTrigger,
+    SceneObject,
+    Unknown(i32),
 }
 
-impl WowObject {
-    fn valid(&self) -> bool {
-        (self.base != 0) && ((self.base & 0x3) == 0)
-    }
-    pub fn get_type(&self) -> WowObjectType {
-        let t = deref::<u32, 1>(self.base + wowobject::Type);
-        match t {
+impl From<i32> for WowObjectType {
+    fn from(value: i32) -> Self {
+        match value {
             0 => WowObjectType::Object,
             1 => WowObjectType::Item,
             2 => WowObjectType::Container,
@@ -89,13 +85,23 @@ impl WowObject {
             7 => WowObjectType::Corpse,
             8 => WowObjectType::AreaTrigger,
             9 => WowObjectType::SceneObject,
-            _ => WowObjectType::Unknown,
+            v => WowObjectType::Unknown(v),
         }
+    }
+}
+
+impl WowObject {
+    fn valid(&self) -> bool {
+        (self.base != 0) && ((self.base & 0x3) == 0)
+    }
+    pub fn get_type(&self) -> WowObjectType {
+        let t = deref::<i32, 1>(self.base + wowobject::Type);
+        t.into()
     }
     pub fn get_name(&self) -> &str {
         match self.get_type() {
             WowObjectType::Npc | WowObjectType::Unit => {
-                let mut result: *const i8 = std::ptr::null();
+                let mut result: *const c_char = std::ptr::null();
                 let base = self.base;
                 let func_addr = addrs::GetUnitOrNPCNameAddr;
                 // todo!() probably borked

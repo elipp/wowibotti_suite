@@ -1,6 +1,7 @@
 use std::arch::asm;
 use std::ffi::{c_char, c_void, CStr};
 
+use crate::objectmanager::ObjectManager;
 use crate::{deref, write_addr, Addr};
 type lua_State = *mut c_void;
 
@@ -17,8 +18,40 @@ type lua_CFunction = unsafe extern "C" fn(lua_State) -> i32;
 
 const LUA_GLOBALSINDEX: i32 = -10002;
 
-fn strlen(s: *const c_char) -> usize {
-    unsafe { CStr::from_ptr(s).to_str().expect("str conversion").len() }
+#[repr(u8)]
+#[derive(Debug)]
+enum LuaType {
+    Nil,
+    Boolean,
+    UserData,
+    Number,
+    Integer, // not official Lua
+    String,
+    Table,
+    Function,
+    UserData2,
+    Proto,
+    Upval,
+    Unknown(i32),
+}
+
+impl From<i32> for LuaType {
+    fn from(value: i32) -> Self {
+        match value {
+            0 => LuaType::Nil,
+            1 => LuaType::Boolean,
+            2 => LuaType::UserData,
+            3 => LuaType::Number,
+            4 => LuaType::Integer,
+            5 => LuaType::String,
+            6 => LuaType::Table,
+            7 => LuaType::Function,
+            8 => LuaType::UserData2,
+            9 => LuaType::Proto,
+            10 => LuaType::Upval,
+            v => LuaType::Unknown(v),
+        }
+    }
 }
 
 define_lua_const!(
@@ -30,13 +63,26 @@ define_lua_const!(
     lua_pushcclosure,
     (state: lua_State, closure: lua_CFunction, n: i32) -> ());
 
+// The wow-version of lua_getfield uses an non-standard 4th argument, which is the length of the key string. (but it is calculated regardless?)
 define_lua_const!(
     lua_getfield,
-    (state: lua_State, idx: i32, k: *const c_char) -> ());
+    (state: lua_State, idx: i32, k: *const c_char, klen: usize) -> i32);
 
 define_lua_const!(
     lua_setfield,
     (state: lua_State, idx: i32, k: *const c_char) -> ());
+
+define_lua_const!(
+    lua_tointeger,
+    (state: lua_State, idx: i32) -> i32);
+
+define_lua_const!(
+    lua_gettype,
+    (state: lua_State, idx: i32) -> i32);
+
+define_lua_const!(
+    lua_tolstring,
+    (state: lua_State, idx: i32, len: *mut usize) -> *const c_char);
 
 macro_rules! lua_setglobal {
     ($lua:expr, $key:expr) => {
@@ -53,7 +99,7 @@ macro_rules! lua_register {
 
 macro_rules! lua_getglobal {
     ($lua:expr, $s:expr) => {
-        lua_getfield($lua, LUA_GLOBALSINDEX, $s)
+        lua_getfield($lua, LUA_GLOBALSINDEX, $s.as_ptr() as *const c_char, 0)
     };
 }
 
@@ -69,9 +115,43 @@ pub unsafe extern "C" fn test_cclosure(lua: lua_State) -> i32 {
     0
 }
 
+#[repr(u8)]
+enum Opcode {
+    Nop,
+    Dump,
+    Unknown,
+}
+
+impl From<i32> for Opcode {
+    fn from(value: i32) -> Self {
+        match value {
+            0 => Opcode::Nop,
+            1 => Opcode::Dump,
+            _ => Opcode::Unknown,
+        }
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
-    println!("moikkulis");
+    let nargs = lua_gettop(lua);
+    println!("lop_exec: got {nargs} args");
+    if nargs == 0 {
+        return 0;
+    }
+    let op = lua_tointeger(lua, 1);
+
+    if let Opcode::Dump = op.into() {
+        match ObjectManager::new() {
+            Ok(om) => {
+                for o in om {
+                    println!("{o}");
+                }
+            }
+            _ => {}
+        }
+    }
+
     return 0;
 }
 
@@ -82,6 +162,27 @@ pub fn get_lua_State() -> Option<lua_State> {
     } else {
         None
     }
+}
+
+pub fn register_if_not_registered() {
+    let lua = get_lua_State().expect("lua_State");
+    lua_getglobal!(lua, b"lop_exec\0");
+    let val_type = lua_gettype(lua, -1).into();
+    match val_type {
+        LuaType::Nil => {
+            register_lop_exec();
+        }
+        // LuaType::Function => {}
+        LuaType::String => {
+            let mut len: usize = 0;
+            let s = lua_tolstring(lua, -1, &mut len);
+            if !s.is_null() {
+                let s = unsafe { CStr::from_ptr(s) }.to_str();
+                println!("{:?}", s);
+            }
+        }
+        _ => {}
+    };
 }
 
 mod addrs {

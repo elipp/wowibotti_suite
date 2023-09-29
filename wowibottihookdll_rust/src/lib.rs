@@ -7,7 +7,7 @@ use std::pin::{pin, Pin};
 use std::sync::Mutex;
 
 use addresses::LUA_Prot_patchaddr;
-use lua::get_lua_State;
+use lua::{get_lua_State, register_if_not_registered};
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_FLAGS_AND_ATTRIBUTES, FILE_GENERIC_WRITE, FILE_SHARE_WRITE, OPEN_EXISTING,
@@ -76,9 +76,7 @@ fn reopen_stdout() -> HANDLE {
 }
 
 fn main_entrypoint() {
-    // if let Some(lua) = get_lua_State() {
-    //     println!("{}", lua_gettop(lua));
-    // }
+    register_if_not_registered();
     // match ObjectManager::new() {
     //     Ok(om) => {
     //         for o in om {
