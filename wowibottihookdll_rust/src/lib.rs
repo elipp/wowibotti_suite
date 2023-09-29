@@ -2,8 +2,9 @@ use std::ffi::c_void;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
+use std::mem::size_of;
 use std::pin::{pin, Pin};
-use std::sync::RwLock;
+use std::sync::Mutex;
 
 use addresses::LUA_Prot_patchaddr;
 use lua::get_lua_State;
@@ -24,8 +25,8 @@ use lazy_static::lazy_static;
 const INSTRBUF_SIZE: usize = 64;
 
 lazy_static! {
-    static ref ENABLED_PATCHES: RwLock<Vec<Patch>> = RwLock::new(vec![]);
-    static ref NEED_INIT: RwLock<bool> = RwLock::new(true);
+    static ref ENABLED_PATCHES: Mutex<Vec<Patch>> = Mutex::new(vec![]);
+    static ref NEED_INIT: Mutex<bool> = Mutex::new(true);
 }
 
 type Addr = u32;
@@ -35,7 +36,7 @@ pub mod asm;
 pub mod lua;
 pub mod objectmanager;
 
-use lua::lua_gettop;
+use lua::register_lop_exec;
 
 use objectmanager::ObjectManager;
 
@@ -75,9 +76,9 @@ fn reopen_stdout() -> HANDLE {
 }
 
 fn main_entrypoint() {
-    if let Some(lua) = get_lua_State() {
-        println!("{}", lua_gettop(lua));
-    }
+    // if let Some(lua) = get_lua_State() {
+    //     println!("{}", lua_gettop(lua));
+    // }
     // match ObjectManager::new() {
     //     Ok(om) => {
     //         for o in om {
@@ -103,18 +104,30 @@ fn prepare_lua_prot_patch() -> Patch {
     }
 }
 
+pub unsafe fn write_addr<T: Sized + Copy + Sized>(addr: Addr, data: T) {
+    let process_handle = GetCurrentProcess();
+    WriteProcessMemory(
+        process_handle,
+        addr as *const _,
+        std::ptr::addr_of!(data) as *const _,
+        size_of::<T>(),
+        None,
+    )
+    .expect("WriteProcessMemory");
+}
+
 #[no_mangle]
 pub unsafe extern "cdecl" fn EndScene_hook() {
-    if *NEED_INIT.read().expect("read lock for NEED_INIT") {
+    let mut need_init = NEED_INIT.lock().expect("NEED_INIT mutex");
+    if *need_init {
         AllocConsole().expect("AllocConsole");
         SetStdHandle(STD_OUTPUT_HANDLE, reopen_stdout()).expect("Reopen CONOUT$");
 
-        *NEED_INIT.write().expect("write lock for NEED_INIT") = false;
-
         let lua_prot_patch = prepare_lua_prot_patch();
-        lua_prot_patch.enable();
+        lua_prot_patch.enable().expect("lua_prot_patch");
+
         let mut patches = ENABLED_PATCHES
-            .write()
+            .lock()
             .expect("write lock for ENABLED_PATCHES");
 
         patches.push(lua_prot_patch);
@@ -123,6 +136,8 @@ pub unsafe extern "cdecl" fn EndScene_hook() {
         for p in patches.iter() {
             println!("* {}@{:08X}", p.name, p.patch_addr);
         }
+        register_lop_exec();
+        *need_init = false;
     } else {
         main_entrypoint();
     }
@@ -202,8 +217,8 @@ impl Patch {
         let process_handle = GetCurrentProcess();
         WriteProcessMemory(
             process_handle,
-            self.patch_addr as *const c_void,
-            patch.get_address() as *const c_void,
+            self.patch_addr as *const _,
+            patch.get_address() as *const _,
             patch.len(),
             None,
         )
@@ -296,7 +311,10 @@ extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) 
             unsafe {
                 tramp.enable().expect("EndScene patch");
             }
-            ENABLED_PATCHES.write().unwrap().push(tramp);
+            ENABLED_PATCHES
+                .lock()
+                .expect("ENABLED_PATCHES mutex")
+                .push(tramp);
         }
         // DLL_PROCESS_DETACH => ),
         _ => (),

@@ -1,7 +1,7 @@
 use std::arch::asm;
-use std::ffi::{c_char, c_void};
+use std::ffi::{c_char, c_void, CStr};
 
-use crate::{deref, Addr};
+use crate::{deref, write_addr, Addr};
 type lua_State = *mut c_void;
 
 macro_rules! define_lua_const {
@@ -15,6 +15,12 @@ macro_rules! define_lua_const {
 
 type lua_CFunction = unsafe extern "C" fn(lua_State) -> i32;
 
+const LUA_GLOBALSINDEX: i32 = -10002;
+
+fn strlen(s: *const c_char) -> usize {
+    unsafe { CStr::from_ptr(s).to_str().expect("str conversion").len() }
+}
+
 define_lua_const!(
     lua_gettop,
     (state: lua_State) -> i32
@@ -22,8 +28,41 @@ define_lua_const!(
 
 define_lua_const!(
     lua_pushcclosure,
-    (state: lua_State, closure: lua_CFunction, name: *const c_char) -> i32
-);
+    (state: lua_State, closure: lua_CFunction, n: i32) -> ());
+
+define_lua_const!(
+    lua_getfield,
+    (state: lua_State, idx: i32, k: *const c_char) -> ());
+
+define_lua_const!(
+    lua_setfield,
+    (state: lua_State, idx: i32, k: *const c_char) -> ());
+
+macro_rules! lua_setglobal {
+    ($lua:expr, $key:expr) => {
+        lua_setfield($lua, LUA_GLOBALSINDEX, $key);
+    };
+}
+
+macro_rules! lua_register {
+    ($lua:expr, $name:expr, $closure:expr) => {
+        lua_pushcclosure($lua, $closure, 0);
+        lua_setglobal!($lua, $name.as_ptr() as *const c_char);
+    };
+}
+
+macro_rules! lua_getglobal {
+    ($lua:expr, $s:expr) => {
+        lua_getfield($lua, LUA_GLOBALSINDEX, $s)
+    };
+}
+
+pub fn register_lop_exec() {
+    unsafe { write_addr(addrs::vfp_max, 0xEFFFFFFFu32) };
+    let lua = get_lua_State().expect("lua_State");
+    lua_register!(lua, b"lop_exec\0", lop_exec);
+    println!("lop_exec registered!")
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn test_cclosure(lua: lua_State) -> i32 {
@@ -31,8 +70,8 @@ pub unsafe extern "C" fn test_cclosure(lua: lua_State) -> i32 {
 }
 
 #[no_mangle]
-pub unsafe extern "cdecl" fn lop_exec(lua: lua_State) -> i32 {
-    lua_pushcclosure(lua, test_cclosure, "lop_exec".as_ptr() as *const i8);
+pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
+    println!("moikkulis");
     return 0;
 }
 
@@ -44,61 +83,6 @@ pub fn get_lua_State() -> Option<lua_State> {
         None
     }
 }
-
-// typedef int(*lua_CFunction) (lua_State *L);
-// typedef double lua_Number;
-
-// typedef void(*p_lua_pushcclosure) (lua_State *L, lua_CFunction fn, int n);
-// extern const p_lua_pushcclosure lua_pushcclosure;
-
-// typedef void(*p_lua_setfield) (lua_State *L, int idx, const char *k);
-// extern const p_lua_setfield lua_setfield;
-
-// typedef int(*p_lua_gettop) (lua_State *L);
-// extern const p_lua_gettop lua_gettop;
-
-// typedef int(*p_lua_settop) (lua_State* L, int idx);
-// extern const p_lua_settop lua_settop;
-
-// #define lua_pop(L,n)  lua_settop(L, -(n)-1)
-
-// typedef void(*p_lua_pushnumber) (lua_State *L, lua_Number n);
-// extern const p_lua_pushnumber lua_pushnumber;
-
-// typedef void(*p_lua_pushnil)(lua_State *L);
-// extern const p_lua_pushnil lua_pushnil;
-
-// typedef void(*p_lua_pushlstring) (lua_State *L, const char* str, size_t len);
-// extern const p_lua_pushlstring lua_pushlstring;
-
-// typedef void(*p_lua_pushinteger) (lua_State *L, int i);
-// extern const p_lua_pushinteger lua_pushinteger;
-
-// typedef void(*p_lua_pushboolean) (lua_State *L, int b);
-// extern const p_lua_pushboolean lua_pushboolean;
-
-// typedef const char*(*p_lua_tolstring)(lua_State *L, int idx, size_t *len);
-// extern const p_lua_tolstring lua_tolstring;
-
-// typedef void(*p_lua_getfield) (lua_State *L, int idx, const char* key, size_t key_len);
-// extern const p_lua_getfield lua_getfield_; // note the underscore at the end! we use the following macro instead
-
-// #define lua_getfield(L, idx, key) lua_getfield_(L, idx, key, strlen(key))
-
-// typedef lua_Number(*p_lua_tonumber) (lua_State *L, int idx);
-// extern const p_lua_tonumber lua_tonumber;
-
-// typedef int (*p_lua_tointeger) (lua_State *L, int idx);
-// extern const p_lua_tointeger lua_tointeger;
-
-// typedef int(*p_lua_toboolean) (lua_State *L, int idx);
-// extern const p_lua_toboolean lua_toboolean;
-
-// typedef int(*p_lua_gettable) (lua_State* L, int idx);
-// extern const p_lua_gettable lua_gettable;
-
-// typedef int(*p_lua_next) (lua_State* L, int idx);
-// extern const p_lua_next lua_next;
 
 mod addrs {
     use crate::Addr;
@@ -118,14 +102,19 @@ mod addrs {
     pub const lua_pushboolean: Addr = 0x0072E3B0;
     pub const lua_pushcclosure: Addr = 0x0072E2F0;
     pub const lua_pushnil: Addr = 0x0072E180;
+    pub const lua_gettable: Addr = 0x0072E440;
     pub const lua_setfield: Addr = 0x0072E7E0;
     pub const lua_getfield: Addr = 0x0072F710;
     pub const lua_replace: Addr = 0x0072DC80;
     pub const lua_next: Addr = 0x0072EE30;
-    pub const FrameScript_Register: Addr = 0x007059B0;
     pub const lua_gettype: Addr = 0x0072DDC0;
     pub const lua_gettypestring: Addr = 0x0072DDE0;
-    pub const lua_gettable: Addr = 0x0072E440;
+    pub const FrameScript_Register: Addr = 0x007059B0;
 
     pub const wow_lua_State: Addr = 0xE1DB84;
+
+    // the Lua stack in wow prevents all lua_pushcclosure calls
+    // where the closure address isn't within Wow.exe's .code section
+    // this is the upper limit
+    pub const vfp_max: Addr = 0xE1F834;
 }
