@@ -1,10 +1,13 @@
-use std::arch::asm;
 use std::ffi::{c_char, c_void, CStr};
 
+use crate::addresses::LUA_Prot_patchaddr;
 use crate::objectmanager::ObjectManager;
-use crate::{deref, write_addr, Addr};
+use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
+use crate::{Addr, LoleError, LoleResult};
+
 type lua_State = *mut c_void;
 
+// now that we're using `transmute`, this could be `const` -- edit: can't be const, compiler complains that `it's UB to use this value`
 macro_rules! define_lua_const {
     ($name:ident, ($($param:ident : $param_ty:ty),*) -> $ret_ty:ty) => {
         pub fn $name ($($param : $param_ty),*) -> $ret_ty {
@@ -56,6 +59,8 @@ impl From<i32> for LuaType {
     }
 }
 
+type lua_Number = f64;
+
 define_lua_const!(
     lua_gettop,
     (state: lua_State) -> i32
@@ -69,12 +74,10 @@ define_lua_const!(
     lua_pushcclosure,
     (state: lua_State, closure: lua_CFunction, n: i32) -> ());
 
-// The wow-version of lua_getfield uses an non-standard 4th argument, which is the length of the key string. (but it is calculated regardless?)
 define_lua_const!(
     lua_getfield,
     (state: lua_State, idx: i32, k: *const c_char) -> i32);
 
-// The wow-version of lua_getfield uses an non-standard 4th argument, which is the length of the key string. (but it is calculated regardless?)
 define_lua_const!(
     lua_setfield,
     (state: lua_State, idx: i32, k: *const c_char) -> ());
@@ -93,7 +96,7 @@ define_lua_const!(
 
 define_lua_const!(
     lua_tonumber,
-    (state: lua_State, idx: i32) -> f64);
+    (state: lua_State, idx: i32) -> lua_Number);
 
 define_lua_const!(
     lua_dostring,
@@ -128,11 +131,14 @@ macro_rules! lua_getglobal {
     };
 }
 
-pub fn register_lop_exec() {
-    unsafe { write_addr(addrs::vfp_max, 0xEFFFFFFFu32) };
-    let lua = get_lua_State().expect("lua_State");
+pub fn register_lop_exec() -> LoleResult<()> {
+    unsafe {
+        write_addr(addrs::vfp_max, &[0xEFFFFFFFu32])?;
+    }
+    let lua = get_lua_State()?;
     lua_register!(lua, b"lop_exec\0".as_ptr(), lop_exec);
-    println!("lop_exec registered!")
+    println!("lop_exec registered!");
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -141,6 +147,7 @@ enum Opcode {
     Nop,
     Dump,
     DoString,
+    ClickToMove,
     Debug,
     Unknown(i32),
 }
@@ -151,29 +158,28 @@ impl From<i32> for Opcode {
             0 => Opcode::Nop,
             1 => Opcode::Dump,
             2 => Opcode::DoString,
+            3 => Opcode::ClickToMove,
             0xFF => Opcode::Debug,
             v => Opcode::Unknown(v),
         }
     }
 }
 
+#[macro_export]
 macro_rules! cstr_to_str {
     ($e:expr) => {
-        unsafe { CStr::from_ptr($e) }
-            .to_str()
-            .expect("CStr conversion")
+        unsafe { CStr::from_ptr($e) }.to_str()
     };
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
     let nargs = lua_gettop(lua);
-    println!("lop_exec: got {nargs} args");
     if nargs == 0 {
+        println!("lop_exec: no opcode provided");
         return 0;
     }
-    let op = lua_tointeger(lua, 1);
-    match op.into() {
+    match lua_tointeger(lua, 1).into() {
         Opcode::Nop => {}
         Opcode::Dump => {
             if let Ok(om) = ObjectManager::new() {
@@ -182,12 +188,18 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
                 }
             }
         }
+        Opcode::ClickToMove if nargs == 5 => {
+            let x = lua_tonumber(lua, 2);
+            let y = lua_tonumber(lua, 3);
+            let z = lua_tonumber(lua, 4);
+            let prio = lua_tointeger(lua, 5);
+            CtmAction
+        }
         Opcode::DoString if nargs > 1 => {
-            asm!("int 3h");
             let mut len = 0;
             let m = lua_tolstring(lua, 2, std::ptr::addr_of_mut!(len));
             println!("{m:p}");
-            let s = cstr_to_str!(m);
+            let s = cstr_to_str!(m).expect("cstr");
             let script = format!("{s}");
             println!("DoString({s})");
             DoString!(script);
@@ -210,28 +222,44 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
     return 0;
 }
 
-pub fn get_lua_State() -> Option<lua_State> {
+pub fn get_lua_State() -> LoleResult<lua_State> {
     let res = deref::<lua_State, 1>(addrs::wow_lua_State);
     if !res.is_null() {
-        Some(res)
+        Ok(res)
     } else {
-        None
+        Err(LoleError::LuaStateIsNull)
     }
 }
 
-pub fn register_if_not_registered() {
-    if ObjectManager::new().is_err() {
+pub fn register_lop_exec_if_not_registered() -> LoleResult<()> {
+    if let Err(e) = ObjectManager::new() {
         // we're not in the world
-        return;
+        return Err(e);
     }
 
-    let lua = get_lua_State().expect("lua_State");
+    let lua = get_lua_State()?;
     lua_getglobal!(lua, b"lop_exec\0".as_ptr());
     match lua_gettype(lua, -1).into() {
         LuaType::Function => {}
-        _ => register_lop_exec(),
+        _ => register_lop_exec()?,
     }
     lua_settop(lua, -1);
+    Ok(())
+}
+
+pub fn prepare_lua_prot_patch() -> Patch {
+    let original_instructions = Vec::from_iter(copy_original_opcodes::<9>(LUA_Prot_patchaddr));
+
+    let mut instruction_buffer = InstructionBuffer::new();
+    instruction_buffer.push_slice(&[0xB8, 0x01, 0x00, 0x00, 0x00, 0x5D, 0xC3]);
+
+    Patch {
+        name: "Lua_Prot".to_string(),
+        patch_addr: LUA_Prot_patchaddr,
+        original_instructions,
+        instruction_buffer,
+        kind: PatchKind::OverWrite,
+    }
 }
 
 mod addrs {

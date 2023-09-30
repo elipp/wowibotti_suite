@@ -223,7 +223,7 @@ end
 DEFAULT_CHAT_FRAME:AddMessage(tostring(config_dropdown))
 
 UIDropDownMenu_Initialize(config_dropdown, config_drop_initialize)
-UIDropDownMenu_SetWidth(100, config_dropdown);
+UIDropDownMenu_SetWidth(100, config_dropdown); -- NOTE: in Wotlk, these parameters are in the opposite order
 UIDropDownMenu_SetButtonWidth(124, config_dropdown)
 UIDropDownMenu_SetSelectedValue(config_dropdown, get_current_config().name)
 UIDropDownMenu_JustifyText("LEFT", config_dropdown)

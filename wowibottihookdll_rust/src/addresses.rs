@@ -5,3 +5,4 @@ pub const GetUnitOrNPCNameAddr: Addr = 0x614520;
 
 pub const LUA_Prot: Addr = 0x49DBA0;
 pub const LUA_Prot_patchaddr: Addr = 0x49DBA1;
+pub const PLAYER_TARGET_GUID: Addr = 0xC6E960;

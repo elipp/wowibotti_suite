@@ -1,13 +1,17 @@
 use std::ffi::{c_char, CStr};
 
-use crate::deref;
-use crate::{Addr, LoleError, Offset};
+use crate::patch::deref;
+use crate::vec3::Vec3;
+use crate::{Addr, LoleError, LoleResult};
 
-use crate::addresses as addrs;
+use crate::addresses::{self as addrs, PLAYER_TARGET_GUID};
+use crate::cstr_to_str;
 
 use std::arch::asm;
 
-type GUID = u64;
+pub type GUID = u64;
+
+pub const NO_TARGET: GUID = 0x0;
 
 #[derive(Clone, Copy)]
 pub struct WowObject {
@@ -104,37 +108,17 @@ impl WowObject {
                 let mut result: *const c_char = std::ptr::null();
                 let base = self.base;
                 let func_addr = addrs::GetUnitOrNPCNameAddr;
-                // todo!() probably borked
                 unsafe {
                     asm!(
                         "push 0",
-                        "call {func_addr}",
+                        "call {func_addr:e}",
                         "mov {result}, eax",
                         in("ecx") base,
                         func_addr = in(reg) func_addr,
                         result = out(reg) result,
                     )
                 }
-                // // TODO: call
-                //             const DWORD get_name_addr = Addresses::TBC::GetUnitOrNPCNameAddr;
-                //             const char* result;
-                //             DWORD base = this->base;
-                //             DWORD ecx_prev;
-                //             _asm {
-                //                     mov ecx_prev, ecx
-                //                     mov ecx, base
-                //                     push 0
-                //                     call get_name_addr
-                //                     mov result, eax
-                //                     mov ecx, ecx_prev
-                //                 }
-                //             return result ? result : "null";
-                //         }
-                //     default:
-                //         return "Unknown";
-                // }
-                let c_str: &CStr = unsafe { CStr::from_ptr(result) };
-                c_str.to_str().unwrap_or("Unknown")
+                cstr_to_str!(result).unwrap_or("Unknown")
             }
             _ => "Unknown",
         }
@@ -152,6 +136,19 @@ impl WowObject {
             Some(res)
         } else {
             None
+        }
+    }
+    pub fn get_xyzr(&self) -> (f32, f32, f32, f32) {
+        let m = unsafe { std::slice::from_raw_parts((self.base + wowobject::PosX) as *const _, 4) };
+        (m[0], m[1], m[2], m[3])
+    }
+
+    pub fn get_pos(&self) -> Vec3 {
+        let m = unsafe { std::slice::from_raw_parts((self.base + wowobject::PosX) as *const _, 3) };
+        Vec3 {
+            x: m[0],
+            y: m[1],
+            z: m[2],
         }
     }
 }
@@ -209,7 +206,7 @@ pub struct ObjectManager {
 }
 
 impl ObjectManager {
-    pub fn new() -> Result<Self, LoleError> {
+    pub fn new() -> LoleResult<Self> {
         let client_connection = deref::<Addr, 1>(objectmanager::ClientConnection);
         if client_connection == 0 {
             return Err(LoleError::ClientConnectionIsNull);
@@ -231,9 +228,19 @@ impl ObjectManager {
     pub fn get_local_GUID(&self) -> GUID {
         deref::<GUID, 1>(self.base + objectmanager::LocalGUIDOffset)
     }
-    pub fn get_local_object(&self) -> Option<WowObject> {
+    pub fn get_player_target_GUID(&self) -> GUID {
+        deref::<GUID, 1>(PLAYER_TARGET_GUID)
+    }
+    pub fn get_player(&self) -> LoleResult<WowObject> {
         let local_GUID = self.get_local_GUID();
-        self.iter().find(|w| w.get_GUID() == local_GUID)
+        self.iter()
+            .find(|w| w.get_GUID() == local_GUID)
+            .ok_or_else(|| LoleError::PlayerNotFound)
+    }
+    pub fn get_player_and_target(&self) -> LoleResult<(WowObject, Option<WowObject>)> {
+        let player = self.get_player()?;
+        let target_guid = self.get_player_target_GUID();
+        Ok((player, self.iter().find(|w| w.get_GUID() == target_guid)))
     }
     fn get_first_object(&self) -> Option<WowObject> {
         // no need to check for base != 0, because ::new is the only way to construct this

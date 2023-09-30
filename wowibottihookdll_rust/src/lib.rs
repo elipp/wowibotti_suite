@@ -1,62 +1,62 @@
-use std::ffi::c_void;
-use std::fs::File;
-use std::fs::OpenOptions;
-use std::io::prelude::*;
 use std::mem::size_of;
-use std::pin::{pin, Pin};
 use std::sync::Mutex;
 
-use addresses::LUA_Prot_patchaddr;
-use lua::{get_lua_State, register_if_not_registered};
+use lua::register_lop_exec_if_not_registered;
+use patch::{prepare_endscene_trampoline, InstructionBuffer, PatchKind};
+use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
 use windows::Win32::Storage::FileSystem::{
-    CreateFileW, FILE_FLAGS_AND_ATTRIBUTES, FILE_GENERIC_WRITE, FILE_SHARE_WRITE, OPEN_EXISTING,
+    CreateFileW, FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
 use windows::Win32::System::Console::SetStdHandle;
-use windows::Win32::System::Console::{AllocConsole, GetStdHandle, STD_OUTPUT_HANDLE};
+use windows::Win32::System::Console::{AllocConsole, STD_OUTPUT_HANDLE};
 use windows::Win32::System::Diagnostics::Debug::WriteProcessMemory;
-use windows::Win32::System::Memory::{VirtualProtect, PAGE_PROTECTION_FLAGS};
 use windows::Win32::System::Threading::GetCurrentProcess;
-use windows::{core::*, Win32::UI::WindowsAndMessaging::MessageBoxA};
 use windows::{Win32::Foundation::*, Win32::System::SystemServices::*};
 
 use lazy_static::lazy_static;
 
-const INSTRBUF_SIZE: usize = 64;
-
 lazy_static! {
-    static ref ENABLED_PATCHES: Mutex<Vec<Patch>> = Mutex::new(vec![]);
-    static ref NEED_INIT: Mutex<bool> = Mutex::new(true);
+    pub static ref ENABLED_PATCHES: Mutex<Vec<Patch>> = Mutex::new(vec![]);
+    pub static ref NEED_INIT: Mutex<bool> = Mutex::new(true);
 }
 
 type Addr = u32;
 type Offset = u32;
 
+pub mod addresses;
 pub mod asm;
+pub mod ctm;
 pub mod lua;
 pub mod objectmanager;
+pub mod patch;
+pub mod vec3;
 
 use lua::register_lop_exec;
-
 use objectmanager::ObjectManager;
+
+use crate::lua::prepare_lua_prot_patch;
+use crate::patch::Patch;
 
 pub fn wide_null(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
 }
 
 // this is pre-AllocConsole era :D
+#[macro_export]
 macro_rules! dump_to_logfile {
     ($fmt:literal, $($args:expr),*) => {{
+        use std::fs::OpenOptions;
+        use std::io::prelude::*;
         let mut file = OpenOptions::new()
             .write(true)
             .append(true)
+            .create(true)
             .open("C:\\Users\\elias\\log.txt")
             .unwrap();
         writeln!(file, $fmt, $($args),*).unwrap();
     }}
 }
-
-pub mod addresses;
 
 fn reopen_stdout() -> HANDLE {
     match unsafe {
@@ -76,42 +76,7 @@ fn reopen_stdout() -> HANDLE {
 }
 
 fn main_entrypoint() {
-    register_if_not_registered();
-    // match ObjectManager::new() {
-    //     Ok(om) => {
-    //         for o in om {
-    //             println!("{o}");
-    //         }
-    //     }
-    //     _ => {}
-    // }
-}
-
-fn prepare_lua_prot_patch() -> Patch {
-    let original_instructions = Vec::from_iter(copy_original_opcodes::<9>(LUA_Prot_patchaddr));
-
-    let mut instruction_buffer = InstructionBuffer::new();
-    instruction_buffer.push_slice(&[0xB8, 0x01, 0x00, 0x00, 0x00, 0x5D, 0xC3]);
-
-    Patch {
-        name: "Lua_Prot".to_string(),
-        patch_addr: LUA_Prot_patchaddr,
-        original_instructions,
-        instruction_buffer,
-        kind: PatchKind::OverWrite,
-    }
-}
-
-pub unsafe fn write_addr<T: Sized + Copy + Sized>(addr: Addr, data: T) {
-    let process_handle = GetCurrentProcess();
-    WriteProcessMemory(
-        process_handle,
-        addr as *const _,
-        std::ptr::addr_of!(data) as *const _,
-        size_of::<T>(),
-        None,
-    )
-    .expect("WriteProcessMemory");
+    register_lop_exec_if_not_registered();
 }
 
 #[no_mangle]
@@ -134,7 +99,8 @@ pub unsafe extern "cdecl" fn EndScene_hook() {
         for p in patches.iter() {
             println!("* {}@{:08X}", p.name, p.patch_addr);
         }
-        register_lop_exec();
+        register_lop_exec().expect("lop_exec");
+
         *need_init = false;
     } else {
         main_entrypoint();
@@ -142,163 +108,18 @@ pub unsafe extern "cdecl" fn EndScene_hook() {
 }
 
 #[derive(Debug)]
-struct InstructionBuffer {
-    instructions: Pin<Box<[u8; INSTRBUF_SIZE]>>,
-    current_offset: usize,
-}
-
-impl InstructionBuffer {
-    fn new() -> Self {
-        Self {
-            instructions: Pin::new(Box::new([asm::INT3; INSTRBUF_SIZE])),
-            current_offset: 0,
-        }
-    }
-
-    fn len(&self) -> usize {
-        self.current_offset
-    }
-
-    fn get_address(&self) -> *const u8 {
-        self.instructions.as_ptr()
-    }
-
-    fn push_slice(&mut self, slice: &[u8]) {
-        self.instructions[self.current_offset..self.current_offset + slice.len()]
-            .copy_from_slice(&slice);
-        self.current_offset += slice.len();
-    }
-
-    fn push_call_to(&mut self, to: Addr) {
-        self.push(asm::CALL);
-        let target = to - (self.get_address() as u32 + self.current_offset as u32) - 4;
-        self.push_slice(&target.to_le_bytes());
-    }
-
-    fn push(&mut self, op: u8) {
-        self.instructions[self.current_offset] = op;
-        self.current_offset += 1;
-    }
-
-    fn push_default_return(&mut self, patch_addr: u32, patch_size: usize) {
-        let target = patch_addr + patch_size as u32;
-        self.push(asm::PUSH);
-        self.push_slice(&target.to_le_bytes());
-        self.push(asm::RET);
-    }
-}
-
-#[derive(Debug)]
-enum PatchKind {
-    JmpToTrampoline,
-    OverWrite,
-}
-
-#[derive(Debug)]
-struct Patch {
-    name: String,
-    patch_addr: Addr,
-    original_instructions: Vec<u8>,
-    instruction_buffer: InstructionBuffer,
-    kind: PatchKind,
-}
-
-#[derive(Debug)]
 pub enum LoleError {
     PatchError(String),
     ClientConnectionIsNull,
     ObjectManagerIsNull,
+    PlayerNotFound,
+    InvalidParam,
+    MemoryWriteError,
+    PartialMemoryWriteError,
+    LuaStateIsNull,
 }
 
-impl Patch {
-    unsafe fn commit(&self, patch: &InstructionBuffer) {
-        let process_handle = GetCurrentProcess();
-        WriteProcessMemory(
-            process_handle,
-            self.patch_addr as *const _,
-            patch.get_address() as *const _,
-            patch.len(),
-            None,
-        )
-        .expect("WriteProcessMemory")
-    }
-
-    unsafe fn enable(&self) -> std::result::Result<(), LoleError> {
-        match self.kind {
-            PatchKind::JmpToTrampoline => {
-                const PAGE_EXECUTE_READWRITE: u32 = 0x40;
-                let mut old_flags = PAGE_PROTECTION_FLAGS(0);
-                VirtualProtect(
-                    self.instruction_buffer.get_address() as *const c_void,
-                    self.instruction_buffer.len(),
-                    PAGE_PROTECTION_FLAGS(PAGE_EXECUTE_READWRITE),
-                    &mut old_flags,
-                )
-                .map_err(|e| LoleError::PatchError(format!("{:?}", e)))?;
-
-                let mut patch = InstructionBuffer::new();
-                patch.push(asm::JMP);
-                let jmp_target =
-                    self.instruction_buffer.get_address() as i32 - self.patch_addr as i32 - 5;
-                patch.push_slice(&jmp_target.to_le_bytes());
-                self.commit(&patch);
-            }
-            PatchKind::OverWrite => unsafe {
-                self.commit(&self.instruction_buffer);
-            },
-        }
-        Ok(())
-    }
-    fn disable(&self) {
-        todo!();
-    }
-}
-
-fn deref<T: Copy, const N: u8>(addr: Addr) -> T {
-    let mut t = addr;
-    for _ in 1..N {
-        t = unsafe { *(t as *const Addr) };
-    }
-    unsafe { *(t as *const T) }
-}
-
-fn copy_original_opcodes<const N: usize>(addr: Addr) -> [u8; N] {
-    let mut destination = [0; N];
-    unsafe {
-        std::ptr::copy_nonoverlapping(
-            addr as *const u8,
-            destination.as_mut_ptr(),
-            destination.len(),
-        )
-    };
-    destination.into()
-}
-
-fn prepare_endscene_trampoline() -> Patch {
-    let EndScene = find_EndScene();
-    let original_instructions = Vec::from_iter(copy_original_opcodes::<7>(EndScene));
-
-    let mut instruction_buffer = InstructionBuffer::new();
-    instruction_buffer.push(asm::PUSHAD);
-    instruction_buffer.push_call_to(EndScene_hook as u32);
-    instruction_buffer.push(asm::POPAD);
-    instruction_buffer.push_slice(&original_instructions);
-    instruction_buffer.push_default_return(EndScene, 7);
-
-    Patch {
-        name: "EndScene".to_string(),
-        patch_addr: EndScene,
-        original_instructions,
-        instruction_buffer,
-        kind: PatchKind::JmpToTrampoline,
-    }
-}
-
-fn find_EndScene() -> Addr {
-    let wowd3d9 = deref::<Addr, 1>(addresses::D3D9Device);
-    let d3d9 = deref::<Addr, 2>(wowd3d9 + addresses::D3D9DeviceOffset);
-    deref::<Addr, 1>(d3d9 + 0x2A * 4)
-}
+pub type LoleResult<T> = std::result::Result<T, LoleError>;
 
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]
