@@ -24,9 +24,14 @@ const p_lua_gettypestring 	lua_gettypestring = (p_lua_gettypestring)Addresses::T
 
 int lua_registered = 0;
 
-int register_lop_exec() {
+lua_State *get_lua_State() {
+	return DEREF<lua_State*>(Addresses::TBC::Lua::State);
+}
 
-	auto state = DEREF<lua_State*>(Addresses::TBC::Lua::State);
+int register_lop_exec() {
+	INVALID_HANDLE_VALUE;
+
+	auto state = get_lua_State();
 
 	// explanation: there's a check during lua_register that ensures the jump address lies within
 	// Wow.exe's .code section, so the upper limit needs to be... adjusted =)

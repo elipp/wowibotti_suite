@@ -1134,6 +1134,18 @@ static void __stdcall EndScene_hook() {
 		addresses_patched = true;
 		patch_t ctm_finished_patch(Addresses::TBC::CTM_finished_patchaddr, 12, prepare_CTM_finished_patch);
 		ctm_finished_patch.enable(glhProcess);
+		auto lua = get_lua_State();
+		lua_getglobal(lua, "lop_exec");
+		auto t = lua_gettype(lua, -1);
+		printf("type of lop_exec: %x\n", t);
+		switch (t) {
+			case LUA_TYPE::STRING: {
+				auto m = lua_tostring(lua, -1);
+				printf("is a string: %s\n", m);
+			}
+			default:
+				break;
+		}
 		printf("wowibottihookdll: initialization done :D\n");
 	}
 

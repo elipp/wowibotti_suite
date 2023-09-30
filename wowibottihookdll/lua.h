@@ -126,6 +126,8 @@ extern const p_lua_gettypestring lua_gettypestring;
 
 #define lua_gettypestr(STATE, idx) lua_gettypestring(STATE, lua_gettype(STATE, idx))
 
+lua_State *get_lua_State(); 
+	
 
 //define lua335_getfield 0x0059AAE0
 
@@ -167,3 +169,4 @@ extern const p_lua_gettypestring lua_gettypestring;
 		//		$included in
 		//		00A47338   all copies or substantial porti
 		//		00A47358  ons of the Software.
+

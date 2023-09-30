@@ -1256,6 +1256,7 @@ int APIENTRY WinMain(_In_ HINSTANCE hInstance,
 	GetCurrentDirectory(MAX_PATH, DirPath);
 
 	sprintf_s(FullPath, MAX_PATH, "%s\\wowibottihookdll_rust.dll", DirPath);
+	// sprintf_s(FullPath, MAX_PATH, "%s\\wowibottihookdll.dll", DirPath);
 
 	DLL_path = std::string(FullPath);
 

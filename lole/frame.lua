@@ -220,11 +220,13 @@ local function config_drop_initialize(self, level)
 	end
 end
 
+DEFAULT_CHAT_FRAME:AddMessage(tostring(config_dropdown))
+
 UIDropDownMenu_Initialize(config_dropdown, config_drop_initialize)
-UIDropDownMenu_SetWidth(config_dropdown, 100);
-UIDropDownMenu_SetButtonWidth(config_dropdown, 124)
+UIDropDownMenu_SetWidth(100, config_dropdown);
+UIDropDownMenu_SetButtonWidth(124, config_dropdown)
 UIDropDownMenu_SetSelectedValue(config_dropdown, get_current_config().name)
-UIDropDownMenu_JustifyText(config_dropdown, "LEFT")
+UIDropDownMenu_JustifyText("LEFT", config_dropdown)
 
 function set_visible_dropdown_config(configname)
 	for k,v in pairs(drop_configs) do
