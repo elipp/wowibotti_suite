@@ -5,4 +5,4 @@ pub const RET: u8 = 0xC3;
 pub const INT3: u8 = 0xCC;
 pub const PUSH: u8 = 0x68;
 pub const JMP: u8 = 0xE9;
-
+pub const NOP: u8 = 0x90;

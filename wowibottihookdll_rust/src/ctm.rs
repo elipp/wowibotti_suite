@@ -2,12 +2,12 @@ use std::collections::VecDeque;
 use std::f32::consts::PI;
 
 use crate::objectmanager::{ObjectManager, GUID, NO_TARGET};
-use crate::patch::write_addr;
+use crate::patch::{copy_original_opcodes, write_addr, InstructionBuffer, Patch, PatchKind};
 use crate::vec3::Vec3;
-use crate::{LoleError, LoleResult};
+use crate::{asm, Addr, LoleError, LoleResult, Offset};
 
 #[derive(Debug)]
-pub enum CtmPriority {
+enum CtmPriority {
     None,
     Low,
     Replace,
@@ -16,12 +16,12 @@ pub enum CtmPriority {
     NoOverride,
     HoldPosition,
     ClearHold,
-    Unknown(i32),
 }
 
-impl From<i32> for CtmPriority {
-    fn from(v: i32) -> Self {
-        match v {
+impl TryFrom<i32> for CtmPriority {
+    type Error = LoleError;
+    fn try_from(v: i32) -> Result<Self, Self::Error> {
+        Ok(match v {
             0 => CtmPriority::None,
             1 => CtmPriority::Low,
             2 => CtmPriority::Replace,
@@ -30,13 +30,13 @@ impl From<i32> for CtmPriority {
             5 => CtmPriority::NoOverride,
             6 => CtmPriority::HoldPosition,
             7 => CtmPriority::ClearHold,
-            v => CtmPriority::Unknown(v),
-        }
+            v => return Err(LoleError::InvalidParam(format!("CtmPriority({v})"))),
+        })
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-enum CtmKind {
+pub enum CtmKind {
     HunterAimedShot,
     Face(GUID),
     Follow(GUID),
@@ -62,7 +62,8 @@ impl From<CtmKind> for u8 {
     }
 }
 
-struct CtmAction {
+#[derive(Debug)]
+pub struct CtmAction {
     target: Vec3,
     priority: CtmPriority,
     kind: CtmKind,
@@ -102,6 +103,24 @@ mod ctm {
 }
 
 impl CtmAction {
+    pub fn new(
+        x: f64,
+        y: f64,
+        z: f64,
+        interact_GUID: Option<GUID>,
+        prio: i32,
+        kind: CtmKind,
+    ) -> LoleResult<Self> {
+        Ok(Self {
+            target: Vec3 {
+                x: x as f32,
+                y: y as f32,
+                z: z as f32,
+            },
+            priority: prio.try_into()?,
+            kind,
+        })
+    }
     fn commit(&self) -> LoleResult<()> {
         let om = ObjectManager::new()?;
         let p = om.get_player()?;
@@ -120,7 +139,7 @@ impl CtmAction {
                 ctm::constants::MOVE_MINDISTANCE,
                 NO_TARGET,
             ),
-            CtmKind::Done => return Err(LoleError::InvalidParam),
+            CtmKind::Done => return Err(LoleError::InvalidParam("CtmKind::Done".to_owned())),
             _ => (
                 ctm::constants::MOVE_CONST2,
                 ctm::constants::MOVE_MINDISTANCE,
@@ -141,5 +160,36 @@ impl CtmAction {
         let action: u8 = self.kind.into();
         write_addr(ctm::addrs::ACTION, &[action])?;
         Ok(())
+    }
+}
+
+pub fn add_to_queue(action: CtmAction) -> LoleResult<()> {
+    action.commit()?;
+    Ok(())
+}
+
+unsafe extern "C" fn ctm_finished() {
+    println!("lulz, CTM was definitely finished")
+}
+
+pub fn prepare_ctm_finished_patch() -> Patch {
+    let patch_addr = crate::addresses::CTM_finished_patchaddr;
+    let original_opcodes = copy_original_opcodes(patch_addr, 12);
+
+    let mut patch_opcodes = InstructionBuffer::new();
+    patch_opcodes.push(asm::PUSHAD);
+    patch_opcodes.push_call_to(ctm_finished as Addr);
+    patch_opcodes.push(asm::POPAD);
+    patch_opcodes.push_slice(&original_opcodes);
+    patch_opcodes.push(asm::PUSH);
+    patch_opcodes.push_slice(&(patch_addr + original_opcodes.len() as Offset).to_le_bytes());
+    patch_opcodes.push(asm::RET);
+
+    Patch {
+        name: "CTM_finished",
+        patch_addr,
+        patch_opcodes,
+        original_opcodes,
+        kind: PatchKind::JmpToTrampoline,
     }
 }

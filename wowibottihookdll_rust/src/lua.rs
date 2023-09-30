@@ -1,11 +1,12 @@
 use std::ffi::{c_char, c_void, CStr};
 
 use crate::addresses::LUA_Prot_patchaddr;
-use crate::objectmanager::ObjectManager;
+use crate::ctm::{self, CtmAction, CtmKind};
+use crate::objectmanager::{ObjectManager, GUID};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
-use crate::{Addr, LoleError, LoleResult};
+use crate::{asm, Addr, LoleError, LoleResult};
 
-type lua_State = *mut c_void;
+pub type lua_State = *mut c_void;
 
 // now that we're using `transmute`, this could be `const` -- edit: can't be const, compiler complains that `it's UB to use this value`
 macro_rules! define_lua_const {
@@ -75,6 +76,10 @@ define_lua_const!(
     (state: lua_State, closure: lua_CFunction, n: i32) -> ());
 
 define_lua_const!(
+    lua_pushnumber,
+    (state: lua_State, number: lua_Number) -> ());
+
+define_lua_const!(
     lua_getfield,
     (state: lua_State, idx: i32, k: *const c_char) -> i32);
 
@@ -93,6 +98,18 @@ define_lua_const!(
 define_lua_const!(
     lua_tolstring,
     (state: lua_State, idx: i32, len: *mut usize) -> *const c_char);
+
+macro_rules! lua_tostring {
+    ($lua:expr, $idx:literal) => {{
+        let mut len: usize = 0;
+        let s = lua_tolstring($lua, $idx, &mut len);
+        if !s.is_null() {
+            cstr_to_str!(s)
+        } else {
+            Err(LoleError::NullPointerError)
+        }
+    }};
+}
 
 define_lua_const!(
     lua_tonumber,
@@ -143,11 +160,12 @@ pub fn register_lop_exec() -> LoleResult<()> {
 
 #[derive(Debug)]
 #[repr(u8)]
-enum Opcode {
+pub enum Opcode {
     Nop,
     Dump,
     DoString,
     ClickToMove,
+    GetUnitPosition,
     Debug,
     Unknown(i32),
 }
@@ -159,6 +177,7 @@ impl From<i32> for Opcode {
             1 => Opcode::Dump,
             2 => Opcode::DoString,
             3 => Opcode::ClickToMove,
+            14 => Opcode::GetUnitPosition,
             0xFF => Opcode::Debug,
             v => Opcode::Unknown(v),
         }
@@ -168,58 +187,89 @@ impl From<i32> for Opcode {
 #[macro_export]
 macro_rules! cstr_to_str {
     ($e:expr) => {
-        unsafe { CStr::from_ptr($e) }.to_str()
+        unsafe { CStr::from_ptr($e) }
+            .to_str()
+            .map_err(|e| LoleError::InvalidRawString(format!("{e:?}")))
     };
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
+fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
     let nargs = lua_gettop(lua);
     if nargs == 0 {
         println!("lop_exec: no opcode provided");
-        return 0;
+        return Err(LoleError::MissingOpcode);
     }
+    let nargs = nargs - 1;
     match lua_tointeger(lua, 1).into() {
         Opcode::Nop => {}
         Opcode::Dump => {
-            if let Ok(om) = ObjectManager::new() {
-                for o in om {
-                    println!("{o}");
-                }
+            for o in ObjectManager::new()? {
+                println!("{o}");
             }
         }
-        Opcode::ClickToMove if nargs == 5 => {
+        Opcode::ClickToMove if nargs == 4 => {
             let x = lua_tonumber(lua, 2);
             let y = lua_tonumber(lua, 3);
             let z = lua_tonumber(lua, 4);
             let prio = lua_tointeger(lua, 5);
-            CtmAction
+            let action = CtmAction::new(x, y, z, None, prio, CtmKind::Move)?;
+            ctm::add_to_queue(action)?;
         }
-        Opcode::DoString if nargs > 1 => {
-            let mut len = 0;
-            let m = lua_tolstring(lua, 2, std::ptr::addr_of_mut!(len));
-            println!("{m:p}");
-            let s = cstr_to_str!(m).expect("cstr");
-            let script = format!("{s}");
-            println!("DoString({s})");
+        Opcode::DoString if nargs > 0 => {
+            let script = lua_tostring!(lua, 2)?;
+            println!("DoString({script})");
             DoString!(script);
-            // lua_getglobal!(lua, s);
-            // let m = lua_gettype(lua, -1);
-            // println!("{m:?}");
-            // lua_settop(lua, -2);
+        }
+        Opcode::GetUnitPosition if nargs == 1 => {
+            let om = ObjectManager::new()?;
+            let arg = lua_tostring!(lua, 2)?.trim();
+            let object = if arg.starts_with("0x") {
+                let guid = arg
+                    .parse::<GUID>()
+                    .map_err(|_| LoleError::InvalidParam(arg.to_string()))?;
+                om.get_object_by_GUID(guid)
+            } else if arg == "player" {
+                Some(om.get_player()?)
+            } else if arg == "target" {
+                let target_guid = om.get_player_target_GUID();
+                if target_guid != 0 {
+                    om.get_object_by_GUID(target_guid)
+                } else {
+                    None
+                }
+            } else if arg == "focus" {
+                todo!()
+            } else {
+                om.get_unit_by_name(arg)
+            };
+            if let Some(object) = object {
+                for elem in object.get_xyzr().into_iter() {
+                    lua_pushnumber(lua, elem as f64);
+                }
+                return Ok(4);
+            }
         }
         Opcode::Debug => {
-            let res = lua_getglobal!(lua, b"lop_exec\0".as_ptr() as *const _);
+            let res = lua_getglobal!(lua, b"lop_exec\0".as_ptr());
             let m = lua_gettype(lua, -1);
             lua_settop(lua, -1);
             println!("res: {res}, type: {m}");
         }
-        v => {
-            // println!("Unknown op {v:?}");
+        Opcode::Unknown(v) => return Err(LoleError::UnknownOpcode(v)),
+        v => return Err(LoleError::UnimplementedOpcode(v)),
+    }
+    Ok(0)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
+    match handle_lop_exec(lua) {
+        Ok(num_retvals) => num_retvals,
+        Err(error) => {
+            println!("lop_exec: error: {:?}", error);
+            0
         }
     }
-
-    return 0;
 }
 
 pub fn get_lua_State() -> LoleResult<lua_State> {
@@ -248,16 +298,15 @@ pub fn register_lop_exec_if_not_registered() -> LoleResult<()> {
 }
 
 pub fn prepare_lua_prot_patch() -> Patch {
-    let original_instructions = Vec::from_iter(copy_original_opcodes::<9>(LUA_Prot_patchaddr));
-
-    let mut instruction_buffer = InstructionBuffer::new();
-    instruction_buffer.push_slice(&[0xB8, 0x01, 0x00, 0x00, 0x00, 0x5D, 0xC3]);
+    use asm::NOP;
+    let mut patch_opcodes = InstructionBuffer::new();
+    patch_opcodes.push_slice(&[0xB8, 0x01, 0x00, 0x00, 0x00, 0x5D, 0xC3, NOP, NOP]);
 
     Patch {
-        name: "Lua_Prot".to_string(),
-        patch_addr: LUA_Prot_patchaddr,
-        original_instructions,
-        instruction_buffer,
+        name: "Lua_Prot",
+        patch_addr: crate::addresses::LUA_Prot_patchaddr,
+        original_opcodes: copy_original_opcodes(crate::addresses::LUA_Prot_patchaddr, 9),
+        patch_opcodes,
         kind: PatchKind::OverWrite,
     }
 }

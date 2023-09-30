@@ -1,7 +1,7 @@
 use std::mem::size_of;
 use std::sync::Mutex;
 
-use lua::register_lop_exec_if_not_registered;
+use lua::{register_lop_exec_if_not_registered, Opcode};
 use patch::{prepare_endscene_trampoline, InstructionBuffer, PatchKind};
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
@@ -35,6 +35,7 @@ pub mod vec3;
 use lua::register_lop_exec;
 use objectmanager::ObjectManager;
 
+use crate::ctm::prepare_ctm_finished_patch;
 use crate::lua::prepare_lua_prot_patch;
 use crate::patch::Patch;
 
@@ -86,14 +87,17 @@ pub unsafe extern "cdecl" fn EndScene_hook() {
         AllocConsole().expect("AllocConsole");
         SetStdHandle(STD_OUTPUT_HANDLE, reopen_stdout()).expect("Reopen CONOUT$");
 
-        let lua_prot_patch = prepare_lua_prot_patch();
-        lua_prot_patch.enable().expect("lua_prot_patch");
-
         let mut patches = ENABLED_PATCHES
             .lock()
             .expect("write lock for ENABLED_PATCHES");
 
-        patches.push(lua_prot_patch);
+        let lua_prot = prepare_lua_prot_patch();
+        lua_prot.enable().expect("lua_prot");
+        patches.push(lua_prot);
+
+        let ctm_finished = prepare_ctm_finished_patch();
+        ctm_finished.enable().expect("ctm_finished");
+        patches.push(ctm_finished);
 
         println!("wowibottihookdll_rust: init done! :D enabled_patches:");
         for p in patches.iter() {
@@ -113,10 +117,15 @@ pub enum LoleError {
     ClientConnectionIsNull,
     ObjectManagerIsNull,
     PlayerNotFound,
-    InvalidParam,
+    InvalidParam(String),
     MemoryWriteError,
     PartialMemoryWriteError,
     LuaStateIsNull,
+    MissingOpcode,
+    UnknownOpcode(i32),
+    UnimplementedOpcode(Opcode),
+    NullPointerError,
+    InvalidRawString(String),
 }
 
 pub type LoleResult<T> = std::result::Result<T, LoleError>;

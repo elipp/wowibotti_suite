@@ -118,7 +118,7 @@ impl WowObject {
                         result = out(reg) result,
                     )
                 }
-                cstr_to_str!(result).unwrap_or("Unknown")
+                cstr_to_str!(result).unwrap_or("!StringError!")
             }
             _ => "Unknown",
         }
@@ -138,9 +138,9 @@ impl WowObject {
             None
         }
     }
-    pub fn get_xyzr(&self) -> (f32, f32, f32, f32) {
+    pub fn get_xyzr(&self) -> [f32; 4] {
         let m = unsafe { std::slice::from_raw_parts((self.base + wowobject::PosX) as *const _, 4) };
-        (m[0], m[1], m[2], m[3])
+        [m[0], m[1], m[2], m[3]]
     }
 
     pub fn get_pos(&self) -> Vec3 {
@@ -240,7 +240,15 @@ impl ObjectManager {
     pub fn get_player_and_target(&self) -> LoleResult<(WowObject, Option<WowObject>)> {
         let player = self.get_player()?;
         let target_guid = self.get_player_target_GUID();
-        Ok((player, self.iter().find(|w| w.get_GUID() == target_guid)))
+        Ok((player, self.get_object_by_GUID(target_guid)))
+    }
+    pub fn get_object_by_GUID(&self, guid: GUID) -> Option<WowObject> {
+        self.iter().find(|w| w.get_GUID() == guid)
+    }
+    pub fn get_unit_by_name(&self, name: &str) -> Option<WowObject> {
+        self.iter()
+            .filter(|w| matches!(w.get_type(), WowObjectType::Npc | WowObjectType::Unit))
+            .find(|w| w.get_name() == name)
     }
     fn get_first_object(&self) -> Option<WowObject> {
         // no need to check for base != 0, because ::new is the only way to construct this

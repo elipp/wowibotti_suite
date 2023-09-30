@@ -70,14 +70,29 @@ pub enum PatchKind {
 
 #[derive(Debug)]
 pub struct Patch {
-    pub name: String,
+    pub name: &'static str,
     pub patch_addr: Addr,
-    pub original_instructions: Vec<u8>,
-    pub instruction_buffer: InstructionBuffer,
+    pub original_opcodes: Box<[u8]>,
+    pub patch_opcodes: InstructionBuffer,
     pub kind: PatchKind,
 }
 
 impl Patch {
+    pub fn new(
+        name: &'static str,
+        patch_addr: Addr,
+        patch_opcodes: InstructionBuffer,
+        kind: PatchKind,
+    ) -> Self {
+        Patch {
+            name,
+            patch_addr,
+            original_opcodes: copy_original_opcodes(patch_addr, patch_opcodes.len()),
+            patch_opcodes,
+            kind,
+        }
+    }
+
     pub unsafe fn commit(&self, patch: &InstructionBuffer) -> LoleResult<()> {
         write_addr(self.patch_addr, patch.instr_slice())
     }
@@ -88,8 +103,8 @@ impl Patch {
                 const PAGE_EXECUTE_READWRITE: u32 = 0x40;
                 let mut old_flags = PAGE_PROTECTION_FLAGS(0);
                 VirtualProtect(
-                    self.instruction_buffer.get_address() as *const c_void,
-                    self.instruction_buffer.len(),
+                    self.patch_opcodes.get_address() as *const c_void,
+                    self.patch_opcodes.len(),
                     PAGE_PROTECTION_FLAGS(PAGE_EXECUTE_READWRITE),
                     &mut old_flags,
                 )
@@ -98,12 +113,12 @@ impl Patch {
                 let mut patch = InstructionBuffer::new();
                 patch.push(asm::JMP);
                 let jmp_target =
-                    self.instruction_buffer.get_address() as i32 - self.patch_addr as i32 - 5;
+                    self.patch_opcodes.get_address() as i32 - self.patch_addr as i32 - 5;
                 patch.push_slice(&jmp_target.to_le_bytes());
                 self.commit(&patch)?;
             }
             PatchKind::OverWrite => unsafe {
-                self.commit(&self.instruction_buffer)?;
+                self.commit(&self.patch_opcodes)?;
             },
         }
         Ok(())
@@ -139,8 +154,8 @@ pub fn write_addr<T: Sized + Copy + std::fmt::Debug>(addr: Addr, data: &[T]) -> 
     }
 }
 
-pub fn copy_original_opcodes<const N: usize>(addr: Addr) -> [u8; N] {
-    let mut destination = [0; N];
+pub fn copy_original_opcodes(addr: Addr, n: usize) -> Box<[u8]> {
+    let mut destination = vec![0u8; n];
     unsafe {
         std::ptr::copy_nonoverlapping(
             addr as *const u8,
@@ -153,20 +168,20 @@ pub fn copy_original_opcodes<const N: usize>(addr: Addr) -> [u8; N] {
 
 pub fn prepare_endscene_trampoline() -> Patch {
     let EndScene = find_EndScene();
-    let original_instructions = Vec::from_iter(copy_original_opcodes::<7>(EndScene));
+    let original_opcodes = copy_original_opcodes(EndScene, 7);
 
     let mut instruction_buffer = InstructionBuffer::new();
     instruction_buffer.push(asm::PUSHAD);
     instruction_buffer.push_call_to(EndScene_hook as u32);
     instruction_buffer.push(asm::POPAD);
-    instruction_buffer.push_slice(&original_instructions);
+    instruction_buffer.push_slice(&original_opcodes);
     instruction_buffer.push_default_return(EndScene, 7);
 
     Patch {
-        name: "EndScene".to_string(),
+        name: "EndScene",
         patch_addr: EndScene,
-        original_instructions,
-        instruction_buffer,
+        original_opcodes,
+        patch_opcodes: instruction_buffer,
         kind: PatchKind::JmpToTrampoline,
     }
 }
