@@ -1,3 +1,4 @@
+use std::arch::asm;
 use std::f32::consts::PI;
 use std::ffi::{c_char, c_void, CStr};
 
@@ -5,8 +6,11 @@ use crate::addresses::LUA_Prot_patchaddr;
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority};
 use crate::objectmanager::{ObjectManager, GUID};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
+use crate::socket::{set_facing_local, set_facing_remote};
 use crate::vec3::Vec3;
-use crate::{add_repr_and_tryfrom, asm, Addr, LoleError, LoleResult};
+use crate::{add_repr_and_tryfrom, asm, Addr, LoleError, LoleResult, SHOULD_EJECT};
+
+use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS, SOCKET};
 
 pub type lua_State = *mut c_void;
 
@@ -183,23 +187,12 @@ enum PlayerPosition {
     WrongFacing,
 }
 
-// static inline POSFLAG get_position_flags_ranged(float minrange, float maxrange, const vec3& tpdiff, const vec3& prot_unit) {
-//         float tpl = tpdiff.length();
-//     if (tpl < minrange) { return POSFLAG::TOONEAR; }
-//     if (tpl > maxrange) { return POSFLAG::TOOFAR; }
-
-//     float cosb = dot(tpdiff.unit(), prot_unit);
-//     if (cosb < 0.99) { return POSFLAG::WRONG_FACING; }
-
-//         return POSFLAG::VALID;
-// }
-
 fn get_melee_position_status(
     ideal_position_relative: Vec3,
     tpdiff_unit: Vec3,
     prot_unit: Vec3,
 ) -> PlayerPosition {
-    if ideal_position_relative.length() >= 1.0 {
+    if ideal_position_relative.length() > 1.0 {
         PlayerPosition::TooFar
     } else if Vec3::dot(tpdiff_unit, prot_unit) < 0.85 {
         PlayerPosition::WrongFacing
@@ -217,7 +210,7 @@ fn get_caster_position_status(
     let diff_len = tpdiff.length();
     if diff_len >= range_max {
         PlayerPosition::TooFar
-    } else if diff_len <= range_min {
+    } else if diff_len < range_min {
         PlayerPosition::TooNear
     } else if Vec3::dot(tpdiff.unit(), prot_unit) < 0.99 {
         PlayerPosition::WrongFacing
@@ -354,10 +347,13 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
         }
         Opcode::Debug => {
-            let res = lua_getglobal!(lua, b"lop_exec\0".as_ptr());
-            let m = lua_gettype(lua, -1);
-            lua_settop(lua, -1);
-            println!("res: {res}, type: {m}");
+            let om = ObjectManager::new()?;
+            let player = om.get_player()?;
+            set_facing_local(0.0)?;
+            set_facing_remote(player.get_pos(), 0.0)?;
+        }
+        Opcode::EjectDll => {
+            *SHOULD_EJECT.lock().expect("SHOULD_EJECT lock") = true;
         }
         v => return Err(LoleError::InvalidOrUnimplementedOpcodeCall(v, nargs)),
     }

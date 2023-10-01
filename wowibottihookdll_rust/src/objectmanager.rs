@@ -143,6 +143,9 @@ impl WowObject {
         let [_, _, _, rot] = self.get_xyzr();
         Vec3::from_rot_value(rot)
     }
+    pub fn get_movement_info(&self) -> Addr {
+        deref::<Addr, 1>(self.base + 0x128)
+    }
 }
 
 impl std::fmt::Display for WowObject {

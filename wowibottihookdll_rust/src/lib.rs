@@ -2,16 +2,15 @@ use std::mem::size_of;
 use std::sync::Mutex;
 
 use lua::{register_lop_exec_if_not_registered, Opcode};
-use patch::{prepare_endscene_trampoline, InstructionBuffer, PatchKind};
+use patch::prepare_endscene_trampoline;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
 use windows::Win32::System::Console::SetStdHandle;
-use windows::Win32::System::Console::{AllocConsole, STD_OUTPUT_HANDLE};
-use windows::Win32::System::Diagnostics::Debug::WriteProcessMemory;
-use windows::Win32::System::Threading::GetCurrentProcess;
+use windows::Win32::System::Console::{AllocConsole, FreeConsole, STD_OUTPUT_HANDLE};
+use windows::Win32::System::LibraryLoader::FreeLibraryAndExitThread;
 use windows::{Win32::Foundation::*, Win32::System::SystemServices::*};
 
 use lazy_static::lazy_static;
@@ -19,6 +18,8 @@ use lazy_static::lazy_static;
 lazy_static! {
     pub static ref ENABLED_PATCHES: Mutex<Vec<Patch>> = Mutex::new(vec![]);
     pub static ref NEED_INIT: Mutex<bool> = Mutex::new(true);
+    pub static ref SHOULD_EJECT: Mutex<bool> = Mutex::new(false);
+    pub static ref DLL_HANDLE: Mutex<HINSTANCE> = Mutex::new(HINSTANCE(0));
 }
 
 type Addr = u32;
@@ -30,6 +31,7 @@ pub mod ctm;
 pub mod lua;
 pub mod objectmanager;
 pub mod patch;
+pub mod socket;
 pub mod vec3;
 
 use lua::register_lop_exec;
@@ -78,6 +80,14 @@ fn reopen_stdout() -> HANDLE {
 
 fn main_entrypoint() {
     register_lop_exec_if_not_registered();
+
+    if *SHOULD_EJECT.lock().expect("SHOULD_EJECT") {
+        std::thread::spawn(|| unsafe {
+            // TODO close stdout..
+            FreeConsole().expect("FreeConsole");
+            FreeLibraryAndExitThread(DLL_HANDLE.lock().expect("DLL_HANDLE").clone(), 0);
+        });
+    }
 }
 
 #[no_mangle]
@@ -127,6 +137,9 @@ pub enum LoleError {
     InvalidRawString(String),
     InvalidEnumValue(String),
     InvalidOrUnimplementedOpcodeCall(Opcode, i32),
+    WowSocketNotAvailable,
+    PacketSynthError(String),
+    SocketSendError(String),
     NotImplemented,
 }
 
@@ -145,6 +158,7 @@ extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) 
                 .lock()
                 .expect("ENABLED_PATCHES mutex")
                 .push(tramp);
+            *DLL_HANDLE.lock().unwrap() = dll_module;
         }
         // DLL_PROCESS_DETACH => ),
         _ => (),
