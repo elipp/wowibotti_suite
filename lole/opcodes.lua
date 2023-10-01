@@ -1,13 +1,8 @@
-local LOP = { NUM_OPCODES = 0, NUM_DEBUG_OPCODES = 0, LDOP_MASK = 0x40000000 }
+local LOP = { NUM_OPCODES = 0 }
 
 function LOP:add_opcode(name)
 	self[name] = self.NUM_OPCODES
 	self.NUM_OPCODES = self.NUM_OPCODES + 1
-end
-
-function LOP:add_debug_opcode(name)
-	self[name] = BITWISE.OR(self.NUM_DEBUG_OPCODES, self.LDOP_MASK)
-	self.NUM_DEBUG_OPCODES = self.NUM_DEBUG_OPCODES + 1
 end
 
 function LOP:call(opcode, ...)
@@ -53,23 +48,6 @@ LOP:add_opcode("ICCROCKET")
 LOP:add_opcode("HCONFIG")
 LOP:add_opcode("TANK_TAUNT_LOOSE")
 LOP:add_opcode("READ_FILE")
-
-LOP:add_debug_opcode("LDOP_NOP")
-LOP:add_debug_opcode("LDOP_DUMP")
-LOP:add_debug_opcode("LDOP_LOOT_ALL")
-LOP:add_debug_opcode("LDOP_PULL_TEST")
-LOP:add_debug_opcode("LDOP_LUA_REGISTER")
-LOP:add_debug_opcode("LDOP_LOS_TEST")
-LOP:add_debug_opcode("LDOP_TEST")
-LOP:add_debug_opcode("LDOP_CAPTURE_FRAME_RENDER_STAGES")
-LOP:add_debug_opcode("LDOP_CONSOLE_PRINT")
-LOP:add_debug_opcode("LDOP_REPORT_CONNECTED")
-LOP:add_debug_opcode("LDOP_EJECT_DLL")
-
-LOP:add_debug_opcode("LDOP_SL_RESETCAMERA")
-LOP:add_debug_opcode("LDOP_WC3MODE")
-LOP:add_debug_opcode("LDOP_SL_SETSELECT")
-
 
 ----------------------------
 ---- public functions ------

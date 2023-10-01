@@ -1,10 +1,12 @@
+use std::f32::consts::PI;
 use std::ffi::{c_char, c_void, CStr};
 
 use crate::addresses::LUA_Prot_patchaddr;
-use crate::ctm::{self, CtmAction, CtmKind};
+use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority};
 use crate::objectmanager::{ObjectManager, GUID};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
-use crate::{asm, Addr, LoleError, LoleResult};
+use crate::vec3::Vec3;
+use crate::{add_repr_and_tryfrom, asm, Addr, LoleError, LoleResult};
 
 pub type lua_State = *mut c_void;
 
@@ -23,40 +25,22 @@ type lua_CFunction = unsafe extern "C" fn(lua_State) -> i32;
 
 const LUA_GLOBALSINDEX: i32 = -10002;
 
-#[repr(u8)]
-#[derive(Debug)]
-enum LuaType {
-    Nil,
-    Boolean,
-    UserData,
-    Number,
-    // Integer, // not official Lua
-    String,
-    Table,
-    Function,
-    UserData2,
-    Thread,
-    Proto,
-    Upval,
-    Unknown(i32),
-}
-
-impl From<i32> for LuaType {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => LuaType::Nil,
-            1 => LuaType::Boolean,
-            2 => LuaType::UserData,
-            3 => LuaType::Number,
-            4 => LuaType::String,
-            5 => LuaType::Table,
-            6 => LuaType::Function,
-            7 => LuaType::UserData2,
-            8 => LuaType::Thread,
-            9 => LuaType::Proto,
-            10 => LuaType::Upval,
-            v => LuaType::Unknown(v),
-        }
+add_repr_and_tryfrom! {
+    i32,
+    #[derive(Debug)]
+    enum LuaType {
+        Nil = 0,
+        Boolean = 1,
+        UserData = 2,
+        Number = 3,
+        // Integer, // not official Lua
+        String = 4,
+        Table = 5,
+        Function = 6,
+        UserData2 = 7,
+        Thread = 8,
+        Proto = 9,
+        Upval = 10,
     }
 }
 
@@ -115,6 +99,12 @@ define_lua_const!(
     lua_tonumber,
     (state: lua_State, idx: i32) -> lua_Number);
 
+macro_rules! lua_tonumber_f32 {
+    ($state:expr, $id:literal) => {
+        lua_tonumber($state, $id) as f32
+    };
+}
+
 define_lua_const!(
     lua_dostring,
     (script: *const c_char, _s: *const c_char, taint: u32) -> ());
@@ -158,29 +148,22 @@ pub fn register_lop_exec() -> LoleResult<()> {
     Ok(())
 }
 
-#[derive(Debug)]
-#[repr(u8)]
-pub enum Opcode {
-    Nop,
-    Dump,
-    DoString,
-    ClickToMove,
-    GetUnitPosition,
-    Debug,
-    Unknown(i32),
-}
-
-impl From<i32> for Opcode {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Opcode::Nop,
-            1 => Opcode::Dump,
-            2 => Opcode::DoString,
-            3 => Opcode::ClickToMove,
-            14 => Opcode::GetUnitPosition,
-            0xFF => Opcode::Debug,
-            v => Opcode::Unknown(v),
-        }
+add_repr_and_tryfrom! {
+    i32,
+    #[derive(Debug)]
+    pub enum Opcode {
+        Nop = 0,
+        TargetGuid = 1,
+        CasterRangeCheck = 2,
+        Follow = 3,
+        ClickToMove = 4,
+        TargetMarker = 5,
+        MeleeBehind = 6,
+        GetUnitPosition = 14,
+        Debug = 0x400,
+        Dump = 0x401,
+        DoString = 0x402,
+        EjectDll = 0x403,
     }
 }
 
@@ -193,6 +176,56 @@ macro_rules! cstr_to_str {
     };
 }
 
+enum PlayerPosition {
+    Ok,
+    TooNear,
+    TooFar,
+    WrongFacing,
+}
+
+// static inline POSFLAG get_position_flags_ranged(float minrange, float maxrange, const vec3& tpdiff, const vec3& prot_unit) {
+//         float tpl = tpdiff.length();
+//     if (tpl < minrange) { return POSFLAG::TOONEAR; }
+//     if (tpl > maxrange) { return POSFLAG::TOOFAR; }
+
+//     float cosb = dot(tpdiff.unit(), prot_unit);
+//     if (cosb < 0.99) { return POSFLAG::WRONG_FACING; }
+
+//         return POSFLAG::VALID;
+// }
+
+fn get_melee_position_status(
+    ideal_position_relative: Vec3,
+    tpdiff_unit: Vec3,
+    prot_unit: Vec3,
+) -> PlayerPosition {
+    if ideal_position_relative.length() >= 1.0 {
+        PlayerPosition::TooFar
+    } else if Vec3::dot(tpdiff_unit, prot_unit) < 0.85 {
+        PlayerPosition::WrongFacing
+    } else {
+        PlayerPosition::Ok
+    }
+}
+
+fn get_caster_position_status(
+    range_min: f32,
+    range_max: f32,
+    tpdiff: Vec3,
+    prot_unit: Vec3,
+) -> PlayerPosition {
+    let diff_len = tpdiff.length();
+    if diff_len >= range_max {
+        PlayerPosition::TooFar
+    } else if diff_len <= range_min {
+        PlayerPosition::TooNear
+    } else if Vec3::dot(tpdiff.unit(), prot_unit) < 0.99 {
+        PlayerPosition::WrongFacing
+    } else {
+        PlayerPosition::Ok
+    }
+}
+
 fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
     let nargs = lua_gettop(lua);
     if nargs == 0 {
@@ -200,22 +233,93 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         return Err(LoleError::MissingOpcode);
     }
     let nargs = nargs - 1;
-    match lua_tointeger(lua, 1).into() {
+    match lua_tointeger(lua, 1).try_into()? {
         Opcode::Nop => {}
         Opcode::Dump => {
             for o in ObjectManager::new()? {
                 println!("{o}");
             }
         }
+        Opcode::CasterRangeCheck if nargs == 2 => {
+            let om = ObjectManager::new()?;
+            let (player, target) = om.get_player_and_target()?;
+            if let Some(target) = target {
+                let range_min = lua_tonumber_f32!(lua, 2);
+                let range_max = lua_tonumber_f32!(lua, 3);
+                let (pp, prot) = player.get_pos_and_rotvec();
+                let tp = target.get_pos();
+                let tpdiff = tp - pp;
+                let tpdiff_unit = tpdiff.unit();
+                match get_caster_position_status(range_min, range_max, tpdiff, prot) {
+                    PlayerPosition::TooNear => {
+                        ctm::add_to_queue(CtmEvent {
+                            target_pos: tp - (range_min + 2.0) * tpdiff_unit,
+                            priority: CtmPriority::Replace,
+                            action: CtmAction::Move,
+                            interact_guid: None,
+                        })?;
+                    }
+                    PlayerPosition::TooFar => {
+                        ctm::add_to_queue(CtmEvent {
+                            target_pos: tp - (range_max - 2.0) * tpdiff_unit,
+                            priority: CtmPriority::Replace,
+                            action: CtmAction::Move,
+                            interact_guid: None,
+                        })?;
+                    }
+                    PlayerPosition::WrongFacing => return Err(LoleError::NotImplemented),
+                    PlayerPosition::Ok => {}
+                }
+            }
+        }
+
+        Opcode::MeleeBehind if nargs == 1 => {
+            const MELEE_NUKE_ANGLE: f32 = 0.35;
+            let om = ObjectManager::new()?;
+            let (player, target) = om.get_player_and_target()?;
+            if let Some(target) = target {
+                let range_min = lua_tonumber_f32!(lua, 2);
+                // TODO: do the if range_min > 2: range_min = range_min - 2 business in Lua
+                let (pp, prot) = player.get_pos_and_rotvec();
+                let (tp, trot) = target.get_pos_and_rotvec();
+                let candidate1 = tp + range_min * trot.rotated_2d_cw((1.0 - MELEE_NUKE_ANGLE) * PI);
+                let candidate2 = tp + range_min * trot.rotated_2d_cw((1.0 + MELEE_NUKE_ANGLE) * PI);
+                let ideal = if (candidate1 - pp).length() < (candidate2 - pp).length() {
+                    candidate1
+                } else {
+                    candidate2
+                };
+                let ideal_relative = (ideal - pp).zero_z();
+                let tpdiff = (tp - pp).zero_z();
+                match get_melee_position_status(ideal_relative, tpdiff.unit(), prot) {
+                    PlayerPosition::TooFar => {
+                        ctm::add_to_queue(CtmEvent {
+                            target_pos: ideal + 0.5 * prot,
+                            priority: CtmPriority::Replace,
+                            action: CtmAction::Move,
+                            interact_guid: None,
+                        })?;
+                    }
+                    PlayerPosition::WrongFacing => return Err(LoleError::NotImplemented),
+                    _ => {}
+                }
+            }
+        }
+
         Opcode::ClickToMove if nargs == 4 => {
-            let x = lua_tonumber(lua, 2);
-            let y = lua_tonumber(lua, 3);
-            let z = lua_tonumber(lua, 4);
+            let x = lua_tonumber_f32!(lua, 2);
+            let y = lua_tonumber_f32!(lua, 3);
+            let z = lua_tonumber_f32!(lua, 4);
             let prio = lua_tointeger(lua, 5);
-            let action = CtmAction::new(x, y, z, None, prio, CtmKind::Move)?;
+            let action = CtmEvent {
+                target_pos: Vec3 { x, y, z },
+                priority: prio.try_into()?,
+                action: CtmAction::Move,
+                interact_guid: None,
+            };
             ctm::add_to_queue(action)?;
         }
-        Opcode::DoString if nargs > 0 => {
+        Opcode::DoString if nargs == 0 => {
             let script = lua_tostring!(lua, 2)?;
             println!("DoString({script})");
             DoString!(script);
@@ -227,13 +331,13 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 let guid = arg
                     .parse::<GUID>()
                     .map_err(|_| LoleError::InvalidParam(arg.to_string()))?;
-                om.get_object_by_GUID(guid)
+                om.get_object_by_guid(guid)
             } else if arg == "player" {
                 Some(om.get_player()?)
             } else if arg == "target" {
-                let target_guid = om.get_player_target_GUID();
+                let target_guid = om.get_player_target_guid();
                 if target_guid != 0 {
-                    om.get_object_by_GUID(target_guid)
+                    om.get_object_by_guid(target_guid)
                 } else {
                     None
                 }
@@ -244,7 +348,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             };
             if let Some(object) = object {
                 for elem in object.get_xyzr().into_iter() {
-                    lua_pushnumber(lua, elem as f64);
+                    lua_pushnumber(lua, elem as lua_Number);
                 }
                 return Ok(4);
             }
@@ -255,8 +359,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             lua_settop(lua, -1);
             println!("res: {res}, type: {m}");
         }
-        Opcode::Unknown(v) => return Err(LoleError::UnknownOpcode(v)),
-        v => return Err(LoleError::UnimplementedOpcode(v)),
+        v => return Err(LoleError::InvalidOrUnimplementedOpcodeCall(v, nargs)),
     }
     Ok(0)
 }
@@ -289,7 +392,7 @@ pub fn register_lop_exec_if_not_registered() -> LoleResult<()> {
 
     let lua = get_lua_State()?;
     lua_getglobal!(lua, b"lop_exec\0".as_ptr());
-    match lua_gettype(lua, -1).into() {
+    match lua_gettype(lua, -1).try_into()? {
         LuaType::Function => {}
         _ => register_lop_exec()?,
     }

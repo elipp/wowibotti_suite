@@ -123,9 +123,11 @@ pub enum LoleError {
     LuaStateIsNull,
     MissingOpcode,
     UnknownOpcode(i32),
-    UnimplementedOpcode(Opcode),
     NullPointerError,
     InvalidRawString(String),
+    InvalidEnumValue(String),
+    InvalidOrUnimplementedOpcodeCall(Opcode, i32),
+    NotImplemented,
 }
 
 pub type LoleResult<T> = std::result::Result<T, LoleError>;

@@ -2,7 +2,7 @@ use std::ffi::{c_char, CStr};
 
 use crate::patch::deref;
 use crate::vec3::Vec3;
-use crate::{Addr, LoleError, LoleResult};
+use crate::{add_repr_and_tryfrom, Addr, LoleError, LoleResult};
 
 use crate::addresses::{self as addrs, PLAYER_TARGET_GUID};
 use crate::cstr_to_str;
@@ -60,37 +60,21 @@ mod wowobject {
     pub const NPCTargetGUID: Offset = 0xF08;
 }
 
-#[repr(u8)]
-#[derive(Debug)]
-pub enum WowObjectType {
-    Object,
-    Item,
-    Container,
-    Npc,
-    Unit,
-    GameObject,
-    DynamicObject,
-    Corpse,
-    AreaTrigger,
-    SceneObject,
-    Unknown(i32),
-}
-
-impl From<i32> for WowObjectType {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => WowObjectType::Object,
-            1 => WowObjectType::Item,
-            2 => WowObjectType::Container,
-            3 => WowObjectType::Npc,
-            4 => WowObjectType::Unit,
-            5 => WowObjectType::GameObject,
-            6 => WowObjectType::DynamicObject,
-            7 => WowObjectType::Corpse,
-            8 => WowObjectType::AreaTrigger,
-            9 => WowObjectType::SceneObject,
-            v => WowObjectType::Unknown(v),
-        }
+add_repr_and_tryfrom! {
+    i32,
+    #[derive(Debug)]
+    pub enum WowObjectType {
+        Object = 0,
+        Item = 1,
+        Container = 2,
+        Npc = 3,
+        Unit = 4,
+        GameObject = 5,
+        DynamicObject = 6,
+        Corpse = 7,
+        AreaTrigger = 8,
+        SceneObject = 9,
+        Unknown = 10,
     }
 }
 
@@ -100,7 +84,7 @@ impl WowObject {
     }
     pub fn get_type(&self) -> WowObjectType {
         let t = deref::<i32, 1>(self.base + wowobject::Type);
-        t.into()
+        t.try_into().unwrap_or(WowObjectType::Unknown)
     }
     pub fn get_name(&self) -> &str {
         match self.get_type() {
@@ -123,7 +107,7 @@ impl WowObject {
             _ => "Unknown",
         }
     }
-    fn get_GUID(&self) -> GUID {
+    fn get_guid(&self) -> GUID {
         deref::<GUID, 1>(self.base + wowobject::GUID)
     }
     fn get_next(&self) -> Option<WowObject> {
@@ -151,6 +135,14 @@ impl WowObject {
             z: m[2],
         }
     }
+    pub fn get_pos_and_rotvec(&self) -> (Vec3, Vec3) {
+        let [x, y, z, r] = self.get_xyzr();
+        (Vec3 { x, y, z }, Vec3::from_rot_value(r))
+    }
+    pub fn get_rotvec(&self) -> Vec3 {
+        let [_, _, _, rot] = self.get_xyzr();
+        Vec3::from_rot_value(rot)
+    }
 }
 
 impl std::fmt::Display for WowObject {
@@ -160,7 +152,7 @@ impl std::fmt::Display for WowObject {
             "[0x{:X}] WowObjectType::[{:?}] - GUID: {:016X} - Name: {}",
             self.base,
             self.get_type(),
-            self.get_GUID(),
+            self.get_guid(),
             self.get_name(),
         )
     }
@@ -225,25 +217,25 @@ impl ObjectManager {
     pub fn iter(&self) -> WowObjectIterator {
         self.into_iter()
     }
-    pub fn get_local_GUID(&self) -> GUID {
+    pub fn get_local_guid(&self) -> GUID {
         deref::<GUID, 1>(self.base + objectmanager::LocalGUIDOffset)
     }
-    pub fn get_player_target_GUID(&self) -> GUID {
+    pub fn get_player_target_guid(&self) -> GUID {
         deref::<GUID, 1>(PLAYER_TARGET_GUID)
     }
     pub fn get_player(&self) -> LoleResult<WowObject> {
-        let local_GUID = self.get_local_GUID();
+        let local_guid = self.get_local_guid();
         self.iter()
-            .find(|w| w.get_GUID() == local_GUID)
+            .find(|w| w.get_guid() == local_guid)
             .ok_or_else(|| LoleError::PlayerNotFound)
     }
     pub fn get_player_and_target(&self) -> LoleResult<(WowObject, Option<WowObject>)> {
         let player = self.get_player()?;
-        let target_guid = self.get_player_target_GUID();
-        Ok((player, self.get_object_by_GUID(target_guid)))
+        let target_guid = self.get_player_target_guid();
+        Ok((player, self.get_object_by_guid(target_guid)))
     }
-    pub fn get_object_by_GUID(&self, guid: GUID) -> Option<WowObject> {
-        self.iter().find(|w| w.get_GUID() == guid)
+    pub fn get_object_by_guid(&self, guid: GUID) -> Option<WowObject> {
+        self.iter().find(|w| w.get_guid() == guid)
     }
     pub fn get_unit_by_name(&self, name: &str) -> Option<WowObject> {
         self.iter()
@@ -251,7 +243,7 @@ impl ObjectManager {
             .find(|w| w.get_name() == name)
     }
     fn get_first_object(&self) -> Option<WowObject> {
-        // no need to check for base != 0, because ::new is the only way to construct this
+        // no need to check for base != 0, because ::new is the only way to construct ObjectManager
         WowObject::try_new(deref::<Addr, 1>(
             self.base + objectmanager::FirstObjectOffset,
         ))

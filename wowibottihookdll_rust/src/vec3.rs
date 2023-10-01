@@ -56,11 +56,47 @@ impl Div<f32> for Vec3 {
     }
 }
 
+impl Mul<Vec3> for f32 {
+    type Output = Vec3;
+
+    fn mul(self, rhs: Vec3) -> Self::Output {
+        rhs * self
+    }
+}
+
 impl Vec3 {
     pub fn length(&self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
     pub fn unit(&self) -> Self {
-        *self / self.length().max(0.01)
+        *self / (self.length().max(0.01))
+    }
+    pub fn from_rot_value(rot: f32) -> Self {
+        Self {
+            x: rot.cos(),
+            y: rot.sin(),
+            z: 0.0,
+        }
+    }
+    pub fn dot(a: Self, b: Self) -> f32 {
+        a.x * b.x + a.y * b.y + a.z * b.z
+    }
+    pub fn rotated_2d_cw(self, angle: f32) -> Self {
+        let Self { x, y, z } = self;
+        let sin = angle.sin();
+        let cos = angle.cos();
+        Self {
+            x: x * cos - y * sin,
+            y: x * sin + y * cos,
+            z: 0.0,
+        }
+    }
+
+    pub fn zero_z(self) -> Self {
+        Self {
+            x: self.x,
+            y: self.y,
+            z: 0.0,
+        }
     }
 }
