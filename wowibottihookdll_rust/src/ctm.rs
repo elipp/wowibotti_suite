@@ -1,10 +1,116 @@
 use std::collections::VecDeque;
 use std::f32::consts::PI;
+use std::sync::{LockResult, Mutex, PoisonError};
 
+use lazy_static::lazy_static;
+
+use crate::lua::chatframe_print;
 use crate::objectmanager::{ObjectManager, GUID, NO_TARGET};
-use crate::patch::{copy_original_opcodes, write_addr, InstructionBuffer, Patch, PatchKind};
+use crate::patch::{
+    copy_original_opcodes, read_elems_from_addr, write_addr, InstructionBuffer, Patch, PatchKind,
+};
 use crate::vec3::Vec3;
 use crate::{asm, Addr, LoleError, LoleResult, Offset};
+
+lazy_static! {
+    static ref QUEUE: Mutex<CtmQueue> = Mutex::new(Default::default());
+}
+
+#[derive(Debug, Default)]
+struct MovingAverage<const WindowSize: usize> {
+    data: VecDeque<f32>,
+    sum: f32,
+}
+
+impl<const W: usize> MovingAverage<W> {
+    fn add(&mut self, value: f32) {
+        self.data.push_back(value);
+        self.sum += value;
+        if self.data.len() > W {
+            if let Some(front) = self.data.pop_front() {
+                self.sum -= front;
+            }
+        }
+    }
+    fn calculate(&self) -> f32 {
+        if self.data.is_empty() {
+            return 0.0; // Avoid division by zero
+        }
+        self.sum / self.data.len() as f32
+    }
+}
+
+#[derive(Debug, Default)]
+struct CtmQueue {
+    events: VecDeque<CtmEvent>,
+    current: Option<CtmEvent>,
+    average_yards_moved: MovingAverage<10>,
+    prev_pos: Vec3,
+}
+
+impl Ord for CtmPriority {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // Compare the fields of your custom type
+        (*self as u32).cmp(&(*other as u32))
+    }
+}
+
+impl PartialOrd for CtmPriority {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+pub fn get_wow_ctm_target_pos() -> Vec3 {
+    let [x, y, z] = read_elems_from_addr::<3, f32>(ctm::addrs::TARGET_POS_X);
+    Vec3 { x, y, z }
+}
+
+const PROBABLY_STUCK_THRESHOLD: f32 = 0.5;
+
+impl CtmQueue {
+    fn current_highest_priority(&self) -> CtmPriority {
+        self.events
+            .iter()
+            .map(|ev| ev.priority)
+            .max()
+            .unwrap_or(CtmPriority::None)
+    }
+    fn add_to_queue(&mut self, ev: CtmEvent) -> LoleResult<()> {
+        let highest = self.current_highest_priority();
+        if highest == CtmPriority::NoOverride {
+            return Ok(());
+        }
+        if ev.priority == CtmPriority::Low && highest == CtmPriority::Low {
+            self.events.push_back(ev);
+        } else if highest < ev.priority {
+            self.events = VecDeque::new();
+            ev.commit()?;
+            self.current = Some(ev);
+        }
+        self.average_yards_moved = MovingAverage::default();
+        Ok(())
+    }
+    fn poll(&mut self) -> LoleResult<()> {
+        if self.current.is_some() {
+            let om = ObjectManager::new()?;
+            let new_pos = om.get_player()?.get_pos();
+            self.average_yards_moved
+                .add((new_pos - self.prev_pos).length());
+            if self.average_yards_moved.calculate() < PROBABLY_STUCK_THRESHOLD {
+                if let Some(next) = self.events.pop_front() {
+                    next.commit()?;
+                    self.current = Some(next);
+                } else {
+                    // todo!() write 0D and current coords etc.
+                }
+            }
+            self.prev_pos = new_pos;
+        }
+
+        Ok(())
+    }
+}
 
 #[macro_export]
 macro_rules! add_repr_and_tryfrom {
@@ -41,7 +147,7 @@ macro_rules! add_repr_and_tryfrom {
 
 add_repr_and_tryfrom! {
     i32,
-    #[derive(Debug)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
     pub enum CtmPriority {
         None = 0,
         Low = 1,
@@ -70,11 +176,18 @@ add_repr_and_tryfrom! {
 }
 
 #[derive(Debug)]
+pub enum CtmPostHook {
+    PullMob(GUID),
+    SetTargetAndBlast(GUID),
+}
+
+#[derive(Debug)]
 pub struct CtmEvent {
     pub target_pos: Vec3,
     pub priority: CtmPriority,
     pub action: CtmAction,
     pub interact_guid: Option<GUID>,
+    pub hooks: Option<Vec<CtmPostHook>>,
 }
 
 impl CtmEvent {
@@ -110,7 +223,7 @@ impl CtmEvent {
         write_addr(ctm::addrs::MIN_DISTANCE, &[min_distance])?;
 
         write_addr(
-            ctm::addrs::POS_X,
+            ctm::addrs::TARGET_POS_X,
             &[self.target_pos.x, self.target_pos.y, self.target_pos.z],
         )?;
 
@@ -121,13 +234,30 @@ impl CtmEvent {
 }
 
 pub fn add_to_queue(action: CtmEvent) -> LoleResult<()> {
-    println!("adding {action:?} to ctm_queue");
-    action.commit()?;
+    let mut ctm = QUEUE.lock()?;
+    ctm.add_to_queue(action)?;
     Ok(())
 }
 
+pub fn poll() -> LoleResult<()> {
+    let mut ctm = QUEUE.lock()?;
+    ctm.poll()
+}
+
 unsafe extern "C" fn ctm_finished() {
-    println!("lulz, CTM was definitely finished")
+    if let Ok(mut ctm) = QUEUE.lock() {
+        if let Some(current) = ctm.current.take() {
+            let wow_internal_target_pos = get_wow_ctm_target_pos();
+            if (current.target_pos - wow_internal_target_pos).length() > 2.0 {
+                chatframe_print("warning: internal & CtmQueue target coordinates don't match");
+            }
+            if let Some(hooks) = current.hooks {
+                todo!();
+            }
+        }
+    } else {
+        println!("Warning: couldn't lock CTM_QUEUE mutex!")
+    }
 }
 
 pub fn prepare_ctm_finished_patch() -> Patch {
@@ -156,16 +286,22 @@ mod ctm {
     pub mod constants {
         pub const GLOBAL_CONST1: f32 = 13.9626340866; // this is 9/4 PI ? :D
         pub const MOVE_CONST2: f32 = 0.25;
-        pub const MOVE_MINDISTANCE: f32 = 0.5; // this is 0.5, minimum distance from exact point
+        pub const MOVE_MINDISTANCE: f32 = 0.5;
         pub const LOOT_CONST2: f32 = 13.4444444;
         pub const LOOT_MINDISTANCE: f32 = 3.6666666;
     }
 
     pub mod addrs {
         use crate::Addr;
-        pub const POS_X: Addr = 0xD68A18;
-        pub const POS_Y: Addr = 0xD68A1C;
-        pub const POS_Z: Addr = 0xD68A20;
+
+        pub const PREV_POS_X: Addr = 0xD68A0C;
+        pub const PREV_POS_Y: Addr = 0xD68A10;
+        pub const PREV_POS_Z: Addr = 0xD68A14;
+
+        pub const TARGET_POS_X: Addr = 0xD68A18;
+        pub const TARGET_POS_Y: Addr = 0xD68A1C;
+        pub const TARGET_POS_Z: Addr = 0xD68A20;
+
         pub const CONST1: Addr = 0xD68A24;
         pub const ACTION: Addr = 0xD689BC;
         pub const TIMESTAMP: Addr = 0xD689B8;

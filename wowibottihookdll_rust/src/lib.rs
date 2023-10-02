@@ -1,5 +1,5 @@
 use std::mem::size_of;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 use lua::{register_lop_exec_if_not_registered, unregister_lop_exec, Opcode};
@@ -77,31 +77,40 @@ fn reopen_stdout() -> windows::core::Result<HANDLE> {
     }
 }
 
-fn main_entrypoint() {
-    if *SHOULD_EJECT.lock().expect("SHOULD_EJECT") {
-        {
-            let mut patches = ENABLED_PATCHES.lock().expect("ENABLED_PATCHES");
-            for patch in patches.drain(..) {
-                patch.disable().expect("disable patch");
-            }
-            unregister_lop_exec();
-            unsafe {
-                SetStdHandle(
-                    STD_OUTPUT_HANDLE,
-                    *ORIGINAL_STDOUT.lock().expect("ORIGINAL_STDOUT"),
-                )
-                .expect("SetStdHandle");
-                CloseHandle(*CONSOLE_CONOUT.lock().unwrap()).unwrap();
-                FreeConsole().expect("FreeConsole");
-            }
-        }
-        std::thread::spawn(|| unsafe {
-            // TODO close stdout..
-            FreeLibraryAndExitThread(DLL_HANDLE.lock().expect("DLL_HANDLE").clone(), 0);
-        });
-    } else {
-        register_lop_exec_if_not_registered();
+unsafe fn restore_original_stdout() -> windows::core::Result<()> {
+    SetStdHandle(
+        STD_OUTPUT_HANDLE,
+        *ORIGINAL_STDOUT.lock().expect("ORIGINAL_STDOUT"),
+    )
+}
+
+// impl From<
+
+fn eject_dll() -> LoleResult<()> {
+    let mut patches = ENABLED_PATCHES.lock().expect("ENABLED_PATCHES");
+    for patch in patches.drain(..) {
+        patch.disable().expect("disable patch");
     }
+    unregister_lop_exec()?;
+    unsafe {
+        restore_original_stdout().expect("original stdout");
+        CloseHandle(*CONSOLE_CONOUT.lock().unwrap()).unwrap();
+        FreeConsole().expect("FreeConsole");
+    }
+    std::thread::spawn(|| unsafe {
+        FreeLibraryAndExitThread(DLL_HANDLE.lock().expect("DLL_HANDLE").clone(), 0);
+    });
+    Ok(())
+}
+
+fn main_entrypoint() -> LoleResult<()> {
+    if *SHOULD_EJECT.lock().expect("SHOULD_EJECT") {
+        eject_dll()?;
+    } else {
+        register_lop_exec_if_not_registered()?;
+        ctm::poll()?;
+    }
+    Ok(())
 }
 
 #[no_mangle]
@@ -109,10 +118,13 @@ pub unsafe extern "cdecl" fn EndScene_hook() {
     let mut need_init = NEED_INIT.lock().expect("NEED_INIT mutex");
     if *need_init {
         AllocConsole().expect("AllocConsole");
-        *ORIGINAL_STDOUT.lock().expect("ORIGINAL_STDOUT") =
-            GetStdHandle(STD_OUTPUT_HANDLE).unwrap();
+
+        let original_stdout = GetStdHandle(STD_OUTPUT_HANDLE).expect("stdout");
+        *ORIGINAL_STDOUT.lock().expect("ORIGINAL_STDOUT") = original_stdout;
+
         let conout = reopen_stdout().expect("CONOUT$");
         *CONSOLE_CONOUT.lock().unwrap() = conout;
+
         SetStdHandle(STD_OUTPUT_HANDLE, conout).expect("Reopen CONOUT$");
 
         let mut patches = ENABLED_PATCHES
@@ -127,15 +139,17 @@ pub unsafe extern "cdecl" fn EndScene_hook() {
         ctm_finished.enable().expect("ctm_finished");
         patches.push(ctm_finished);
 
+        register_lop_exec().expect("lop_exec");
         println!("wowibottihookdll_rust: init done! :D enabled_patches:");
         for p in patches.iter() {
-            println!("* {}@{:08X}", p.name, p.patch_addr);
+            println!("* {} @ 0x{:08X}", p.name, p.patch_addr);
         }
-        register_lop_exec().expect("lop_exec");
 
         *need_init = false;
     } else {
-        main_entrypoint();
+        if let Err(e) = main_entrypoint() {
+            println!("Main entrypoint failed with {e:?}");
+        }
     }
 }
 
@@ -158,10 +172,17 @@ pub enum LoleError {
     WowSocketNotAvailable,
     PacketSynthError(String),
     SocketSendError(String),
+    MutexLockError,
     NotImplemented,
 }
 
 pub type LoleResult<T> = std::result::Result<T, LoleError>;
+
+impl<T> From<PoisonError<T>> for LoleError {
+    fn from(e: PoisonError<T>) -> Self {
+        LoleError::MutexLockError
+    }
+}
 
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]

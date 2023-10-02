@@ -137,6 +137,14 @@ pub fn deref<T: Copy, const N: u8>(addr: Addr) -> T {
     unsafe { *(t as *const T) }
 }
 
+pub fn read_elems_from_addr<const N: usize, T: Default + Sized + Copy + std::fmt::Debug>(
+    addr: Addr,
+) -> [T; N] {
+    let mut res = [T::default(); N];
+    unsafe { std::ptr::copy(addr as *const _, res.as_mut_ptr(), N) };
+    res
+}
+
 pub fn write_addr<T: Sized + Copy + std::fmt::Debug>(addr: Addr, data: &[T]) -> LoleResult<()> {
     unsafe {
         let mut bytes_written = 0;

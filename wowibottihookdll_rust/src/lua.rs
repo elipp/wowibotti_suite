@@ -262,6 +262,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                             priority: CtmPriority::Replace,
                             action: CtmAction::Move,
                             interact_guid: None,
+                            hooks: None,
                         })?;
                     }
                     PlayerPosition::TooFar => {
@@ -270,6 +271,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                             priority: CtmPriority::Replace,
                             action: CtmAction::Move,
                             interact_guid: None,
+                            hooks: None,
                         })?;
                     }
                     PlayerPosition::WrongFacing => return Err(LoleError::NotImplemented),
@@ -303,6 +305,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                             priority: CtmPriority::Replace,
                             action: CtmAction::Move,
                             interact_guid: None,
+                            hooks: None,
                         })?;
                     }
                     PlayerPosition::WrongFacing => return Err(LoleError::NotImplemented),
@@ -321,6 +324,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 priority: prio.try_into()?,
                 action: CtmAction::Move,
                 interact_guid: None,
+                hooks: None,
             };
             ctm::add_to_queue(action)?;
         }
@@ -374,12 +378,16 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
 #[no_mangle]
 pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
     match handle_lop_exec(lua) {
-        Ok(num_retvals) => num_retvals,
+        Ok(num_retvals) => return num_retvals,
         Err(error) => {
             println!("lop_exec: error: {:?}", error);
-            0
+            return 0;
         }
     }
+}
+
+pub fn chatframe_print(msg: &str) {
+    dostring(&format!("DEFAULT_CHAT_FRAME:AddMessage(\"[dll]: {msg}\")"))
 }
 
 pub fn get_lua_State() -> LoleResult<lua_State> {
