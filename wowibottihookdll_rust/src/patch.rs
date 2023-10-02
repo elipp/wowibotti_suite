@@ -123,8 +123,9 @@ impl Patch {
         }
         Ok(())
     }
-    fn disable(&self) {
-        todo!();
+    pub fn disable(self) -> LoleResult<()> {
+        println!("disabling {}", self.name);
+        write_addr(self.patch_addr, &self.original_opcodes)
     }
 }
 

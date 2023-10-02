@@ -1,9 +1,19 @@
-local LOP = { NUM_OPCODES = 0 }
+-- TODO: use build.rs to generate this list
 
-function LOP:add_opcode(name)
-	self[name] = self.NUM_OPCODES
-	self.NUM_OPCODES = self.NUM_OPCODES + 1
-end
+local LOP = {
+  Nop = 0,
+  TargetGuid = 1,
+  CasterRangeCheck = 2,
+  Follow = 3,
+  ClickToMove = 4,
+  TargetMarker = 5,
+  MeleeBehind = 6,
+  GetUnitPosition = 14,
+  Debug = 0x400,
+  Dump = 0x401,
+  DoString = 0x402,
+  EjectDll = 0x403,
+}
 
 function LOP:call(opcode, ...)
 	if query_injected() then
@@ -12,45 +22,8 @@ function LOP:call(opcode, ...)
 		lole_error("LOP:call(" .. tostring(opcode) .. ") called, but we're not injected!")
 	end
 end
-
--- kinda KlunKy, but helps keep track of these
-
-LOP:add_opcode("NOP")
-LOP:add_opcode("TARGET_GUID")
-LOP:add_opcode("CASTER_RANGE_CHECK")
-LOP:add_opcode("FOLLOW")
-LOP:add_opcode("CTM")
-LOP:add_opcode("TARGET_MARKER")
-LOP:add_opcode("MELEE_BEHIND")
-LOP:add_opcode("AVOID_SPELL_OBJECT")
-LOP:add_opcode("HUG_SPELL_OBJECT")
-LOP:add_opcode("SPREAD")
-LOP:add_opcode("CHAIN_HEAL_TARGET")
-LOP:add_opcode("MELEE_AVOID_AOE_BUFF")
-LOP:add_opcode("TANK_FACE")
-LOP:add_opcode("TANK_PULL")
-LOP:add_opcode("GET_UNIT_POSITION")
-LOP:add_opcode("GET_WALKING_STATE")
-LOP:add_opcode("GET_CTM_STATE")
-LOP:add_opcode("GET_PREVIOUS_CAST_MSG")
-LOP:add_opcode("STOPFOLLOW")
-LOP:add_opcode("CAST_GTAOE")
-LOP:add_opcode("HAS_AGGRO")
-LOP:add_opcode("INTERACT_GOBJECT")
-LOP:add_opcode("EXECUTE")
-LOP:add_opcode("GET_COMBAT_TARGETS")
-LOP:add_opcode("GET_AOE_FEASIBILITY")
-LOP:add_opcode("AVOID_NPC_WITH_NAME")
-LOP:add_opcode("BOSS_ACTION")
-LOP:add_opcode("INTERACT_SPELLNPC")
-LOP:add_opcode("GET_LAST_SPELL_ERRMSG")
-LOP:add_opcode("ICCROCKET")
-LOP:add_opcode("HCONFIG")
-LOP:add_opcode("TANK_TAUNT_LOOSE")
-LOP:add_opcode("READ_FILE")
-
 ----------------------------
----- public functions ------
+----- public functions -----
 ----------------------------
 
 function enable_cc_target(name, marker, spellID)
@@ -80,12 +53,12 @@ function caster_range_check(minrange, maxrange)
 end
 
 function target_unit_with_GUID(GUID)
-	LOP:call(LOP.TARGET_GUID, GUID)
+	LOP:call(LOP.TargetGuid, GUID)
 end
 
 function melee_attack_behind(minrange) -- magic value is 1.5
 	if not playermode() then
-		LOP:call(LOP.MELEE_BEHIND, minrange);
+		LOP:call(LOP.MeleeBehind, minrange);
 	end
 end
 
@@ -135,12 +108,12 @@ function dscript(command, scriptname)
 end
 
 function get_unit_position(unitname)
-	return LOP:call(LOP.GET_UNIT_POSITION, unitname)
+	return LOP:call(LOP.GetUnitPosition, unitname)
 end
 
 function lole_debug_dump_wowobjects(type_filter, ...)
 	local name_filter = concatenate_args(" ", ...)
-	LOP:call(LOP.DUMP, type_filter, name_filter);
+	LOP:call(LOP.Dump, type_filter, name_filter);
 	echo("|cFF00FF96Dumped WowObjects to terminal (if you're injected!) Valid type filters are ITEM, NPC, UNIT, DYNAMICOBJECT, GAMEOBJECT")
 	return true;
 end
@@ -152,27 +125,27 @@ end
 function walk_to(x, y, z, prio)
 	-- the last argument is the priority level
 	--echo(x .. ", " .. y .. ", " .. z)
-	LOP:call(LOP.CTM, x, y, z, prio)
+	LOP:call(LOP.ClickToMove, x, y, z, prio)
 end
 
 function follow_unit(name)
-	LOP:call(LOP.FOLLOW, name)
+	LOP:call(LOP.Follow, name)
 end
 
 function stopfollow()
-	LOP:call(LOP.STOPFOLLOW)
+	LOP:call(LOP.StopFollow)
 end
 
 function is_walking()
-    return LOP:call(LOP.GET_WALKING_STATE)
+    return LOP:call(LOP.GetWalkingState)
 end
 
 function cast_GTAOE(spellID, x, y, z)
-	LOP:call(LOP.CAST_GTAOE, spellID, x, y, z);
+	LOP:call(LOP.CastAoeSpell, spellID, x, y, z);
 end
 
 function has_aggro()
-	return LOP:call(LOP.HAS_AGGRO)
+	return LOP:call(LOP.HasAggro)
 end
 
 function get_cast_failed_msgid()
@@ -206,25 +179,8 @@ function interact_with_spellnpc(...)
 	return LOP:call(LOP.INTERACT_SPELLNPC, name_concatenated)
 end
 
-local INJECTED_STATUS = 0
-
 function query_injected()
-	if INJECTED_STATUS == 1 then return true end
-
-	local lexec = _G.lop_exec; -- see if the function is registered
-	if not lexec then
-		INJECTED_STATUS = 0
-		return nil;
-	else
-		return true;
-	end
-end
-
-function report_lua_registered()
-	if INJECTED_STATUS == 0 then
-		LOP:call(LOP.LDOP_LUA_REGISTER)
-		INJECTED_STATUS = 1;
-	end
+	return _G.lop_exec ~= nil
 end
 
 function iccrocket(mirror_data)
@@ -270,7 +226,7 @@ function cast_spell_packet(spellID)
 end
 
 function get_combat_targets()
-	return LOP:call(LOP.GET_COMBAT_TARGETS)
+	return LOP:call(LOP.GetCombatTargets)
 end
 
 function execute_script(script)
@@ -396,7 +352,7 @@ function console_print(msg)
 end
 
 function eject_DLL()
-	LOP:call(LOP.LDOP_EJECT_DLL)
+	LOP:call(LOP.EjectDll)
 end
 
 local function get_available_taunt(taunt_spells)

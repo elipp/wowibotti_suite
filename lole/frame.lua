@@ -636,7 +636,7 @@ inject_status_text:SetText("")
 
 local last_status = true -- hack to enable initial injected status display
 
-function update_injected_status(arg)
+local function update_injected_status(arg)
 	if arg == last_status then return end
 
 	if arg == true then
@@ -687,18 +687,6 @@ local raid_zones = {
 	["Karazhan"] = 3
 }
 
-local function gui_set_injected_status()
-	local inj = query_injected()
-
-	if inj then
-		update_injected_status(true) -- default
-	else
-		update_injected_status(false)
-	end
-
-end
-
-
 local function update_spell_error_status()
 	local err, text, id = get_last_spell_error()
 	if (id and id > LAST_SPELL_ERROR_ID) then
@@ -713,11 +701,10 @@ end
 lole_frame:SetScript("OnUpdate", function()
 
 	if not query_injected() then 
-		return 
+		return update_injected_status(false)
 	else
-		report_lua_registered()
+		update_injected_status(true)
 	end
-
 	--update_spell_error_status()
 
 	if every_4th_frame == 0 then
@@ -739,7 +726,6 @@ lole_frame:SetScript("OnUpdate", function()
 		set_button_states()
 		check_durability()
 
-		gui_set_injected_status()
 		update_player_pos_text(get_unit_position("player"))
 		update_target_pos_text(get_unit_position("target"))
 

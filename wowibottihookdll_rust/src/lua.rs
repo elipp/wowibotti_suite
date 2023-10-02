@@ -103,6 +103,10 @@ define_lua_const!(
     lua_tonumber,
     (state: lua_State, idx: i32) -> lua_Number);
 
+define_lua_const!(
+    lua_pushnil,
+    (state: lua_State) -> ());
+
 macro_rules! lua_tonumber_f32 {
     ($state:expr, $id:literal) => {
         lua_tonumber($state, $id) as f32
@@ -113,14 +117,9 @@ define_lua_const!(
     lua_dostring,
     (script: *const c_char, _s: *const c_char, taint: u32) -> ());
 
-macro_rules! DoString {
-    ($script:expr) => {
-        lua_dostring(
-            $script.as_ptr() as *const c_char,
-            $script.as_ptr() as *const c_char,
-            0,
-        )
-    };
+pub fn dostring(script: &str) {
+    println!("Running lua_dostring(\"{script}\")");
+    lua_dostring(script.as_ptr() as *const _, script.as_ptr() as *const _, 0);
 }
 
 macro_rules! lua_setglobal {
@@ -136,6 +135,13 @@ macro_rules! lua_register {
     };
 }
 
+macro_rules! lua_unregister {
+    ($lua:expr, $name:expr) => {
+        lua_pushnil($lua);
+        lua_setglobal!($lua, $name as *const c_char);
+    };
+}
+
 macro_rules! lua_getglobal {
     ($lua:expr, $s:expr) => {
         lua_getfield($lua, LUA_GLOBALSINDEX, $s as *const c_char)
@@ -143,12 +149,18 @@ macro_rules! lua_getglobal {
 }
 
 pub fn register_lop_exec() -> LoleResult<()> {
-    unsafe {
-        write_addr(addrs::vfp_max, &[0xEFFFFFFFu32])?;
-    }
+    write_addr(addrs::vfp_max, &[0xEFFFFFFFu32])?;
     let lua = get_lua_State()?;
     lua_register!(lua, b"lop_exec\0".as_ptr(), lop_exec);
     println!("lop_exec registered!");
+    Ok(())
+}
+
+pub fn unregister_lop_exec() -> LoleResult<()> {
+    write_addr(addrs::vfp_max, &[0xEFFFFFFFu32])?;
+    let lua = get_lua_State()?;
+    lua_unregister!(lua, b"lop_exec\0".as_ptr());
+    println!("lop_exec un-registered!");
     Ok(())
 }
 
@@ -312,10 +324,9 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             };
             ctm::add_to_queue(action)?;
         }
-        Opcode::DoString if nargs == 0 => {
+        Opcode::DoString if nargs == 1 => {
             let script = lua_tostring!(lua, 2)?;
-            println!("DoString({script})");
-            DoString!(script);
+            dostring(&script);
         }
         Opcode::GetUnitPosition if nargs == 1 => {
             let om = ObjectManager::new()?;

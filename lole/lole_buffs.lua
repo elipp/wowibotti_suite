@@ -137,6 +137,8 @@ end
 
 -- verbose: either nil or boolean
 function lole_buffcheck(arg, verbose)
+    if true then return nil end -- FIXME FIXME: disabled for now
+    
     if verbose == nil then
         verbose = true;
     end
