@@ -220,7 +220,7 @@ local function config_drop_initialize(self, level)
 	end
 end
 
-DEFAULT_CHAT_FRAME:AddMessage(tostring(config_dropdown))
+-- DEFAULT_CHAT_FRAME:AddMessage(tostring(config_dropdown))
 
 UIDropDownMenu_Initialize(config_dropdown, config_drop_initialize)
 UIDropDownMenu_SetWidth(100, config_dropdown); -- NOTE: in Wotlk, these parameters are in the opposite order
@@ -759,9 +759,6 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 
 		blast_check_settext(" BLAST off!")
 		heal_blast_check_settext( "HEALING off!")
-
-		ClosePetStables()
-		-- ^ this one's hooked too; sets lua_registered = 0 in the DLL, to re-register on reloadui
 
 		lole_frame:UnregisterEvent("ADDON_LOADED");
 

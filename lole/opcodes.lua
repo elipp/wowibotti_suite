@@ -44,7 +44,7 @@ end
 
 function caster_range_check(minrange, maxrange)
 	if not playermode() then
-		if LOP:call(LOP.CASTER_RANGE_CHECK, minrange, maxrange) then
+		if LOP:call(LOP.CasterRangeCheck, minrange, maxrange) then
 			return true
 		else
 			return false
@@ -230,7 +230,7 @@ function get_combat_targets()
 end
 
 function execute_script(script)
-	LOP:call(LOP.EXECUTE, script)
+	LOP:call(LOP.DoString, script)
 end
 
 function enable_wc3mode(enabled)

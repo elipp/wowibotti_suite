@@ -33,7 +33,7 @@ pub fn get_wow_sockobj() -> LoleResult<WowSocket> {
     Ok(WowSocket(sockobj, SOCKET(socket)))
 }
 
-const ENCRYPT_BYTE: Addr = 0x41F610;
+const SARC4_ENCRYPT_BYTE: Addr = 0x41F610;
 
 impl WowSocket {
     pub fn encrypt_packet(&self, packet: &mut [u8]) -> LoleResult<()> {
@@ -51,9 +51,9 @@ impl WowSocket {
                     "call {encrypt_byte:e}",
                     in("ecx") self.0,
                     byte_addr = in(reg) byte_addr,
-                    encrypt_byte = in(reg) ENCRYPT_BYTE,
-                    out("edx") _,
+                    encrypt_byte = in(reg) SARC4_ENCRYPT_BYTE,
                     out("eax") _,
+                    out("edx") _,
                 }
             }
         }
@@ -79,7 +79,7 @@ pub fn pack_guid(mut guid: GUID) -> Box<[u8]> {
 
 const SetFacing: Addr = 0x7B9DE0;
 
-pub fn set_facing_local(angle: f32) -> LoleResult<()> {
+fn set_facing_local(angle: f32) -> LoleResult<()> {
     let om = ObjectManager::new()?;
     let player = om.get_player()?;
     let movement_info = player.get_movement_info();
@@ -90,7 +90,7 @@ pub fn set_facing_local(angle: f32) -> LoleResult<()> {
             in("ecx") movement_info,
             angle = in(reg) angle,
             func_addr = in(reg) SetFacing,
-            out("eax") _, // SetFacing clobbers "eax"
+            out("eax") _,
             out("edx") _,
         }
     }
@@ -99,23 +99,23 @@ pub fn set_facing_local(angle: f32) -> LoleResult<()> {
 
 const MSG_SET_FACING: u16 = 0x00DA;
 
-pub fn set_facing_remote(pos: Vec3, angle: f32) -> LoleResult<()> {
+fn set_facing_remote(pos: Vec3, angle: f32) -> LoleResult<()> {
     let mut packet = vec![0x00, 0x21]; // size "without" header
-    packet.extend_from_slice(&MSG_SET_FACING.to_le_bytes());
-    packet.extend_from_slice(&[0x0; 7]);
+    packet.extend(MSG_SET_FACING.to_le_bytes());
+    packet.extend([0x0; 7]);
+
     let ticks = unsafe { GetTickCount() };
-    packet.extend_from_slice(&ticks.to_le_bytes());
+    packet.extend(ticks.to_le_bytes());
 
-    let xyzr: Vec<_> = [pos.x, pos.y, pos.z, angle]
-        .into_iter()
-        .flat_map(|f| f.to_le_bytes())
-        .collect();
+    packet.extend(
+        [pos.x, pos.y, pos.z, angle]
+            .into_iter()
+            .flat_map(|f| f.to_le_bytes()),
+    );
 
-    packet.extend_from_slice(&xyzr);
+    packet.extend([0x0; 4]);
 
-    packet.extend_from_slice(&[0x0; 4]);
-
-    if packet.len() != 0x23 {
+    if packet.len() != 35 {
         println!("packet.len(): {}\npacket: {packet:x?}", packet.len());
         return Err(LoleError::PacketSynthError(format!(
             "expected packet of size 35, got {}",
@@ -129,9 +129,14 @@ pub fn set_facing_remote(pos: Vec3, angle: f32) -> LoleResult<()> {
     let res = unsafe { WinSock::send(wowsocket.1, &packet, SEND_RECV_FLAGS(0)) };
     if res < 0 || res as usize != packet.len() {
         return Err(LoleError::SocketSendError(format!(
-            "WinSock::send() returned {res}, while packet len = {}",
+            "WinSock::send() returned {res}, should match packet len (= {})",
             packet.len()
         )));
     }
     Ok(())
+}
+
+pub fn set_facing(pos: Vec3, angle: f32) -> LoleResult<()> {
+    set_facing_local(angle)?;
+    set_facing_remote(pos, angle)
 }

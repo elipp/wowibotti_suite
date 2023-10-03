@@ -6,7 +6,7 @@ use crate::addresses::LUA_Prot_patchaddr;
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority};
 use crate::objectmanager::{ObjectManager, GUID};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
-use crate::socket::{set_facing_local, set_facing_remote};
+use crate::socket::set_facing;
 use crate::vec3::Vec3;
 use crate::{add_repr_and_tryfrom, asm, Addr, LoleError, LoleResult, SHOULD_EJECT};
 
@@ -106,6 +106,14 @@ define_lua_const!(
 define_lua_const!(
     lua_pushnil,
     (state: lua_State) -> ());
+
+define_lua_const!(
+    lua_pushstring,
+    (state: lua_State, str: *const c_char) -> ());
+
+define_lua_const!(
+    lua_pushlstring,
+    (state: lua_State, str: *const c_char, len: usize) -> ());
 
 macro_rules! lua_tonumber_f32 {
     ($state:expr, $id:literal) => {
@@ -240,6 +248,17 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
     let nargs = nargs - 1;
     match lua_tointeger(lua, 1).try_into()? {
         Opcode::Nop => {}
+        Opcode::TargetGuid if nargs == 1 => {
+            let om = ObjectManager::new()?;
+            let guid = om.get_player_target_guid();
+            if guid == 0 {
+                return Ok(0);
+            } else {
+                let guid_str = format!("0x{guid:016X}");
+                lua_pushlstring(lua, guid_str.as_ptr() as *const _, guid_str.len());
+                return Ok(1);
+            }
+        }
         Opcode::Dump => {
             for o in ObjectManager::new()? {
                 println!("{o}");
@@ -289,15 +308,14 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 // TODO: do the if range_min > 2: range_min = range_min - 2 business in Lua
                 let (pp, prot) = player.get_pos_and_rotvec();
                 let (tp, trot) = target.get_pos_and_rotvec();
+
                 let candidate1 = tp + range_min * trot.rotated_2d_cw((1.0 - MELEE_NUKE_ANGLE) * PI);
                 let candidate2 = tp + range_min * trot.rotated_2d_cw((1.0 + MELEE_NUKE_ANGLE) * PI);
-                let ideal = if (candidate1 - pp).length() < (candidate2 - pp).length() {
-                    candidate1
-                } else {
-                    candidate2
-                };
+
+                let ideal = Vec3::select_shorter(candidate1 - pp, candidate2 - pp);
                 let ideal_relative = (ideal - pp).zero_z();
                 let tpdiff = (tp - pp).zero_z();
+
                 match get_melee_position_status(ideal_relative, tpdiff.unit(), prot) {
                     PlayerPosition::TooFar => {
                         ctm::add_to_queue(CtmEvent {
@@ -308,7 +326,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                             hooks: None,
                         })?;
                     }
-                    PlayerPosition::WrongFacing => return Err(LoleError::NotImplemented),
+                    PlayerPosition::WrongFacing => set_facing(pp, tpdiff.to_rot_value())?,
                     _ => {}
                 }
             }
@@ -364,8 +382,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::Debug => {
             let om = ObjectManager::new()?;
             let player = om.get_player()?;
-            set_facing_local(0.0)?;
-            set_facing_remote(player.get_pos(), 0.0)?;
+            set_facing(player.get_pos(), 0.0)?;
         }
         Opcode::EjectDll => {
             *SHOULD_EJECT.lock().expect("SHOULD_EJECT lock") = true;

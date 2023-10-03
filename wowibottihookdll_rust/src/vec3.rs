@@ -78,6 +78,9 @@ impl Vec3 {
             z: 0.0,
         }
     }
+    pub fn to_rot_value(self) -> f32 {
+        self.y.atan2(self.x)
+    }
     pub fn dot(a: Self, b: Self) -> f32 {
         a.x * b.x + a.y * b.y + a.z * b.z
     }
@@ -97,6 +100,22 @@ impl Vec3 {
             x: self.x,
             y: self.y,
             z: 0.0,
+        }
+    }
+
+    pub fn select_longer(a: Vec3, b: Vec3) -> Vec3 {
+        if a.length() > b.length() {
+            a
+        } else {
+            b
+        }
+    }
+
+    pub fn select_shorter(a: Vec3, b: Vec3) -> Vec3 {
+        if a.length() < b.length() {
+            a
+        } else {
+            b
         }
     }
 }

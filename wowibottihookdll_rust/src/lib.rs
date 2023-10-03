@@ -1,5 +1,4 @@
-use std::mem::size_of;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::Mutex;
 use std::time::Duration;
 
 use lua::{register_lop_exec_if_not_registered, unregister_lop_exec, Opcode};

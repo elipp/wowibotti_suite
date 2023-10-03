@@ -149,8 +149,11 @@ function lole_buffcheck(arg, verbose)
     end
 
     local buffname_timeleft_map = {}
+    -- Wotlk: local unit_buff = UnitAura
+    local unit_buff = UnitBuff
+    
 
-    for i=1,60 do local name, rank, icon, count, debuffType, duration, expirationTime = UnitAura("player", i) -- |HARMFUL|PASSIVE"); -- not needed really
+    for i=1,60 do local name, rank, icon, count, debuffType, duration, expirationTime = unit_buff("player", i) -- |HARMFUL|PASSIVE"); -- not needed really
         if name then
             local timeleft = expirationTime - GetTime();
             if duration == 0 then

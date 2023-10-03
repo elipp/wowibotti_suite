@@ -98,7 +98,7 @@ function run_to_essenceportal_and_click(name)
   if not success then
     local x, y, z = get_unit_position(GUID)
     echo("spellnpc interaction: walking to object " .. GUID .. ' at (' .. tostring(x) .. ", " .. tostring(y) .. ", " .. tostring(z) .. ")")
-    walk_to(x, y, z, CTM_PRIO_CLEAR_HOLD)
+    walk_to(x, y, z, CtmPrio.ClearHold)
   else
     echo("successfully clicked " .. name .. "!")
     ESSENCE_CLICK_TIME = GetTime()
@@ -112,7 +112,7 @@ local function LEGION_FLAME_AVOID()
       dpos = dpos:unit_scaled(15)
     end
     local walk_pos = TOC_middle:add(dpos:rotated2d(6.28/6))
-    walk_to(walk_pos.x, walk_pos.y, walk_pos.z, CTM_PRIO_FOLLOW)
+    walk_to(walk_pos.x, walk_pos.y, walk_pos.z, CtmPrio.Follow)
   end
 end
 
@@ -166,7 +166,7 @@ local function putricide_ooze_avoid()
       local dwp = wp0:sublength(ppos)
 
       if dwp > 2 then
-        walk_to(wp0.x, wp0.y, wp0.z, CTM_PRIO_NOOVERRIDE)
+        walk_to(wp0.x, wp0.y, wp0.z, CtmPrio.NoOverride)
       end
 
       local dl = opos:sublength(ppos)
@@ -176,7 +176,7 @@ local function putricide_ooze_avoid()
 
     elseif ooze_avoid_level == 1 then
       local wp1 = vec3:create(4403.6, 3199.8, 389.4)
-      walk_to(wp1.x, wp1.y, wp1.z, CTM_PRIO_NOOVERRIDE)
+      walk_to(wp1.x, wp1.y, wp1.z, CtmPrio.NoOverride)
 
       local dl = wp1:sublength(ppos)
       if (dl < 3) then
@@ -185,7 +185,7 @@ local function putricide_ooze_avoid()
 
     elseif ooze_avoid_level == 2 then
       local wp2 = vec3:create(4366.8, 3165.6, 389.4)
-      walk_to(wp2.x, wp2.y, wp2.z, CTM_PRIO_FOLLOW)
+      walk_to(wp2.x, wp2.y, wp2.z, CtmPrio.Follow)
     end
   else
     ooze_avoid_level = 0
@@ -980,7 +980,15 @@ function get_raid_debuffs_by_type(debuff_types)
 
   local matching_debuffs = {}
 
-  local UA = UnitAura -- apparently gives more speed?
+  -- Wotlk:
+  -- local _ua = UnitAura
+  -- local unit_debuff = function(unit, idx)
+  --   return _ua(unit, idx, "HARMFUL")
+  -- end
+
+  -- TBC:
+  local unit_debuff = UnitDebuff
+  
   local RM = GetRealNumRaidMembers()
 
   local dtypes = tokenize_string(debuff_types, ", ")
@@ -990,13 +998,13 @@ function get_raid_debuffs_by_type(debuff_types)
     local debuffs = {}
 
     local a = 1
-    local name,rank,_,_,type = UA(rname, a, "HARMFUL")
+    local name,rank,_,_,type = unit_debuff(rname, a)
     while name do
       if match_any(dtypes, type) then
         table.insert(debuffs, name)
       end
       a = a + 1
-      name,rank,_,_,type = UA(rname, a, "HARMFUL")
+      name,rank,_,_,type = unit_debuff(rname, a)
     end
 
     if not table_empty(debuffs) then

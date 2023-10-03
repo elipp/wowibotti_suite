@@ -149,21 +149,23 @@ local function lole_blast(arg)
 
 end
 
-CTM_PRIO_NONE = 0
-CTM_PRIO_LOW = 1
-CTM_PRIO_REPLACE = 2
-CTM_PRIO_EXCLUSIVE = 3
-CTM_PRIO_FOLLOW = 4
-CTM_PRIO_NOOVERRIDE = 5
-CTM_PRIO_HOLD_POSITION = 6
-CTM_PRIO_CLEAR_HOLD = 7
+CtmPrio = {
+	None = 0,
+	Low = 1,
+	Replace = 2,
+	Exclusive = 3,
+	Follow = 4,
+	NoOverride = 5,
+	HoldPosition = 6,
+	ClearHold = 7,
+}
 
 local function lole_broadcast_ctm(x, y, z)
 
 	local units = get_selected_units()
 
 	for i,n in pairs(units) do
-		lole_subcommands.sendmacro_to(n, "/lole ctm", x, y, z, CTM_PRIO_CLEAR_HOLD);
+		lole_subcommands.sendmacro_to(n, "/lole ctm", x, y, z, CtmPrio.ClearHold);
 	end
 end
 
@@ -172,7 +174,7 @@ local function lole_ctm(x, y, z, prio)
 
 	if lole_subcommands.get("hold") == 0 then
 		walk_to(tonumber(x), tonumber(y), tonumber(z), prio)
-	elseif tonumber(prio) >= CTM_PRIO_CLEAR_HOLD then
+	elseif tonumber(prio) >= CtmPrio.ClearHold then
 		lole_subcommands.set("hold", 0)
 		walk_to(tonumber(x), tonumber(y), tonumber(z), prio)
 	end

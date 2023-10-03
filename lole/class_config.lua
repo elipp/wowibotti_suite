@@ -53,35 +53,20 @@ local available_configs = {
 	default =
 	class_config:create("default", {}, {}, "FFFFFF", function() end, {}, 0, "NONE", function() end),
 
-  death_knight_blood =
-  class_config:create("death_knight_blood", {}, {"Blood Presence", "Horn of Winter"}, get_class_color("death_knight"), combat_death_knight_blood, {"Hysteria", "Army of the Dead"}, ROLES.tank, "TANK", survive_death_knight_blood),
-
-  death_knight_uh =
-  class_config:create("death_knight_uh", {}, {"Blood Presence", "Bone Shield", "Horn of Winter"}, get_class_color("death_knight"), combat_death_knight_uh, {"Summon Gargoyle", "Army of the Dead"}, ROLES.melee, "MELEE", survive_death_knight_uh),
-
-	druid_resto =
-	class_config:create("druid_resto", {"Mark of the Wild", "Thorns"}, {"Tree of Life"}, get_class_color("druid"), combat_druid_resto, {}, ROLES.healer, "HEALER", survive_druid_resto),
+	-- druid_resto =
+	-- class_config:create("druid_resto", {"Mark of the Wild", "Thorns"}, {"Tree of Life"}, get_class_color("druid"), combat_druid_resto, {}, ROLES.healer, "HEALER", survive_druid_resto),
 
 	hunter =
 	class_config:create("hunter", {}, {}, get_class_color("hunter"), combat_hunter, {"Bestial Wrath", "Rapid Fire", "Call of the Wild"}, ROLES.mana_melee, "RANGED", survive_hunter),
 
-	mage_fire =
-	class_config:create("mage_fire", {"Arcane Intellect", "Amplify Magic"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_fire, {"Icy Veins", "Combustion", "Mirror Image"}, ROLES.caster, "RANGED", survive_mage_fire),
+	-- mage_fire =
+	-- class_config:create("mage_fire", {"Arcane Intellect", "Amplify Magic"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_fire, {"Icy Veins", "Combustion", "Mirror Image"}, ROLES.caster, "RANGED", survive_mage_fire),
 
 	paladin_prot =
 	class_config:create("paladin_prot", {}, {"Devotion Aura", "Righteous Fury", "Seal of Command"}, get_class_color("paladin"), combat_paladin_prot, {}, ROLES.mana_tank, "TANK", survive_paladin_prot),
 
-	paladin_holy =
-	class_config:create("paladin_holy", {}, {"Concentration Aura"}, get_class_color("paladin"), combat_paladin_holy, {"Divine Favor", "Divine Illumination"}, ROLES.healer, "HEALER", survive_paladin_holy),
-
-	paladin_retri =
-	class_config:create("paladin_retri", {}, {"Sanctity Aura"}, get_class_color("paladin"), combat_paladin_retri, {"Avenging Wrath"}, ROLES.mana_melee, "MELEE", survive_paladin_retri),
-
 	priest_holy =
 	class_config:create("priest_holy", {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection"}, {"Inner Fire"}, get_class_color("priest"), combat_priest_holy, {"Inner Focus"}, ROLES.healer, "HEALER", survive_priest_holy),
-
-	priest_shadow =
-	class_config:create("priest_shadow", {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection"}, {"Shadowform", "Inner Fire"}, get_class_color("priest"), combat_priest_shadow, {"Inner Focus"}, ROLES.caster, "RANGED", survive_priest_shadow),
 
 	rogue =
 	class_config:create("rogue", {}, {}, get_class_color("rogue"), rogue_combat, {"Adrenaline Rush", "Blade Flurry"}, ROLES.melee, "MELEE", survive_rogue),
@@ -89,11 +74,11 @@ local available_configs = {
 	shaman_resto =
 	class_config:create("shaman_resto", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_resto, {"Bloodlust"}, ROLES.healer, "HEALER", survive_shaman_resto),
 
-  warlock_demo =
-  class_config:create("warlock_demo", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_demo, {"Metamorphosis"}, ROLES.caster, "RANGED", survive_warlock_demo),
+ --  warlock_demo =
+ --  class_config:create("warlock_demo", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_demo, {"Metamorphosis"}, ROLES.caster, "RANGED", survive_warlock_demo),
 
-	warrior_fury =
-	class_config:create("warrior_fury", {}, {"Battle Shout"}, get_class_color("warrior"), combat_warrior_fury, {"Death Wish", "Recklessness"}, ROLES.melee, "MELEE", survive_warrior_fury),
+	-- warrior_fury =
+	-- class_config:create("warrior_fury", {}, {"Battle Shout"}, get_class_color("warrior"), combat_warrior_fury, {"Death Wish", "Recklessness"}, ROLES.melee, "MELEE", survive_warrior_fury),
 
 	warrior_prot =
 	class_config:create("warrior_prot", {}, {"Commanding Shout"}, get_class_color("warrior"), combat_warrior_prot, {}, ROLES.tank, "TANK", survive_warrior_prot),

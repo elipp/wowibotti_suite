@@ -23,7 +23,7 @@ struct MovingAverage<const WindowSize: usize> {
 }
 
 impl<const W: usize> MovingAverage<W> {
-    fn add(&mut self, value: f32) {
+    fn add_sample(&mut self, value: f32) {
         self.data.push_back(value);
         self.sum += value;
         if self.data.len() > W {
@@ -96,7 +96,7 @@ impl CtmQueue {
             let om = ObjectManager::new()?;
             let new_pos = om.get_player()?.get_pos();
             self.average_yards_moved
-                .add((new_pos - self.prev_pos).length());
+                .add_sample((new_pos - self.prev_pos).length());
             if self.average_yards_moved.calculate() < PROBABLY_STUCK_THRESHOLD {
                 if let Some(next) = self.events.pop_front() {
                     next.commit()?;
