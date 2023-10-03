@@ -204,23 +204,20 @@ for k, v in pairs_by_key(get_available_configs()) do
 	drop_configs[#drop_configs + 1] = { unformatted = k, formatted = "|cFF" .. v.color .. k }
 end
 
-local function config_drop_onclick(self)
-	UIDropDownMenu_SetSelectedID(config_dropdown, self:GetID())
-	lole_subcommands.setconfig(self.value)
+local function config_drop_onclick()
+	UIDropDownMenu_SetSelectedID(config_dropdown, this:GetID(), 0)
+	lole_subcommands.setconfig(this.value)
 end
 
 local function config_drop_initialize(self, level)
-	local info = UIDropDownMenu_CreateInfo()
 	for k,v in pairs(drop_configs) do
-		info = UIDropDownMenu_CreateInfo()
+		local info = {}
 		info.text = v.formatted
 		info.value = v.unformatted
 		info.func = config_drop_onclick
 		UIDropDownMenu_AddButton(info, level)
 	end
 end
-
--- DEFAULT_CHAT_FRAME:AddMessage(tostring(config_dropdown))
 
 UIDropDownMenu_Initialize(config_dropdown, config_drop_initialize)
 UIDropDownMenu_SetWidth(100, config_dropdown); -- NOTE: in Wotlk, these parameters are in the opposite order
