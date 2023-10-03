@@ -52,6 +52,8 @@ impl WowSocket {
                     in("ecx") self.0,
                     byte_addr = in(reg) byte_addr,
                     encrypt_byte = in(reg) ENCRYPT_BYTE,
+                    out("edx") _,
+                    out("eax") _,
                 }
             }
         }
@@ -88,7 +90,8 @@ pub fn set_facing_local(angle: f32) -> LoleResult<()> {
             in("ecx") movement_info,
             angle = in(reg) angle,
             func_addr = in(reg) SetFacing,
-            out("eax") _ // SetFacing clobbers "eax"
+            out("eax") _, // SetFacing clobbers "eax"
+            out("edx") _,
         }
     }
     Ok(())

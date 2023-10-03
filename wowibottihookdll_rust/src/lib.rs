@@ -1,5 +1,5 @@
 use std::mem::size_of;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
 use lua::{register_lop_exec_if_not_registered, unregister_lop_exec, Opcode};
@@ -84,8 +84,6 @@ unsafe fn restore_original_stdout() -> windows::core::Result<()> {
     )
 }
 
-// impl From<
-
 fn eject_dll() -> LoleResult<()> {
     let mut patches = ENABLED_PATCHES.lock().expect("ENABLED_PATCHES");
     for patch in patches.drain(..) {
@@ -147,8 +145,12 @@ pub unsafe extern "cdecl" fn EndScene_hook() {
 
         *need_init = false;
     } else {
-        if let Err(e) = main_entrypoint() {
-            println!("Main entrypoint failed with {e:?}");
+        match main_entrypoint() {
+            Ok(_) => {}
+            Err(LoleError::ObjectManagerIsNull) => {}
+            Err(e) => {
+                println!("main_entrypoint: error: {e:?}");
+            }
         }
     }
 }
@@ -178,8 +180,8 @@ pub enum LoleError {
 
 pub type LoleResult<T> = std::result::Result<T, LoleError>;
 
-impl<T> From<PoisonError<T>> for LoleError {
-    fn from(e: PoisonError<T>) -> Self {
+impl<T> From<std::sync::PoisonError<T>> for LoleError {
+    fn from(_: std::sync::PoisonError<T>) -> Self {
         LoleError::MutexLockError
     }
 }

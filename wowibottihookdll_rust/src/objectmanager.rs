@@ -1,6 +1,6 @@
-use std::ffi::{c_char, CStr};
+use std::ffi::{c_char, c_void, CStr};
 
-use crate::patch::deref;
+use crate::patch::{deref, read_elems_from_addr};
 use crate::vec3::Vec3;
 use crate::{add_repr_and_tryfrom, Addr, LoleError, LoleResult};
 
@@ -28,6 +28,8 @@ mod wowobject {
     pub const PosY: Offset = PosX + 0x4;
     pub const PosZ: Offset = PosX + 0x8;
     pub const Rot: Offset = PosX + 0xC;
+
+    pub const MovementInfo: Offset = 0x128;
 
     pub const UnitHealth: Offset = 0x2698;
     pub const UnitMana: Offset = UnitHealth + 0x4;
@@ -89,7 +91,7 @@ impl WowObject {
     pub fn get_name(&self) -> &str {
         match self.get_type() {
             WowObjectType::Npc | WowObjectType::Unit => {
-                let mut result: *const c_char = std::ptr::null();
+                let mut result; // looks so weird, but the compiler is giving a warning :D
                 let base = self.base;
                 let func_addr = addrs::GetUnitOrNPCNameAddr;
                 unsafe {
@@ -100,10 +102,19 @@ impl WowObject {
                         in("ecx") base,
                         func_addr = in(reg) func_addr,
                         result = out(reg) result,
+                        out("eax") _,
+                        out("edx") _,
                     )
                 }
-                cstr_to_str!(result).unwrap_or("!StringError!")
+                cstr_to_str!(result).unwrap_or("(null)")
+
+                // can possibly be refactored to:
+                // let ptr = addrs::GetUnitOrNPCNameAddr as *const ();
+                // let func: extern "thiscall" fn(*mut c_void) -> *const c_char =
+                //     unsafe { std::mem::transmute(ptr) };
+                // cstr_to_str!(func(self.base)).unwrap_or("!StringError!")
             }
+
             _ => "Unknown",
         }
     }
@@ -123,28 +134,23 @@ impl WowObject {
         }
     }
     pub fn get_xyzr(&self) -> [f32; 4] {
-        let m = unsafe { std::slice::from_raw_parts((self.base + wowobject::PosX) as *const _, 4) };
-        [m[0], m[1], m[2], m[3]]
+        read_elems_from_addr::<4, f32>(self.base + wowobject::PosX)
     }
 
     pub fn get_pos(&self) -> Vec3 {
-        let m = unsafe { std::slice::from_raw_parts((self.base + wowobject::PosX) as *const _, 3) };
-        Vec3 {
-            x: m[0],
-            y: m[1],
-            z: m[2],
-        }
+        let [x, y, z] = read_elems_from_addr::<3, f32>(self.base + wowobject::PosX);
+        Vec3 { x, y, z }
     }
     pub fn get_pos_and_rotvec(&self) -> (Vec3, Vec3) {
         let [x, y, z, r] = self.get_xyzr();
         (Vec3 { x, y, z }, Vec3::from_rot_value(r))
     }
     pub fn get_rotvec(&self) -> Vec3 {
-        let [_, _, _, rot] = self.get_xyzr();
+        let rot = deref::<f32, 1>(self.base + wowobject::Rot);
         Vec3::from_rot_value(rot)
     }
-    pub fn get_movement_info(&self) -> Addr {
-        deref::<Addr, 1>(self.base + 0x128)
+    pub fn get_movement_info(&self) -> *const c_void {
+        deref::<_, 1>(self.base + wowobject::MovementInfo)
     }
 }
 

@@ -16,3 +16,8 @@ panic = "abort"
 
 [profile.release]
 panic = "abort"
+
+[profile.release-with-debug]
+inherits = "release"
+debug = true
+strip = false
