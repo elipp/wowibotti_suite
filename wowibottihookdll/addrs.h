@@ -8,7 +8,7 @@
 
 namespace Addresses {
 	namespace Wotlk {
-		enum Addresses {
+		enum {
 			LUA_prot = 0x5191C0,
 			DelIgnore = 0x5BA4B0,
 			DelIgnore_hookaddr = (Wotlk::DelIgnore + 0x11),
@@ -122,7 +122,7 @@ namespace Addresses {
 	}
 
 	namespace TBC {
-		enum Addresses {
+		enum {
 			D3D9Device = 0xD2A15C,
 			D3D9DeviceOffset = 0x3864,
 			ClosePetStables = 0x4FACA0,
@@ -234,7 +234,6 @@ namespace Addresses {
 					lua_pushnumber = 0x0072E1A0,
 					lua_pushinteger = 0x0072E1D0,
 					lua_tolstring = 0x0072DFF0,
-					lua_isstring = 0x0072DE70,
 					lua_pushlstring = 0x0072E200,
 					lua_pushstring = 0x0072E250,
 					lua_pushboolean = 0x0072E3B0,

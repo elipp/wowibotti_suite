@@ -293,7 +293,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                             hooks: None,
                         })?;
                     }
-                    PlayerPosition::WrongFacing => return Err(LoleError::NotImplemented),
+                    PlayerPosition::WrongFacing => set_facing(pp, tpdiff.to_rot_value())?,
                     PlayerPosition::Ok => {}
                 }
             }
@@ -312,7 +312,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 let candidate1 = tp + range_min * trot.rotated_2d_cw((1.0 - MELEE_NUKE_ANGLE) * PI);
                 let candidate2 = tp + range_min * trot.rotated_2d_cw((1.0 + MELEE_NUKE_ANGLE) * PI);
 
-                let ideal = Vec3::select_shorter(candidate1 - pp, candidate2 - pp);
+                let ideal = pp.select_closer(candidate1, candidate2);
                 let ideal_relative = (ideal - pp).zero_z();
                 let tpdiff = (tp - pp).zero_z();
 

@@ -29,8 +29,6 @@ lua_State *get_lua_State() {
 }
 
 int register_lop_exec() {
-	INVALID_HANDLE_VALUE;
-
 	auto state = get_lua_State();
 
 	// explanation: there's a check during lua_register that ensures the jump address lies within

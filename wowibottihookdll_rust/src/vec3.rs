@@ -118,4 +118,12 @@ impl Vec3 {
             b
         }
     }
+
+    pub fn select_closer(&self, a: Vec3, b: Vec3) -> Vec3 {
+        if (*self - a).length() < (*self - b).length() {
+            a
+        } else {
+            b
+        }
+    }
 }
