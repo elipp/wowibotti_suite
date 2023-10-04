@@ -9,21 +9,28 @@ use crate::objectmanager::{ObjectManager, GUID, NO_TARGET};
 use crate::patch::{
     copy_original_opcodes, read_elems_from_addr, write_addr, InstructionBuffer, Patch, PatchKind,
 };
+use crate::socket::set_facing;
 use crate::vec3::Vec3;
 use crate::{asm, Addr, LoleError, LoleResult, Offset};
 
 lazy_static! {
-    static ref QUEUE: Mutex<CtmQueue> = Mutex::new(Default::default());
+    static ref QUEUE: Mutex<CtmQueue> = Mutex::new(CtmQueue {
+        events: Default::default(),
+        current: None,
+        prev_pos: Default::default(),
+        last_frame_time: std::time::Instant::now(),
+    });
 }
 
 #[derive(Debug, Default)]
-struct MovingAverage<const WindowSize: usize> {
+pub struct MovingAverage<const WINDOW_SIZE: usize> {
     data: VecDeque<f32>,
     sum: f32,
 }
 
 impl<const W: usize> MovingAverage<W> {
     fn add_sample(&mut self, value: f32) {
+        println!("adding sample {value}, {}", self.data.len());
         self.data.push_back(value);
         self.sum += value;
         if self.data.len() > W {
@@ -38,14 +45,18 @@ impl<const W: usize> MovingAverage<W> {
         }
         self.sum / self.data.len() as f32
     }
+
+    pub fn window_full(&self) -> bool {
+        self.data.len() == W
+    }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct CtmQueue {
     events: VecDeque<CtmEvent>,
     current: Option<CtmEvent>,
-    average_yards_moved: MovingAverage<10>,
     prev_pos: Vec3,
+    last_frame_time: std::time::Instant,
 }
 
 impl Ord for CtmPriority {
@@ -66,7 +77,7 @@ pub fn get_wow_ctm_target_pos() -> Vec3 {
     Vec3 { x, y, z }
 }
 
-const PROBABLY_STUCK_THRESHOLD: f32 = 0.5;
+const PROBABLY_STUCK_THRESHOLD: f32 = 4.0;
 
 impl CtmQueue {
     fn current_highest_priority(&self) -> CtmPriority {
@@ -77,38 +88,42 @@ impl CtmQueue {
             .unwrap_or(CtmPriority::None)
     }
     fn add_to_queue(&mut self, ev: CtmEvent) -> LoleResult<()> {
-        let highest = self.current_highest_priority();
-        if highest == CtmPriority::NoOverride {
-            return Ok(());
+        if let Some(ref current) = self.current {
+            if ev.priority < current.priority {
+                return Ok(());
+            }
         }
-        if ev.priority == CtmPriority::Low && highest == CtmPriority::Low {
-            self.events.push_back(ev);
-        } else if highest < ev.priority {
-            self.events = VecDeque::new();
-            ev.commit()?;
-            self.current = Some(ev);
-        }
-        self.average_yards_moved = MovingAverage::default();
+        ev.commit()?;
+        self.current = Some(ev);
+
         Ok(())
     }
     fn poll(&mut self) -> LoleResult<()> {
-        if self.current.is_some() {
+        // let prev_frame_time = self.last_frame_time;
+        self.last_frame_time = std::time::Instant::now();
+        if let Some(current) = self.current.as_mut() {
             let om = ObjectManager::new()?;
             let new_pos = om.get_player()?.get_pos();
-            self.average_yards_moved
-                .add_sample((new_pos - self.prev_pos).length());
-            if self.average_yards_moved.calculate() < PROBABLY_STUCK_THRESHOLD {
-                if let Some(next) = self.events.pop_front() {
-                    next.commit()?;
-                    self.current = Some(next);
-                } else {
-                    // todo!() write 0D and current coords etc.
-                }
-            }
+            // let dt = (self.last_frame_time - prev_frame_time).as_secs_f32();
+            // current
+            //     .yards_moved
+            //     .add_sample((new_pos - self.prev_pos).length() / dt);
+
+            // if current.probably_stuck() {
+            //     if let Some(next) = self.events.pop_front() {
+            //         next.commit()?;
+            //         self.current = Some(next);
+            //     } else {
+            //         // todo!() write 0D and current coords etc.
+            //     }
+            // }
             self.prev_pos = new_pos;
         }
 
         Ok(())
+    }
+    pub fn advance(&mut self) {
+        self.current = self.events.pop_front();
     }
 }
 
@@ -177,6 +192,7 @@ add_repr_and_tryfrom! {
 
 #[derive(Debug)]
 pub enum CtmPostHook {
+    FaceTarget(Vec3, f32),
     PullMob(GUID),
     SetTargetAndBlast(GUID),
 }
@@ -188,6 +204,20 @@ pub struct CtmEvent {
     pub action: CtmAction,
     pub interact_guid: Option<GUID>,
     pub hooks: Option<Vec<CtmPostHook>>,
+    pub yards_moved: MovingAverage<25>,
+}
+
+impl Default for CtmEvent {
+    fn default() -> Self {
+        Self {
+            target_pos: Vec3::default(),
+            priority: CtmPriority::None,
+            action: CtmAction::Move,
+            interact_guid: None,
+            hooks: None,
+            yards_moved: MovingAverage::default(),
+        }
+    }
 }
 
 impl CtmEvent {
@@ -231,6 +261,11 @@ impl CtmEvent {
         write_addr(ctm::addrs::ACTION, &[action])?;
         Ok(())
     }
+    pub fn probably_stuck(&self) -> bool {
+        let moved = self.yards_moved.calculate();
+        println!("moved: {moved}");
+        self.yards_moved.window_full() && moved < PROBABLY_STUCK_THRESHOLD
+    }
 }
 
 pub fn add_to_queue(action: CtmEvent) -> LoleResult<()> {
@@ -239,20 +274,28 @@ pub fn add_to_queue(action: CtmEvent) -> LoleResult<()> {
     Ok(())
 }
 
+pub fn event_in_progress() -> LoleResult<bool> {
+    let ctm = QUEUE.lock()?;
+    Ok(ctm.current.is_some())
+}
+
 pub fn poll() -> LoleResult<()> {
     let mut ctm = QUEUE.lock()?;
     ctm.poll()
 }
 
 unsafe extern "C" fn ctm_finished() {
-    if let Ok(mut ctm) = QUEUE.lock() {
-        if let Some(current) = ctm.current.take() {
+    if let Ok(mut ctm_queue) = QUEUE.lock() {
+        if let Some(current) = ctm_queue.current.take() {
+            println!("ctm finished! removed {current:?}");
             let wow_internal_target_pos = get_wow_ctm_target_pos();
             if (current.target_pos - wow_internal_target_pos).length() > 2.0 {
                 chatframe_print("warning: internal & CtmQueue target coordinates don't match");
             }
             if let Some(hooks) = current.hooks {
-                todo!();
+                if let Some(CtmPostHook::FaceTarget(pos, rot)) = hooks.iter().next() {
+                    set_facing(*pos, *rot).expect("set_facing");
+                }
             }
         }
     } else {

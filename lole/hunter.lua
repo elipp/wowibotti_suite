@@ -59,6 +59,9 @@ end
 
 function combat_hunter()
 
+  melee_attack_behind(1.5)
+  if true then return end
+
   if not petframe_dummy then
     petframe_dummy = CreateFrame("frame",nil, UIParent)
     petframe_dummy:SetScript("OnUpdate", petfollow_default)
@@ -94,9 +97,10 @@ function combat_hunter()
 
   ----------------------------------------------------------------
 
-  if not validate_target() then return end -- DEFAULT
+  -- if not validate_target() then return end -- DEFAULT
 
   caster_range_check(11,35)
+
 
   --local BEST_ASPECT = "Aspect of the Dragonhawk"
   local BEST_ASPECT = "Aspect of the Wild"

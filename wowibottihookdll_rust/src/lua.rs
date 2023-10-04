@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use std::ffi::{c_char, c_void, CStr};
 
 use crate::addresses::LUA_Prot_patchaddr;
-use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority};
+use crate::ctm::{self, CtmAction, CtmEvent, CtmPostHook, CtmPriority};
 use crate::objectmanager::{ObjectManager, GUID};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
 use crate::socket::set_facing;
@@ -227,10 +227,10 @@ fn get_caster_position_status(
     tpdiff: Vec3,
     prot_unit: Vec3,
 ) -> PlayerPosition {
-    let diff_len = tpdiff.length();
-    if diff_len >= range_max {
+    let distance_from_target = tpdiff.length();
+    if distance_from_target >= range_max {
         PlayerPosition::TooFar
-    } else if diff_len < range_min {
+    } else if distance_from_target < range_min {
         PlayerPosition::TooNear
     } else if Vec3::dot(tpdiff.unit(), prot_unit) < 0.99 {
         PlayerPosition::WrongFacing
@@ -266,8 +266,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         }
         Opcode::CasterRangeCheck if nargs == 2 => {
             let om = ObjectManager::new()?;
-            let (player, target) = om.get_player_and_target()?;
-            if let Some(target) = target {
+            if let (player, Some(target)) = om.get_player_and_target()? {
                 let range_min = lua_tonumber_f32!(lua, 2);
                 let range_max = lua_tonumber_f32!(lua, 3);
                 let (pp, prot) = player.get_pos_and_rotvec();
@@ -280,8 +279,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                             target_pos: tp - (range_min + 2.0) * tpdiff_unit,
                             priority: CtmPriority::Replace,
                             action: CtmAction::Move,
-                            interact_guid: None,
-                            hooks: None,
+                            ..Default::default()
                         })?;
                     }
                     PlayerPosition::TooFar => {
@@ -289,11 +287,14 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                             target_pos: tp - (range_max - 2.0) * tpdiff_unit,
                             priority: CtmPriority::Replace,
                             action: CtmAction::Move,
-                            interact_guid: None,
-                            hooks: None,
+                            ..Default::default()
                         })?;
                     }
-                    PlayerPosition::WrongFacing => set_facing(pp, tpdiff.to_rot_value())?,
+                    PlayerPosition::WrongFacing => {
+                        if !ctm::event_in_progress()? {
+                            set_facing(pp, tpdiff.to_rot_value())?;
+                        }
+                    }
                     PlayerPosition::Ok => {}
                 }
             }
@@ -322,8 +323,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                             target_pos: ideal + 0.5 * prot,
                             priority: CtmPriority::Replace,
                             action: CtmAction::Move,
-                            interact_guid: None,
-                            hooks: None,
+                            ..Default::default()
                         })?;
                     }
                     PlayerPosition::WrongFacing => set_facing(pp, tpdiff.to_rot_value())?,
@@ -341,8 +341,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 target_pos: Vec3 { x, y, z },
                 priority: prio.try_into()?,
                 action: CtmAction::Move,
-                interact_guid: None,
-                hooks: None,
+                ..Default::default()
             };
             ctm::add_to_queue(action)?;
         }

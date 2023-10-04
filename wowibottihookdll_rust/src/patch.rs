@@ -93,7 +93,7 @@ impl Patch {
         }
     }
 
-    pub unsafe fn commit(&self, patch: &InstructionBuffer) -> LoleResult<()> {
+    unsafe fn commit(&self, patch: &InstructionBuffer) -> LoleResult<()> {
         write_addr(self.patch_addr, patch.instr_slice())
     }
 
