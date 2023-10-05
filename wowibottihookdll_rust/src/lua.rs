@@ -403,7 +403,7 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
 }
 
 pub fn chatframe_print(msg: &str) {
-    dostring(&format!("DEFAULT_CHAT_FRAME:AddMessage(\"[dll]: {msg}\")"))
+    dostring(&format!("DEFAULT_CHAT_FRAME:AddMessage(\"[DLL]: {msg}\")"))
 }
 
 pub fn get_lua_State() -> LoleResult<lua_State> {

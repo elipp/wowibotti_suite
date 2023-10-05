@@ -1,5 +1,7 @@
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+use windows::Win32::System::Threading::ExitProcess;
+use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
 use lua::{register_lop_exec_if_not_registered, unregister_lop_exec, Opcode};
 use patch::prepare_endscene_trampoline;
@@ -22,7 +24,11 @@ lazy_static! {
     pub static ref DLL_HANDLE: Mutex<HINSTANCE> = Mutex::new(HINSTANCE(0));
     pub static ref CONSOLE_CONOUT: Mutex<HANDLE> = Mutex::new(HANDLE(0));
     pub static ref ORIGINAL_STDOUT: Mutex<HANDLE> = Mutex::new(HANDLE(0));
+    pub static ref LAST_FRAME_TIME: Mutex<std::time::Instant> =
+        Mutex::new(std::time::Instant::now());
 }
+
+// thread_local! { RefCell could do the trick! }
 
 type Addr = u32;
 type Offset = u32;
@@ -46,6 +52,15 @@ pub fn wide_null(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
 }
 
+macro_rules! global_var {
+    ($name:ident) => {
+        match $name.lock() {
+            Ok(lock) => lock,
+            Err(e) => unsafe { fatal_error_exit(e.into()) },
+        }
+    };
+}
+
 // this is pre-AllocConsole era :D
 #[macro_export]
 macro_rules! dump_to_logfile {
@@ -62,10 +77,16 @@ macro_rules! dump_to_logfile {
     }}
 }
 
+macro_rules! windows_string {
+    ($s:expr) => {
+        PCWSTR::from_raw(wide_null($s).as_ptr())
+    };
+}
+
 fn reopen_stdout() -> windows::core::Result<HANDLE> {
     unsafe {
         CreateFileW(
-            PCWSTR::from_raw(wide_null("CONOUT$").as_ptr()),
+            windows_string!("CONOUT$"),
             (GENERIC_READ | GENERIC_WRITE).0,
             FILE_SHARE_WRITE,
             None,
@@ -77,72 +98,91 @@ fn reopen_stdout() -> windows::core::Result<HANDLE> {
 }
 
 unsafe fn restore_original_stdout() -> windows::core::Result<()> {
-    SetStdHandle(
-        STD_OUTPUT_HANDLE,
-        *ORIGINAL_STDOUT.lock().expect("ORIGINAL_STDOUT"),
-    )
+    SetStdHandle(STD_OUTPUT_HANDLE, *global_var!(ORIGINAL_STDOUT))
 }
 
-fn eject_dll() -> LoleResult<()> {
-    let mut patches = ENABLED_PATCHES.lock().expect("ENABLED_PATCHES");
+unsafe fn eject_dll() -> LoleResult<()> {
+    let mut patches = global_var!(ENABLED_PATCHES);
     for patch in patches.drain(..) {
-        patch.disable().expect("disable patch");
+        patch.disable()?;
     }
     unregister_lop_exec()?;
-    unsafe {
-        restore_original_stdout().expect("original stdout");
-        CloseHandle(*CONSOLE_CONOUT.lock().unwrap()).unwrap();
-        FreeConsole().expect("FreeConsole");
-    }
-    std::thread::spawn(|| unsafe {
-        FreeLibraryAndExitThread(DLL_HANDLE.lock().expect("DLL_HANDLE").clone(), 0);
+    restore_original_stdout()?;
+    CloseHandle(*global_var!(CONSOLE_CONOUT))?;
+    FreeConsole()?;
+    std::thread::spawn(|| {
+        FreeLibraryAndExitThread(global_var!(DLL_HANDLE).clone(), 0);
     });
     Ok(())
 }
 
+const ONE_SIXTIETH: Duration = Duration::from_micros((950000.0 / 60.0) as u64);
+
 fn main_entrypoint() -> LoleResult<()> {
-    if *SHOULD_EJECT.lock().expect("SHOULD_EJECT") {
-        eject_dll()?;
-    } else {
-        register_lop_exec_if_not_registered()?;
-        ctm::poll()?;
+    let mut last_frame_time = global_var!(LAST_FRAME_TIME);
+    register_lop_exec_if_not_registered()?;
+    ctm::poll()?;
+    if let Some(dt) = ONE_SIXTIETH.checked_sub(last_frame_time.elapsed()) {
+        std::thread::sleep(dt);
     }
+    *last_frame_time = Instant::now();
     Ok(())
+}
+
+unsafe fn initialize_dll() -> LoleResult<()> {
+    AllocConsole()?;
+
+    let original_stdout = GetStdHandle(STD_OUTPUT_HANDLE)?;
+    *global_var!(ORIGINAL_STDOUT) = original_stdout;
+
+    let conout = reopen_stdout()?;
+    *global_var!(CONSOLE_CONOUT) = conout;
+
+    SetStdHandle(STD_OUTPUT_HANDLE, conout)?;
+
+    let mut patches = global_var!(ENABLED_PATCHES);
+
+    let lua_prot = prepare_lua_prot_patch();
+    lua_prot.enable()?;
+    patches.push(lua_prot);
+
+    let ctm_finished = prepare_ctm_finished_patch();
+    ctm_finished.enable()?;
+    patches.push(ctm_finished);
+
+    register_lop_exec()?;
+
+    println!("wowibottihookdll_rust: init done! :D enabled_patches:");
+
+    for p in patches.iter() {
+        println!("* {} @ 0x{:08X}", p.name, p.patch_addr);
+    }
+
+    Ok(())
+}
+
+unsafe fn fatal_error_exit(err: LoleError) -> ! {
+    MessageBoxW(
+        HWND(0),
+        windows_string!(&format!("{err:?}")),
+        windows_string!("wowibottihookdll_rust error :("),
+        MB_OK | MB_ICONERROR, // MB_OK apparently waits for the user to click OK
+    );
+    ExitProcess(1);
 }
 
 #[no_mangle]
 pub unsafe extern "cdecl" fn EndScene_hook() {
-    let mut need_init = NEED_INIT.lock().expect("NEED_INIT mutex");
+    let mut need_init = global_var!(NEED_INIT);
     if *need_init {
-        AllocConsole().expect("AllocConsole");
-
-        let original_stdout = GetStdHandle(STD_OUTPUT_HANDLE).expect("stdout");
-        *ORIGINAL_STDOUT.lock().expect("ORIGINAL_STDOUT") = original_stdout;
-
-        let conout = reopen_stdout().expect("CONOUT$");
-        *CONSOLE_CONOUT.lock().unwrap() = conout;
-
-        SetStdHandle(STD_OUTPUT_HANDLE, conout).expect("Reopen CONOUT$");
-
-        let mut patches = ENABLED_PATCHES
-            .lock()
-            .expect("write lock for ENABLED_PATCHES");
-
-        let lua_prot = prepare_lua_prot_patch();
-        lua_prot.enable().expect("lua_prot");
-        patches.push(lua_prot);
-
-        let ctm_finished = prepare_ctm_finished_patch();
-        ctm_finished.enable().expect("ctm_finished");
-        patches.push(ctm_finished);
-
-        register_lop_exec().expect("lop_exec");
-        println!("wowibottihookdll_rust: init done! :D enabled_patches:");
-        for p in patches.iter() {
-            println!("* {} @ 0x{:08X}", p.name, p.patch_addr);
+        if let Err(e) = initialize_dll() {
+            fatal_error_exit(e);
         }
-
         *need_init = false;
+    } else if *global_var!(SHOULD_EJECT) {
+        if let Err(e) = eject_dll() {
+            fatal_error_exit(e);
+        }
     } else {
         match main_entrypoint() {
             Ok(_) => {}
@@ -157,6 +197,7 @@ pub unsafe extern "cdecl" fn EndScene_hook() {
 #[derive(Debug)]
 pub enum LoleError {
     PatchError(String),
+    WindowsError(String),
     ClientConnectionIsNull,
     ObjectManagerIsNull,
     PlayerNotFound,
@@ -185,22 +226,25 @@ impl<T> From<std::sync::PoisonError<T>> for LoleError {
     }
 }
 
+impl From<windows::core::Error> for LoleError {
+    fn from(err: windows::core::Error) -> Self {
+        Self::WindowsError(format!("{err:?}"))
+    }
+}
+
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]
-extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) -> bool {
+unsafe extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) -> bool {
     match call_reason {
         DLL_PROCESS_ATTACH => {
             let tramp = prepare_endscene_trampoline();
-            unsafe {
-                tramp.enable().expect("EndScene patch");
+            if let Err(e) = tramp.enable() {
+                fatal_error_exit(e);
             }
-            ENABLED_PATCHES
-                .lock()
-                .expect("ENABLED_PATCHES mutex")
-                .push(tramp);
-            *DLL_HANDLE.lock().unwrap() = dll_module;
+            global_var!(ENABLED_PATCHES).push(tramp);
+            *global_var!(DLL_HANDLE) = dll_module;
         }
-        // DLL_PROCESS_DETACH => ),
+        // DLL_PROCESS_DETACH => {},
         _ => (),
     }
 

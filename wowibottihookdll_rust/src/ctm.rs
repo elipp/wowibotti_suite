@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::f32::consts::PI;
-use std::sync::{LockResult, Mutex, PoisonError};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use lazy_static::lazy_static;
 
@@ -18,7 +19,8 @@ lazy_static! {
         events: Default::default(),
         current: None,
         prev_pos: Default::default(),
-        last_frame_time: std::time::Instant::now(),
+        last_frame_time: Instant::now(),
+        yards_moved: Default::default(),
     });
 }
 
@@ -30,7 +32,6 @@ pub struct MovingAverage<const WINDOW_SIZE: usize> {
 
 impl<const W: usize> MovingAverage<W> {
     fn add_sample(&mut self, value: f32) {
-        println!("adding sample {value}, {}", self.data.len());
         self.data.push_back(value);
         self.sum += value;
         if self.data.len() > W {
@@ -54,9 +55,10 @@ impl<const W: usize> MovingAverage<W> {
 #[derive(Debug)]
 struct CtmQueue {
     events: VecDeque<CtmEvent>,
-    current: Option<CtmEvent>,
+    current: Option<(CtmEvent, Instant)>,
     prev_pos: Vec3,
-    last_frame_time: std::time::Instant,
+    last_frame_time: Instant,
+    yards_moved: MovingAverage<25>,
 }
 
 impl Ord for CtmPriority {
@@ -78,52 +80,78 @@ pub fn get_wow_ctm_target_pos() -> Vec3 {
 }
 
 const PROBABLY_STUCK_THRESHOLD: f32 = 4.0;
+const CTM_COOLDOWN: Duration = Duration::from_millis(250);
+const ALMOST_IDENTICAL_TARGET_POS_THRESHOLD: f32 = 0.2;
 
 impl CtmQueue {
-    fn current_highest_priority(&self) -> CtmPriority {
-        self.events
-            .iter()
-            .map(|ev| ev.priority)
-            .max()
-            .unwrap_or(CtmPriority::None)
-    }
     fn add_to_queue(&mut self, ev: CtmEvent) -> LoleResult<()> {
-        if let Some(ref current) = self.current {
+        if let Some((current, start_time)) = self.current.as_ref() {
             if ev.priority < current.priority {
                 return Ok(());
+            } else {
+                let dist = (ev.target_pos - current.target_pos).length();
+                if ev.priority > current.priority
+                    || (start_time.elapsed() > CTM_COOLDOWN
+                        && dist > ALMOST_IDENTICAL_TARGET_POS_THRESHOLD)
+                {
+                    self.replace_current(ev)?;
+                }
             }
+        } else {
+            self.replace_current(ev)?;
         }
+        Ok(())
+    }
+    fn replace_current(&mut self, ev: CtmEvent) -> LoleResult<()> {
         ev.commit()?;
-        self.current = Some(ev);
+        self.current = Some((ev, Instant::now()));
+        Ok(())
+    }
+    fn abort_current(&mut self) -> LoleResult<()> {
+        // 00612A53  |.  891D C089D600 MOV DWORD PTR DS:[0D689C0],EBX
+        // 00612A59  |.  D91D 9889D600 FSTP DWORD PTR DS:[0D68998]              ; FLOAT 0.0
+        // 00612A5F  |.  891D C489D600 MOV DWORD PTR DS:[0D689C4],EBX
+        // 00612A65  |.  891D C889D600 MOV DWORD PTR DS:[0D689C8],EBX
+        // 00612A6B  |.  891D 9C89D600 MOV DWORD PTR DS:[0D6899C],EBX
+        // 00612A71  |.  C705 BC89D600 MOV DWORD PTR DS:[0D689BC],0D
 
+        // No idea what these represent, but ^this is what
+        // "ctm_finished" does in case action == 0xD
+
+        write_addr::<i32>(0xD689C0, &[0, 0, 0])?; // C0 to C8
+        write_addr::<i32>(0xD68998, &[0, 0])?; // 98 and 9C
+        write_addr::<i32>(ctm::addrs::ACTION, &[CtmAction::Done as i32])?;
+        self.advance();
         Ok(())
     }
     fn poll(&mut self) -> LoleResult<()> {
-        // let prev_frame_time = self.last_frame_time;
-        self.last_frame_time = std::time::Instant::now();
-        if let Some(current) = self.current.as_mut() {
-            let om = ObjectManager::new()?;
-            let new_pos = om.get_player()?.get_pos();
-            // let dt = (self.last_frame_time - prev_frame_time).as_secs_f32();
-            // current
-            //     .yards_moved
-            //     .add_sample((new_pos - self.prev_pos).length() / dt);
+        let prev_frame_time = self.last_frame_time;
+        self.last_frame_time = Instant::now();
 
-            // if current.probably_stuck() {
-            //     if let Some(next) = self.events.pop_front() {
-            //         next.commit()?;
-            //         self.current = Some(next);
-            //     } else {
-            //         // todo!() write 0D and current coords etc.
-            //     }
-            // }
-            self.prev_pos = new_pos;
+        let om = ObjectManager::new()?;
+        let new_pos = om.get_player()?.get_pos();
+
+        let dt = prev_frame_time.elapsed().as_secs_f32().max(0.001);
+        self.yards_moved
+            .add_sample((new_pos - self.prev_pos).length() / dt);
+
+        self.prev_pos = new_pos;
+
+        if let Some((_, start_time)) = self.current.as_mut() {
+            if start_time.elapsed() > Duration::from_secs(3)
+                && self.yards_moved.calculate() < PROBABLY_STUCK_THRESHOLD
+            {
+                chatframe_print("we're probably stuck, aborting current CtmEvent");
+                self.abort_current()?;
+            }
         }
 
         Ok(())
     }
     pub fn advance(&mut self) {
-        self.current = self.events.pop_front();
+        if let Some(ev) = self.events.pop_front() {
+            self.current = Some((ev, Instant::now()));
+        }
     }
 }
 
@@ -204,7 +232,6 @@ pub struct CtmEvent {
     pub action: CtmAction,
     pub interact_guid: Option<GUID>,
     pub hooks: Option<Vec<CtmPostHook>>,
-    pub yards_moved: MovingAverage<25>,
 }
 
 impl Default for CtmEvent {
@@ -215,7 +242,6 @@ impl Default for CtmEvent {
             action: CtmAction::Move,
             interact_guid: None,
             hooks: None,
-            yards_moved: MovingAverage::default(),
         }
     }
 }
@@ -261,11 +287,6 @@ impl CtmEvent {
         write_addr(ctm::addrs::ACTION, &[action])?;
         Ok(())
     }
-    pub fn probably_stuck(&self) -> bool {
-        let moved = self.yards_moved.calculate();
-        println!("moved: {moved}");
-        self.yards_moved.window_full() && moved < PROBABLY_STUCK_THRESHOLD
-    }
 }
 
 pub fn add_to_queue(action: CtmEvent) -> LoleResult<()> {
@@ -286,7 +307,7 @@ pub fn poll() -> LoleResult<()> {
 
 unsafe extern "C" fn ctm_finished() {
     if let Ok(mut ctm_queue) = QUEUE.lock() {
-        if let Some(current) = ctm_queue.current.take() {
+        if let Some((current, _)) = ctm_queue.current.take() {
             println!("ctm finished! removed {current:?}");
             let wow_internal_target_pos = get_wow_ctm_target_pos();
             if (current.target_pos - wow_internal_target_pos).length() > 2.0 {
