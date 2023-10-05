@@ -39,13 +39,13 @@ impl InstructionBuffer {
 
     pub fn push_slice(&mut self, slice: &[u8]) {
         self.instructions[self.current_offset..self.current_offset + slice.len()]
-            .copy_from_slice(&slice);
+            .copy_from_slice(slice);
         self.current_offset += slice.len();
     }
 
     pub fn push_call_to(&mut self, to: Addr) {
         self.push(asm::CALL);
-        let target = to - (self.get_address() as u32 + self.current_offset as u32) - 4;
+        let target = to - (self.get_address() as Addr + self.current_offset) - 4;
         self.push_slice(&target.to_le_bytes());
     }
 
@@ -54,8 +54,8 @@ impl InstructionBuffer {
         self.current_offset += 1;
     }
 
-    pub fn push_default_return(&mut self, patch_addr: u32, patch_size: usize) {
-        let target = patch_addr + patch_size as u32;
+    pub fn push_default_return(&mut self, patch_addr: Addr, patch_size: usize) {
+        let target = patch_addr + patch_size;
         self.push(asm::PUSH);
         self.push_slice(&target.to_le_bytes());
         self.push(asm::RET);
@@ -152,7 +152,7 @@ pub fn write_addr<T: Sized + Copy + std::fmt::Debug>(addr: Addr, data: &[T]) -> 
             GetCurrentProcess(),
             addr as *const _,
             data.as_ptr() as *const _,
-            data.len() * size_of::<T>(),
+            std::mem::size_of_val(data),
             Some(&mut bytes_written),
         )
         .map_err(|_| LoleError::MemoryWriteError)?;
@@ -181,7 +181,7 @@ pub fn prepare_endscene_trampoline() -> Patch {
 
     let mut instruction_buffer = InstructionBuffer::new();
     instruction_buffer.push(asm::PUSHAD);
-    instruction_buffer.push_call_to(EndScene_hook as u32);
+    instruction_buffer.push_call_to(EndScene_hook as usize);
     instruction_buffer.push(asm::POPAD);
     instruction_buffer.push_slice(&original_opcodes);
     instruction_buffer.push_default_return(EndScene, 7);

@@ -216,7 +216,7 @@ impl ObjectManager {
             deref::<Addr, 1>(client_connection + objectmanager::CurrentObjectManager);
 
         if current_object_manager_base == 0 {
-            return Err(LoleError::ObjectManagerIsNull);
+            Err(LoleError::ObjectManagerIsNull)
         } else {
             Ok(Self {
                 base: current_object_manager_base,
@@ -236,7 +236,7 @@ impl ObjectManager {
         let local_guid = self.get_local_guid();
         self.iter()
             .find(|w| w.get_guid() == local_guid)
-            .ok_or_else(|| LoleError::PlayerNotFound)
+            .ok_or(LoleError::PlayerNotFound)
     }
     pub fn get_player_and_target(&self) -> LoleResult<(WowObject, Option<WowObject>)> {
         let player = self.get_player()?;

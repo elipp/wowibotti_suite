@@ -14,6 +14,8 @@ use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS, SOCKET};
 
 pub type lua_State = *mut c_void;
 
+const NO_RETVALS: i32 = 0;
+
 // now that we're using `transmute`, this could be `const` -- edit: can't be const, compiler complains that `it's UB to use this value`
 macro_rules! define_lua_const {
     ($name:ident, ($($param:ident : $param_ty:ty),*) -> $ret_ty:ty) => {
@@ -54,6 +56,12 @@ define_lua_const!(
     lua_gettop,
     (state: lua_State) -> i32
 );
+
+// const _lua_gettop: extern "C" fn(lua_State) -> i32 = {
+//     let ptr = addrs::lua_gettop as *const ();
+//     unsafe { std::mem::transmute(ptr) }
+//     // let func: extern "C" fn($($param_ty),*) -> $ret_ty = unsafe { std::mem::transmute(ptr) };
+// };
 
 define_lua_const!(
     lua_settop,
@@ -347,7 +355,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         }
         Opcode::DoString if nargs == 1 => {
             let script = lua_tostring!(lua, 2)?;
-            dostring(&script);
+            dostring(script);
         }
         Opcode::GetUnitPosition if nargs == 1 => {
             let om = ObjectManager::new()?;
@@ -388,16 +396,16 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         }
         v => return Err(LoleError::InvalidOrUnimplementedOpcodeCall(v, nargs)),
     }
-    Ok(0)
+    Ok(NO_RETVALS)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
     match handle_lop_exec(lua) {
-        Ok(num_retvals) => return num_retvals,
+        Ok(num_retvals) => num_retvals,
         Err(error) => {
             println!("lop_exec: error: {:?}", error);
-            return 0;
+            NO_RETVALS
         }
     }
 }

@@ -314,7 +314,7 @@ unsafe extern "C" fn ctm_finished() {
                 chatframe_print("warning: internal & CtmQueue target coordinates don't match");
             }
             if let Some(hooks) = current.hooks {
-                if let Some(CtmPostHook::FaceTarget(pos, rot)) = hooks.iter().next() {
+                if let Some(CtmPostHook::FaceTarget(pos, rot)) = hooks.first() {
                     set_facing(*pos, *rot).expect("set_facing");
                 }
             }

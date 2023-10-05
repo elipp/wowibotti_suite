@@ -30,8 +30,8 @@ lazy_static! {
 
 // thread_local! { RefCell could do the trick! }
 
-type Addr = u32;
-type Offset = u32;
+type Addr = usize;
+type Offset = usize;
 
 pub mod addresses;
 pub mod asm;
@@ -111,7 +111,7 @@ unsafe fn eject_dll() -> LoleResult<()> {
     CloseHandle(*global_var!(CONSOLE_CONOUT))?;
     FreeConsole()?;
     std::thread::spawn(|| {
-        FreeLibraryAndExitThread(global_var!(DLL_HANDLE).clone(), 0);
+        FreeLibraryAndExitThread(*global_var!(DLL_HANDLE), 0);
     });
     Ok(())
 }
