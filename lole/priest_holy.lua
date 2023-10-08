@@ -166,72 +166,93 @@ local function raid_heal(has_single_targets)
     return true;
 end
 
-combat_priest_holy = function()
+-- combat_priest_holy = function()
 
-	if casting_legit_heal() then return end
+-- 	if casting_legit_heal() then return end
 
-	local mana_left = UnitMana("player");
+-- 	local mana_left = UnitMana("player");
 
-	if mana_left < 3000 and GetSpellCooldown("Shadowfiend") == 0 and validate_target() then
-		L_CastSpellByName("Shadowfiend");
-		return;
-	end
+-- 	if mana_left < 3000 and GetSpellCooldown("Shadowfiend") == 0 and validate_target() then
+-- 		L_CastSpellByName("Shadowfiend");
+-- 		return;
+-- 	end
+
+--     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
+--     if heal_targets[1] == nil or heal_targets[1] == "raid" then
+--         raid_heal(false);
+--         return;
+--     end
+
+--     L_TargetUnit(heal_targets[1]);
+
+
+--   local target_HPP = health_percentage("target")
+
+-- 	local targeting_self = UnitName("target") == UnitName("player");
+--     local found, timeleft = has_buff("target", "Renew");
+
+--     if target_HPP < 15 then
+--         cast_heal("Power Word: Shield");
+--         cast_heal("Flash Heal");
+
+--   elseif target_HPP < 30 then
+-- 		cast_heal("Greater Heal");
+
+--   elseif health_percentage("player") < 30 then
+--         L_TargetUnit("player");
+--         cast_heal("Power Word: Shield");
+--         cast_heal("Flash Heal");
+
+--     elseif target_HPP < 50 then
+--         cast_heal("Greater Heal");
+
+--     elseif refresh_healbuffs(get_assigned_hottargets(UnitName("player"))) then
+
+--     elseif cast_PoM_here(true, false) and not has_buff("target", "Prayer of Mending") and time() - pom_time > 10 then
+--         if cast_heal("Prayer of Mending") then
+--             pom_time = time();
+--         end
+--     elseif (should_cast_PoH()) then
+--         cast_heal("Prayer of Healing");
+
+-- 	elseif target_HPP < 60 then
+-- 		if not targeting_self and health_percentage("player") < 50 then
+-- 			cast_heal("Binding Heal");
+-- 		else
+-- 			cast_heal("Greater Heal");
+-- 		end
+
+--   elseif target_HPP < 80 then
+-- 		if not targeting_self and health_percentage("player") < 70 then
+-- 			cast_heal("Binding Heal");
+-- 		else
+-- 			cast_heal("Greater Heal(Rank 1)");
+-- 		end
+-- 	elseif not found or not timeleft then
+-- 		cast_heal("Renew");
+--     elseif table.contains(heal_targets, "raid") then
+--         raid_heal(true);
+--     end
+
+-- end
+
+function combat_priest_holy()
+    if casting_legit_heal() then return end
 
     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
+
     if heal_targets[1] == nil or heal_targets[1] == "raid" then
         raid_heal(false);
         return;
     end
+    TargetUnit(heal_targets[1]);
 
-    L_TargetUnit(heal_targets[1]);
+    local target_HPP = health_percentage("target")
+    local has_renew, renew_timeleft = has_buff("target", "Renew");
 
-
-  local target_HPP = health_percentage("target")
-
-	local targeting_self = UnitName("target") == UnitName("player");
-    local found, timeleft = has_buff("target", "Renew");
-
-    if target_HPP < 15 then
-        cast_heal("Power Word: Shield");
-        cast_heal("Flash Heal");
-
-  elseif target_HPP < 30 then
-		cast_heal("Greater Heal");
-
-  elseif health_percentage("player") < 30 then
-        L_TargetUnit("player");
-        cast_heal("Power Word: Shield");
-        cast_heal("Flash Heal");
-
-    elseif target_HPP < 50 then
-        cast_heal("Greater Heal");
-
-    elseif refresh_healbuffs(get_assigned_hottargets(UnitName("player"))) then
-
-    elseif cast_PoM_here(true, false) and not has_buff("target", "Prayer of Mending") and time() - pom_time > 10 then
-        if cast_heal("Prayer of Mending") then
-            pom_time = time();
-        end
-    elseif (should_cast_PoH()) then
-        cast_heal("Prayer of Healing");
-
-	elseif target_HPP < 60 then
-		if not targeting_self and health_percentage("player") < 50 then
-			cast_heal("Binding Heal");
-		else
-			cast_heal("Greater Heal");
-		end
-
-  elseif target_HPP < 80 then
-		if not targeting_self and health_percentage("player") < 70 then
-			cast_heal("Binding Heal");
-		else
-			cast_heal("Greater Heal(Rank 1)");
-		end
-	elseif not found or not timeleft then
-		cast_heal("Renew");
-    elseif table.contains(heal_targets, "raid") then
-        raid_heal(true);
+    if target_HPP < 50 then
+        cast_heal("Lesser Heal")
+    elseif not has_renew then
+        cast_heal("Renew")
     end
-
 end

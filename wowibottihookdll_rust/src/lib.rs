@@ -27,6 +27,7 @@ lazy_static! {
     pub static ref ORIGINAL_STDOUT: Mutex<HANDLE> = Mutex::new(HANDLE(0));
     pub static ref LAST_FRAME_TIME: Mutex<std::time::Instant> =
         Mutex::new(std::time::Instant::now());
+    pub static ref LAST_SPELL_ERR_MSG: Mutex<(i32, u32)> = Mutex::new((0, 0));
 }
 
 // thread_local! { RefCell could do the trick! }
@@ -47,12 +48,13 @@ use lua::register_lop_exec;
 
 use crate::ctm::prepare_ctm_finished_patch;
 use crate::lua::prepare_lua_prot_patch;
-use crate::patch::Patch;
+use crate::patch::{prepare_spell_err_msg_trampoline, Patch};
 
 pub fn wide_null(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
 }
 
+#[macro_export]
 macro_rules! global_var {
     ($name:ident) => {
         match $name.lock() {
@@ -150,6 +152,10 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     let ctm_finished = prepare_ctm_finished_patch();
     ctm_finished.enable()?;
     patches.push(ctm_finished);
+
+    let spell_err_msg = prepare_spell_err_msg_trampoline();
+    spell_err_msg.enable()?;
+    patches.push(spell_err_msg);
 
     register_lop_exec()?;
 

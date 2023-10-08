@@ -1,4 +1,6 @@
 pub const PUSHAD: u8 = 0x60;
+pub const PUSH_ECX: u8 = 0x51;
+pub const POP_ECX: u8 = 0x59;
 pub const POPAD: u8 = 0x61;
 pub const CALL: u8 = 0xE8;
 pub const RET: u8 = 0xC3;

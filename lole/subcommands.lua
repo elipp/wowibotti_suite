@@ -67,7 +67,7 @@ local function lole_getconfig(arg)
 end
 
 local function lole_followme()
-	lole_subcommands.broadcast("follow", UnitGUID("player"))
+	lole_subcommands.broadcast("follow", UnitName("player"))
 	return true;
 end
 

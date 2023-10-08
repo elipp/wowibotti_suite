@@ -301,10 +301,9 @@ BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 OVERRIDE_COMMAND = nil;
 
-HEALERS = {"Printf", "Ghospodi"}; -- for keeping order mostly
+HEALERS = {"Sbogi"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
-    Printf = {heals = {"raid"}, hots = {}, ignores = {}},
-    Ghospodi = {heals = {"raid"}, hots = {"Rektorn", "Kuratorn"}, ignores = {}}
+  Sbogi = {heals={"raid"}, hots={"Chonkki"}}
 }
 ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
 HEALS_IN_PROGRESS = {};
@@ -665,6 +664,8 @@ end
 local cast_failed_msgs = {
     [44] = "Not in line of sight",
 }
+
+
 
 function track_heal_attempts(name)
     if not name then return end

@@ -5,10 +5,14 @@ use std::pin::Pin;
 use windows::Win32::System::{
     Diagnostics::Debug::WriteProcessMemory,
     Memory::{VirtualProtect, PAGE_PROTECTION_FLAGS},
+    SystemInformation::GetTickCount,
     Threading::GetCurrentProcess,
 };
 
-use crate::{asm, dump_to_logfile, Addr, EndScene_hook, LoleError, LoleResult};
+use crate::{
+    addresses::SpellErrMsg, asm, fatal_error_exit, global_var, Addr, EndScene_hook, LoleError,
+    LoleResult, LAST_SPELL_ERR_MSG,
+};
 
 const INSTRBUF_SIZE: usize = 64;
 
@@ -115,6 +119,7 @@ impl Patch {
                 let jmp_target =
                     self.patch_opcodes.get_address() as i32 - self.patch_addr as i32 - 5;
                 patch.push_slice(&jmp_target.to_le_bytes());
+                patch.push_slice(&vec![asm::NOP; self.original_opcodes.len() - patch.len()]);
                 self.commit(&patch)?;
             }
             PatchKind::OverWrite => unsafe {
@@ -179,18 +184,18 @@ pub fn prepare_endscene_trampoline() -> Patch {
     let EndScene = find_EndScene();
     let original_opcodes = copy_original_opcodes(EndScene, 7);
 
-    let mut instruction_buffer = InstructionBuffer::new();
-    instruction_buffer.push(asm::PUSHAD);
-    instruction_buffer.push_call_to(EndScene_hook as usize);
-    instruction_buffer.push(asm::POPAD);
-    instruction_buffer.push_slice(&original_opcodes);
-    instruction_buffer.push_default_return(EndScene, 7);
+    let mut patch_opcodes = InstructionBuffer::new();
+    patch_opcodes.push(asm::PUSHAD);
+    patch_opcodes.push_call_to(EndScene_hook as Addr);
+    patch_opcodes.push(asm::POPAD);
+    patch_opcodes.push_slice(&original_opcodes);
+    patch_opcodes.push_default_return(EndScene, 7);
 
     Patch {
         name: "EndScene",
         patch_addr: EndScene,
         original_opcodes,
-        patch_opcodes: instruction_buffer,
+        patch_opcodes,
         kind: PatchKind::JmpToTrampoline,
     }
 }
@@ -199,4 +204,26 @@ fn find_EndScene() -> Addr {
     let wowd3d9 = deref::<Addr, 1>(crate::addresses::D3D9Device);
     let d3d9 = deref::<Addr, 2>(wowd3d9 + crate::addresses::D3D9DeviceOffset);
     deref::<Addr, 1>(d3d9 + 0x2A * 4)
+}
+
+extern "stdcall" fn spell_err_msg(msg_id: i32) {
+    *global_var!(LAST_SPELL_ERR_MSG) = (msg_id, unsafe { GetTickCount() });
+}
+
+pub fn prepare_spell_err_msg_trampoline() -> Patch {
+    let original_opcodes = copy_original_opcodes(SpellErrMsg, 9);
+    let mut patch_opcodes = InstructionBuffer::new();
+    patch_opcodes.push(asm::PUSHAD);
+    patch_opcodes.push(asm::PUSH_ECX);
+    patch_opcodes.push_call_to(spell_err_msg as Addr);
+    patch_opcodes.push(asm::POPAD);
+    patch_opcodes.push_slice(&original_opcodes);
+    patch_opcodes.push_default_return(SpellErrMsg, 9);
+    Patch {
+        name: "SpellErrMsg",
+        patch_addr: SpellErrMsg,
+        original_opcodes,
+        patch_opcodes,
+        kind: PatchKind::JmpToTrampoline,
+    }
 }
