@@ -67,14 +67,15 @@ local function lole_getconfig(arg)
 end
 
 local function lole_followme()
-	lole_subcommands.broadcast("follow", UnitName("player"))
+	lole_subcommands.broadcast("follow", UnitGUID("player"))
 	return true;
 end
 
 local function lole_follow(name)
-	if not name then return end
-	if not playermode() then
-		follow_unit(name)
+	if (not name) or (name == UnitName("player")) or playermode() then
+		return
+	else
+			follow_unit(name)
 	end
 end
 
@@ -1199,7 +1200,7 @@ lole_subcommands = {
 	register = lole_debug_lua_register,
 	distance = lole_distance_to_target,
 
-    debug_test = lole_debug_test,
+  debug_test = lole_debug_test,
 	parse_encounter = lole_parse_encounter,
 	noclip = lole_noclip,
 	getbiscuit = lole_getbiscuit,

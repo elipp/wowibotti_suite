@@ -1,3 +1,4 @@
+use std::ffi::NulError;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use windows::Win32::System::Threading::ExitProcess;
@@ -210,11 +211,12 @@ pub enum LoleError {
     NullPointerError,
     InvalidRawString(String),
     InvalidEnumValue(String),
-    InvalidOrUnimplementedOpcodeCall(Opcode, i32),
+    InvalidOrUnimplementedOpcodeCallNargs(Opcode, i32),
     WowSocketNotAvailable,
     PacketSynthError(String),
     SocketSendError(String),
     MutexLockError,
+    StringConvError(String),
     NotImplemented,
 }
 
@@ -235,6 +237,12 @@ impl From<windows::core::Error> for LoleError {
 impl From<std::num::ParseIntError> for LoleError {
     fn from(err: std::num::ParseIntError) -> Self {
         LoleError::InvalidParam(format!("{err:?}"))
+    }
+}
+
+impl From<std::ffi::NulError> for LoleError {
+    fn from(err: std::ffi::NulError) -> Self {
+        LoleError::StringConvError(format!("{err:?}"))
     }
 }
 

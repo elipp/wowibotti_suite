@@ -151,6 +151,8 @@ impl CtmQueue {
     pub fn advance(&mut self) {
         if let Some(ev) = self.events.pop_front() {
             self.current = Some((ev, Instant::now()));
+        } else {
+            self.current = None
         }
     }
 }
@@ -293,6 +295,11 @@ pub fn add_to_queue(action: CtmEvent) -> LoleResult<()> {
     let mut ctm = QUEUE.lock()?;
     ctm.add_to_queue(action)?;
     Ok(())
+}
+
+pub fn abort_current_event() -> LoleResult<()> {
+    let mut ctm = QUEUE.lock()?;
+    ctm.abort_current()
 }
 
 pub fn event_in_progress() -> LoleResult<bool> {

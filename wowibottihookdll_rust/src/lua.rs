@@ -1,10 +1,9 @@
 use std::arch::asm;
 use std::f32::consts::PI;
-use std::ffi::{c_char, c_void, CStr};
+use std::ffi::{c_char, c_void, CStr, CString};
 
-use crate::addresses::LUA_Prot_patchaddr;
-use crate::ctm::{self, CtmAction, CtmEvent, CtmPostHook, CtmPriority};
-use crate::objectmanager::{guid_from_str, ObjectManager, GUID};
+use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority};
+use crate::objectmanager::{guid_from_str, ObjectManager, WowObjectType, GUID};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
 use crate::socket::set_facing;
 use crate::vec3::Vec3;
@@ -133,9 +132,10 @@ define_wow_cfunc!(
     lua_dostring,
     (script: *const c_char, _s: *const c_char, taint: u32) -> ());
 
-pub fn dostring(script: &str) {
-    println!("Running lua_dostring(\"{script}\")");
-    lua_dostring(script.as_ptr() as *const _, script.as_ptr() as *const _, 0);
+pub fn dostring(script: &str) -> LoleResult<()> {
+    println!("lua_dostring: {script}");
+    let c_str = CString::new(script)?;
+    Ok(lua_dostring(c_str.as_ptr(), c_str.as_ptr(), 0))
 }
 
 macro_rules! lua_setglobal {
@@ -166,7 +166,7 @@ macro_rules! lua_getglobal {
 
 pub fn register_lop_exec() -> LoleResult<()> {
     write_addr(addrs::vfp_max, &[0xEFFFFFFFu32])?;
-    let lua = get_lua_State()?;
+    let lua = get_lua_state()?;
     lua_register!(lua, b"lop_exec\0".as_ptr(), lop_exec);
     println!("lop_exec registered!");
     Ok(())
@@ -174,7 +174,7 @@ pub fn register_lop_exec() -> LoleResult<()> {
 
 pub fn unregister_lop_exec() -> LoleResult<()> {
     write_addr(addrs::vfp_max, &[0xEFFFFFFFu32])?;
-    let lua = get_lua_State()?;
+    let lua = get_lua_state()?;
     lua_unregister!(lua, b"lop_exec\0".as_ptr());
     println!("lop_exec un-registered!");
     Ok(())
@@ -188,9 +188,10 @@ add_repr_and_tryfrom! {
         TargetGuid = 1,
         CasterRangeCheck = 2,
         Follow = 3,
-        ClickToMove = 4,
-        TargetMarker = 5,
-        MeleeBehind = 6,
+        StopFollow = 4,
+        ClickToMove = 5,
+        TargetMarker = 6,
+        MeleeBehind = 7,
         GetUnitPosition = 14,
         Debug = 0x400,
         Dump = 0x401,
@@ -260,6 +261,30 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             let guid_str = lua_tostring!(lua, 2)?;
             let guid = guid_from_str(guid_str)?;
             C_SelectUnit(guid);
+        }
+        Opcode::Follow if nargs == 1 => {
+            let name = lua_tostring!(lua, 2)?;
+            let om = ObjectManager::new()?;
+            if let Some(o) = om.get_unit_by_name(name) {
+                let p = om.get_player()?;
+                let (pp, tp) = (p.get_pos(), o.get_pos());
+                let tpdiff = tp - pp;
+                let distance = tpdiff.length();
+                if distance < 10.0 {
+                    dostring(&format!("FollowUnit(\"{}\")", o.get_name()))?;
+                } else {
+                    ctm::add_to_queue(CtmEvent {
+                        target_pos: tp,
+                        priority: CtmPriority::Follow,
+                        action: CtmAction::Move,
+                        ..Default::default()
+                    })?;
+                }
+            }
+        }
+        Opcode::StopFollow if nargs == 0 => {
+            dostring("MoveForwardStart()")?;
+            dostring("MoveForwardStop()")?;
         }
         Opcode::Dump => {
             for o in ObjectManager::new()? {
@@ -384,7 +409,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::EjectDll => {
             *SHOULD_EJECT.lock().expect("SHOULD_EJECT lock") = true;
         }
-        v => return Err(LoleError::InvalidOrUnimplementedOpcodeCall(v, nargs)),
+        v => return Err(LoleError::InvalidOrUnimplementedOpcodeCallNargs(v, nargs)),
     }
     Ok(NO_RETVALS)
 }
@@ -400,11 +425,11 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
     }
 }
 
-pub fn chatframe_print(msg: &str) {
+pub fn chatframe_print(msg: &str) -> LoleResult<()> {
     dostring(&format!("DEFAULT_CHAT_FRAME:AddMessage(\"[DLL]: {msg}\")"))
 }
 
-pub fn get_lua_State() -> LoleResult<lua_State> {
+pub fn get_lua_state() -> LoleResult<lua_State> {
     let res = deref::<lua_State, 1>(addrs::wow_lua_State);
     if !res.is_null() {
         Ok(res)
@@ -419,7 +444,7 @@ pub fn register_lop_exec_if_not_registered() -> LoleResult<()> {
         return Err(e);
     }
 
-    let lua = get_lua_State()?;
+    let lua = get_lua_state()?;
     lua_getglobal!(lua, b"lop_exec\0".as_ptr());
     match lua_gettype(lua, -1).try_into()? {
         LuaType::Function => {}
