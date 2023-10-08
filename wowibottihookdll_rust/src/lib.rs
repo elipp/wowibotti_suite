@@ -232,6 +232,12 @@ impl From<windows::core::Error> for LoleError {
     }
 }
 
+impl From<std::num::ParseIntError> for LoleError {
+    fn from(err: std::num::ParseIntError) -> Self {
+        LoleError::InvalidParam(format!("{err:?}"))
+    }
+}
+
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]
 unsafe extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) -> bool {

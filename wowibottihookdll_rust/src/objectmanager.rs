@@ -4,7 +4,7 @@ use crate::patch::{deref, read_elems_from_addr};
 use crate::vec3::Vec3;
 use crate::{add_repr_and_tryfrom, Addr, LoleError, LoleResult};
 
-use crate::addresses::{self as addrs, PLAYER_TARGET_GUID};
+use crate::addresses::{self as addrs, PLAYER_FOCUS_GUID, PLAYER_TARGET_GUID};
 use crate::cstr_to_str;
 
 use std::arch::asm;
@@ -232,6 +232,9 @@ impl ObjectManager {
     pub fn get_player_target_guid(&self) -> GUID {
         deref::<GUID, 1>(PLAYER_TARGET_GUID)
     }
+    pub fn get_focus_guid(&self) -> GUID {
+        deref::<GUID, 1>(PLAYER_FOCUS_GUID)
+    }
     pub fn get_player(&self) -> LoleResult<WowObject> {
         let local_guid = self.get_local_guid();
         self.iter()
@@ -244,7 +247,11 @@ impl ObjectManager {
         Ok((player, self.get_object_by_guid(target_guid)))
     }
     pub fn get_object_by_guid(&self, guid: GUID) -> Option<WowObject> {
-        self.iter().find(|w| w.get_guid() == guid)
+        if guid != 0 {
+            self.iter().find(|w| w.get_guid() == guid)
+        } else {
+            None
+        }
     }
     pub fn get_unit_by_name(&self, name: &str) -> Option<WowObject> {
         self.iter()

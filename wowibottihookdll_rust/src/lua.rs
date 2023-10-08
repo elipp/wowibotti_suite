@@ -17,7 +17,7 @@ pub type lua_State = *mut c_void;
 const NO_RETVALS: i32 = 0;
 
 // now that we're using `transmute`, this could be `const` -- edit: can't be const, compiler complains that `it's UB to use this value`
-macro_rules! define_lua_const {
+macro_rules! define_wow_cfunc {
     ($name:ident, ($($param:ident : $param_ty:ty),*) -> $ret_ty:ty) => {
         pub fn $name ($($param : $param_ty),*) -> $ret_ty {
             let ptr = addrs::$name as *const ();
@@ -52,7 +52,7 @@ add_repr_and_tryfrom! {
 
 type lua_Number = f64;
 
-define_lua_const!(
+define_wow_cfunc!(
     lua_gettop,
     (state: lua_State) -> i32
 );
@@ -63,35 +63,35 @@ define_lua_const!(
 //     // let func: extern "C" fn($($param_ty),*) -> $ret_ty = unsafe { std::mem::transmute(ptr) };
 // };
 
-define_lua_const!(
+define_wow_cfunc!(
     lua_settop,
     (state: lua_State, idx: i32) -> ());
 
-define_lua_const!(
+define_wow_cfunc!(
     lua_pushcclosure,
     (state: lua_State, closure: lua_CFunction, n: i32) -> ());
 
-define_lua_const!(
+define_wow_cfunc!(
     lua_pushnumber,
     (state: lua_State, number: lua_Number) -> ());
 
-define_lua_const!(
+define_wow_cfunc!(
     lua_getfield,
     (state: lua_State, idx: i32, k: *const c_char) -> i32);
 
-define_lua_const!(
+define_wow_cfunc!(
     lua_setfield,
     (state: lua_State, idx: i32, k: *const c_char) -> ());
 
-define_lua_const!(
+define_wow_cfunc!(
     lua_tointeger,
     (state: lua_State, idx: i32) -> i32);
 
-define_lua_const!(
+define_wow_cfunc!(
     lua_gettype,
     (state: lua_State, idx: i32) -> i32);
 
-define_lua_const!(
+define_wow_cfunc!(
     lua_tolstring,
     (state: lua_State, idx: i32, len: *mut usize) -> *const c_char);
 
@@ -107,19 +107,19 @@ macro_rules! lua_tostring {
     }};
 }
 
-define_lua_const!(
+define_wow_cfunc!(
     lua_tonumber,
     (state: lua_State, idx: i32) -> lua_Number);
 
-define_lua_const!(
+define_wow_cfunc!(
     lua_pushnil,
     (state: lua_State) -> ());
 
-define_lua_const!(
+define_wow_cfunc!(
     lua_pushstring,
     (state: lua_State, str: *const c_char) -> ());
 
-define_lua_const!(
+define_wow_cfunc!(
     lua_pushlstring,
     (state: lua_State, str: *const c_char, len: usize) -> ());
 
@@ -129,7 +129,7 @@ macro_rules! lua_tonumber_f32 {
     };
 }
 
-define_lua_const!(
+define_wow_cfunc!(
     lua_dostring,
     (script: *const c_char, _s: *const c_char, taint: u32) -> ());
 
@@ -257,15 +257,9 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
     match lua_tointeger(lua, 1).try_into()? {
         Opcode::Nop => {}
         Opcode::TargetGuid if nargs == 1 => {
-            let om = ObjectManager::new()?;
-            let guid = om.get_player_target_guid();
-            if guid == 0 {
-                return Ok(0);
-            } else {
-                let guid_str = format!("0x{guid:016X}");
-                lua_pushlstring(lua, guid_str.as_ptr() as *const _, guid_str.len());
-                return Ok(1);
-            }
+            let guid_str = lua_tostring!(lua, 2)?;
+            let guid: GUID = GUID::from_str_radix(guid_str.trim_start_matches("0x"), 16)?;
+            C_SelectUnit(guid);
         }
         Opcode::Dump => {
             for o in ObjectManager::new()? {
@@ -369,13 +363,10 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 Some(om.get_player()?)
             } else if arg == "target" {
                 let target_guid = om.get_player_target_guid();
-                if target_guid != 0 {
-                    om.get_object_by_guid(target_guid)
-                } else {
-                    None
-                }
+                om.get_object_by_guid(target_guid)
             } else if arg == "focus" {
-                todo!()
+                let focus_guid = om.get_focus_guid();
+                om.get_object_by_guid(focus_guid)
             } else {
                 om.get_unit_by_name(arg)
             };
@@ -453,6 +444,11 @@ pub fn prepare_lua_prot_patch() -> Patch {
     }
 }
 
+define_wow_cfunc! {
+    C_SelectUnit,
+    (guid: GUID) -> i32
+}
+
 mod addrs {
     use crate::Addr;
     pub const lua_gettop: Addr = 0x0072DAE0;
@@ -489,4 +485,6 @@ mod addrs {
 
     pub const vfp_max: Addr = 0xE1F834;
     pub const FrameScript_Register: Addr = 0x007059B0;
+
+    pub const C_SelectUnit: Addr = 0x4A6690;
 }
