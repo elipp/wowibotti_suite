@@ -46,7 +46,7 @@ function rogue_combat()
   end
 end
 
-function rogue_combat_()
+function rogue_combat_before()
 
   reapply_poisons()
 
