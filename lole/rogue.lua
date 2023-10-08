@@ -3,6 +3,12 @@ local mh_at = 0
 local oh_apply = nil
 local oh_at = 0
 
+local rotation = Rotation(
+  {
+    Spell("Backstab"),
+  }
+)
+
 local function reapply_poisons()
 
   if mh_apply then
@@ -33,6 +39,13 @@ local function reapply_poisons()
 end
 
 function rogue_combat()
+  if can_attack_target()
+    L_StartAttack();
+    rotation:run();
+  end
+end
+
+function rogue_combat_()
 
   reapply_poisons()
 
