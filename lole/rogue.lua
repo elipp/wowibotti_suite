@@ -39,7 +39,7 @@ local function reapply_poisons()
 end
 
 function rogue_combat()
-  if can_attack_target()
+  if can_attack_target() then
     melee_attack_behind(1.5);
     L_StartAttack();
     rotation:run();

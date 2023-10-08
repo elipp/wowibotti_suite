@@ -9,8 +9,6 @@ use crate::socket::set_facing;
 use crate::vec3::Vec3;
 use crate::{add_repr_and_tryfrom, asm, Addr, LoleError, LoleResult, SHOULD_EJECT};
 
-use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS, SOCKET};
-
 pub type lua_State = *mut c_void;
 
 const NO_RETVALS: i32 = 0;
