@@ -11,6 +11,11 @@ use std::arch::asm;
 
 pub type GUID = u64;
 
+pub fn guid_from_str(s: &str) -> LoleResult<GUID> {
+    let res = GUID::from_str_radix(s.trim_start_matches("0x"), 16)?;
+    Ok(res)
+}
+
 pub const NO_TARGET: GUID = 0x0;
 
 #[derive(Clone, Copy)]

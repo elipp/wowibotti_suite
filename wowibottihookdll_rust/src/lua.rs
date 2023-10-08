@@ -4,7 +4,7 @@ use std::ffi::{c_char, c_void, CStr};
 
 use crate::addresses::LUA_Prot_patchaddr;
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPostHook, CtmPriority};
-use crate::objectmanager::{ObjectManager, GUID};
+use crate::objectmanager::{guid_from_str, ObjectManager, GUID};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
 use crate::socket::set_facing;
 use crate::vec3::Vec3;
@@ -258,7 +258,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::Nop => {}
         Opcode::TargetGuid if nargs == 1 => {
             let guid_str = lua_tostring!(lua, 2)?;
-            let guid: GUID = GUID::from_str_radix(guid_str.trim_start_matches("0x"), 16)?;
+            let guid = guid_from_str(guid_str)?;
             C_SelectUnit(guid);
         }
         Opcode::Dump => {
@@ -355,9 +355,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             let om = ObjectManager::new()?;
             let arg = lua_tostring!(lua, 2)?.trim();
             let object = if arg.starts_with("0x") {
-                let guid = arg
-                    .parse::<GUID>()
-                    .map_err(|_| LoleError::InvalidParam(arg.to_string()))?;
+                let guid = guid_from_str(arg)?;
                 om.get_object_by_guid(guid)
             } else if arg == "player" {
                 Some(om.get_player()?)
@@ -370,6 +368,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             } else {
                 om.get_unit_by_name(arg)
             };
+
             if let Some(object) = object {
                 for elem in object.get_xyzr().into_iter() {
                     lua_pushnumber(lua, elem as lua_Number);
