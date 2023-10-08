@@ -269,6 +269,10 @@ function L_PetPassiveMode()
 	execute_script("PetPassiveMode()")
 end
 
+function L_PetDefensiveMode()
+	execute_script("PetDefensiveMode()")
+end
+
 function L_RunMacroText(text)
 	execute_script("RunMacroText(\"" .. text .. "\")")
 end

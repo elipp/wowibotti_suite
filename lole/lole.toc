@@ -4,6 +4,7 @@
 ## Notes: epic
 
 json.lua
+rotation.lua
 
 lole_common.lua
 lole_buffs.lua
@@ -22,6 +23,7 @@ rogue.lua
 warlock_demo.lua
 warrior_fury.lua
 warrior_prot.lua
+ranged_hunter.lua
 
 shaman_common.lua
 shaman_resto.lua
