@@ -5,12 +5,14 @@ local FEED_INTERVAL = 60;
 local rotation = Rotation(
     {
         Spell("Arcane Shot", function() return true end),
-        Spell("Serpent Sting"),
-        Spell("Concussive Shot")
+        Spell("Serpent Sting", nil, true),
+        --Spell("Concussive Shot")
     }
 )
 
-local melee_rotation = nil
+local melee_rotation = {
+    Spell("Raptor Strike")
+}
 
 local function set_pet_state()
     if UnitExists("pet") and UnitIsDead("pet") then
@@ -59,8 +61,7 @@ end
 local function attack()
     L_PetAttack();
     if player_is_targeted() and get_distance_between("player", "target") < 15 then
-        -- Just autoattack in melee for now
-        L_StartAttack();
+        melee_rotation:run();
         return;
     else
         L_StartAttack();
@@ -70,8 +71,22 @@ local function attack()
     end
 end
 
+local function need_mana()
+    if mana_percentage("player") < 30 then
+        if not has_buff("player", "Drink") then
+            L_UseItemByName("Refreshing Spring Water");
+        end
+        return true;
+    end
+    if has_buff("player", "Drink") and not mana_percentage("player") > 85 then
+        return true;
+    end
+    return false;
+end
+
 
 function combat_ranged_hunter()
+    if need_mana() then return end;
     check_buffs();
     set_pet_state();
     if can_attack_target() then

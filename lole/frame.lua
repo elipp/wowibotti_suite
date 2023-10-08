@@ -1,4 +1,4 @@
-local lole_frame = CreateFrame("Frame");
+local lole_frame = CreateFrame("Frame", "loleFrame");
 lole_frame:RegisterEvent("ADDON_LOADED")
 lole_frame:RegisterEvent("PLAYER_REGEN_DISABLED") -- this is fired when player enters combat
 lole_frame:RegisterEvent("PLAYER_REGEN_ENABLED") -- and this when combat is over
@@ -15,6 +15,8 @@ lole_frame:RegisterEvent("TRADE_SHOW")
 lole_frame:RegisterEvent("LFG_PROPOSAL_SHOW")
 lole_frame:RegisterEvent("LFG_ROLE_CHECK_SHOW")
 lole_frame:RegisterEvent("LFG_BOOT_PROPOSAL_UPDATE");
+lole_frame:RegisterEvent("UNIT_SPELLCAST_SENT");
+lole_frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED");
 
 
 function lole_frame_register(EVENTNAME)
@@ -738,6 +740,9 @@ lole_frame:SetScript("OnUpdate", function()
 
 end);
 
+-- This might be pure shit but worth a try
+last_cast_spell = { name = nil, cast_time = nil; };
+
 lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
 	--DEFAULT_CHAT_FRAME:AddMessage("LOLE_EventHandler: event:" .. event)
 
@@ -842,12 +847,12 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 	elseif event == "LFG_PROPOSAL_SHOW" then
 		execute_script("RunMacroText(\"/click LFDDungeonReadyDialogEnterDungeonButton\")")
 
-elseif event == "LFG_ROLE_CHECK_SHOW" then
-		execute_script("RunMacroText(\"/click LFDRoleCheckPopupAcceptButton\")")
+	elseif event == "LFG_ROLE_CHECK_SHOW" then
+			execute_script("RunMacroText(\"/click LFDRoleCheckPopupAcceptButton\")")
 
-elseif event == "LFG_BOOT_PROPOSAL_UPDATE" then
-		--execute_script("RunMacroText(\"/click StaticPopup1Button1\")")
-        SetLFGBootVote(true)
+	elseif event == "LFG_BOOT_PROPOSAL_UPDATE" then
+			--execute_script("RunMacroText(\"/click StaticPopup1Button1\")")
+	        SetLFGBootVote(true)
 
 	elseif event == "PLAYER_ENTERING_WORLD" then
 
@@ -867,6 +872,10 @@ elseif event == "LFG_BOOT_PROPOSAL_UPDATE" then
 		end
 		lole_frame:UnregisterEvent("LOOT_OPENED")
 		LOOT_OPENED_REASON = nil
+
+	elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+		last_cast_spell.name = message;
+		last_cast_spell.cast_time = GetTime();
 	end
 end
 )

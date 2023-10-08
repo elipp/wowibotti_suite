@@ -54,7 +54,7 @@ function Spell(name, condition, is_debuff)
         is_debuff = is_debuff,
 
         check_cast_registered = function(self)
-            return nil;
+            return last_cast_spell.name == self.name;
         end,
 
         refresh_debuff = function(self)
@@ -64,24 +64,12 @@ function Spell(name, condition, is_debuff)
                 return true;
             elseif expirationTime - GetTime() > 3 then
                 -- skip
+                last_cast_spell.name = self.name;
                 return true;
             else
                 -- wait to cast
                 return false;
             end
-        end,
-
-        cast = function(self)
-            if self.condition() and not self:on_gcd() then
-                if self.is_debuff == true then
-                    return self:refresh_debuff();
-                else
-                    L_CastSpellByName(self.name);
-                    -- HOW TO KNOW IF THE CAST WAS REGISTERED?
-                    return true;
-                end
-            end
-            return nil;
         end,
 
         on_cd = function(self)
@@ -90,6 +78,20 @@ function Spell(name, condition, is_debuff)
                 return false;
             end
             return true;
-        end
+        end,
+
+        cast = function(self)
+            -- Attempt to cast the spell.
+            -- Return true if cast was successful (registered on server),
+            -- return nil if could not cast for any reason.
+            if self.condition() and not self:on_cd() and not on_gcd() then
+                if self.is_debuff == true then
+                    self:refresh_debuff();
+                else
+                    L_CastSpellByName(self.name);
+                end
+            end
+            return self:check_cast_registered();
+        end,
     }
 end
