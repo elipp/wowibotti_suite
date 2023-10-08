@@ -19,7 +19,7 @@ end
 function combat_shaman_encha()
     set_totems();
     imbue_weapons();
-    if can_attack_target() then
+    if validate_target() then
         melee_attack_behind(1);
         L_StartAttack();
         rotation:run();
