@@ -27,6 +27,7 @@ ranged_hunter.lua
 
 shaman_common.lua
 shaman_resto.lua
+shaman_encha.lua
 
 class_config.lua
 

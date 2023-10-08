@@ -10,9 +10,9 @@ local rotation = Rotation(
     }
 )
 
-local melee_rotation = {
+local melee_rotation = Rotation({
     Spell("Raptor Strike")
-}
+})
 
 local function set_pet_state()
     if UnitExists("pet") and UnitIsDead("pet") then

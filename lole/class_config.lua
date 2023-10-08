@@ -84,6 +84,8 @@ local available_configs = {
 	class_config:create("warrior_prot", {}, {"Commanding Shout"}, get_class_color("warrior"), combat_warrior_prot, {}, ROLES.tank, "TANK", survive_warrior_prot),
 
 	ranged_hunter = class_config:create("ranged_hunter", {}, {}, get_class_color("hunter"), combat_ranged_hunter, {}, ROLES.caster, "RANGED", survive_template),
+
+	enchantement_shaman = class_config:create("shaman_encha", {}, {}, get_class_color("shaman"), combat_shaman_encha, {}, ROLES.mana_melee, "MELEE", survive_template)
 };
 
 function get_available_configs()

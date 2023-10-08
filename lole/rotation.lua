@@ -58,12 +58,18 @@ function Spell(name, condition, is_debuff)
         end,
 
         refresh_debuff = function(self)
-            local _, _, _, _, _, _, expirationTime, _, _, _, _ = UnitDebuff("target", self.name)
-            if expirationTime - GetTime() < 1 then
+            --local _, _, _, _, _, _, expirationTime, _, _, _, _ = UnitDebuff("target", self.name, nil)
+            local active, timeleft = has_debuff("target", self.name)
+            if not active then
                 L_CastSpellByName(self.name);
                 return true;
-            elseif expirationTime - GetTime() > 3 then
-                -- skip
+            end
+
+            if active and timeleft < 1 then
+                L_CastSpellByName(self.name);
+                return true;
+            elseif active and timeleft > 3 then
+                -- skip on this rotation to not waste mana
                 last_cast_spell.name = self.name;
                 return true;
             else
