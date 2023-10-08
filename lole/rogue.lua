@@ -40,6 +40,7 @@ end
 
 function rogue_combat()
   if can_attack_target()
+    melee_attack_behind(1.5);
     L_StartAttack();
     rotation:run();
   end
