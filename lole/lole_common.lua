@@ -1141,6 +1141,14 @@ function do_CC_jobs()
 	return false
 end
 
+function can_attack_target()
+    return UnitCanAttack("player", "target") == 1 and
+            not UnitIsDead("target")
+end
+
+function player_is_targeted()
+    return UnitName("targettarget") == GetUnitName("player")
+end
 
 function validate_target()
 
