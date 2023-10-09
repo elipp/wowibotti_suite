@@ -1,10 +1,10 @@
-use std::ffi::{c_char, c_void, CStr};
+use std::ffi::{c_void, CStr};
 
 use crate::patch::{deref, read_elems_from_addr};
 use crate::vec3::Vec3;
 use crate::{add_repr_and_tryfrom, Addr, LoleError, LoleResult};
 
-use crate::addresses::{self as addrs, PLAYER_FOCUS_GUID, PLAYER_TARGET_GUID};
+use crate::addrs::{self, PLAYER_FOCUS_GUID, PLAYER_TARGET_GUID};
 use crate::cstr_to_str;
 
 use std::arch::asm;
@@ -23,6 +23,7 @@ pub struct WowObject {
     base: Addr,
 }
 
+#[allow(non_upper_case_globals)]
 mod wowobject {
     use crate::Offset;
     pub const Type: Offset = 0x14;
@@ -98,7 +99,7 @@ impl WowObject {
             WowObjectType::Npc | WowObjectType::Unit => {
                 let mut result; // looks so weird, but the compiler is giving a warning :D
                 let base = self.base;
-                let func_addr = addrs::GetUnitOrNPCNameAddr;
+                let func_addr = addrs::wow_c_funcs::GetUnitOrNPCNameAddr;
                 unsafe {
                     asm!(
                         "push 0",
@@ -187,15 +188,6 @@ impl Iterator for WowObjectIterator {
     }
 }
 
-mod objectmanager {
-    use crate::{Addr, Offset};
-
-    pub const ClientConnection: Addr = 0xD43318;
-    pub const CurrentObjectManager: Offset = 0x2218;
-    pub const LocalGUIDOffset: Offset = 0xC0; // offset from the object manager to the local guid
-    pub const FirstObjectOffset: Offset = 0xAC; // offset from the object manager to the first object
-}
-
 impl IntoIterator for ObjectManager {
     type Item = WowObject;
 
@@ -213,12 +205,12 @@ pub struct ObjectManager {
 
 impl ObjectManager {
     pub fn new() -> LoleResult<Self> {
-        let client_connection = deref::<Addr, 1>(objectmanager::ClientConnection);
+        let client_connection = deref::<Addr, 1>(addrs::objectmanager::ClientConnection);
         if client_connection == 0 {
             return Err(LoleError::ClientConnectionIsNull);
         }
         let current_object_manager_base =
-            deref::<Addr, 1>(client_connection + objectmanager::CurrentObjectManager);
+            deref::<Addr, 1>(client_connection + addrs::objectmanager::CurrentObjectManager);
 
         if current_object_manager_base == 0 {
             Err(LoleError::ObjectManagerIsNull)
@@ -232,7 +224,7 @@ impl ObjectManager {
         self.into_iter()
     }
     pub fn get_local_guid(&self) -> GUID {
-        deref::<GUID, 1>(self.base + objectmanager::LocalGUIDOffset)
+        deref::<GUID, 1>(self.base + addrs::objectmanager::LocalGUIDOffset)
     }
     pub fn get_player_target_guid(&self) -> GUID {
         deref::<GUID, 1>(PLAYER_TARGET_GUID)
@@ -266,7 +258,7 @@ impl ObjectManager {
     fn get_first_object(&self) -> Option<WowObject> {
         // no need to check for base != 0, because ::new is the only way to construct ObjectManager
         WowObject::try_new(deref::<Addr, 1>(
-            self.base + objectmanager::FirstObjectOffset,
+            self.base + addrs::objectmanager::FirstObjectOffset,
         ))
     }
 }

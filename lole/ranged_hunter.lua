@@ -86,7 +86,7 @@ end
 
 
 function combat_ranged_hunter()
-    if need_mana() then return end;
+    -- if need_mana() then return end;
     check_buffs();
     set_pet_state();
     if validate_target() then

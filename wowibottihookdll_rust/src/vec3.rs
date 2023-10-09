@@ -85,12 +85,11 @@ impl Vec3 {
         a.x * b.x + a.y * b.y + a.z * b.z
     }
     pub fn rotated_2d_cw(self, angle: f32) -> Self {
-        let Self { x, y, z } = self;
         let sin = angle.sin();
         let cos = angle.cos();
         Self {
-            x: x * cos - y * sin,
-            y: x * sin + y * cos,
+            x: self.x * cos - self.y * sin,
+            y: self.x * sin + self.y * cos,
             z: 0.0,
         }
     }

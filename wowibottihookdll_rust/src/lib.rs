@@ -1,4 +1,4 @@
-use std::ffi::NulError;
+use core::cell::Cell;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use windows::Win32::System::Threading::ExitProcess;
@@ -19,23 +19,26 @@ use windows::{Win32::Foundation::*, Win32::System::SystemServices::*};
 use lazy_static::lazy_static;
 
 lazy_static! {
+    // just in case DllMain is called from a non-main thread? :D
     pub static ref ENABLED_PATCHES: Mutex<Vec<Patch>> = Mutex::new(vec![]);
-    pub static ref NEED_INIT: Mutex<bool> = Mutex::new(true);
-    pub static ref SHOULD_EJECT: Mutex<bool> = Mutex::new(false);
     pub static ref DLL_HANDLE: Mutex<HINSTANCE> = Mutex::new(HINSTANCE(0));
-    pub static ref CONSOLE_CONOUT: Mutex<HANDLE> = Mutex::new(HANDLE(0));
-    pub static ref ORIGINAL_STDOUT: Mutex<HANDLE> = Mutex::new(HANDLE(0));
-    pub static ref LAST_FRAME_TIME: Mutex<std::time::Instant> =
-        Mutex::new(std::time::Instant::now());
-    pub static ref LAST_SPELL_ERR_MSG: Mutex<(i32, u32)> = Mutex::new((0, 0));
 }
 
-// thread_local! { RefCell could do the trick! }
+thread_local! {
+    pub static NEED_INIT: Cell<bool> = Cell::new(true);
+    pub static SHOULD_EJECT: Cell<bool> = Cell::new(false);
+    pub static CONSOLE_CONOUT: Cell<HANDLE> = Cell::new(HANDLE(0));
+    pub static ORIGINAL_STDOUT: Cell<HANDLE> = Cell::new(HANDLE(0));
+    pub static LAST_FRAME_TIME: Cell<std::time::Instant> =
+        Cell::new(std::time::Instant::now());
+    pub static LAST_SPELL_ERR_MSG: Cell<(i32, u32)> = Cell::new((0, 0));
+    pub static LAST_FRAME_NUM: Cell<u64> = Cell::new(0);
+}
 
 type Addr = usize;
 type Offset = usize;
 
-pub mod addresses;
+pub mod addrs;
 pub mod asm;
 pub mod ctm;
 pub mod lua;
@@ -101,7 +104,7 @@ fn reopen_stdout() -> windows::core::Result<HANDLE> {
 }
 
 unsafe fn restore_original_stdout() -> windows::core::Result<()> {
-    SetStdHandle(STD_OUTPUT_HANDLE, *global_var!(ORIGINAL_STDOUT))
+    SetStdHandle(STD_OUTPUT_HANDLE, ORIGINAL_STDOUT.get())
 }
 
 unsafe fn eject_dll() -> LoleResult<()> {
@@ -111,7 +114,7 @@ unsafe fn eject_dll() -> LoleResult<()> {
     }
     unregister_lop_exec()?;
     restore_original_stdout()?;
-    CloseHandle(*global_var!(CONSOLE_CONOUT))?;
+    CloseHandle(CONSOLE_CONOUT.get())?;
     FreeConsole()?;
     std::thread::spawn(|| {
         FreeLibraryAndExitThread(*global_var!(DLL_HANDLE), 0);
@@ -119,30 +122,38 @@ unsafe fn eject_dll() -> LoleResult<()> {
     Ok(())
 }
 
-const ONE_SIXTIETH: Duration = Duration::from_micros((950000.0 / 60.0) as u64);
+const ROUGHLY_ONE_SIXTIETH: Duration = Duration::from_micros((950000.0 / 60.0) as u64);
 
 fn main_entrypoint() -> LoleResult<()> {
-    let mut last_frame_time = global_var!(LAST_FRAME_TIME);
     register_lop_exec_if_not_registered()?;
     ctm::poll()?;
-    if let Some(dt) = ONE_SIXTIETH.checked_sub(last_frame_time.elapsed()) {
+    if let Some(dt) = ROUGHLY_ONE_SIXTIETH.checked_sub(LAST_FRAME_TIME.get().elapsed()) {
         std::thread::sleep(dt);
     }
-    *last_frame_time = Instant::now();
+    Ok(())
+}
+
+#[cfg(feature = "console")]
+unsafe fn open_console() -> LoleResult<()> {
+    AllocConsole()?;
+
+    let original_stdout = GetStdHandle(STD_OUTPUT_HANDLE)?;
+    ORIGINAL_STDOUT.set(original_stdout);
+
+    let conout = reopen_stdout()?;
+    CONSOLE_CONOUT.set(conout);
+
+    SetStdHandle(STD_OUTPUT_HANDLE, conout)?;
+    Ok(())
+}
+
+#[cfg(not(feature = "console"))]
+unsafe fn open_console() -> LoleResult<()> {
     Ok(())
 }
 
 unsafe fn initialize_dll() -> LoleResult<()> {
-    AllocConsole()?;
-
-    let original_stdout = GetStdHandle(STD_OUTPUT_HANDLE)?;
-    *global_var!(ORIGINAL_STDOUT) = original_stdout;
-
-    let conout = reopen_stdout()?;
-    *global_var!(CONSOLE_CONOUT) = conout;
-
-    SetStdHandle(STD_OUTPUT_HANDLE, conout)?;
-
+    open_console()?;
     let mut patches = global_var!(ENABLED_PATCHES);
 
     let lua_prot = prepare_lua_prot_patch();
@@ -178,15 +189,14 @@ unsafe fn fatal_error_exit(err: LoleError) -> ! {
     ExitProcess(1);
 }
 
-#[no_mangle]
-pub unsafe extern "cdecl" fn EndScene_hook() {
-    let mut need_init = global_var!(NEED_INIT);
-    if *need_init {
+#[allow(non_snake_case)]
+pub unsafe extern "stdcall" fn EndScene_hook() {
+    if NEED_INIT.get() {
         if let Err(e) = initialize_dll() {
             fatal_error_exit(e);
         }
-        *need_init = false;
-    } else if *global_var!(SHOULD_EJECT) {
+        NEED_INIT.set(false);
+    } else if SHOULD_EJECT.get() {
         if let Err(e) = eject_dll() {
             fatal_error_exit(e);
         }
@@ -199,6 +209,8 @@ pub unsafe extern "cdecl" fn EndScene_hook() {
             }
         }
     }
+    LAST_FRAME_NUM.set(LAST_FRAME_NUM.get() + 1);
+    LAST_FRAME_TIME.set(Instant::now());
 }
 
 #[derive(Debug)]

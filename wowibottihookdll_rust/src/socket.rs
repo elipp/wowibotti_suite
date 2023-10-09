@@ -4,6 +4,8 @@ use windows::Win32::Networking::WinSock::SOCKET;
 use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS};
 use windows::Win32::System::SystemInformation::GetTickCount;
 
+use crate::addrs;
+use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority};
 use crate::objectmanager::ObjectManager;
 use crate::vec3::Vec3;
 use crate::{objectmanager::GUID, patch::deref, Addr, LoleError, LoleResult};
@@ -77,8 +79,6 @@ pub fn pack_guid(mut guid: GUID) -> Box<[u8]> {
     packed[..size].into()
 }
 
-const SetFacing: Addr = 0x7B9DE0;
-
 fn set_facing_local(angle: f32) -> LoleResult<()> {
     let om = ObjectManager::new()?;
     let player = om.get_player()?;
@@ -89,7 +89,7 @@ fn set_facing_local(angle: f32) -> LoleResult<()> {
             "call {func_addr:e}",
             in("ecx") movement_info,
             angle = in(reg) angle,
-            func_addr = in(reg) SetFacing,
+            func_addr = in(reg) addrs::wow_c_funcs::SetFacing,
             out("eax") _,
             out("edx") _,
         }
@@ -137,6 +137,12 @@ fn set_facing_remote(pos: Vec3, angle: f32) -> LoleResult<()> {
 }
 
 pub fn set_facing(pos: Vec3, angle: f32) -> LoleResult<()> {
-    set_facing_local(angle)?;
-    set_facing_remote(pos, angle)
+    // ctm::add_to_queue(CtmEvent {
+    //     target_pos: pos + 0.5 * Vec3::from_rot_value(angle),
+    //     priority: CtmPriority::Exclusive,
+    //     action: CtmAction::Move,
+    //     ..Default::default()
+    // })
+    set_facing_remote(pos, angle)?;
+    set_facing_local(angle)
 }

@@ -9,10 +9,7 @@ use windows::Win32::System::{
     Threading::GetCurrentProcess,
 };
 
-use crate::{
-    addresses::SpellErrMsg, asm, fatal_error_exit, global_var, Addr, EndScene_hook, LoleError,
-    LoleResult, LAST_SPELL_ERR_MSG,
-};
+use crate::{addrs, asm, Addr, EndScene_hook, LoleError, LoleResult, LAST_SPELL_ERR_MSG};
 
 const INSTRBUF_SIZE: usize = 64;
 
@@ -201,27 +198,27 @@ pub fn prepare_endscene_trampoline() -> Patch {
 }
 
 fn find_EndScene() -> Addr {
-    let wowd3d9 = deref::<Addr, 1>(crate::addresses::D3D9Device);
-    let d3d9 = deref::<Addr, 2>(wowd3d9 + crate::addresses::D3D9DeviceOffset);
+    let wowd3d9 = deref::<Addr, 1>(crate::addrs::D3D9_DEVICE);
+    let d3d9 = deref::<Addr, 2>(wowd3d9 + crate::addrs::D3D9_DEVICE_OFFSET);
     deref::<Addr, 1>(d3d9 + 0x2A * 4)
 }
 
 extern "stdcall" fn spell_err_msg(msg_id: i32) {
-    *global_var!(LAST_SPELL_ERR_MSG) = (msg_id, unsafe { GetTickCount() });
+    LAST_SPELL_ERR_MSG.set((msg_id, unsafe { GetTickCount() }));
 }
 
 pub fn prepare_spell_err_msg_trampoline() -> Patch {
-    let original_opcodes = copy_original_opcodes(SpellErrMsg, 9);
+    let original_opcodes = copy_original_opcodes(addrs::wow_c_funcs::SpellErrMsg, 9);
     let mut patch_opcodes = InstructionBuffer::new();
     patch_opcodes.push(asm::PUSHAD);
     patch_opcodes.push(asm::PUSH_ECX);
     patch_opcodes.push_call_to(spell_err_msg as Addr);
     patch_opcodes.push(asm::POPAD);
     patch_opcodes.push_slice(&original_opcodes);
-    patch_opcodes.push_default_return(SpellErrMsg, 9);
+    patch_opcodes.push_default_return(addrs::wow_c_funcs::SpellErrMsg, 9);
     Patch {
         name: "SpellErrMsg",
-        patch_addr: SpellErrMsg,
+        patch_addr: addrs::wow_c_funcs::SpellErrMsg,
         original_opcodes,
         patch_opcodes,
         kind: PatchKind::JmpToTrampoline,

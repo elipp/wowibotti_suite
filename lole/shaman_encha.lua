@@ -17,6 +17,10 @@ local function imbue_weapons()
 end
 
 function combat_shaman_encha()
+    if not has_buff("player", "Strength of Earth") then
+        CastSpellByName("Strength of Earth Totem")
+        return
+    end
     set_totems();
     imbue_weapons();
     if validate_target() then

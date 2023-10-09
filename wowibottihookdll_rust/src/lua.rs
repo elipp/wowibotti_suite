@@ -1,32 +1,26 @@
-use std::arch::asm;
 use std::f32::consts::PI;
 use std::ffi::{c_char, c_void, CStr, CString};
 
+use crate::addrs::SelectUnit;
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority};
-use crate::objectmanager::{guid_from_str, ObjectManager, WowObjectType, GUID};
+use crate::define_wow_cfunc;
+use crate::objectmanager::{guid_from_str, ObjectManager};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
 use crate::socket::set_facing;
 use crate::vec3::Vec3;
-use crate::{add_repr_and_tryfrom, asm, Addr, LoleError, LoleResult, SHOULD_EJECT};
+use crate::{add_repr_and_tryfrom, asm, LoleError, LoleResult, SHOULD_EJECT};
 
+#[allow(non_camel_case_types)]
 pub type lua_State = *mut c_void;
 
-const NO_RETVALS: i32 = 0;
-
-// now that we're using `transmute`, this could be `const` -- edit: can't be const, compiler complains that `it's UB to use this value`
-macro_rules! define_wow_cfunc {
-    ($name:ident, ($($param:ident : $param_ty:ty),*) -> $ret_ty:ty) => {
-        pub fn $name ($($param : $param_ty),*) -> $ret_ty {
-            let ptr = addrs::$name as *const ();
-            let func: extern "C" fn($($param_ty),*) -> $ret_ty = unsafe { std::mem::transmute(ptr) };
-            func($($param),*)
-        }
-    }
-}
-
+#[allow(non_camel_case_types)]
 type lua_CFunction = unsafe extern "C" fn(lua_State) -> i32;
 
+#[allow(non_camel_case_types)]
+type lua_Number = f64;
+
 const LUA_GLOBALSINDEX: i32 = -10002;
+const NO_RETVALS: i32 = 0;
 
 add_repr_and_tryfrom! {
     i32,
@@ -46,8 +40,6 @@ add_repr_and_tryfrom! {
         Upval = 10,
     }
 }
-
-type lua_Number = f64;
 
 define_wow_cfunc!(
     lua_gettop,
@@ -258,7 +250,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::TargetGuid if nargs == 1 => {
             let guid_str = lua_tostring!(lua, 2)?;
             let guid = guid_from_str(guid_str)?;
-            C_SelectUnit(guid);
+            SelectUnit(guid);
         }
         Opcode::Follow if nargs == 1 => {
             let name = lua_tostring!(lua, 2)?;
@@ -372,7 +364,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         }
         Opcode::DoString if nargs == 1 => {
             let script = lua_tostring!(lua, 2)?;
-            dostring(script);
+            dostring(script)?;
         }
         Opcode::GetUnitPosition if nargs == 1 => {
             let om = ObjectManager::new()?;
@@ -405,7 +397,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             set_facing(player.get_pos(), 0.0)?;
         }
         Opcode::EjectDll => {
-            *SHOULD_EJECT.lock().expect("SHOULD_EJECT lock") = true;
+            SHOULD_EJECT.set(true);
         }
         v => return Err(LoleError::InvalidOrUnimplementedOpcodeCallNargs(v, nargs)),
     }
@@ -423,8 +415,8 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
     }
 }
 
-pub fn chatframe_print(msg: &str) -> LoleResult<()> {
-    dostring(&format!("DEFAULT_CHAT_FRAME:AddMessage(\"[DLL]: {msg}\")"))
+pub fn chatframe_print(msg: &str) {
+    let _ = dostring(&format!("DEFAULT_CHAT_FRAME:AddMessage(\"[DLL]: {msg}\")"));
 }
 
 pub fn get_lua_state() -> LoleResult<lua_State> {
@@ -459,18 +451,14 @@ pub fn prepare_lua_prot_patch() -> Patch {
 
     Patch {
         name: "Lua_Prot",
-        patch_addr: crate::addresses::LUA_Prot_patchaddr,
-        original_opcodes: copy_original_opcodes(crate::addresses::LUA_Prot_patchaddr, 9),
+        patch_addr: crate::addrs::LUA_PROT_PATCHADDR,
+        original_opcodes: copy_original_opcodes(crate::addrs::LUA_PROT_PATCHADDR, 9),
         patch_opcodes,
         kind: PatchKind::OverWrite,
     }
 }
 
-define_wow_cfunc! {
-    C_SelectUnit,
-    (guid: GUID) -> i32
-}
-
+#[allow(non_upper_case_globals)]
 mod addrs {
     use crate::Addr;
     pub const lua_gettop: Addr = 0x0072DAE0;
@@ -507,6 +495,4 @@ mod addrs {
 
     pub const vfp_max: Addr = 0xE1F834;
     pub const FrameScript_Register: Addr = 0x007059B0;
-
-    pub const C_SelectUnit: Addr = 0x4A6690;
 }

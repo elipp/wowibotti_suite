@@ -3,8 +3,6 @@ use std::f32::consts::PI;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use lazy_static::lazy_static;
-
 use crate::lua::chatframe_print;
 use crate::objectmanager::{ObjectManager, GUID, NO_TARGET};
 use crate::patch::{
@@ -12,7 +10,9 @@ use crate::patch::{
 };
 use crate::socket::set_facing;
 use crate::vec3::Vec3;
-use crate::{asm, Addr, LoleError, LoleResult, Offset};
+use crate::{addrs, asm, Addr, LoleError, LoleResult, Offset};
+
+use lazy_static::lazy_static;
 
 lazy_static! {
     static ref QUEUE: Mutex<CtmQueue> = Mutex::new(CtmQueue {
@@ -75,7 +75,7 @@ impl PartialOrd for CtmPriority {
 }
 
 pub fn get_wow_ctm_target_pos() -> Vec3 {
-    let [x, y, z] = read_elems_from_addr::<3, f32>(ctm::addrs::TARGET_POS_X);
+    let [x, y, z] = read_elems_from_addr::<3, f32>(addrs::ctm::addrs::TARGET_POS_X);
     Vec3 { x, y, z }
 }
 
@@ -120,7 +120,7 @@ impl CtmQueue {
 
         write_addr::<i32>(0xD689C0, &[0, 0, 0])?; // C0 to C8
         write_addr::<i32>(0xD68998, &[0, 0])?; // 98 and 9C
-        write_addr::<i32>(ctm::addrs::ACTION, &[CtmAction::Done as i32])?;
+        write_addr::<i32>(addrs::ctm::addrs::ACTION, &[CtmAction::Done as i32])?;
         self.advance();
         Ok(())
     }
@@ -258,35 +258,38 @@ impl CtmEvent {
 
         let (const2, min_distance, interact_guid) = match self.action {
             CtmAction::Loot => (
-                ctm::constants::LOOT_CONST2,
-                ctm::constants::LOOT_MINDISTANCE,
+                addrs::ctm::constants::LOOT_CONST2,
+                addrs::ctm::constants::LOOT_MINDISTANCE,
                 NO_TARGET, // todo!() actual GUID
             ),
             CtmAction::Move => (
-                ctm::constants::MOVE_CONST2,
-                ctm::constants::MOVE_MINDISTANCE,
+                addrs::ctm::constants::MOVE_CONST2,
+                addrs::ctm::constants::MOVE_MINDISTANCE,
                 NO_TARGET,
             ),
             CtmAction::Done => return Err(LoleError::InvalidParam("CtmKind::Done".to_owned())),
             _ => (
-                ctm::constants::MOVE_CONST2,
-                ctm::constants::MOVE_MINDISTANCE,
+                addrs::ctm::constants::MOVE_CONST2,
+                addrs::ctm::constants::MOVE_MINDISTANCE,
                 NO_TARGET,
             ),
         };
 
-        write_addr(ctm::addrs::WALKING_ANGLE, &[walking_angle])?;
-        write_addr(ctm::addrs::GLOBAL_CONST1, &[ctm::constants::GLOBAL_CONST1])?;
-        write_addr(ctm::addrs::GLOBAL_CONST2, &[const2])?;
-        write_addr(ctm::addrs::MIN_DISTANCE, &[min_distance])?;
+        write_addr(addrs::ctm::addrs::WALKING_ANGLE, &[walking_angle])?;
+        write_addr(
+            addrs::ctm::addrs::GLOBAL_CONST1,
+            &[addrs::ctm::constants::GLOBAL_CONST1],
+        )?;
+        write_addr(addrs::ctm::addrs::GLOBAL_CONST2, &[const2])?;
+        write_addr(addrs::ctm::addrs::MIN_DISTANCE, &[min_distance])?;
 
         write_addr(
-            ctm::addrs::TARGET_POS_X,
+            addrs::ctm::addrs::TARGET_POS_X,
             &[self.target_pos.x, self.target_pos.y, self.target_pos.z],
         )?;
 
         let action: u8 = self.action.into();
-        write_addr(ctm::addrs::ACTION, &[action])?;
+        write_addr(addrs::ctm::addrs::ACTION, &[action])?;
         Ok(())
     }
 }
@@ -331,8 +334,10 @@ unsafe extern "C" fn ctm_finished() {
     }
 }
 
+const CTM_FINISHED_PATCHADDR: Addr = 0x612A53;
+
 pub fn prepare_ctm_finished_patch() -> Patch {
-    let patch_addr = crate::addresses::CTM_finished_patchaddr;
+    let patch_addr = CTM_FINISHED_PATCHADDR;
     let original_opcodes = copy_original_opcodes(patch_addr, 12);
 
     let mut patch_opcodes = InstructionBuffer::new();
@@ -350,44 +355,5 @@ pub fn prepare_ctm_finished_patch() -> Patch {
         patch_opcodes,
         original_opcodes,
         kind: PatchKind::JmpToTrampoline,
-    }
-}
-
-mod ctm {
-    pub mod constants {
-        pub const GLOBAL_CONST1: f32 = 13.9626340866; // this is 9/4 PI ? :D
-        pub const MOVE_CONST2: f32 = 0.25;
-        pub const MOVE_MINDISTANCE: f32 = 0.5;
-        pub const LOOT_CONST2: f32 = 13.4444444;
-        pub const LOOT_MINDISTANCE: f32 = 3.6666666;
-    }
-
-    pub mod addrs {
-        use crate::Addr;
-
-        pub const PREV_POS_X: Addr = 0xD68A0C;
-        pub const PREV_POS_Y: Addr = 0xD68A10;
-        pub const PREV_POS_Z: Addr = 0xD68A14;
-
-        pub const TARGET_POS_X: Addr = 0xD68A18;
-        pub const TARGET_POS_Y: Addr = 0xD68A1C;
-        pub const TARGET_POS_Z: Addr = 0xD68A20;
-
-        pub const CONST1: Addr = 0xD68A24;
-        pub const ACTION: Addr = 0xD689BC;
-        pub const TIMESTAMP: Addr = 0xD689B8;
-        pub const INTERACT_GUID: Addr = 0xD689C0;
-        pub const MOVE_ATTACK_ZERO: Addr = 0xD689CC;
-
-        pub const WALKING_ANGLE: Addr = 0xD689A0;
-        pub const GLOBAL_CONST1: Addr = 0xD689A4;
-        pub const GLOBAL_CONST2: Addr = 0xD689A8;
-        pub const MIN_DISTANCE: Addr = 0xD689AC;
-
-        pub const INCREMENT: Addr = 0xD689B8;
-
-        pub const MYSTERY_C8: Addr = 0xD689C8;
-        pub const MYSTERY_90: Addr = 0xD68A90;
-        pub const MYSTERY_94: Addr = 0xD68A94;
     }
 }
