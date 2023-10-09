@@ -31,7 +31,7 @@ thread_local! {
     pub static ORIGINAL_STDOUT: Cell<HANDLE> = Cell::new(HANDLE(0));
     pub static LAST_FRAME_TIME: Cell<std::time::Instant> =
         Cell::new(std::time::Instant::now());
-    pub static LAST_SPELL_ERR_MSG: Cell<(i32, u32)> = Cell::new((0, 0));
+    pub static LAST_SPELL_ERR_MSG: Cell<(i32, u64)> = Cell::new((0, 0));
     pub static LAST_FRAME_NUM: Cell<u64> = Cell::new(0);
 }
 

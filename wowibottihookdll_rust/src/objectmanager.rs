@@ -11,6 +11,14 @@ use std::arch::asm;
 
 pub type GUID = u64;
 
+pub struct GUIDFmt(pub GUID);
+
+impl std::fmt::Display for GUIDFmt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "0x{:016X}", self.0)
+    }
+}
+
 pub fn guid_from_str(s: &str) -> LoleResult<GUID> {
     let res = GUID::from_str_radix(s.trim_start_matches("0x"), 16)?;
     Ok(res)
@@ -99,7 +107,7 @@ impl WowObject {
             WowObjectType::Npc | WowObjectType::Unit => {
                 let mut result; // looks so weird, but the compiler is giving a warning :D
                 let base = self.base;
-                let func_addr = addrs::wow_c_funcs::GetUnitOrNPCNameAddr;
+                let func_addr = addrs::wow_cfuncs::GetUnitOrNPCNameAddr;
                 unsafe {
                     asm!(
                         "push 0",
@@ -124,7 +132,7 @@ impl WowObject {
             _ => "Unknown",
         }
     }
-    fn get_guid(&self) -> GUID {
+    pub fn get_guid(&self) -> GUID {
         deref::<GUID, 1>(self.base + wowobject::GUID)
     }
     fn get_next(&self) -> Option<WowObject> {
@@ -158,16 +166,21 @@ impl WowObject {
     pub fn get_movement_info(&self) -> *const c_void {
         deref::<_, 1>(self.base + wowobject::MovementInfo)
     }
+
+    pub fn yards_in_front_of(&self, yards: f32) -> Vec3 {
+        let (pos, rotvec) = self.get_pos_and_rotvec();
+        pos + (yards * rotvec)
+    }
 }
 
 impl std::fmt::Display for WowObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[0x{:X}] WowObjectType::[{:?}] - GUID: {:016X} - Name: {}",
+            "[0x{:X}] WowObjectType::[{:?}] - GUID: {} - Name: {}",
             self.base,
             self.get_type(),
-            self.get_guid(),
+            GUIDFmt(self.get_guid()),
             self.get_name(),
         )
     }

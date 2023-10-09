@@ -2,13 +2,16 @@ use std::f32::consts::PI;
 use std::ffi::{c_char, c_void, CStr, CString};
 
 use crate::addrs::SelectUnit;
-use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority};
+use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
 use crate::define_wow_cfunc;
 use crate::objectmanager::{guid_from_str, ObjectManager};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
 use crate::socket::set_facing;
 use crate::vec3::Vec3;
-use crate::{add_repr_and_tryfrom, asm, LoleError, LoleResult, SHOULD_EJECT};
+use crate::{
+    add_repr_and_tryfrom, asm, LoleError, LoleResult, LAST_FRAME_NUM, LAST_SPELL_ERR_MSG,
+    SHOULD_EJECT,
+};
 
 #[allow(non_camel_case_types)]
 pub type lua_State = *mut c_void;
@@ -182,7 +185,8 @@ add_repr_and_tryfrom! {
         ClickToMove = 5,
         TargetMarker = 6,
         MeleeBehind = 7,
-        GetUnitPosition = 14,
+        GetUnitPosition = 8,
+        GetLastSpellErrMsg = 9,
         Debug = 0x400,
         Dump = 0x401,
         DoString = 0x402,
@@ -262,13 +266,9 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 let distance = tpdiff.length();
                 if distance < 10.0 {
                     dostring(&format!("FollowUnit(\"{}\")", o.get_name()))?;
+                    TRYING_TO_FOLLOW.set(None);
                 } else {
-                    ctm::add_to_queue(CtmEvent {
-                        target_pos: tp,
-                        priority: CtmPriority::Follow,
-                        action: CtmAction::Move,
-                        ..Default::default()
-                    })?;
+                    TRYING_TO_FOLLOW.set(Some(o.get_guid()));
                 }
             }
         }
@@ -391,6 +391,13 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 return Ok(4);
             }
         }
+        Opcode::GetLastSpellErrMsg if nargs == 0 => {
+            let (msg, frame_num) = LAST_SPELL_ERR_MSG.take();
+            let frames_ago = (LAST_FRAME_NUM.get() as i64 - frame_num as i64) as i32;
+            lua_pushnumber(lua, msg.into());
+            lua_pushnumber(lua, frames_ago.into());
+            return Ok(2);
+        }
         Opcode::Debug => {
             let om = ObjectManager::new()?;
             let player = om.get_player()?;
@@ -416,7 +423,7 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
 }
 
 pub fn chatframe_print(msg: &str) {
-    let _ = dostring(&format!("DEFAULT_CHAT_FRAME:AddMessage(\"[DLL]: {msg}\")"));
+    let _ = dostring(&format!("DEFAULT_CHAT_FRAME:AddMessage(\"* dll: {msg}\")"));
 }
 
 pub fn get_lua_state() -> LoleResult<lua_State> {

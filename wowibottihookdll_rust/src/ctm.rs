@@ -1,10 +1,11 @@
+use std::cell::Cell;
 use std::collections::VecDeque;
 use std::f32::consts::PI;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use crate::lua::chatframe_print;
-use crate::objectmanager::{ObjectManager, GUID, NO_TARGET};
+use crate::objectmanager::{GUIDFmt, ObjectManager, GUID, NO_TARGET};
 use crate::patch::{
     copy_original_opcodes, read_elems_from_addr, write_addr, InstructionBuffer, Patch, PatchKind,
 };
@@ -15,6 +16,8 @@ use crate::{addrs, asm, Addr, LoleError, LoleResult, Offset};
 use lazy_static::lazy_static;
 
 lazy_static! {
+    // turns out that thread_local! { RefCell }, while possible, is kinda tedious
+    // QUEUE.with(|cell| { let mut borrow = cell.borrow_mut(); // etc. })
     static ref QUEUE: Mutex<CtmQueue> = Mutex::new(CtmQueue {
         events: Default::default(),
         current: None,
@@ -22,6 +25,10 @@ lazy_static! {
         last_frame_time: Instant::now(),
         yards_moved: Default::default(),
     });
+}
+
+thread_local! {
+    pub static TRYING_TO_FOLLOW: Cell<Option<GUID>> = Cell::new(None);
 }
 
 #[derive(Debug, Default)]
@@ -58,7 +65,7 @@ struct CtmQueue {
     current: Option<(CtmEvent, Instant)>,
     prev_pos: Vec3,
     last_frame_time: Instant,
-    yards_moved: MovingAverage<25>,
+    yards_moved: MovingAverage<60>,
 }
 
 impl Ord for CtmPriority {
@@ -75,12 +82,12 @@ impl PartialOrd for CtmPriority {
 }
 
 pub fn get_wow_ctm_target_pos() -> Vec3 {
-    let [x, y, z] = read_elems_from_addr::<3, f32>(addrs::ctm::addrs::TARGET_POS_X);
+    let [x, y, z] = read_elems_from_addr::<3, f32>(addrs::ctm::TARGET_POS_X);
     Vec3 { x, y, z }
 }
 
 const PROBABLY_STUCK_THRESHOLD: f32 = 4.0;
-const CTM_COOLDOWN: Duration = Duration::from_millis(250);
+const CTM_COOLDOWN: Duration = Duration::from_millis(150);
 const ALMOST_IDENTICAL_TARGET_POS_THRESHOLD: f32 = 0.2;
 
 impl CtmQueue {
@@ -115,14 +122,21 @@ impl CtmQueue {
         // 00612A6B  |.  891D 9C89D600 MOV DWORD PTR DS:[0D6899C],EBX
         // 00612A71  |.  C705 BC89D600 MOV DWORD PTR DS:[0D689BC],0D
 
-        // No idea what these represent, but ^this is what
-        // "ctm_finished" does in case action == 0xD
+        // No idea what these represent, but ^this is what "ctm_finished" does in case action == 0xD
 
-        write_addr::<i32>(0xD689C0, &[0, 0, 0])?; // C0 to C8
-        write_addr::<i32>(0xD68998, &[0, 0])?; // 98 and 9C
-        write_addr::<i32>(addrs::ctm::addrs::ACTION, &[CtmAction::Done as i32])?;
-        self.advance();
-        Ok(())
+        // write_addr(0xD689C0, &[0i32; 3])?; // C0 to C8
+        // write_addr(0xD68998, &[0i32; 2])?; // 98 and 9C
+        // write_addr::<i32>(addrs::ctm::ACTION, &[CtmAction::Done as i32])?;
+
+        let om = ObjectManager::new()?;
+        let player = om.get_player()?;
+        let target_pos = player.yards_in_front_of(0.1);
+        self.replace_current(CtmEvent {
+            target_pos,
+            priority: CtmPriority::NoOverride,
+            action: CtmAction::Move,
+            ..Default::default()
+        })
     }
     fn poll(&mut self) -> LoleResult<()> {
         let prev_frame_time = self.last_frame_time;
@@ -137,7 +151,22 @@ impl CtmQueue {
 
         self.prev_pos = new_pos;
 
-        if let Some((_, start_time)) = self.current.as_mut() {
+        if let Some(guid) = TRYING_TO_FOLLOW.get() {
+            if let Some(t) = om.get_object_by_guid(guid) {
+                self.add_to_queue(CtmEvent {
+                    target_pos: t.get_pos(),
+                    priority: CtmPriority::Follow,
+                    action: CtmAction::Move,
+                    ..Default::default()
+                })?;
+            } else {
+                chatframe_print(&format!(
+                    "follow: object with guid {} doesn't exist, stopping trying to follow",
+                    GUIDFmt(guid)
+                ));
+                TRYING_TO_FOLLOW.set(None);
+            }
+        } else if let Some((_, start_time)) = self.current.as_mut() {
             if start_time.elapsed() > Duration::from_secs(3)
                 && self.yards_moved.calculate() < PROBABLY_STUCK_THRESHOLD
             {
@@ -234,6 +263,7 @@ pub struct CtmEvent {
     pub action: CtmAction,
     pub interact_guid: Option<GUID>,
     pub hooks: Option<Vec<CtmPostHook>>,
+    pub distance_margin: Option<f32>,
 }
 
 impl Default for CtmEvent {
@@ -244,8 +274,17 @@ impl Default for CtmEvent {
             action: CtmAction::Move,
             interact_guid: None,
             hooks: None,
+            distance_margin: None,
         }
     }
+}
+
+mod constants {
+    pub const GLOBAL_CONST1: f32 = 13.9626340866; // this is 9/4 PI ? :D
+    pub const MOVE_CONST2: f32 = 0.25;
+    pub const MOVE_MINDISTANCE: f32 = 0.5;
+    pub const LOOT_CONST2: f32 = 13.4444444;
+    pub const LOOT_MINDISTANCE: f32 = 3.6666666;
 }
 
 impl CtmEvent {
@@ -256,40 +295,38 @@ impl CtmEvent {
         let diff = ppos - self.target_pos;
         let walking_angle = (diff.y.atan2(diff.x) - ppos.y.atan2(ppos.x) - 0.5 * PI) % (2.0 * PI);
 
-        let (const2, min_distance, interact_guid) = match self.action {
+        let (const2, min_distance, _interact_guid) = match self.action {
             CtmAction::Loot => (
-                addrs::ctm::constants::LOOT_CONST2,
-                addrs::ctm::constants::LOOT_MINDISTANCE,
+                constants::LOOT_CONST2,
+                constants::LOOT_MINDISTANCE,
                 NO_TARGET, // todo!() actual GUID
             ),
             CtmAction::Move => (
-                addrs::ctm::constants::MOVE_CONST2,
-                addrs::ctm::constants::MOVE_MINDISTANCE,
+                constants::MOVE_CONST2,
+                constants::MOVE_MINDISTANCE,
                 NO_TARGET,
             ),
             CtmAction::Done => return Err(LoleError::InvalidParam("CtmKind::Done".to_owned())),
             _ => (
-                addrs::ctm::constants::MOVE_CONST2,
-                addrs::ctm::constants::MOVE_MINDISTANCE,
+                constants::MOVE_CONST2,
+                constants::MOVE_MINDISTANCE,
                 NO_TARGET,
             ),
         };
+        let min_distance = self.distance_margin.unwrap_or(min_distance);
 
-        write_addr(addrs::ctm::addrs::WALKING_ANGLE, &[walking_angle])?;
-        write_addr(
-            addrs::ctm::addrs::GLOBAL_CONST1,
-            &[addrs::ctm::constants::GLOBAL_CONST1],
-        )?;
-        write_addr(addrs::ctm::addrs::GLOBAL_CONST2, &[const2])?;
-        write_addr(addrs::ctm::addrs::MIN_DISTANCE, &[min_distance])?;
+        write_addr(addrs::ctm::WALKING_ANGLE, &[walking_angle])?;
+        write_addr(addrs::ctm::GLOBAL_CONST1, &[constants::GLOBAL_CONST1])?;
+        write_addr(addrs::ctm::GLOBAL_CONST2, &[const2])?;
+        write_addr(addrs::ctm::MIN_DISTANCE, &[min_distance])?;
 
         write_addr(
-            addrs::ctm::addrs::TARGET_POS_X,
+            addrs::ctm::TARGET_POS_X,
             &[self.target_pos.x, self.target_pos.y, self.target_pos.z],
         )?;
 
         let action: u8 = self.action.into();
-        write_addr(addrs::ctm::addrs::ACTION, &[action])?;
+        write_addr(addrs::ctm::ACTION, &[action])?;
         Ok(())
     }
 }
@@ -334,9 +371,8 @@ unsafe extern "C" fn ctm_finished() {
     }
 }
 
-const CTM_FINISHED_PATCHADDR: Addr = 0x612A53;
-
 pub fn prepare_ctm_finished_patch() -> Patch {
+    const CTM_FINISHED_PATCHADDR: Addr = 0x612A53;
     let patch_addr = CTM_FINISHED_PATCHADDR;
     let original_opcodes = copy_original_opcodes(patch_addr, 12);
 
@@ -345,7 +381,7 @@ pub fn prepare_ctm_finished_patch() -> Patch {
     patch_opcodes.push_call_to(ctm_finished as Addr);
     patch_opcodes.push(asm::POPAD);
     patch_opcodes.push_slice(&original_opcodes);
-    patch_opcodes.push(asm::PUSH);
+    patch_opcodes.push(asm::PUSH_IMM);
     patch_opcodes.push_slice(&(patch_addr + original_opcodes.len() as Offset).to_le_bytes());
     patch_opcodes.push(asm::RET);
 

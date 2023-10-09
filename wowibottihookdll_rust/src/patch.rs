@@ -1,4 +1,4 @@
-use std::ffi::c_void;
+use std::ffi::{c_char, c_void, CStr};
 use std::mem::size_of;
 use std::pin::Pin;
 
@@ -9,7 +9,11 @@ use windows::Win32::System::{
     Threading::GetCurrentProcess,
 };
 
-use crate::{addrs, asm, Addr, EndScene_hook, LoleError, LoleResult, LAST_SPELL_ERR_MSG};
+use crate::cstr_to_str;
+use crate::{
+    add_repr_and_tryfrom, addrs, asm, lua::chatframe_print, Addr, EndScene_hook, LoleError,
+    LoleResult, LAST_FRAME_NUM, LAST_SPELL_ERR_MSG,
+};
 
 const INSTRBUF_SIZE: usize = 64;
 
@@ -57,7 +61,7 @@ impl InstructionBuffer {
 
     pub fn push_default_return(&mut self, patch_addr: Addr, patch_size: usize) {
         let target = patch_addr + patch_size;
-        self.push(asm::PUSH);
+        self.push(asm::PUSH_IMM);
         self.push_slice(&target.to_le_bytes());
         self.push(asm::RET);
     }
@@ -197,28 +201,43 @@ pub fn prepare_endscene_trampoline() -> Patch {
     }
 }
 
+#[allow(non_snake_case)]
 fn find_EndScene() -> Addr {
     let wowd3d9 = deref::<Addr, 1>(crate::addrs::D3D9_DEVICE);
     let d3d9 = deref::<Addr, 2>(wowd3d9 + crate::addrs::D3D9_DEVICE_OFFSET);
     deref::<Addr, 1>(d3d9 + 0x2A * 4)
 }
 
-extern "stdcall" fn spell_err_msg(msg_id: i32) {
-    LAST_SPELL_ERR_MSG.set((msg_id, unsafe { GetTickCount() }));
+add_repr_and_tryfrom! {
+    i32,
+    pub enum WowSpellError {
+        InvalidTarget = 0x2F,
+        YouHaveNoTarget = 0xC0,
+    }
+}
+
+extern "stdcall" fn spell_err_msg(msg_id: i32, msg_flag: i32, msg: *const c_char) {
+    let msg = cstr_to_str!(msg);
+    chatframe_print(&format!(
+        "spell_err_msg: {msg_id:X}, {msg_flag:X}, ({msg:?})"
+    ));
+    LAST_SPELL_ERR_MSG.set((msg_id, LAST_FRAME_NUM.get()));
 }
 
 pub fn prepare_spell_err_msg_trampoline() -> Patch {
-    let original_opcodes = copy_original_opcodes(addrs::wow_c_funcs::SpellErrMsg, 9);
+    let original_opcodes = copy_original_opcodes(addrs::wow_cfuncs::SpellErrMsg, 9);
     let mut patch_opcodes = InstructionBuffer::new();
     patch_opcodes.push(asm::PUSHAD);
+    patch_opcodes.push(asm::PUSH_EDI);
+    patch_opcodes.push(asm::PUSH_EAX);
     patch_opcodes.push(asm::PUSH_ECX);
     patch_opcodes.push_call_to(spell_err_msg as Addr);
     patch_opcodes.push(asm::POPAD);
     patch_opcodes.push_slice(&original_opcodes);
-    patch_opcodes.push_default_return(addrs::wow_c_funcs::SpellErrMsg, 9);
+    patch_opcodes.push_default_return(addrs::wow_cfuncs::SpellErrMsg, 9);
     Patch {
         name: "SpellErrMsg",
-        patch_addr: addrs::wow_c_funcs::SpellErrMsg,
+        patch_addr: addrs::wow_cfuncs::SpellErrMsg,
         original_opcodes,
         patch_opcodes,
         kind: PatchKind::JmpToTrampoline,

@@ -89,7 +89,7 @@ fn set_facing_local(angle: f32) -> LoleResult<()> {
             "call {func_addr:e}",
             in("ecx") movement_info,
             angle = in(reg) angle,
-            func_addr = in(reg) addrs::wow_c_funcs::SetFacing,
+            func_addr = in(reg) addrs::wow_cfuncs::SetFacing,
             out("eax") _,
             out("edx") _,
         }
