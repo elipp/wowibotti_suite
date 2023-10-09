@@ -686,13 +686,23 @@ local raid_zones = {
 	["Karazhan"] = 3
 }
 
+SPELL_ERROR_TEXTS {
+    [0x07] = "You have no target",
+    [0x22] = "Interrupted",
+    [0x29] = "Not in line of sight",
+    [0x2D] = "Can't do that while moving",
+    [0x59] = "Out of range",
+    [0x61] = "Another action is in progress",
+    [0x7E] = "Target needs to be in front of you",
+}
+
 local function update_spell_error_status()
-	local err, text, id = get_last_spell_error()
-	if (id and id > LAST_SPELL_ERROR_ID) then
+	local err, framenum = get_last_spell_error()
+	if (framenum and framenum > LAST_SPELL_ERROR_ID) then
 		LAST_SPELL_ERROR = err
 		LAST_SPELL_ERROR_TIME = GetTime() -- this instead of GetTickCount() on the C-side of things to keep timestamps comparable
-		LAST_SPELL_ERROR_TEXT = text
-		LAST_SPELL_ERROR_ID = id
+		LAST_SPELL_ERROR_TEXT = SPELL_ERROR_TEXTS[err]
+		LAST_SPELL_ERROR_ID = framenum
 	end
 end
 

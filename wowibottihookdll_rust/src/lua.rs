@@ -392,11 +392,13 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
         }
         Opcode::GetLastSpellErrMsg if nargs == 0 => {
-            let (msg, frame_num) = LAST_SPELL_ERR_MSG.take();
-            let frames_ago = (LAST_FRAME_NUM.get() as i64 - frame_num as i64) as i32;
-            lua_pushnumber(lua, msg.into());
-            lua_pushnumber(lua, frames_ago.into());
-            return Ok(2);
+            if let Some((msg, frame_num)) = LAST_SPELL_ERR_MSG.get() {
+                lua_pushnumber(lua, (msg as i32).into());
+                lua_pushnumber(lua, frame_num.into());
+                return Ok(2);
+            } else {
+                return Ok(NO_RETVALS);
+            }
         }
         Opcode::Debug => {
             let om = ObjectManager::new()?;

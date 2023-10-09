@@ -150,10 +150,6 @@ function has_aggro()
 	return LOP:call(LOP.HasAggro)
 end
 
-function get_cast_failed_msgid()
-    return LOP:call(LOP.GET_PREVIOUS_CAST_MSG);
-end
-
 function set_selection(names_commaseparated)
 	return LOP:call(LOP.SL_SETSELECT, names_commaseparated)
 end
@@ -333,7 +329,7 @@ function avoid_npc_with_name(name, radius)
 end
 
 function get_last_spell_error()
-	return LOP:call(LOP.GET_LAST_SPELL_ERRMSG)
+	return LOP:call(LOP.GetLastSpellErrMsg)
 end
 
 function boss_action(name)

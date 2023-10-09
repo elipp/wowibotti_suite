@@ -260,7 +260,6 @@ end
 LAST_SPELL_ERROR = nil
 LAST_SPELL_ERROR_TIME = 0
 LAST_SPELL_ERROR_TEXT = ""
-LAST_SPELL_ERROR_ID = 0
 
 TOC_middle = vec3:create(562, 137, 395) -- not "local" because lole.lua needs this
 
@@ -661,16 +660,11 @@ function get_config_name_with_color(arg_config)
 
 end
 
-local cast_failed_msgs = {
-    [44] = "Not in line of sight",
-}
-
-
-
 function track_heal_attempts(name)
     if not name then return end
-    local fail_msg = cast_failed_msgs[get_cast_failed_msgid()];
-    if fail_msg then
+    local msgid, _ = get_last_spell_error()
+    if msgid ~= nil then
+        local fail_msg = SPELL_ERROR_TEXTS[msgid];
         HEAL_ATTEMPTS = HEAL_ATTEMPTS + 1;
         if HEAL_ATTEMPTS == MAX_HEAL_ATTEMPTS then
             HEAL_ATTEMPTS = 0;
