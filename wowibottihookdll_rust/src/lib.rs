@@ -33,6 +33,7 @@ pub mod vec3;
 
 use crate::ctm::prepare_ctm_finished_patch;
 use crate::lua::{prepare_lua_prot_patch, register_lop_exec};
+use crate::objectmanager::ObjectManager;
 use crate::patch::Patch;
 use crate::spell_error::{prepare_spell_err_msg_trampoline, SpellError};
 
@@ -226,7 +227,7 @@ pub enum LoleError {
     LuaStateIsNull,
     MissingOpcode,
     UnknownOpcode(i32),
-    NullPointerError,
+    NullPtrError,
     InvalidRawString(String),
     InvalidEnumValue(String),
     InvalidOrUnimplementedOpcodeCallNargs(Opcode, i32),

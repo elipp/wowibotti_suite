@@ -4,14 +4,14 @@ use std::f32::consts::PI;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use crate::lua::chatframe_print;
 use crate::objectmanager::{GUIDFmt, ObjectManager, GUID, NO_TARGET};
 use crate::patch::{
     copy_original_opcodes, read_elems_from_addr, write_addr, InstructionBuffer, Patch, PatchKind,
 };
 use crate::socket::set_facing;
-use crate::vec3::Vec3;
+use crate::vec3::{Vec3, TWO_PI};
 use crate::{addrs, asm, Addr, LoleError, LoleResult, Offset};
+use crate::{chatframe_print, dostring};
 
 use lazy_static::lazy_static;
 
@@ -143,34 +143,44 @@ impl CtmQueue {
         self.last_frame_time = Instant::now();
 
         let om = ObjectManager::new()?;
-        let new_pos = om.get_player()?.get_pos();
+        let pp = om.get_player()?.get_pos();
 
         let dt = prev_frame_time.elapsed().as_secs_f32().max(0.001);
         self.yards_moved
-            .add_sample((new_pos - self.prev_pos).length() / dt);
+            .add_sample((pp - self.prev_pos).length() / dt);
 
-        self.prev_pos = new_pos;
+        self.prev_pos = pp;
 
         if let Some(guid) = TRYING_TO_FOLLOW.get() {
             if let Some(t) = om.get_object_by_guid(guid) {
-                self.add_to_queue(CtmEvent {
-                    target_pos: t.get_pos(),
-                    priority: CtmPriority::Follow,
-                    action: CtmAction::Move,
-                    ..Default::default()
-                })?;
+                let tp = t.get_pos();
+                if (pp - tp).length() < 10.0 {
+                    TRYING_TO_FOLLOW.set(None);
+                    // doing FollowUnit() here causes a ctm_finished, causing a deadlock on the QUEUE mutex.
+                    // is avoidable using try_lock();
+                    dostring!("FollowUnit(\"{}\")", t.get_name())?;
+                    self.current = None;
+                } else {
+                    self.replace_current(CtmEvent {
+                        target_pos: tp,
+                        priority: CtmPriority::Follow,
+                        action: CtmAction::Move,
+                        ..Default::default()
+                    })?;
+                }
             } else {
-                chatframe_print(&format!(
+                chatframe_print!(
                     "follow: object with guid {} doesn't exist, stopping trying to follow",
                     GUIDFmt(guid)
-                ));
+                );
                 TRYING_TO_FOLLOW.set(None);
+                self.current = None;
             }
         } else if let Some((_, start_time)) = self.current.as_mut() {
             if start_time.elapsed() > Duration::from_secs(3)
                 && self.yards_moved.calculate() < PROBABLY_STUCK_THRESHOLD
             {
-                chatframe_print("we're probably stuck, aborting current CtmEvent");
+                chatframe_print!("we're probably stuck, aborting current CtmEvent");
                 self.abort_current()?;
             }
         }
@@ -252,6 +262,7 @@ add_repr_and_tryfrom! {
 #[derive(Debug)]
 pub enum CtmPostHook {
     FaceTarget(Vec3, f32),
+    FollowUnit(String),
     PullMob(GUID),
     SetTargetAndBlast(GUID),
 }
@@ -293,7 +304,7 @@ impl CtmEvent {
         let p = om.get_player()?;
         let ppos = p.get_pos();
         let diff = ppos - self.target_pos;
-        let walking_angle = (diff.y.atan2(diff.x) - ppos.y.atan2(ppos.x) - 0.5 * PI) % (2.0 * PI);
+        let walking_angle = (diff.y.atan2(diff.x) - ppos.y.atan2(ppos.x) - 0.5 * PI) % TWO_PI;
 
         let (const2, min_distance, _interact_guid) = match self.action {
             CtmAction::Loot => (
@@ -353,21 +364,26 @@ pub fn poll() -> LoleResult<()> {
 }
 
 unsafe extern "C" fn ctm_finished() {
-    if let Ok(mut ctm_queue) = QUEUE.lock() {
+    if let Ok(mut ctm_queue) = QUEUE.try_lock() {
         if let Some((current, _)) = ctm_queue.current.take() {
             println!("ctm finished! removed {current:?}");
             let wow_internal_target_pos = get_wow_ctm_target_pos();
             if (current.target_pos - wow_internal_target_pos).length() > 2.0 {
-                chatframe_print("warning: internal & CtmQueue target coordinates don't match");
+                chatframe_print!("warning: internal & CtmQueue target coordinates don't match");
             }
             if let Some(hooks) = current.hooks {
-                if let Some(CtmPostHook::FaceTarget(pos, rot)) = hooks.first() {
-                    set_facing(*pos, *rot).expect("set_facing");
+                let res = match hooks.first() {
+                    Some(CtmPostHook::FaceTarget(pos, rot)) => set_facing(*pos, *rot),
+                    Some(CtmPostHook::FollowUnit(name)) => dostring!("FollowUnit(\"{}\")", name),
+                    _ => Ok(()),
+                };
+                if res.is_err() {
+                    println!("warning: {res:?}");
                 }
             }
         }
     } else {
-        println!("Warning: couldn't lock CTM_QUEUE mutex!")
+        println!("warning: couldn't lock ctm::QUEUE mutex")
     }
 }
 

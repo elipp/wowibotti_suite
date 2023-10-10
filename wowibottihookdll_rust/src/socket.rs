@@ -4,10 +4,10 @@ use windows::Win32::Networking::WinSock::SOCKET;
 use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS};
 use windows::Win32::System::SystemInformation::GetTickCount;
 
-use crate::addrs;
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority};
 use crate::objectmanager::ObjectManager;
 use crate::vec3::Vec3;
+use crate::{addrs, chatframe_print};
 use crate::{objectmanager::GUID, patch::deref, Addr, LoleError, LoleResult};
 
 mod socket {
@@ -143,6 +143,7 @@ pub fn set_facing(pos: Vec3, angle: f32) -> LoleResult<()> {
     //     action: CtmAction::Move,
     //     ..Default::default()
     // })
+    chatframe_print!("calling set_facing: {}", angle);
     set_facing_remote(pos, angle)?;
     set_facing_local(angle)
 }

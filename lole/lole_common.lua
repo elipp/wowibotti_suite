@@ -834,7 +834,7 @@ function casting_legit_heal()
 			cast_state = NOT_CASTING;
 			return false;
 
-		elseif (UnitHealthMax(cast_state[CS_TARGET]) - UnitHealth(cast_state[CS_TARGET])) < 1000 then
+		elseif health_percentage("target") > 90 then
 			stopfollow();
 			cast_state = NOT_CASTING; -- useful when the UnitHealth info lag causes the char to overheal (or any cause)
 			return false;
@@ -1238,16 +1238,12 @@ function trim_string(s)
 end
 
 local guild_members = {
-  ["Printf"] = 1,
-  ["Rektorn"] = 2,
-  ["Robins"] = 3,
-  ["Eino"] = 4,
-  ["Kuratorn"] = 5,
-  ["Iijj"] = 6,
-  ["Teilor"] = 7,
-  ["Briit"] = 8,
-  ["Spobodi"] = 9,
-  ["Ghospodi"] = 10
+  ["Chonkki"] = 1,
+  ["Kuolija"] = 2,
+  ["Umennaan"] = 3,
+  ["Sbogi"] = 4,
+  ["Rikisorsanve"] = 5,
+  ["Paladayum"] = 6,
 }
 
 for name, num in pairs(guild_members) do

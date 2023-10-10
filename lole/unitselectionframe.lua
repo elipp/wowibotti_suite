@@ -182,7 +182,7 @@ local function create_unit_frame(unitname)
 		end
 	end)
 
-	L_ClearTarget()
+	ClearTarget()
 
 	return unitframe
 

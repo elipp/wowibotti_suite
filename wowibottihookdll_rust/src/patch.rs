@@ -11,8 +11,8 @@ use windows::Win32::System::{
 
 use crate::cstr_to_str;
 use crate::{
-    add_repr_and_tryfrom, addrs, asm, lua::chatframe_print, Addr, EndScene_hook, LoleError,
-    LoleResult, LAST_FRAME_NUM, LAST_SPELL_ERR_MSG,
+    add_repr_and_tryfrom, addrs, asm, chatframe_print, Addr, EndScene_hook, LoleError, LoleResult,
+    LAST_FRAME_NUM, LAST_SPELL_ERR_MSG,
 };
 
 const INSTRBUF_SIZE: usize = 64;

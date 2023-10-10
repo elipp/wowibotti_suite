@@ -1,4 +1,4 @@
-use std::ffi::{c_char, CStr};
+use std::ffi::c_char;
 
 use crate::patch::{copy_original_opcodes, InstructionBuffer, Patch, PatchKind};
 use crate::{add_repr_and_tryfrom, addrs, asm, Addr};
@@ -18,18 +18,24 @@ add_repr_and_tryfrom! {
     }
 }
 
-extern "stdcall" fn spell_err_msg(msg_id: i32, msg: *const c_char) {
+extern "stdcall" fn spell_err_msg(msg_id: i32, _msg: *const c_char) {
+    if msg_id == 0 {
+        // GetErrorText has a special handler for msg_id == 0, in which case _msg contains a garbage pointer :D
+        // this happens for things like "Looting set to free-for-all.", and other non-spell related info
+        return;
+    }
     if let Ok(msg) = msg_id.try_into() {
         if matches!(msg, SpellError::NotInLineOfSight | SpellError::OutOfRange) {
             LAST_SPELL_ERR_MSG.set(Some((msg, LAST_FRAME_NUM.get())));
         }
-    } else {
-        if let Ok(msg) = cstr_to_str!(msg) {
-            println!("(unlisted spell error message: {msg})");
-        } else {
-            println!("(string conversion error: spell_err_msg: {msg_id:x})");
-        }
     }
+    // } else {
+    //     if let Ok(msg) = cstr_to_str!(msg) {
+    //         println!("(unlisted spell error message: \"{msg}\")");
+    //     } else {
+    //         println!("(string conversion error: spell_err_msg: {msg_id:x})");
+    //     }
+    // }
 }
 
 pub fn prepare_spell_err_msg_trampoline() -> Patch {

@@ -41,8 +41,22 @@ end
 function rogue_combat()
   if validate_target() then
     melee_attack_behind(1.5);
-    L_StartAttack();
-    rotation:run();
+    StartAttack();
+    
+    if not has_buff("player", "Slice and Dice") then
+      if GetComboPoints("player", "target") > 1 then
+        CastSpellByName("Slice and Dice")
+        return
+      end
+    else
+      if GetComboPoints("player", "target") >= 4 then
+        CastSpellByName("Eviscerate")
+        return
+      end
+    end
+    CastSpellByName("Backstab")
+    CastSpellByName("Sinister Strike")
+    -- rotation:run();
   end
 end
 
@@ -76,12 +90,6 @@ function rogue_combat_before()
     L_CastSpellByName("Vanish")
   end
 
-  if not has_buff("player", "Slice and Dice") then
-    if GetComboPoints("player", "target") > 1 then
-      L_CastSpellByName("Slice and Dice")
-      return
-    end
-  end
 
   if GetComboPoints("player", "target") < 4 then
     if UnitHealth("target") < 15000 then

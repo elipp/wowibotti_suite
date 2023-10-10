@@ -652,9 +652,9 @@ player_pos_text:SetFont("Fonts\\FRIZQT__.TTF", 8);
 player_pos_text:SetPoint("BOTTOMLEFT", 12, 80);
 player_pos_text:SetText("")
 
-function update_player_pos_text(x, y, z)
+function update_player_pos_text(x, y, z, r)
 	if not x then return end
-	local pos = string.format("%.1f, %.1f, %.1f", x, y, z)
+	local pos = string.format("%.1f, %.1f, %.1f, %.1f", x, y, z, r)
 	player_pos_text:SetText("|cFFFFD100Player pos: |cFFFFFFFF" .. pos)
 end
 
@@ -663,9 +663,9 @@ target_pos_text:SetFont("Fonts\\FRIZQT__.TTF", 8);
 target_pos_text:SetPoint("BOTTOMLEFT", 12, 66);
 target_pos_text:SetText("")
 
-function update_target_pos_text(x, y, z)
+function update_target_pos_text(x, y, z, r)
 	local pos;
-	if x then pos = string.format("%.1f, %.1f, %.1f", x, y, z)
+	if x then pos = string.format("%.1f, %.1f, %.1f, %.1f", x, y, z, r)
 	else pos = "(no target)" end
 
 	target_pos_text:SetText("|cFFFFD100Target pos: |cFFFFFFFF" .. pos)
@@ -686,7 +686,7 @@ local raid_zones = {
 	["Karazhan"] = 3
 }
 
-SPELL_ERROR_TEXTS {
+SPELL_ERROR_TEXTS = {
     [0x07] = "You have no target",
     [0x22] = "Interrupted",
     [0x29] = "Not in line of sight",
