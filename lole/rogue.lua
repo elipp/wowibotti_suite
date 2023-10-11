@@ -42,7 +42,9 @@ function rogue_combat()
   if validate_target() then
     melee_attack_behind(1.5);
     StartAttack();
-    
+    if unit_castorchannel("target") then
+      CastSpellByName("Kick")
+    end
     if not has_buff("player", "Slice and Dice") then
       if GetComboPoints("player", "target") > 1 then
         CastSpellByName("Slice and Dice")

@@ -8,14 +8,12 @@ use crate::objectmanager::{guid_from_str, ObjectManager};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
 use crate::socket::set_facing;
 use crate::vec3::Vec3;
-use crate::{
-    add_repr_and_tryfrom, asm, LoleError, LoleResult, LAST_FRAME_NUM, LAST_SPELL_ERR_MSG,
-    SHOULD_EJECT,
-};
+use crate::{add_repr_and_tryfrom, asm, LoleError, LoleResult, LAST_SPELL_ERR_MSG, SHOULD_EJECT};
 use crate::{chatframe_print, define_wow_cfunc};
 
 thread_local! {
     pub static SETFACING_TIMER: Cell<std::time::Instant> = Cell::new(std::time::Instant::now());
+    pub static SETFACING_ANGLE: Cell<f32> = Cell::new(0.0);
 }
 
 const SETFACING_DELAY_MILLIS: u64 = 250;
@@ -198,7 +196,7 @@ pub fn register_lop_exec() -> LoleResult<()> {
 }
 
 pub fn unregister_lop_exec() -> LoleResult<()> {
-    write_addr(addrs::vfp_max, &[0xEFFFFFFFu32])?;
+    write_addr(addrs::vfp_max, &[0xEFFFFFFFu32])?; // TODO: probably should look up what the original value was...
     let lua = get_lua_state()?;
     lua_unregister!(lua, b"lop_exec\0".as_ptr());
     println!("lop_exec un-registered!");
@@ -254,7 +252,7 @@ fn get_melee_position_status(
     tpdiff_unit: Vec3,
     prot_unit: Vec3,
 ) -> PlayerPositionStatus {
-    if ideal_position_relative.length() > 1.0 {
+    if ideal_position_relative.length() > 0.5 {
         PlayerPositionStatus::TooFar
     } else if Vec3::dot(tpdiff_unit, prot_unit) < 0.85 {
         PlayerPositionStatus::WrongFacing
@@ -279,6 +277,17 @@ fn get_caster_position_status(
     } else {
         PlayerPositionStatus::Ok
     }
+}
+
+fn set_facing_if_not_in_cooldown(pos: Vec3, angle: f32) -> LoleResult<()> {
+    if !ctm::event_in_progress()?
+        && SETFACING_TIMER.get().elapsed()
+            > std::time::Duration::from_millis(SETFACING_DELAY_MILLIS)
+    {
+        set_facing(pos, angle)?;
+        SETFACING_TIMER.set(std::time::Instant::now());
+    }
+    Ok(())
 }
 
 fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
@@ -307,13 +316,14 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 let tpdiff = tp - pp;
                 let distance = tpdiff.length();
                 if distance < 10.0 {
-                    dostring!("FollowUnit(\"{}\")", t.get_name());
+                    dostring!("FollowUnit(\"{}\")", t.get_name())?;
                 } else {
                     TRYING_TO_FOLLOW.set(Some(t.get_guid()));
                 }
             }
         }
         Opcode::StopFollow if nargs == 0 => {
+            TRYING_TO_FOLLOW.set(None);
             let target_pos = player.yards_in_front_of(0.1);
             ctm::add_to_queue(CtmEvent {
                 target_pos,
@@ -333,7 +343,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 let range_max = lua_tonumber_f32!(lua, 3);
                 let (pp, prot) = player.get_pos_and_rotvec();
                 let tp = target.get_pos();
-                let tpdiff = tp - pp;
+                let tpdiff = (tp - pp).zero_z();
                 let tpdiff_unit = tpdiff.unit();
                 match get_caster_position_status(range_min, range_max, tpdiff, prot) {
                     PlayerPositionStatus::TooNear => {
@@ -353,13 +363,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                         })?;
                     }
                     PlayerPositionStatus::WrongFacing => {
-                        if !ctm::event_in_progress()?
-                            && SETFACING_TIMER.get().elapsed()
-                                > std::time::Duration::from_millis(SETFACING_DELAY_MILLIS)
-                        {
-                            set_facing(pp, tpdiff.to_rot_value())?;
-                            SETFACING_TIMER.set(std::time::Instant::now());
-                        }
+                        set_facing_if_not_in_cooldown(pp, tpdiff_unit.to_rot_value())?;
                     }
                     _ => {}
                 }
@@ -371,19 +375,14 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 let (pp, prot) = player.get_pos_and_rotvec();
                 let (tp, trot) = target.get_pos_and_rotvec();
                 let tpdiff = (tp - pp).zero_z();
+                let tpdiff_unit = tpdiff.unit();
 
                 if target.get_target_guid() == Some(player.get_guid()) {
-                    if !ctm::event_in_progress()?
-                        && SETFACING_TIMER.get().elapsed()
-                            > std::time::Duration::from_millis(SETFACING_DELAY_MILLIS)
-                    {
-                        set_facing(pp, tpdiff.to_rot_value())?;
-                        SETFACING_TIMER.set(std::time::Instant::now());
-                    }
+                    set_facing_if_not_in_cooldown(pp, tpdiff_unit.to_rot_value())?;
                     return Ok(LUA_NO_RETVALS);
                 }
                 let range_min = lua_tonumber_f32!(lua, 2);
-                // TODO: do the if range_min > 2: range_min = range_min - 2 business in Lua
+                // TODO: do the if range_min > 2: range_min = range_min - 2 business in Lua?
 
                 const MELEE_NUKE_ANGLE: f32 = 0.35;
 
@@ -393,12 +392,8 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 let ideal = pp.select_closer(candidate1, candidate2);
                 let ideal_relative = (ideal - pp).zero_z();
 
-                let pos_status = get_melee_position_status(ideal_relative, tpdiff.unit(), prot);
-
-                if SETFACING_TIMER.get().elapsed() > std::time::Duration::from_millis(250) {}
-
-                match pos_status {
-                    PlayerPositionStatus::TooFar => {
+                match get_melee_position_status(ideal_relative, tpdiff_unit, prot) {
+                    PlayerPositionStatus::TooFar | PlayerPositionStatus::TooNear => {
                         ctm::add_to_queue(CtmEvent {
                             target_pos: ideal + 0.5 * prot,
                             priority: CtmPriority::Replace,
@@ -408,13 +403,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                         })?;
                     }
                     PlayerPositionStatus::WrongFacing => {
-                        if !ctm::event_in_progress()?
-                            && SETFACING_TIMER.get().elapsed()
-                                > std::time::Duration::from_millis(SETFACING_DELAY_MILLIS)
-                        {
-                            set_facing(pp, tpdiff.to_rot_value())?;
-                            SETFACING_TIMER.set(std::time::Instant::now());
-                        }
+                        set_facing_if_not_in_cooldown(pp, tpdiff.to_rot_value())?;
                     }
                     _ => {}
                 }
@@ -533,9 +522,8 @@ pub fn register_lop_exec_if_not_registered() -> LoleResult<()> {
 }
 
 pub fn prepare_lua_prot_patch() -> Patch {
-    use asm::NOP;
     let mut patch_opcodes = InstructionBuffer::new();
-    patch_opcodes.push_slice(&[0xB8, 0x01, 0x00, 0x00, 0x00, 0x5D, 0xC3, NOP, NOP]);
+    patch_opcodes.push_slice(&[0xB8, 0x01, 0x00, 0x00, 0x00, 0x5D, 0xC3, asm::NOP, asm::NOP]);
 
     Patch {
         name: "Lua_Prot",
@@ -582,5 +570,5 @@ mod addrs {
     // this is the upper limit
 
     pub const vfp_max: Addr = 0xE1F834;
-    pub const FrameScript_Register: Addr = 0x007059B0;
+    // pub const FrameScript_Register: Addr = 0x007059B0;
 }

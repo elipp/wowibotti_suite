@@ -259,19 +259,13 @@ function combat_priest_holy()
             TargetUnit("player");
         end
     end
-
-    echo(heal_targets[1])
-    
+  
     local target_HPP = health_percentage("target")
     local has_renew, renew_timeleft = has_buff("target", "Renew");
 
-    echo(target_HPP, has_renew, renew_timeleft)
-
     if target_HPP < 50 then
-        echo("trying to cast Heal on ", UnitName("target"))
         cast_heal("Heal")
     elseif not has_renew then
-        echo("trying to cast Renew on ", UnitName("target"))
         cast_heal("Renew")
     end
 end
