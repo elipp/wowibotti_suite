@@ -135,7 +135,9 @@ function follow_unit(name)
 end
 
 function stopfollow()
-	LOP:call(LOP.StopFollow)
+	if not playermode() then
+		LOP:call(LOP.StopFollow)
+	end
 end
 
 function is_walking()

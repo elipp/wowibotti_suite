@@ -2,11 +2,13 @@ function Rotation(spells, reset_interval)
     spells = spells or {};
     reset_interval = reset_interval or 3;
     local last_cast_time = 0;
+    local target = nil;
     return {
         spells = spells,
         reset_interval = reset_interval,
         spell_index = 1,
         last_cast_time = last_cast_time,
+        target = target,
 
         increment_spell_index = function(self)
             local next_index = self.spell_index + 1;
@@ -17,13 +19,14 @@ function Rotation(spells, reset_interval)
         end,
 
         check_rotation_reset = function(self)
-            if GetTime() - self.last_cast_time > self.reset_interval then
+            if GetTime() - self.last_cast_time > self.reset_interval or
+                    UnitGUID("target") ~= self.target then
                 self.spell_index = 1;
+                self.target = UnitGUID("target");
             end
         end,
 
         get_next_spell = function(self)
-            self:check_rotation_reset();
             return self.spells[self.spell_index];
         end,
 
@@ -34,6 +37,7 @@ function Rotation(spells, reset_interval)
         end,
 
         run = function(self)
+            self:check_rotation_reset();
             local spell = self:get_next_spell();
             --echo("Casting spell: " .. self.spells[self.spell_index].name)
             if spell:cast() then

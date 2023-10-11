@@ -14,6 +14,11 @@ local melee_rotation = Rotation({
     Spell("Raptor Strike")
 })
 
+function hunter_survive()
+    -- this is for surviving aggro as hunter :)
+    L_CastSpellByName("Feign Death");
+end
+
 local function set_pet_state()
     if UnitExists("pet") and UnitIsDead("pet") then
         L_CastSpellByName("Revive Pet");
@@ -59,12 +64,12 @@ local function set_hunters_mark()
 end
 
 local function attack()
+    L_StartAttack();
     L_PetAttack();
     if player_is_targeted() and get_distance_between("player", "target") < 15 then
         melee_rotation:run();
         return;
     else
-        L_StartAttack();
         caster_range_check(12, 30);
         rotation:run();
         return;
@@ -89,6 +94,8 @@ function combat_ranged_hunter()
     -- if need_mana() then return end;
     check_buffs();
     set_pet_state();
+    attack()
+    SendChatMessage("pieru", "YELL");
     if validate_target() then
         set_hunters_mark();
         attack();

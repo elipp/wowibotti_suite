@@ -1091,6 +1091,14 @@ function get_self_debuff_expiration(targetname, debuff_name)
   return nil
 end
 
+function debuff_left_percentage(targetname, debuff_name)
+    local h, timeleft, count, duration = has_debuff(targetname, debuff_name)
+    if h and timeleft and duration then
+        return timeleft / duration * 100.0
+    end
+    return nil;
+end
+
 function get_num_debuff_stacks(targetname, debuff_name)
 
   local h, timeleft, count = has_debuff(targetname, debuff_name)
@@ -1287,6 +1295,10 @@ function get_durability_status()
 	end
 
 	return true
+end
+
+function player_class()
+    return UnitClass("player")
 end
 
 function get_item_bag_position(itemLink)
