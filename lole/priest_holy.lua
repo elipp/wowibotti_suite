@@ -241,17 +241,30 @@ function combat_priest_holy()
 
     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
 
-    if heal_targets[1] == nil or heal_targets[1] == "raid" then
-        raid_heal(false);
-        return;
+    -- if heal_targets[1] == nil or heal_targets[1] == "raid" then
+    --     raid_heal(false);
+    --     return;
+    -- end
+    local top_prio = heal_targets[1]
+    if top_prio == nil then
+        ClearTarget()
+        return
     end
-    TargetUnit(heal_targets[1]);
 
+    if heal_targets[1] == 'raid' then
+        local target, urgencies = get_raid_heal_target(true);
+        if target then
+            TargetUnit(target);
+        else
+            TargetUnit("player");
+        end
+    end
+  
     local target_HPP = health_percentage("target")
     local has_renew, renew_timeleft = has_buff("target", "Renew");
 
     if target_HPP < 50 then
-        cast_heal("Lesser Heal")
+        cast_heal("Heal")
     elseif not has_renew then
         cast_heal("Renew")
     end

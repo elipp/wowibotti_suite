@@ -6,10 +6,11 @@ pub const D3D9_DEVICE_OFFSET: Offset = 0x3864;
 #[allow(non_upper_case_globals)]
 pub mod wow_cfuncs {
     use crate::Addr;
-    pub const SpellErrMsg: Addr = 0x4988A0;
     pub const GetUnitOrNPCNameAddr: Addr = 0x614520;
     pub const SelectUnit: Addr = 0x4A6690;
     pub const SetFacing: Addr = 0x7B9DE0;
+    pub const SpellErrMsg: Addr = 0x4988A0;
+    pub const GetErrorText: Addr = 0x707200;
 }
 
 #[allow(non_upper_case_globals)]

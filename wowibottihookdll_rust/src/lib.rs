@@ -18,6 +18,25 @@ use windows::{Win32::Foundation::*, Win32::System::SystemServices::*};
 
 use lazy_static::lazy_static;
 
+type Addr = usize;
+type Offset = usize;
+
+pub mod addrs;
+pub mod asm;
+pub mod ctm;
+pub mod lua;
+pub mod objectmanager;
+pub mod patch;
+pub mod socket;
+pub mod spell_error;
+pub mod vec3;
+
+use crate::ctm::prepare_ctm_finished_patch;
+use crate::lua::{prepare_lua_prot_patch, register_lop_exec};
+use crate::objectmanager::ObjectManager;
+use crate::patch::Patch;
+use crate::spell_error::{prepare_spell_err_msg_trampoline, SpellError};
+
 lazy_static! {
     // just in case DllMain is called from a non-main thread? :D
     pub static ref ENABLED_PATCHES: Mutex<Vec<Patch>> = Mutex::new(vec![]);
@@ -31,27 +50,9 @@ thread_local! {
     pub static ORIGINAL_STDOUT: Cell<HANDLE> = Cell::new(HANDLE(0));
     pub static LAST_FRAME_TIME: Cell<std::time::Instant> =
         Cell::new(std::time::Instant::now());
-    pub static LAST_SPELL_ERR_MSG: Cell<(i32, u64)> = Cell::new((0, 0));
-    pub static LAST_FRAME_NUM: Cell<u64> = Cell::new(0);
+    pub static LAST_SPELL_ERR_MSG: Cell<Option<(SpellError, u32)>> = Cell::new(None);
+    pub static LAST_FRAME_NUM: Cell<u32> = Cell::new(0);
 }
-
-type Addr = usize;
-type Offset = usize;
-
-pub mod addrs;
-pub mod asm;
-pub mod ctm;
-pub mod lua;
-pub mod objectmanager;
-pub mod patch;
-pub mod socket;
-pub mod vec3;
-
-use lua::register_lop_exec;
-
-use crate::ctm::prepare_ctm_finished_patch;
-use crate::lua::prepare_lua_prot_patch;
-use crate::patch::{prepare_spell_err_msg_trampoline, Patch};
 
 pub fn wide_null(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
@@ -226,7 +227,7 @@ pub enum LoleError {
     LuaStateIsNull,
     MissingOpcode,
     UnknownOpcode(i32),
-    NullPointerError,
+    NullPtrError,
     InvalidRawString(String),
     InvalidEnumValue(String),
     InvalidOrUnimplementedOpcodeCallNargs(Opcode, i32),

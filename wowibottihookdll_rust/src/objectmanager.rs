@@ -1,4 +1,4 @@
-use std::ffi::{c_void, CStr};
+use std::ffi::{c_char, c_void, CStr};
 
 use crate::patch::{deref, read_elems_from_addr};
 use crate::vec3::Vec3;
@@ -105,7 +105,7 @@ impl WowObject {
     pub fn get_name(&self) -> &str {
         match self.get_type() {
             WowObjectType::Npc | WowObjectType::Unit => {
-                let mut result; // looks so weird, but the compiler is giving a warning :D
+                let mut result: *const c_char; // looks so weird, but the compiler is giving a warning if it's initialized :D
                 let base = self.base;
                 let func_addr = addrs::wow_cfuncs::GetUnitOrNPCNameAddr;
                 unsafe {
@@ -135,6 +135,19 @@ impl WowObject {
     pub fn get_guid(&self) -> GUID {
         deref::<GUID, 1>(self.base + wowobject::GUID)
     }
+    pub fn get_target_guid(&self) -> Option<GUID> {
+        let guid = match self.get_type() {
+            WowObjectType::Unit => deref::<GUID, 1>(self.base + wowobject::UnitTargetGUID),
+            WowObjectType::Npc => deref::<GUID, 1>(self.base + wowobject::NPCTargetGUID),
+            _ => 0x0,
+        };
+        if guid == 0x0 {
+            None
+        } else {
+            Some(guid)
+        }
+    }
+
     fn get_next(&self) -> Option<WowObject> {
         let next_base_addr = deref::<Addr, 1>(self.base + wowobject::Next);
         WowObject::try_new(next_base_addr)

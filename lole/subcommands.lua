@@ -80,7 +80,9 @@ local function lole_follow(name)
 end
 
 local function lole_stopfollow()
-	stopfollow()
+	if not playermode() then
+		stopfollow()
+	end
 end
 
 function lole_set(attrib_name, on_off_str)
@@ -432,7 +434,9 @@ end
 function clear_target()
 	BLAST_TARGET_GUID = NOTARGET;
 	L_ClearFocus()
-	L_ClearTarget();
+	if not playermode() then
+		L_ClearTarget();
+	end
 	update_target_text("-none-", "");
 end
 

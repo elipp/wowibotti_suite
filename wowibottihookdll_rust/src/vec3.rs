@@ -1,10 +1,21 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::{
+    f32::consts::PI,
+    ops::{Add, Div, Mul, Sub},
+};
+
+pub const TWO_PI: f32 = PI * 2.0;
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+}
+
+impl std::fmt::Display for Vec3 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Vec3({:.3}, {:.3}, {:.3})", self.x, self.y, self.z)
+    }
 }
 
 impl Add for Vec3 {
@@ -79,7 +90,13 @@ impl Vec3 {
         }
     }
     pub fn to_rot_value(self) -> f32 {
-        self.y.atan2(self.x)
+        // assumes this is an unit direction vector
+        let angle = self.y.atan2(self.x);
+        if angle < 0.0 {
+            angle + 2.0 * PI
+        } else {
+            angle
+        }
     }
     pub fn dot(a: Self, b: Self) -> f32 {
         a.x * b.x + a.y * b.y + a.z * b.z

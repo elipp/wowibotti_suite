@@ -652,9 +652,9 @@ player_pos_text:SetFont("Fonts\\FRIZQT__.TTF", 8);
 player_pos_text:SetPoint("BOTTOMLEFT", 12, 80);
 player_pos_text:SetText("")
 
-function update_player_pos_text(x, y, z)
+function update_player_pos_text(x, y, z, r)
 	if not x then return end
-	local pos = string.format("%.1f, %.1f, %.1f", x, y, z)
+	local pos = string.format("%.1f, %.1f, %.1f, %.1f", x, y, z, r)
 	player_pos_text:SetText("|cFFFFD100Player pos: |cFFFFFFFF" .. pos)
 end
 
@@ -663,9 +663,9 @@ target_pos_text:SetFont("Fonts\\FRIZQT__.TTF", 8);
 target_pos_text:SetPoint("BOTTOMLEFT", 12, 66);
 target_pos_text:SetText("")
 
-function update_target_pos_text(x, y, z)
+function update_target_pos_text(x, y, z, r)
 	local pos;
-	if x then pos = string.format("%.1f, %.1f, %.1f", x, y, z)
+	if x then pos = string.format("%.1f, %.1f, %.1f, %.1f", x, y, z, r)
 	else pos = "(no target)" end
 
 	target_pos_text:SetText("|cFFFFD100Target pos: |cFFFFFFFF" .. pos)
@@ -686,13 +686,23 @@ local raid_zones = {
 	["Karazhan"] = 3
 }
 
+SPELL_ERROR_TEXTS = {
+    [0x07] = "You have no target",
+    [0x22] = "Interrupted",
+    [0x29] = "Not in line of sight",
+    [0x2D] = "Can't do that while moving",
+    [0x59] = "Out of range",
+    [0x61] = "Another action is in progress",
+    [0x7E] = "Target needs to be in front of you",
+}
+
 local function update_spell_error_status()
-	local err, text, id = get_last_spell_error()
-	if (id and id > LAST_SPELL_ERROR_ID) then
+	local err, framenum = get_last_spell_error()
+	if (framenum and framenum > LAST_SPELL_ERROR_ID) then
 		LAST_SPELL_ERROR = err
 		LAST_SPELL_ERROR_TIME = GetTime() -- this instead of GetTickCount() on the C-side of things to keep timestamps comparable
-		LAST_SPELL_ERROR_TEXT = text
-		LAST_SPELL_ERROR_ID = id
+		LAST_SPELL_ERROR_TEXT = SPELL_ERROR_TEXTS[err]
+		LAST_SPELL_ERROR_ID = framenum
 	end
 end
 
