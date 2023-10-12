@@ -4,6 +4,7 @@
 ## Notes: epic
 
 json.lua
+global_vars.lua
 rotation.lua
 
 lole_common.lua
@@ -37,6 +38,7 @@ subcommands.lua
 
 frame.lua
 unitselectionframe.lua
+event_handler.lua
 
 
 lole.xml
