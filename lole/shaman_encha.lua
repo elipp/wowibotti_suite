@@ -12,7 +12,7 @@ end
 local function imbue_weapons()
     local mh_imbue, _, _, oh_imbue, _, _ = GetWeaponEnchantInfo();
     if not mh_imbue then
-        L_CastSpellByName("Rockbiter Weapon");
+        CastSpellByName("Windfury Weapon");
     end
 end
 
