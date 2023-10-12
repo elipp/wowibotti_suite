@@ -357,15 +357,15 @@ ROLES = { healer = 1, caster = 2, tank = 3, mana_tank = 4, melee = 5, mana_melee
 
 local CLASS_COLORS = {
     death_knight = "C41F3B",
-	druid = "FF7D0A",
-	hunter = "ABD473",
-	mage = "69CCF0",
-	paladin = "F58CBA",
-	priest = "FFFFFF",
-	rogue = "FFF569",
-	shaman = "0070DE",
-	warlock = "9482C9",
-	warrior = "C79C6E",
+    druid = "FF7D0A",
+    hunter = "ABD473",
+    mage = "69CCF0",
+    paladin = "F58CBA",
+    priest = "FFFFFF",
+    rogue = "FFF569",
+    shaman = "0070DE",
+    warlock = "9482C9",
+    warrior = "C79C6E",
 }
 
 function get_class_color(class)
@@ -699,7 +699,7 @@ function cast_heal(spellname, target, range)
     if range == nil then range = 35; end
     if target then L_TargetUnit(target); end
     if spellname ~= "Prayer of Healing" then
-        caster_range_check(0,range);
+        healer_range_check(range);
     end
     if INSTANT_HEALS[spellname] then
         return cast_if_nocd(spellname);
@@ -1017,7 +1017,7 @@ function cast_dispel(debuff_table, spellname)
   if not charname then return nil end
     -- we dont really care about the actual debuff, just cleanse, don't ask questions :D
   L_TargetUnit(charname)
-  caster_range_check(0, 40) -- most dispel spells have a 40 yd range?
+  healer_range_check(40) -- most dispel spells have a 40 yd range?
   L_CastSpellByName(spellname)
 
   return true

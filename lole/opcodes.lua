@@ -11,6 +11,7 @@ local LOP = {
   MeleeBehind = 7,
   GetUnitPosition = 8,
 	GetLastSpellErrMsg = 9,
+	HealerRangeCheck = 10,
   Debug = 0x400,
   Dump = 0x401,
   DoString = 0x402,
@@ -47,6 +48,16 @@ end
 function caster_range_check(minrange, maxrange)
 	if not playermode() then
 		if LOP:call(LOP.CasterRangeCheck, minrange, maxrange) then
+			return true
+		else
+			return false
+		end
+	end
+end
+
+function healer_range_check(maxrange)
+	if not playermode() then
+		if LOP:call(LOP.HealerRangeCheck, maxrange) then
 			return true
 		else
 			return false

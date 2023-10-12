@@ -217,6 +217,7 @@ add_repr_and_tryfrom! {
         MeleeBehind = 7,
         GetUnitPosition = 8,
         GetLastSpellErrMsg = 9,
+        HealerRangeCheck = 10,
         Debug = 0x400,
         Dump = 0x401,
         DoString = 0x402,
@@ -280,6 +281,12 @@ fn get_caster_position_status(
 }
 
 fn set_facing_if_not_in_cooldown(pos: Vec3, angle: f32) -> LoleResult<()> {
+    let om = ObjectManager::new()?;
+    let player = om.get_player()?;
+    let [_, _, _, r] = player.get_xyzr();
+    if (r - angle).abs() < 0.05 {
+        return Ok(());
+    }
     if !ctm::event_in_progress()?
         && SETFACING_TIMER.get().elapsed()
             > std::time::Duration::from_millis(SETFACING_DELAY_MILLIS)
@@ -410,6 +417,26 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
         }
 
+        Opcode::HealerRangeCheck if nargs == 1 => {
+            if let Some(target) = target {
+                let range_max = lua_tonumber_f32!(lua, 2);
+                let pp = player.get_pos();
+                let tp = target.get_pos();
+                let tpdiff = (tp - pp).zero_z();
+                if tpdiff.length() < range_max {
+                    return Ok(LUA_NO_RETVALS);
+                }
+                let tpdiff_unit = tpdiff.unit();
+
+                ctm::add_to_queue(CtmEvent {
+                    target_pos: tp - (range_max - 2.0) * tpdiff_unit,
+                    priority: CtmPriority::Replace,
+                    action: CtmAction::Move,
+                    ..Default::default()
+                })?;
+            }
+        }
+
         Opcode::ClickToMove if nargs == 4 => {
             let x = lua_tonumber_f32!(lua, 2);
             let y = lua_tonumber_f32!(lua, 3);
@@ -490,7 +517,7 @@ macro_rules! chatframe_print {
 
     ($msg:literal) => {
         use crate::dostring;
-        if let Err(e) = dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage(\"", $msg, "\"")) {
+        if let Err(e) = dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage(\"", $msg, "\")")) {
             println!("chatframe_print failed with {e:?}, msg: {}", $msg);
         }
     };

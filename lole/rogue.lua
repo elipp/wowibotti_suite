@@ -12,11 +12,11 @@ local rotation = Rotation(
 local function reapply_poisons()
 
   if mh_apply then
-    L_RunMacroText("/use 16")
+    RunMacroText("/use 16")
     mh_at = GetTime()
     mh_apply = nil
   elseif oh_apply then
-    L_RunMacroText("/use 17")
+    RunMacroText("/use 17")
     oh_at = GetTime()
     oh_apply = nil
   end
@@ -25,12 +25,12 @@ local function reapply_poisons()
 --  echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
 
   if not has_mh then
-    L_RunMacroText("/use Instant Poison IX")
+    RunMacroText("/use Instant Poison")
     if GetTime() - mh_at > 5 then
       mh_apply = 1
     end
   elseif not has_oh then
-    L_RunMacroText("/use Deadly Poison IX")
+    RunMacroText("/use Instant Poison")
     if GetTime() - oh_at > 5 then
       oh_apply = 1
     end
@@ -39,6 +39,9 @@ local function reapply_poisons()
 end
 
 function rogue_combat()
+  
+  reapply_poisons()
+
   if validate_target() then
     melee_attack_behind(1.5);
     StartAttack();
@@ -56,7 +59,7 @@ function rogue_combat()
         return
       end
     end
-    CastSpellByName("Backstab")
+    -- CastSpellByName("Backstab")
     CastSpellByName("Sinister Strike")
     -- rotation:run();
   end

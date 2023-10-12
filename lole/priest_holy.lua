@@ -264,8 +264,14 @@ function combat_priest_holy()
     local has_renew, renew_timeleft = has_buff("target", "Renew");
 
     if target_HPP < 50 then
-        cast_heal("Heal")
+        cast_heal("Heal(Rank 1)")
     elseif not has_renew then
         cast_heal("Renew")
+    elseif validate_target() then
+        CastSpellByName("Mana Tap")
+        local has, _, count = has_buff("player", "Mana Tap")
+        if has ~= nil and count >= 2 then
+            CastSpellByName("Arcane Torrent")
+        end
     end
 end

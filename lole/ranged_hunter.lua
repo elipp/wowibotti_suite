@@ -95,7 +95,6 @@ function combat_ranged_hunter()
     check_buffs();
     set_pet_state();
     attack()
-    SendChatMessage("pieru", "YELL");
     if validate_target() then
         set_hunters_mark();
         attack();
