@@ -687,6 +687,7 @@ local raid_zones = {
 }
 
 SPELL_ERROR_TEXTS = {
+    [0x02] = "You are facing the wrong way",
     [0x07] = "You have no target",
     [0x22] = "Interrupted",
     [0x29] = "Not in line of sight",
