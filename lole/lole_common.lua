@@ -1945,3 +1945,17 @@ BITWISE = {
     XOR=function(a,b) return bitoper(a,b,3) end,
     AND=function(a,b) return bitoper(a,b,4) end,
 }
+
+function all(iterable, condition)
+  for k, v in pairs(iterable) do
+    if not condition(k, v) then return false end
+  end
+  return true
+end
+
+function any(iterable, condition)
+  for k, v in pairs(iterable) do
+    if condition(k, v) then return true end
+  end
+  return false
+end

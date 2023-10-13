@@ -25,6 +25,12 @@ pub type lua_State = *mut c_void;
 type lua_CFunction = unsafe extern "C" fn(lua_State) -> i32;
 
 #[allow(non_camel_case_types)]
+type lua_Boolean = i32;
+
+const LUA_FALSE: lua_Boolean = 0;
+const LUA_TRUE: lua_Boolean = 1;
+
+#[allow(non_camel_case_types)]
 type lua_Number = f64;
 
 const LUA_GLOBALSINDEX: i32 = -10002;
@@ -71,6 +77,10 @@ define_wow_cfunc!(
 define_wow_cfunc!(
     lua_pushnumber,
     (state: lua_State, number: lua_Number) -> ());
+
+define_wow_cfunc!(
+    lua_pushboolean,
+    (state: lua_State, b: lua_Boolean) -> ());
 
 define_wow_cfunc!(
     lua_getfield,
@@ -389,7 +399,11 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                     PlayerPositionStatus::WrongFacing => {
                         set_facing_if_not_in_cooldown(tpdiff_unit.to_rot_value())?;
                     }
-                    _ => {}
+
+                    PlayerPositionStatus::Ok => {
+                        lua_pushboolean(lua, LUA_TRUE);
+                        return Ok(1);
+                    }
                 }
             }
         }
@@ -429,7 +443,10 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                     PlayerPositionStatus::WrongFacing => {
                         set_facing_if_not_in_cooldown(tpdiff.to_rot_value())?;
                     }
-                    _ => {}
+                    PlayerPositionStatus::Ok => {
+                        lua_pushboolean(lua, LUA_TRUE);
+                        return Ok(1);
+                    }
                 }
             }
         }

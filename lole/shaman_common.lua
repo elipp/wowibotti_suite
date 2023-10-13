@@ -1,33 +1,33 @@
 TIME_TOTEMS_REFRESHED = 0;
 
-local totem_type_id_map = {
-	["fire"] = 1,
-	["earth"] = 2,
-	["water"] = 3,
-	["air"] = 4
+TOTEM_TYPE_ID_MAP = {
+	fire=1,
+	earth=2,
+	water=3,
+	air=4,
 };
 
-local totem_name_type_map = {
-	["Tremor Totem"] = totem_type_id_map["earth"],
-	["Stoneskin Totem"] = totem_type_id_map["earth"],
-	["Strength of Earth Totem"] = totem_type_id_map["earth"],
+local TOTEM_NAME_TYPE_MAP = {
+	["Tremor Totem"] = TOTEM_TYPE_ID_MAP["earth"],
+	["Stoneskin Totem"] = TOTEM_TYPE_ID_MAP["earth"],
+	["Strength of Earth Totem"] = TOTEM_TYPE_ID_MAP["earth"],
 
-	["Totem of Wrath"] = totem_type_id_map["fire"],
-	["Frost Resistance Totem"] = totem_type_id_map["fire"],
-	["Searing Totem"] = totem_type_id_map["fire"],
-	["Flametongue Totem"] = totem_type_id_map["fire"],
+	["Totem of Wrath"] = TOTEM_TYPE_ID_MAP["fire"],
+	["Frost Resistance Totem"] = TOTEM_TYPE_ID_MAP["fire"],
+	["Searing Totem"] = TOTEM_TYPE_ID_MAP["fire"],
+	["Flametongue Totem"] = TOTEM_TYPE_ID_MAP["fire"],
 
-	["Mana Spring Totem"] = totem_type_id_map["water"],
-	["Mana Tide Totem"] = totem_type_id_map["water"],
-	["Cleansing Totem"] = totem_type_id_map["water"],
+	["Mana Spring Totem"] = TOTEM_TYPE_ID_MAP["water"],
+	["Mana Tide Totem"] = TOTEM_TYPE_ID_MAP["water"],
+	["Cleansing Totem"] = TOTEM_TYPE_ID_MAP["water"],
 
-	["Wrath of Air Totem"] = totem_type_id_map["air"],
-	["Windfury Totem"] = totem_type_id_map["air"],
-	["Grace of Air Totem"] = totem_type_id_map["air"],
-	["Nature Resistance Totem"] = totem_type_id_map["air"]
+	["Wrath of Air Totem"] = TOTEM_TYPE_ID_MAP["air"],
+	["Windfury Totem"] = TOTEM_TYPE_ID_MAP["air"],
+	["Grace of Air Totem"] = TOTEM_TYPE_ID_MAP["air"],
+	["Nature Resistance Totem"] = TOTEM_TYPE_ID_MAP["air"]
 };
 
-local totem_name_buffname_map = {
+local TOTEM_NAME_BUFFNAME_MAP = {
 --	["Tremor Totem"] = nil,
 	["Stoneskin Totem"] = "Stoneskin",
 	["Strength of Earth Totem"] = "Strength of Earth",
@@ -48,6 +48,8 @@ local totem_name_buffname_map = {
 };
 
 function get_active_multicast_totems()
+	echo("warning: tbc doesn't have totem multicast")
+	if true then return end
 	local r = {}
 	for i = 1, 4 do
 		local _, _, _, spellId = GetActionInfo(_G["MultiCastSlotButton" .. tostring(i)].actionButton.action)
@@ -57,59 +59,38 @@ function get_active_multicast_totems()
 end
 
 function get_active_multicast_summonspell()
+	echo("warning: tbc doesn't have totem multicast")
+	if true then return end
 	return GetSpellInfo(MultiCastSummonSpellButton.spellId)
 end
 
-local function should_recast_totem(arg_totem)
-	--echo(arg_totem)
-	local totemslot = totem_name_type_map[arg_totem]
-	local _, totemName, startTime, duration = GetTotemInfo(totemslot);
+function get_totem_status(totems)
+	local original_target = UnitGUID("target");
+	local res = {}
+	for slot, spell_info in pairs(totems) do
+		if spell_info ~= nil then
+			local should_recast = false
+			local _, totemName, startTime, duration = GetTotemInfo(TOTEM_TYPE_ID_MAP[slot]);
 
-	if totemName == "Mana Tide Totem" then
-		return false
-	end
-
-	if not starts_with(totemName, arg_totem) then
-		return true
-	end
-
-	if startTime == 0 and duration == 0 then
-		return true;
-	end
-
-	local cur_target = UnitName("target");
-
-	--L_TargetUnit(arg_totem);
-	L_TargetTotem(totemslot)
-
-	if get_distance_between("player", "target") > 32 then -- it's actually 35 but
-		L_ClearTarget()
-		return true
-	end
-	--if IsSpellInRange("Healing Wave", "target") == 0 then
-		--L_ClearTarget();
-	--	return true;
---	end
- -- too bad shamans don't have a 30yd heal
-
-	L_ClearTarget()
-
-	--[[local bname = totem_name_buffname_map[arg_totem];
-	if bname then
-		if not has_buff("player", bname) then
-			echo(3)
-			return true;
+			if totemName == "Mana Tide Totem" then
+				should_recast = false
+			elseif startTime == 0 and duration == 0 then
+				should_recast = true
+				-- TODO: check if totem is even the same name :D
+			else
+				TargetUnit(spell_info.name)
+				should_recast = get_distance_between("player", "target") > (spell_info.range - 2)
+			end
+			res[slot] = should_recast
 		end
-	end--]]
+	end
 
-	return false;
+	target_unit_with_GUID(original_target)
+	return res
+
 end
 
 function refresh_totems(TOTEMS, TOTEM_BAR)
-	--[[if (GetTime() - TIME_TOTEMS_REFRESHED) < 5 then
-        return false;
-    end--]]
-
 	local totems_to_recast = {}
 	local num_to_recast = 0
 	for slot,name in pairs(TOTEMS) do

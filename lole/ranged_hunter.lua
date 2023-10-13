@@ -34,9 +34,9 @@ local function set_pet_state()
     if not UnitAffectingCombat("player") then
         L_PetPassiveMode();
         local pet_happiness, _, _ = GetPetHappiness();
-        if pet_happiness < 3 and
-                not has_buff("pet", "Feed Pet Effect") and
-                GetTime() - last_feed_time > FEED_INTERVAL then
+        if (pet_happiness ~= nil and pet_happiness < 3 and
+            not has_buff("pet", "Feed Pet Effect") and
+            GetTime() - last_feed_time > FEED_INTERVAL) then
             if GetItemCount(pet_food) == 0 then
                 echo("Out of pet food!");
             else
@@ -64,8 +64,8 @@ local function set_hunters_mark()
 end
 
 local function attack()
-    L_StartAttack();
-    L_PetAttack();
+    StartAttack();
+    PetAttack();
     if player_is_targeted() and get_distance_between("player", "target") < 15 then
         melee_rotation:run();
         return;
@@ -95,6 +95,9 @@ function combat_ranged_hunter()
     check_buffs();
     set_pet_state();
     if validate_target() then
+        -- -- when the padit loppuivat: melee mode XD 
+        -- StartAttack()
+        -- CastSpellByName("Raptor Strike")
         set_hunters_mark();
         attack();
     end

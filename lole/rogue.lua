@@ -24,7 +24,8 @@ local function reapply_poisons()
   local has_mh, mh_exp, mh_charges, has_oh, oh_exp, oh_charges = GetWeaponEnchantInfo()
 --  echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
 
-  if not has_mh then
+  -- if not has_mh then
+  if false then -- windfury totem brah
     RunMacroText("/use Instant Poison")
     if GetTime() - mh_at > 5 then
       mh_apply = 1
