@@ -9,7 +9,6 @@ local mode_attribs = {
 	dispelmode = 0,
 }
 
-
 function get_available_mode_attribs()
 
 	local r = "|cFFFFFF00"

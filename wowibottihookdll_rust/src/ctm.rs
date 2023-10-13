@@ -4,6 +4,7 @@ use std::f32::consts::PI;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+use crate::lua::SETFACING_STATE;
 use crate::objectmanager::{GUIDFmt, ObjectManager, GUID, NO_TARGET};
 use crate::patch::{
     copy_original_opcodes, read_elems_from_addr, write_addr, InstructionBuffer, Patch, PatchKind,
@@ -261,7 +262,7 @@ add_repr_and_tryfrom! {
 
 #[derive(Debug)]
 pub enum CtmPostHook {
-    FaceTarget(Vec3, f32),
+    FaceTarget(f32),
     FollowUnit(String),
     PullMob(GUID),
     SetTargetAndBlast(GUID),
@@ -338,6 +339,7 @@ impl CtmEvent {
 
         let action: u8 = self.action.into();
         write_addr(addrs::ctm::ACTION, &[action])?;
+        SETFACING_STATE.set((walking_angle, std::time::Instant::now()));
         Ok(())
     }
 }
@@ -373,7 +375,7 @@ unsafe extern "C" fn ctm_finished() {
             }
             if let Some(hooks) = current.hooks {
                 let res = match hooks.first() {
-                    Some(CtmPostHook::FaceTarget(pos, rot)) => set_facing(*pos, *rot),
+                    Some(CtmPostHook::FaceTarget(rot)) => set_facing(*rot),
                     Some(CtmPostHook::FollowUnit(name)) => dostring!("FollowUnit(\"{}\")", name),
                     _ => Ok(()),
                 };

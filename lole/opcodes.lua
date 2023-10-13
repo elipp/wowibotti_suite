@@ -141,14 +141,19 @@ function walk_to(x, y, z, prio)
 	LOP:call(LOP.ClickToMove, x, y, z, prio)
 end
 
+local TRYING_TO_FOLLOW = nil
+
 function follow_unit(name)
+	TRYING_TO_FOLLOW = name
 	LOP:call(LOP.Follow, name)
 end
 
 function stopfollow()
-	if not playermode() then
+	if (not playermode()) and TRYING_TO_FOLLOW ~= nil then
+		-- healers are calling stopfollow() in `cast_heal`, the TRYING_TO_FOLLOW guard is necessary, as not to interrupt all heals
 		LOP:call(LOP.StopFollow)
 	end
+	TRYING_TO_FOLLOW = nil
 end
 
 function is_walking()

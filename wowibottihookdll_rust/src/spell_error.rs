@@ -1,13 +1,15 @@
 use std::ffi::c_char;
 
+use crate::lua::{get_facing_angle_to_target, set_facing_force};
 use crate::patch::{copy_original_opcodes, InstructionBuffer, Patch, PatchKind};
 use crate::{add_repr_and_tryfrom, addrs, asm, Addr};
 use crate::{cstr_to_str, LoleError, LAST_FRAME_NUM, LAST_SPELL_ERR_MSG};
 
 add_repr_and_tryfrom! {
     i32,
-    #[derive(Copy, Clone)]
+    #[derive(Debug, Copy, Clone)]
     pub enum SpellError {
+        YouAreFacingTheWrongWay = 0x02,
         YouHaveNoTarget = 0x07,
         Interrupted = 0x22,
         NotInLineOfSight = 0x29,
@@ -25,8 +27,18 @@ extern "stdcall" fn spell_err_msg(msg_id: i32, _msg: *const c_char) {
         return;
     }
     if let Ok(msg) = msg_id.try_into() {
-        if matches!(msg, SpellError::NotInLineOfSight | SpellError::OutOfRange) {
-            LAST_SPELL_ERR_MSG.set(Some((msg, LAST_FRAME_NUM.get())));
+        match msg {
+            SpellError::NotInLineOfSight | SpellError::OutOfRange => {
+                LAST_SPELL_ERR_MSG.set(Some((msg, LAST_FRAME_NUM.get())));
+            }
+            SpellError::YouAreFacingTheWrongWay | SpellError::TargetNeedsToBeInFrontOfYou => {
+                if let Ok(Some(angle)) = get_facing_angle_to_target() {
+                    if let Err(e) = set_facing_force(angle) {
+                        println!("spell_err_msg: error: {e:?}");
+                    }
+                }
+            }
+            _ => {}
         }
     }
     // } else {

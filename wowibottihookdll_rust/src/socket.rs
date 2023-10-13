@@ -4,7 +4,7 @@ use windows::Win32::Networking::WinSock::SOCKET;
 use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS};
 use windows::Win32::System::SystemInformation::GetTickCount;
 
-use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority};
+use crate::lua::SETFACING_STATE;
 use crate::objectmanager::ObjectManager;
 use crate::vec3::Vec3;
 use crate::{addrs, chatframe_print};
@@ -136,14 +136,13 @@ fn set_facing_remote(pos: Vec3, angle: f32) -> LoleResult<()> {
     Ok(())
 }
 
-pub fn set_facing(pos: Vec3, angle: f32) -> LoleResult<()> {
-    // ctm::add_to_queue(CtmEvent {
-    //     target_pos: pos + 0.5 * Vec3::from_rot_value(angle),
-    //     priority: CtmPriority::Exclusive,
-    //     action: CtmAction::Move,
-    //     ..Default::default()
-    // })
+pub fn set_facing(angle: f32) -> LoleResult<()> {
     chatframe_print!("calling set_facing: {}", angle);
+    let om = ObjectManager::new()?;
+    let player = om.get_player()?;
+    let pos = player.get_pos();
     set_facing_remote(pos, angle)?;
-    set_facing_local(angle)
+    set_facing_local(angle)?;
+    SETFACING_STATE.set((angle, std::time::Instant::now()));
+    Ok(())
 }

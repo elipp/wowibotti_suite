@@ -4,19 +4,19 @@ use std::ffi::{c_char, c_void};
 
 use crate::addrs::SelectUnit;
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
+use crate::define_wow_cfunc;
 use crate::objectmanager::{guid_from_str, ObjectManager};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
 use crate::socket::set_facing;
 use crate::vec3::Vec3;
 use crate::{add_repr_and_tryfrom, asm, LoleError, LoleResult, LAST_SPELL_ERR_MSG, SHOULD_EJECT};
-use crate::{chatframe_print, define_wow_cfunc};
 
 thread_local! {
-    pub static SETFACING_TIMER: Cell<std::time::Instant> = Cell::new(std::time::Instant::now());
-    pub static SETFACING_ANGLE: Cell<f32> = Cell::new(0.0);
+    // this is modified from CtmAction::commit() and set_facing
+    pub static SETFACING_STATE: Cell<(f32, std::time::Instant)> = Cell::new((0.0, std::time::Instant::now()));
 }
 
-const SETFACING_DELAY_MILLIS: u64 = 250;
+const SETFACING_DELAY_MILLIS: u64 = 300;
 
 #[allow(non_camel_case_types)]
 pub type lua_State = *mut c_void;
@@ -280,19 +280,36 @@ fn get_caster_position_status(
     }
 }
 
-fn set_facing_if_not_in_cooldown(pos: Vec3, angle: f32) -> LoleResult<()> {
-    let om = ObjectManager::new()?;
-    let player = om.get_player()?;
-    let [_, _, _, r] = player.get_xyzr();
-    if (r - angle).abs() < 0.05 {
-        return Ok(());
+fn set_facing_if_not_in_cooldown(new_angle: f32) -> LoleResult<()> {
+    let (prev_angle, timestamp) = SETFACING_STATE.get();
+    let timeout_passed =
+        timestamp.elapsed() > std::time::Duration::from_millis(SETFACING_DELAY_MILLIS);
+
+    if timeout_passed {
+        if (prev_angle - new_angle).abs() < 0.05 {
+            return Ok(());
+        } else if !ctm::event_in_progress()? {
+            set_facing(new_angle)?;
+        }
     }
-    if !ctm::event_in_progress()?
-        && SETFACING_TIMER.get().elapsed()
-            > std::time::Duration::from_millis(SETFACING_DELAY_MILLIS)
-    {
-        set_facing(pos, angle)?;
-        SETFACING_TIMER.set(std::time::Instant::now());
+    Ok(())
+}
+
+pub fn get_facing_angle_to_target() -> LoleResult<Option<f32>> {
+    let om = ObjectManager::new()?;
+    let (player, target) = om.get_player_and_target()?;
+    if let Some(target) = target {
+        let (pp, tp) = (player.get_pos(), target.get_pos());
+        let tpdiff_unit = (tp - pp).zero_z().unit();
+        Ok(Some(tpdiff_unit.to_rot_value()))
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn set_facing_force(new_angle: f32) -> LoleResult<()> {
+    if !ctm::event_in_progress()? {
+        set_facing(new_angle)?;
     }
     Ok(())
 }
@@ -370,7 +387,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                         })?;
                     }
                     PlayerPositionStatus::WrongFacing => {
-                        set_facing_if_not_in_cooldown(pp, tpdiff_unit.to_rot_value())?;
+                        set_facing_if_not_in_cooldown(tpdiff_unit.to_rot_value())?;
                     }
                     _ => {}
                 }
@@ -385,7 +402,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 let tpdiff_unit = tpdiff.unit();
 
                 if target.get_target_guid() == Some(player.get_guid()) {
-                    set_facing_if_not_in_cooldown(pp, tpdiff_unit.to_rot_value())?;
+                    set_facing_if_not_in_cooldown(tpdiff_unit.to_rot_value())?;
                     return Ok(LUA_NO_RETVALS);
                 }
                 let range_min = lua_tonumber_f32!(lua, 2);
@@ -410,7 +427,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                         })?;
                     }
                     PlayerPositionStatus::WrongFacing => {
-                        set_facing_if_not_in_cooldown(pp, tpdiff.to_rot_value())?;
+                        set_facing_if_not_in_cooldown(tpdiff.to_rot_value())?;
                     }
                     _ => {}
                 }
