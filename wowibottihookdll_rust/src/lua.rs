@@ -411,7 +411,15 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::MeleeBehind if nargs == 1 => {
             if let Some(target) = target {
                 let (pp, prot) = player.get_pos_and_rotvec();
-                let (tp, trot) = target.get_pos_and_rotvec();
+                let tp = target.get_pos();
+                let trot = if let Some(tot) = target.get_target() {
+                    // the `rot` value isn't updated very often for Npc:s,
+                    // even the wow client itself probably calculates it like this:
+                    (tot.get_pos() - tp).unit()
+                } else {
+                    target.get_rotvec()
+                };
+
                 let tpdiff = (tp - pp).zero_z();
                 let tpdiff_unit = tpdiff.unit();
 
@@ -633,3 +641,5 @@ mod addrs {
     pub const vfp_max: Addr = 0xE1F834;
     // pub const FrameScript_Register: Addr = 0x007059B0;
 }
+
+// NOTE: /script DEFAULT_CHAT_FRAME:AddMessage( GetMouseFocus():GetName() ); is a great way to find out stuff

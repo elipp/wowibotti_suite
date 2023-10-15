@@ -14,11 +14,6 @@ windows = { version = "0", features = ["Win32_Foundation", "Win32_System_SystemS
 [features]
 console = []
 
-[profile.dev]
-# the default panic = "unwind" setting works beautifully :D it even looks like a Wow.exe error 
-
-[profile.release]
-
 [profile.release-with-debug]
 inherits = "release"
 debug = true

@@ -43,7 +43,7 @@ mod wowobject {
     pub const PosZ: Offset = PosX + 0x8;
     pub const Rot: Offset = PosX + 0xC;
 
-    pub const MovementInfo: Offset = 0x128;
+    pub const MovementInfo: Offset = 0x128; // todo: deref this to get to the movementinfo, for posx etc
 
     pub const UnitHealth: Offset = 0x2698;
     pub const UnitMana: Offset = UnitHealth + 0x4;
@@ -58,6 +58,11 @@ mod wowobject {
     pub const UnitPosY: Offset = UnitPosX + 0x4;
     pub const UnitPosZ: Offset = UnitPosX + 0x8;
     pub const UnitRot: Offset = UnitPosX + 0xC;
+
+    pub const NpcPosX: Offset = 0xC28;
+    pub const NpcPosY: Offset = UnitPosX + 0x4;
+    pub const NpcPosZ: Offset = UnitPosX + 0x8;
+    pub const NpcRot: Offset = UnitPosX + 0xC;
 
     pub const UnitTargetGUID: Offset = 0x2680;
 
@@ -148,6 +153,15 @@ impl WowObject {
         }
     }
 
+    pub fn get_target(&self) -> Option<WowObject> {
+        if let Some(guid) = self.get_target_guid() {
+            let om = ObjectManager::new().ok()?;
+            om.get_object_by_guid(guid)
+        } else {
+            None
+        }
+    }
+
     fn get_next(&self) -> Option<WowObject> {
         let next_base_addr = deref::<Addr, 1>(self.base + wowobject::Next);
         WowObject::try_new(next_base_addr)
@@ -161,11 +175,20 @@ impl WowObject {
         }
     }
     pub fn get_xyzr(&self) -> [f32; 4] {
-        read_elems_from_addr::<4, f32>(self.base + wowobject::PosX)
+        match self.get_type() {
+            WowObjectType::Npc | WowObjectType::Unit => {
+                let movement_info = self.get_movement_info();
+                if movement_info.is_null() {
+                    return [0., 0., 0., 0.];
+                } else {
+                    read_elems_from_addr::<4, f32>(movement_info as Addr + 0x10)
+                }
+            }
+            _ => [0., 0., 0., 0.],
+        }
     }
-
     pub fn get_pos(&self) -> Vec3 {
-        let [x, y, z] = read_elems_from_addr::<3, f32>(self.base + wowobject::PosX);
+        let [x, y, z, _] = self.get_xyzr();
         Vec3 { x, y, z }
     }
     pub fn get_pos_and_rotvec(&self) -> (Vec3, Vec3) {

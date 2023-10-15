@@ -39,32 +39,6 @@ local function reapply_poisons()
 
 end
 
-function rogue_combat()
-  
-  reapply_poisons()
-
-  if validate_target() then
-    melee_attack_behind(1.5);
-    StartAttack();
-    if unit_castorchannel("target") then
-      CastSpellByName("Kick")
-    end
-    if not has_buff("player", "Slice and Dice") then
-      if GetComboPoints("player", "target") > 1 then
-        CastSpellByName("Slice and Dice")
-        return
-      end
-    else
-      if GetComboPoints("player", "target") >= 4 then
-        CastSpellByName("Eviscerate")
-        return
-      end
-    end
-    -- CastSpellByName("Backstab")
-    CastSpellByName("Sinister Strike")
-    -- rotation:run();
-  end
-end
 
 function rogue_combat_before()
 
@@ -110,4 +84,36 @@ function rogue_combat_before()
     L_CastSpellByName("Envenom")
   end
 
+end
+
+
+function rogue_combat()
+  
+  if validate_target() then
+    return melee_attack_behind(1.5)
+  end
+  
+  reapply_poisons()
+
+  if validate_target() then
+    melee_attack_behind(1.5);
+    StartAttack();
+    if unit_castorchannel("target") then
+      CastSpellByName("Kick")
+    end
+    if not has_buff("player", "Slice and Dice") then
+      if GetComboPoints("player", "target") > 1 then
+        CastSpellByName("Slice and Dice")
+        return
+      end
+    else
+      if GetComboPoints("player", "target") >= 4 then
+        CastSpellByName("Eviscerate")
+        return
+      end
+    end
+    -- CastSpellByName("Backstab")
+    CastSpellByName("Sinister Strike")
+    -- rotation:run();
+  end
 end
