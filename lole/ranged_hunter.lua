@@ -1,4 +1,4 @@
-local pet_food = "Tangy Clam Meat";
+local pet_food = "Bristle Whisker Catfish";
 local last_feed_time = 0;
 local FEED_INTERVAL = 60;
 

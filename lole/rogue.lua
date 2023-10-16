@@ -88,11 +88,7 @@ end
 
 
 function rogue_combat()
-  
-  if validate_target() then
-    return melee_attack_behind(1.5)
-  end
-  
+
   reapply_poisons()
 
   if validate_target() then

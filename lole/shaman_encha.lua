@@ -8,7 +8,7 @@ local rotation = Rotation(
 
 local function imbue_weapons()
     local mh_imbue, _, _, oh_imbue, _, _ = GetWeaponEnchantInfo();
-    if not mh_imbue then
+    if (not mh_imbue) or (not oh_imbue) then
         CastSpellByName("Windfury Weapon");
     end
 end
@@ -16,8 +16,8 @@ end
 local TOTEMS = {
     fire=nil,
     earth={name="Strength of Earth Totem", range=30},
-    water={name="Mana Spring Totem", range=30},
-    -- water={name="Poison Cleansing Totem", range=20},
+    -- water={name="Mana Spring Totem", range=30},
+    water={name="Poison Cleansing Totem", range=20},
     air={name="Windfury Totem", range=20},
 }
 
@@ -35,10 +35,10 @@ end
 
 function combat_shaman_encha()
     imbue_weapons()
-     if validate_target() then
+    if validate_target() then
         set_totems()
-        if melee_attack_behind(1.5) then end
         StartAttack();
+        if melee_attack_behind(1.5) then end
         
         -- rotation:run();
       

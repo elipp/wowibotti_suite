@@ -123,12 +123,12 @@ unsafe fn eject_dll() -> LoleResult<()> {
     Ok(())
 }
 
-const ROUGHLY_ONE_SIXTIETH: Duration = Duration::from_micros((950000.0 / 60.0) as u64);
+const ROUGHLY_SIXTY_FPS: Duration = Duration::from_micros((950000.0 / 60.0) as u64);
 
 fn main_entrypoint() -> LoleResult<()> {
     register_lop_exec_if_not_registered()?;
     ctm::poll()?;
-    if let Some(dt) = ROUGHLY_ONE_SIXTIETH.checked_sub(LAST_FRAME_TIME.get().elapsed()) {
+    if let Some(dt) = ROUGHLY_SIXTY_FPS.checked_sub(LAST_FRAME_TIME.get().elapsed()) {
         std::thread::sleep(dt);
     }
     Ok(())
@@ -152,6 +152,9 @@ unsafe fn open_console() -> LoleResult<()> {
 unsafe fn open_console() -> LoleResult<()> {
     Ok(())
 }
+
+// instead of trying to catch SIGABRT, try creating WER crash dumps:
+// https://learn.microsoft.com/en-us/windows/win32/wer/collecting-user-mode-dumps?redirectedfrom=MSDN
 
 unsafe fn initialize_dll() -> LoleResult<()> {
     open_console()?;
