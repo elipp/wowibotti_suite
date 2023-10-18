@@ -3,6 +3,10 @@ use crate::{objectmanager::GUID, Addr, Offset};
 pub const D3D9_DEVICE: Addr = 0xD2A15C;
 pub const D3D9_DEVICE_OFFSET: Offset = 0x3864;
 
+// 0xD68A00 might contain player GUID
+
+pub const TIME_SINCE_LAST_HW_EVENT: Addr = 0xBE10FC;
+
 #[allow(non_upper_case_globals)]
 pub mod wow_cfuncs {
     use crate::Addr;

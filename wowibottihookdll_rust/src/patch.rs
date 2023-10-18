@@ -5,7 +5,6 @@ use std::pin::Pin;
 use windows::Win32::System::{
     Diagnostics::Debug::WriteProcessMemory,
     Memory::{VirtualProtect, PAGE_PROTECTION_FLAGS},
-    SystemInformation::GetTickCount,
     Threading::GetCurrentProcess,
 };
 

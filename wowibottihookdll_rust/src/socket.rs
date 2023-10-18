@@ -2,11 +2,11 @@ use std::arch::asm;
 
 use windows::Win32::Networking::WinSock::SOCKET;
 use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS};
-use windows::Win32::System::SystemInformation::GetTickCount;
 
 use crate::lua::SETFACING_STATE;
 use crate::objectmanager::ObjectManager;
 use crate::vec3::Vec3;
+use crate::TICK_COUNT;
 use crate::{addrs, chatframe_print};
 use crate::{objectmanager::GUID, patch::deref, Addr, LoleError, LoleResult};
 
@@ -104,7 +104,7 @@ fn set_facing_remote(pos: Vec3, angle: f32) -> LoleResult<()> {
     packet.extend(MSG_SET_FACING.to_le_bytes());
     packet.extend([0x0; 7]);
 
-    let ticks = unsafe { GetTickCount() };
+    let ticks = TICK_COUNT.get();
     packet.extend(ticks.to_le_bytes());
 
     packet.extend(
