@@ -7,4 +7,5 @@ wowipotti2/Debug/
 .vs/
 potti.conf
 wowibottihookdll/wowibottihookdll.vcxproj.user
+wowibottihookdll_rust/target
 build/
