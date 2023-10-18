@@ -85,7 +85,12 @@ local available_configs = {
 
 	ranged_hunter = class_config:create("ranged_hunter", {}, {}, get_class_color("hunter"), combat_ranged_hunter, {}, ROLES.caster, "RANGED", survive_template),
 
-	enchantement_shaman = class_config:create("shaman_encha", {}, {}, get_class_color("shaman"), combat_shaman_encha, {}, ROLES.mana_melee, "MELEE", hunter_survive)
+	enchantement_shaman = class_config:create("shaman_encha", {}, {}, get_class_color("shaman"), combat_shaman_encha, {}, ROLES.mana_melee, "MELEE", hunter_survive),
+
+	tmp_warlock = class_config:create("tmp_warlock", {}, {}, get_class_color("warlock"), tmp_warlock_combat, {}, ROLES.caster, "RANGED", survive_template),
+	tmp_priest = class_config:create("tmp_priest", {"Power Word: Fortitude"}, {}, get_class_color("priest"), tmp_priest_combat, {}, ROLES.caster, "RANGED", survive_template),
+	tmp_mage = class_config:create("tmp_mage", {}, {}, get_class_color("mage"), tmp_mage_combat, {}, ROLES.caster, "RANGED", survive_template),
+	tmp_paladin = class_config:create("tmp_paladin", {"Blessing of Wisdom"}, {}, get_class_color("paladin"), tmp_paladin_combat, {}, ROLES.healer, "HEALER", survive_template),
 };
 
 function get_available_configs()
@@ -102,6 +107,7 @@ end
 
 function set_config(configname)
 	local c = available_configs[configname]
+	echo(c.combat);
 	if c then
 		LOLE_CLASS_CONFIG = configname
 	end

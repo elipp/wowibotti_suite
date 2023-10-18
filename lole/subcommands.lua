@@ -325,16 +325,24 @@ end
 local function lole_drink()
 
 	if UnitPowerType("player") == 0 then -- 0 for mana
-
-		if UnitMana("player")/UnitManaMax("player") < 0.90 or UnitHealth("player")/UnitHealthMax("player") < 0.75 then
-            if GetItemCount(43523) > 0 then
-                L_UseItemByName("Conjured Mana Strudel");
-			elseif GetItemCount(33445) > 0 then
-				L_UseItemByName("Honeymint Tea");
-			else
-				SendChatMessage("I'm out of mana drinks! Giev plx.", "GUILD")
+		if mana_percentage("player") < 70 then
+			stopfollow()
+			UseItemByName("Conjured Water")
+			local water_left = GetItemCount("Conjured Water")
+			if (water_left < 20 and water_left % 5 == 0) or water_left < 5 then
+				SendChatMessage("Got " .. water_left .. " mana drinks left.", "GUILD")
 			end
 		end
+
+		--if 1 == 0 and UnitMana("player")/UnitManaMax("player") < 0.90 or UnitHealth("player")/UnitHealthMax("player") < 0.75 then
+  --          if GetItemCount(43523) > 0 then
+  --              L_UseItemByName("Conjured Mana Strudel");
+		--	elseif GetItemCount(33445) > 0 then
+		--		L_UseItemByName("Honeymint Tea");
+		--	else
+		--		SendChatMessage("I'm out of mana drinks! Giev plx.", "GUILD")
+		--	end
+		--end
 	end
 end
 
