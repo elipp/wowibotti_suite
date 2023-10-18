@@ -32,7 +32,7 @@ pub mod socket;
 pub mod spell_error;
 pub mod vec3;
 
-use crate::addrs::TIME_SINCE_LAST_HW_EVENT;
+use crate::addrs::LAST_HARDWARE_EVENT;
 use crate::ctm::prepare_ctm_finished_patch;
 use crate::lua::{prepare_lua_prot_patch, register_lop_exec};
 use crate::objectmanager::ObjectManager;
@@ -131,7 +131,7 @@ const ROUGHLY_SIXTY_FPS: Duration = Duration::from_micros((950000.0 / 60.0) as u
 fn write_hwevent_timestamp() -> LoleResult<()> {
     let ticks = unsafe { GetTickCount() };
     TICK_COUNT.set(ticks);
-    write_addr(TIME_SINCE_LAST_HW_EVENT, &[ticks])
+    write_addr(LAST_HARDWARE_EVENT, &[ticks])
 }
 
 fn main_entrypoint() -> LoleResult<()> {
