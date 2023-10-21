@@ -264,9 +264,9 @@ function combat_priest_holy()
     local has_renew, renew_timeleft = has_buff("target", "Renew");
 
     if target_HPP < 50 then
-        cast_heal("Heal")
+        cast_heal("Greater Heal")
     elseif target_HPP < 70 then
-        cast_heal("Heal(Rank 2)")
+        cast_heal("Heal(Rank 3)")
     elseif not has_renew then
         cast_heal("Renew")
     elseif validate_target() then

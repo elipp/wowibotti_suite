@@ -678,7 +678,7 @@ end
 
 function cast_if_nocd(spellname, rank)
 	if GetSpellCooldown(spellname) == 0 then
-		L_CastSpellByName(spellname);
+		CastSpellByName(spellname);
         if INSTANT_HEALS[spellname] or HEAL_ESTIMATES[spellname] or (rank and HEAL_ESTIMATES[spellname.."("..rank..")"]) then
             track_heal_attempts(UnitName("target"));
         end

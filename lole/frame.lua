@@ -673,6 +673,7 @@ end
 
 local function do_combat_stuff()
 
+	refresh_hwevent_timestamp()
 	if lole_subcommands.get("hold") == 0 then
 		lole_main()
 	end
@@ -721,11 +722,10 @@ lole_frame:SetScript("OnUpdate", function()
 
 		local r = get_current_config().general_role;
 
-		if lole_subcommands.get("blast") == 1 or (r == "HEALER" and lole_subcommands.get("heal_blast") == 1) then
-			refresh_hwevent_timestamp()
+		if (r ~= "HEALER" and lole_subcommands.get("blast") == 1) or (r == "HEALER" and lole_subcommands.get("heal_blast") == 1) then
 			do_combat_stuff()
 		end
-
+		
 		update_mode_attrib_checkbox_states()
 
 	end

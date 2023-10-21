@@ -4,6 +4,8 @@ use std::ffi::{c_char, c_void};
 
 use windows::Win32::System::SystemInformation::GetTickCount;
 
+use rand::Rng;
+
 use crate::addrs::{SelectUnit, LAST_HARDWARE_EVENT};
 use crate::chatframe_print;
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
@@ -11,7 +13,7 @@ use crate::define_wow_cfunc;
 use crate::objectmanager::{guid_from_str, ObjectManager};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
 use crate::socket::set_facing;
-use crate::vec3::Vec3;
+use crate::vec3::{Vec3, TWO_PI};
 use crate::{add_repr_and_tryfrom, asm, LoleError, LoleResult, LAST_SPELL_ERR_MSG, SHOULD_EJECT};
 
 thread_local! {
@@ -368,6 +370,11 @@ fn write_hwevent_timestamp() -> LoleResult<()> {
     write_addr(LAST_HARDWARE_EVENT, &[ticks])
 }
 
+fn random_01() -> f32 {
+    let mut rng = rand::thread_rng();
+    rng.gen()
+}
+
 fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
     let nargs = lua_gettop(lua);
     if nargs == 0 {
@@ -402,7 +409,9 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         }
         Opcode::StopFollow if nargs == 0 => {
             TRYING_TO_FOLLOW.set(None);
-            let target_pos = player.yards_in_front_of(0.1);
+            // let target_pos = player.yards_in_front_of(0.1);
+            // add randomness (for multibox masking)
+            let target_pos = player.get_pos() + 0.5 * Vec3::from_rot_value(random_01() * TWO_PI);
             ctm::add_to_queue(CtmEvent {
                 target_pos,
                 priority: CtmPriority::NoOverride,

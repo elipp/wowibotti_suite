@@ -15,9 +15,10 @@ end
 
 local TOTEMS = {
     fire=nil,
-    earth={name="Strength of Earth Totem", range=30},
-    -- water={name="Mana Spring Totem", range=30},
-    water={name="Poison Cleansing Totem", range=20},
+    -- earth={name="Strength of Earth Totem", range=30},
+    earth={name="Tremor Totem", range=20},
+    water={name="Mana Spring Totem", range=30},
+    -- water={name="Poison Cleansing Totem", range=20},
     air={name="Windfury Totem", range=20},
 }
 
@@ -41,10 +42,9 @@ function combat_shaman_encha()
         if melee_attack_behind(1.5) then end
         
         -- rotation:run();
-      
-        if has_buff("player", "Focused") then
-            return CastSpellByName("Earth Shock")
-        end        
+
+        if cast_if_nocd("Stormstrike") then return end
+        if has_buff("player", "Focused") and cast_if_nocd("Earth Shock") then return end
         CastSpellByName("Purge")
     end
     
