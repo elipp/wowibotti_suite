@@ -1,6 +1,6 @@
 use std::ffi::c_char;
 
-use crate::lua::{get_facing_angle_to_target, set_facing_force};
+use crate::lua::{get_facing_angle_to_target, playermode, set_facing_force};
 use crate::patch::{copy_original_opcodes, InstructionBuffer, Patch, PatchKind};
 use crate::{add_repr_and_tryfrom, addrs, asm, Addr};
 use crate::{cstr_to_str, LoleError, LAST_FRAME_NUM, LAST_SPELL_ERR_MSG};
@@ -21,25 +21,38 @@ add_repr_and_tryfrom! {
 }
 
 extern "stdcall" fn spell_err_msg(msg_id: i32, _msg: *const c_char) {
-    if msg_id == 0 {
+    if msg_id == 0x0 {
         // GetErrorText has a special handler for msg_id == 0, in which case _msg contains a garbage pointer :D
         // this happens for things like "Looting set to free-for-all.", and other non-spell related info
         return;
     }
-    if let Ok(msg) = msg_id.try_into() {
-        match msg {
-            SpellError::NotInLineOfSight | SpellError::OutOfRange => {
-                LAST_SPELL_ERR_MSG.set(Some((msg, LAST_FRAME_NUM.get())));
-            }
-            SpellError::YouAreFacingTheWrongWay | SpellError::TargetNeedsToBeInFrontOfYou => {
-                if let Ok(Some(angle)) = get_facing_angle_to_target() {
-                    if let Err(e) = set_facing_force(angle) {
-                        println!("spell_err_msg: error: {e:?}");
+    match playermode() {
+        Ok(false) => {
+            let msg = msg_id.try_into();
+            match msg {
+                Ok(SpellError::NotInLineOfSight | SpellError::OutOfRange) => {
+                    // safety: below unwrap() ok because we matched against Ok()
+                    LAST_SPELL_ERR_MSG.set(Some((msg.unwrap(), LAST_FRAME_NUM.get())));
+                }
+                Ok(
+                    SpellError::YouAreFacingTheWrongWay | SpellError::TargetNeedsToBeInFrontOfYou,
+                ) => {
+                    if let Ok(Some(angle)) = get_facing_angle_to_target() {
+                        if let Err(e) = set_facing_force(angle) {
+                            println!("spell_err_msg: error: {e:?}");
+                        }
                     }
                 }
+                Ok(_) => {
+                    // unimplemented
+                }
+                Err(_) => {
+                    // unknown
+                }
             }
-            _ => {}
         }
+        Ok(true) => {}
+        Err(e) => println!("(warning: playermode() returned {e:?})"),
     }
     // } else {
     //     if let Ok(msg) = cstr_to_str!(msg) {

@@ -9,6 +9,8 @@ local mode_attribs = {
 	dispelmode = 0,
 }
 
+LOLE_MODE_ATTRIBS = mode_attribs
+
 function get_available_mode_attribs()
 
 	local r = "|cFFFFFF00"
@@ -44,7 +46,11 @@ local function lole_setconfig(arg, modes)
 			update_table(mode_attribs, modes)
 		end
 
-		LOLE_CLASS_CONFIG_ATTRIBS_SAVED = shallowcopy(mode_attribs);
+		local attribs = shallowcopy(mode_attribs)
+		attribs.blast = 0
+		attribs.heal_blast = 0
+
+		LOLE_CLASS_CONFIG_ATTRIBS_SAVED = attribs
 
 		echo("lole_setconfig: config set to " .. get_current_config().name .. ".");
 

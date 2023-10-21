@@ -721,10 +721,9 @@ lole_frame:SetScript("OnUpdate", function()
 
 		local r = get_current_config().general_role;
 
-		if r == "HEALER" then
-			if lole_subcommands.get("heal_blast") == 1 then do_combat_stuff() end
-		else
-			if lole_subcommands.get("blast") == 1 then do_combat_stuff() end
+		if lole_subcommands.get("blast") == 1 or (r == "HEALER" and lole_subcommands.get("heal_blast") == 1) then
+			refresh_hwevent_timestamp()
+			do_combat_stuff()
 		end
 
 		update_mode_attrib_checkbox_states()
@@ -801,7 +800,7 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 			AcceptGroup()
 			StaticPopup_Hide("PARTY_INVITE")
 		else
-			SendChatMessage("PARTY_INVITE_REQUEST: " .. prefix .. " doesn't appear to be a member of Uuslapio, not auto-accepting!", "GUILD")
+			SendChatMessage("PARTY_INVITE_REQUEST: " .. prefix .. " doesn't appear to be a friend, not auto-accepting!", "GUILD")
 		--	DeclineGroup()
 		end
 
@@ -838,7 +837,7 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 		if guildies[summoner] then
 			ConfirmSummon()
 		else
-			SendChatMessage(summoner .. " attempted to summon my ass to " .. GetSummonConfirmAreaName() .. " but doesn't appear to be a member of Uuslapio, not auto-accepting!", "GUILD")
+			SendChatMessage(summoner .. " attempted to summon my ass to " .. GetSummonConfirmAreaName() .. " but doesn't appear to be a friend, not auto-accepting!", "GUILD")
 		end
 
 	elseif event == "TRADE_SHOW" then

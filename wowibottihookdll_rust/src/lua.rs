@@ -2,7 +2,10 @@ use std::cell::Cell;
 use std::f32::consts::PI;
 use std::ffi::{c_char, c_void};
 
-use crate::addrs::SelectUnit;
+use windows::Win32::System::SystemInformation::GetTickCount;
+
+use crate::addrs::{SelectUnit, LAST_HARDWARE_EVENT};
+use crate::chatframe_print;
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
 use crate::define_wow_cfunc;
 use crate::objectmanager::{guid_from_str, ObjectManager};
@@ -14,6 +17,7 @@ use crate::{add_repr_and_tryfrom, asm, LoleError, LoleResult, LAST_SPELL_ERR_MSG
 thread_local! {
     // this is modified from CtmAction::commit() and set_facing
     pub static SETFACING_STATE: Cell<(f32, std::time::Instant)> = Cell::new((0.0, std::time::Instant::now()));
+    pub static TICK_COUNT: Cell<u32> = Cell::new(0);
 }
 
 const SETFACING_DELAY_MILLIS: u64 = 300;
@@ -60,6 +64,7 @@ define_wow_cfunc!(
     (state: lua_State) -> i32
 );
 
+// kept here for reference (not allowed by the compiler atm):
 // const _lua_gettop: extern "C" fn(lua_State) -> i32 = {
 //     let ptr = addrs::lua_gettop as *const ();
 //     unsafe { std::mem::transmute(ptr) }
@@ -69,6 +74,13 @@ define_wow_cfunc!(
 define_wow_cfunc!(
     lua_settop,
     (state: lua_State, idx: i32) -> ());
+
+#[macro_export]
+macro_rules! lua_pop {
+    ($state:expr, $idx:expr) => {
+        lua_settop($state, -($idx) - 1)
+    };
+}
 
 define_wow_cfunc!(
     lua_pushcclosure,
@@ -81,6 +93,10 @@ define_wow_cfunc!(
 define_wow_cfunc!(
     lua_pushboolean,
     (state: lua_State, b: lua_Boolean) -> ());
+
+define_wow_cfunc!(
+    lua_gettable,
+    (state: lua_State, idx: i32) -> ());
 
 define_wow_cfunc!(
     lua_getfield,
@@ -199,7 +215,7 @@ macro_rules! lua_getglobal {
 
 pub fn register_lop_exec() -> LoleResult<()> {
     write_addr(addrs::vfp_max, &[0xEFFFFFFFu32])?;
-    let lua = get_lua_state()?;
+    let lua = get_wow_lua_state()?;
     lua_register!(lua, b"lop_exec\0".as_ptr(), lop_exec);
     println!("lop_exec registered!");
     Ok(())
@@ -207,7 +223,7 @@ pub fn register_lop_exec() -> LoleResult<()> {
 
 pub fn unregister_lop_exec() -> LoleResult<()> {
     write_addr(addrs::vfp_max, &[0xEFFFFFFFu32])?; // TODO: probably should look up what the original value was...
-    let lua = get_lua_state()?;
+    let lua = get_wow_lua_state()?;
     lua_unregister!(lua, b"lop_exec\0".as_ptr());
     println!("lop_exec un-registered!");
     Ok(())
@@ -228,6 +244,7 @@ add_repr_and_tryfrom! {
         GetUnitPosition = 8,
         GetLastSpellErrMsg = 9,
         HealerRangeCheck = 10,
+        RefreshHwEventTimestamp = 11,
         Debug = 0x400,
         Dump = 0x401,
         DoString = 0x402,
@@ -322,6 +339,33 @@ pub fn set_facing_force(new_angle: f32) -> LoleResult<()> {
         set_facing(new_angle)?;
     }
     Ok(())
+}
+
+pub fn playermode() -> LoleResult<bool> {
+    let lua = get_wow_lua_state()?;
+    lua_getglobal!(lua, b"LOLE_MODE_ATTRIBS\0".as_ptr());
+    let res = match lua_gettype(lua, -1).try_into() {
+        Ok(LuaType::Table) => {
+            lua_getfield(lua, -1, b"playermode\0".as_ptr() as *const c_char);
+            match lua_gettype(lua, -1).try_into()? {
+                LuaType::Number => {
+                    let value = lua_tonumber(lua, -1);
+                    Ok(value != 0.0)
+                }
+                _ => Err(LoleError::LuaError),
+            }
+        }
+        _ => Err(LoleError::LuaError),
+    };
+
+    lua_pop!(lua, 1);
+    res
+}
+
+fn write_hwevent_timestamp() -> LoleResult<()> {
+    let ticks = unsafe { GetTickCount() };
+    TICK_COUNT.set(ticks);
+    write_addr(LAST_HARDWARE_EVENT, &[ticks])
 }
 
 fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
@@ -528,7 +572,12 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 return Ok(LUA_NO_RETVALS);
             }
         }
-        Opcode::Debug => {}
+        Opcode::RefreshHwEventTimestamp if nargs == 0 => {
+            write_hwevent_timestamp()?;
+        }
+        Opcode::Debug => {
+            chatframe_print!("playermode is: {:?}", playermode());
+        }
         Opcode::EjectDll => {
             SHOULD_EJECT.set(true);
         }
@@ -565,7 +614,7 @@ macro_rules! chatframe_print {
     };
 }
 
-pub fn get_lua_state() -> LoleResult<lua_State> {
+pub fn get_wow_lua_state() -> LoleResult<lua_State> {
     let res = deref::<lua_State, 1>(addrs::wow_lua_State);
     if !res.is_null() {
         Ok(res)
@@ -580,13 +629,14 @@ pub fn register_lop_exec_if_not_registered() -> LoleResult<()> {
         return Err(e);
     }
 
-    let lua = get_lua_state()?;
+    let lua = get_wow_lua_state()?;
     lua_getglobal!(lua, b"lop_exec\0".as_ptr());
-    match lua_gettype(lua, -1).try_into()? {
-        LuaType::Function => {}
+    let var_type = lua_gettype(lua, -1);
+    lua_pop!(lua, 1);
+    match var_type.try_into() {
+        Ok(LuaType::Function) => {}
         _ => register_lop_exec()?,
-    }
-    lua_settop(lua, -1);
+    };
     Ok(())
 }
 

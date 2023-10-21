@@ -32,10 +32,8 @@ pub mod socket;
 pub mod spell_error;
 pub mod vec3;
 
-use crate::addrs::LAST_HARDWARE_EVENT;
 use crate::ctm::prepare_ctm_finished_patch;
 use crate::lua::{prepare_lua_prot_patch, register_lop_exec};
-use crate::objectmanager::ObjectManager;
 use crate::patch::Patch;
 use crate::spell_error::{prepare_spell_err_msg_trampoline, SpellError};
 
@@ -54,7 +52,6 @@ thread_local! {
         Cell::new(std::time::Instant::now());
     pub static LAST_SPELL_ERR_MSG: Cell<Option<(SpellError, u32)>> = Cell::new(None);
     pub static LAST_FRAME_NUM: Cell<u32> = Cell::new(0);
-    pub static TICK_COUNT: Cell<u32> = Cell::new(0);
 }
 
 pub fn wide_null(s: &str) -> Vec<u16> {
@@ -128,19 +125,12 @@ unsafe fn eject_dll() -> LoleResult<()> {
 
 const ROUGHLY_SIXTY_FPS: Duration = Duration::from_micros((950000.0 / 60.0) as u64);
 
-fn write_hwevent_timestamp() -> LoleResult<()> {
-    let ticks = unsafe { GetTickCount() };
-    TICK_COUNT.set(ticks);
-    write_addr(LAST_HARDWARE_EVENT, &[ticks])
-}
-
 fn main_entrypoint() -> LoleResult<()> {
     register_lop_exec_if_not_registered()?;
     ctm::poll()?;
     if let Some(dt) = ROUGHLY_SIXTY_FPS.checked_sub(LAST_FRAME_TIME.get().elapsed()) {
         std::thread::sleep(dt);
     }
-    write_hwevent_timestamp()?;
     Ok(())
 }
 
@@ -249,6 +239,7 @@ pub enum LoleError {
     SocketSendError(String),
     MutexLockError,
     StringConvError(String),
+    LuaError,
     NotImplemented,
 }
 

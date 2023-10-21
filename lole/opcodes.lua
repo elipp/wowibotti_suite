@@ -12,6 +12,7 @@ local LOP = {
   GetUnitPosition = 8,
 	GetLastSpellErrMsg = 9,
 	HealerRangeCheck = 10,
+	RefreshHwEventTimestamp = 11,
   Debug = 0x400,
   Dump = 0x401,
   DoString = 0x402,
@@ -67,6 +68,10 @@ end
 
 function target_unit_with_GUID(GUID)
 	LOP:call(LOP.TargetGuid, GUID)
+end
+
+function refresh_hwevent_timestamp()
+	LOP:call(LOP.RefreshHwEventTimestamp)
 end
 
 function melee_attack_behind(minrange) -- magic value is 1.5

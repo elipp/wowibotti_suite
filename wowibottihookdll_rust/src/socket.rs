@@ -3,10 +3,9 @@ use std::arch::asm;
 use windows::Win32::Networking::WinSock::SOCKET;
 use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS};
 
-use crate::lua::SETFACING_STATE;
+use crate::lua::{SETFACING_STATE, TICK_COUNT};
 use crate::objectmanager::ObjectManager;
 use crate::vec3::Vec3;
-use crate::TICK_COUNT;
 use crate::{addrs, chatframe_print};
 use crate::{objectmanager::GUID, patch::deref, Addr, LoleError, LoleResult};
 
