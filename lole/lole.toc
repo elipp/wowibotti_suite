@@ -30,6 +30,12 @@ shaman_common.lua
 shaman_resto.lua
 shaman_encha.lua
 
+# levelauspaskat
+tmp_leveling\tmp_warlock.lua
+tmp_leveling\tmp_priest.lua
+tmp_leveling\tmp_paladin.lua
+tmp_leveling\tmp_mage.lua
+
 class_config.lua
 
 opcodes.lua

@@ -434,3 +434,12 @@ function need_to_buff()
     return true
 
 end
+
+function buff_if_eligible(buffname, targetname, range_limit)
+    range_limit = range_limit or false
+    if not UnitIsDead(targetname) and
+            not has_buff(targetname, buffname) then
+        TargetUnit(targetname)
+        CastSpellByName(buffname)
+    end
+end

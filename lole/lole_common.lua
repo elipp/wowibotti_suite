@@ -688,6 +688,10 @@ function cast_if_nocd(spellname, rank)
 	return false;
 end
 
+function off_cd(spellname)
+    return GetSpellCooldown(spellname) == 0
+end
+
 function cast_spell(spellname)
 	local name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(spellname);
 	cast_state = { true, GetTime(), castTime, UnitName("target") };
