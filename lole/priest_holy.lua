@@ -253,10 +253,10 @@ function combat_priest_holy()
 
     if heal_targets[1] == 'raid' then
         local target, urgencies = get_raid_heal_target(true);
-        if target then
-            TargetUnit(target);
+        if not target then
+            return
         else
-            TargetUnit("player");
+            TargetUnit(target);
         end
     end
   

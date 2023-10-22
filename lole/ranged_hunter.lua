@@ -1,4 +1,4 @@
-local pet_food = "Rockscale Cod";
+local pet_food = "Cured Ham Steak";
 local last_feed_time = 0;
 local FEED_INTERVAL = 60;
 
@@ -70,9 +70,18 @@ local function attack()
         melee_rotation:run();
         return;
     else
-        caster_range_check(12, 30);
-        rotation:run();
-        return;
+        caster_range_check(6, 30);
+        -- rotation:run();
+        local has_viper_sting = has_debuff("target", "Viper Sting")
+        if (UnitPowerType("target") == 0) and (UnitHealth("target") > 2000) and (UnitMana("target") > 200) and (not has_viper_sting) then
+            return CastSpellByName("Viper Sting")
+        elseif (not has_viper_sting) and (not has_debuff("target", "Serpent Sting")) then
+            return CastSpellByName("Serpent Sting")
+        -- elseif cast_if_nocd("Multi-Shot") then
+        --     return
+        -- elseif cast_if_nocd("Arcane Shot") then # implement aoe feasibility  
+        --     return
+        end
     end
 end
 

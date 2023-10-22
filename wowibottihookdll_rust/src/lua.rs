@@ -247,6 +247,7 @@ add_repr_and_tryfrom! {
         GetLastSpellErrMsg = 9,
         HealerRangeCheck = 10,
         RefreshHwEventTimestamp = 11,
+        StopFollowSpread = 12,
         Debug = 0x400,
         Dump = 0x401,
         DoString = 0x402,
@@ -409,9 +410,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         }
         Opcode::StopFollow if nargs == 0 => {
             TRYING_TO_FOLLOW.set(None);
-            // let target_pos = player.yards_in_front_of(0.1);
-            // add randomness (for multibox masking)
-            let target_pos = player.get_pos() + 0.5 * Vec3::from_rot_value(random_01() * TWO_PI);
+            let target_pos = player.yards_in_front_of(0.1);
             ctm::add_to_queue(CtmEvent {
                 target_pos,
                 priority: CtmPriority::NoOverride,
@@ -583,6 +582,18 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         }
         Opcode::RefreshHwEventTimestamp if nargs == 0 => {
             write_hwevent_timestamp()?;
+        }
+        Opcode::StopFollowSpread if nargs == 0 => {
+            TRYING_TO_FOLLOW.set(None);
+            // add randomness (for multibox masking)
+            let target_pos =
+                player.get_pos() + random_01() * Vec3::from_rot_value(random_01() * TWO_PI);
+            ctm::add_to_queue(CtmEvent {
+                target_pos,
+                priority: CtmPriority::NoOverride,
+                action: CtmAction::Move,
+                ..Default::default()
+            })?;
         }
         Opcode::Debug => {
             chatframe_print!("playermode is: {:?}", playermode());

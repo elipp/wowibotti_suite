@@ -13,6 +13,7 @@ local LOP = {
 	GetLastSpellErrMsg = 9,
 	HealerRangeCheck = 10,
 	RefreshHwEventTimestamp = 11,
+	StopFollowSpread = 12,
   Debug = 0x400,
   Dump = 0x401,
   DoString = 0x402,
@@ -153,10 +154,10 @@ function follow_unit(name)
 	LOP:call(LOP.Follow, name)
 end
 
-function stopfollow()
+function stopfollow(spread)
 	if (not playermode()) and TRYING_TO_FOLLOW ~= nil then
 		-- healers are calling stopfollow() in `cast_heal`, the TRYING_TO_FOLLOW guard is necessary, as not to interrupt all heals
-		LOP:call(LOP.StopFollow)
+		LOP:call((spread and LOP.StopFollowSpread) or LOP.StopFollow)
 	end
 	TRYING_TO_FOLLOW = nil
 end
