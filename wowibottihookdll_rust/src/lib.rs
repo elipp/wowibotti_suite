@@ -32,10 +32,15 @@ pub mod socket;
 pub mod spell_error;
 pub mod vec3;
 
-use crate::ctm::prepare_ctm_finished_patch;
+// use crate::ctm::prepare_ctm_finished_patch;
 use crate::lua::{prepare_lua_prot_patch, register_lop_exec};
 use crate::patch::Patch;
 use crate::spell_error::{prepare_spell_err_msg_trampoline, SpellError};
+
+pub const POSTGRES_ADDR: &str = "127.0.0.1:5432";
+pub const POSTGRES_USER: &str = "lole";
+pub const POSTGRES_PASS: &str = "lole";
+pub const POSTGRES_DB: &str = "lole";
 
 lazy_static! {
     // just in case DllMain is called from a non-main thread? :D
@@ -164,9 +169,9 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     lua_prot.enable()?;
     patches.push(lua_prot);
 
-    let ctm_finished = prepare_ctm_finished_patch();
-    ctm_finished.enable()?;
-    patches.push(ctm_finished);
+    // let ctm_finished = prepare_ctm_finished_patch();
+    // ctm_finished.enable()?;
+    // patches.push(ctm_finished);
 
     let spell_err_msg = prepare_spell_err_msg_trampoline();
     spell_err_msg.enable()?;
@@ -240,6 +245,8 @@ pub enum LoleError {
     MutexLockError,
     StringConvError(String),
     LuaError,
+    DbError(postgres::Error),
+    DeserializationError(serde_json::Error),
     NotImplemented,
 }
 

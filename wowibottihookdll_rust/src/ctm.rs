@@ -93,17 +93,21 @@ const ALMOST_IDENTICAL_TARGET_POS_THRESHOLD: f32 = 0.2;
 
 impl CtmQueue {
     fn add_to_queue(&mut self, ev: CtmEvent) -> LoleResult<()> {
-        if let Some((current, start_time)) = self.current.as_ref() {
+        if let Some((current, start_time)) = self.current.as_mut() {
             if ev.priority < current.priority {
                 return Ok(());
-            } else {
+            } else if ev.priority == current.priority {
                 let dist = (ev.target_pos - current.target_pos).length();
-                if ev.priority > current.priority
-                    || (start_time.elapsed() > CTM_COOLDOWN
-                        && dist > ALMOST_IDENTICAL_TARGET_POS_THRESHOLD)
+                if start_time.elapsed() > CTM_COOLDOWN
+                    && dist > ALMOST_IDENTICAL_TARGET_POS_THRESHOLD
                 {
-                    self.replace_current(ev)?;
+                    current.update_target_pos(ev.target_pos, ev.distance_margin);
+                    current.commit()?;
+                } else {
+                    self.events.push_back(ev);
                 }
+            } else {
+                self.replace_current(ev)?;
             }
         } else {
             self.replace_current(ev)?;
@@ -177,23 +181,28 @@ impl CtmQueue {
                 TRYING_TO_FOLLOW.set(None);
                 self.current = None;
             }
-        } else if let Some((_, start_time)) = self.current.as_mut() {
+        } else if let Some((current, start_time)) = self.current.as_mut() {
             if start_time.elapsed() > Duration::from_secs(3)
                 && self.yards_moved.calculate() < PROBABLY_STUCK_THRESHOLD
             {
                 chatframe_print!("we're probably stuck, aborting current CtmEvent");
                 self.abort_current()?;
+            } else if (pp - current.target_pos).length() < current.distance_margin.unwrap_or(1.5) {
+                // this replaces `ctm_finished` :D
+                self.advance()?;
             }
         }
 
         Ok(())
     }
-    pub fn advance(&mut self) {
+    pub fn advance(&mut self) -> LoleResult<()> {
         if let Some(ev) = self.events.pop_front() {
+            ev.commit()?;
             self.current = Some((ev, Instant::now()));
         } else {
-            self.current = None
+            self.current = None;
         }
+        Ok(())
     }
 }
 
@@ -276,6 +285,13 @@ pub struct CtmEvent {
     pub interact_guid: Option<GUID>,
     pub hooks: Option<Vec<CtmPostHook>>,
     pub distance_margin: Option<f32>,
+}
+
+impl CtmEvent {
+    fn update_target_pos(&mut self, new_pos: Vec3, distance_margin: Option<f32>) {
+        self.target_pos = new_pos;
+        self.distance_margin = distance_margin;
+    }
 }
 
 impl Default for CtmEvent {

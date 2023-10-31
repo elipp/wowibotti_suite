@@ -3,9 +3,11 @@ use std::{
     ops::{Add, Div, Mul, Sub},
 };
 
+use serde::{Deserialize, Serialize};
+
 pub const TWO_PI: f32 = PI * 2.0;
 
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,

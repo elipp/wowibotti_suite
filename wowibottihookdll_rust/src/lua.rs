@@ -7,14 +7,13 @@ use windows::Win32::System::SystemInformation::GetTickCount;
 use rand::Rng;
 
 use crate::addrs::{SelectUnit, LAST_HARDWARE_EVENT};
-use crate::chatframe_print;
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
-use crate::define_wow_cfunc;
 use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
 use crate::socket::set_facing;
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{add_repr_and_tryfrom, asm, LoleError, LoleResult, LAST_SPELL_ERR_MSG, SHOULD_EJECT};
+use crate::{define_wow_cfunc, POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
 
 thread_local! {
     // this is modified from CtmAction::commit() and set_facing
@@ -41,6 +40,23 @@ type lua_Number = f64;
 
 const LUA_GLOBALSINDEX: i32 = -10002;
 const LUA_NO_RETVALS: i32 = 0;
+
+#[macro_export]
+macro_rules! chatframe_print {
+    ($fmt:expr, $($args:expr),*) => {
+        use crate::dostring;
+        if let Err(e) = dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage(\"[DLL]: ", $fmt, "\")"), $($args),*) {
+            println!("chatframe_print failed with {e:?}, {}", format!($fmt, $($args),*));
+        }
+    };
+
+    ($msg:literal) => {
+        use crate::dostring;
+        if let Err(e) = dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage(\"", $msg, "\")")) {
+            println!("chatframe_print failed with {e:?}, msg: {}", $msg);
+        }
+    };
+}
 
 add_repr_and_tryfrom! {
     i32,
@@ -120,6 +136,10 @@ define_wow_cfunc!(
     lua_tolstring,
     (state: lua_State, idx: i32, len: *mut usize) -> *const c_char);
 
+define_wow_cfunc!(
+    lua_next,
+    (state: lua_State, idx: i32) -> i32);
+
 macro_rules! lua_tostring {
     ($lua:expr, $idx:literal) => {{
         let mut len: usize = 0;
@@ -147,6 +167,10 @@ define_wow_cfunc!(
 define_wow_cfunc!(
     lua_pushlstring,
     (state: lua_State, str: *const c_char, len: usize) -> ());
+
+define_wow_cfunc!(
+    lua_toboolean,
+    (state: lua_State, idx: i32) -> i32);
 
 macro_rules! lua_tonumber_f32 {
     ($state:expr, $id:literal) => {
@@ -215,10 +239,17 @@ macro_rules! lua_getglobal {
     };
 }
 
+#[macro_export]
+macro_rules! cstr_literal {
+    ($v:literal) => {
+        concat!($v, "\0").as_ptr() as *const c_char
+    };
+}
+
 pub fn register_lop_exec() -> LoleResult<()> {
     write_addr(addrs::vfp_max, &[0xEFFFFFFFu32])?;
     let lua = get_wow_lua_state()?;
-    lua_register!(lua, b"lop_exec\0".as_ptr(), lop_exec);
+    lua_register!(lua, cstr_literal!("lop_exec"), lop_exec);
     println!("lop_exec registered!");
     Ok(())
 }
@@ -226,7 +257,7 @@ pub fn register_lop_exec() -> LoleResult<()> {
 pub fn unregister_lop_exec() -> LoleResult<()> {
     write_addr(addrs::vfp_max, &[0xEFFFFFFFu32])?; // TODO: probably should look up what the original value was...
     let lua = get_wow_lua_state()?;
-    lua_unregister!(lua, b"lop_exec\0".as_ptr());
+    lua_unregister!(lua, cstr_literal!("lop_exec"));
     println!("lop_exec un-registered!");
     Ok(())
 }
@@ -249,6 +280,8 @@ add_repr_and_tryfrom! {
         RefreshHwEventTimestamp = 11,
         StopFollowSpread = 12,
         GetCombatParticipants = 13,
+        StorePath = 0x100,
+        PlaybackPath = 0x101,
         Debug = 0x400,
         Dump = 0x401,
         DoString = 0x402,
@@ -347,10 +380,10 @@ pub fn set_facing_force(new_angle: f32) -> LoleResult<()> {
 
 pub fn playermode() -> LoleResult<bool> {
     let lua = get_wow_lua_state()?;
-    lua_getglobal!(lua, b"LOLE_MODE_ATTRIBS\0".as_ptr());
+    lua_getglobal!(lua, cstr_literal!("LOLE_MODE_ATTRIBS"));
     let res = match lua_gettype(lua, -1).try_into() {
         Ok(LuaType::Table) => {
-            lua_getfield(lua, -1, b"playermode\0".as_ptr() as *const c_char);
+            lua_getfield(lua, -1, cstr_literal!("playermode"));
             match lua_gettype(lua, -1).try_into()? {
                 LuaType::Number => {
                     let value = lua_tonumber(lua, -1);
@@ -375,6 +408,45 @@ fn write_hwevent_timestamp() -> LoleResult<()> {
 fn random_01() -> f32 {
     let mut rng = rand::thread_rng();
     rng.gen()
+}
+
+impl From<postgres::Error> for LoleError {
+    fn from(err: postgres::Error) -> Self {
+        Self::DbError(err)
+    }
+}
+
+fn get_postgres_conn() -> Result<postgres::Client, postgres::Error> {
+    let conn_str = format!(
+        "postgresql://{}:{}@{}/{}",
+        POSTGRES_USER, POSTGRES_PASS, POSTGRES_ADDR, POSTGRES_DB
+    );
+    postgres::Client::connect(&conn_str, postgres::NoTls)
+}
+
+fn store_path_to_db(zonetext: &str, points: Vec<Vec3>) -> LoleResult<()> {
+    let as_json = serde_json::to_value(&points)
+        .map_err(|_| LoleError::InvalidParam("invalid path json".to_owned()))?;
+
+    let mut client = get_postgres_conn()?;
+    let query =
+        "INSERT INTO path_recordings (zonetext, point_data) VALUES ($1, $2::jsonb) RETURNING id";
+    let inserted_id: i32 = client.query_one(query, &[&zonetext, &as_json])?.get(0);
+    chatframe_print!("Inserted new path to database with id {}!", inserted_id);
+    Ok(())
+}
+
+fn query_path_from_db(zonetext: &str, id: i32) -> LoleResult<Option<Vec<Vec3>>> {
+    let mut client = get_postgres_conn()?;
+    let query = "SELECT point_data FROM path_recordings WHERE id = $1 AND zonetext = $2 LIMIT 1";
+    match client.query_opt(query, &[&id, &zonetext]) {
+        Ok(Some(row)) => {
+            Ok(serde_json::from_value(row.get(0))
+                .map_err(|e| LoleError::DeserializationError(e))?)
+        }
+        Ok(None) => Ok(None),
+        Err(e) => Err(e)?,
+    }
 }
 
 fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
@@ -608,6 +680,53 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
             return Ok(num);
         }
+        Opcode::StorePath if nargs == 2 => {
+            let mut path = Vec::new();
+            let zonetext = lua_tostring!(lua, 2)?;
+            if let Ok(LuaType::Table) = lua_gettype(lua, 3).try_into() {
+                lua_pushnil(lua); // starts the outer table iteration
+                while lua_next(lua, 3) != 0 {
+                    if let Ok(LuaType::Table) = lua_gettype(lua, -1).try_into() {
+                        lua_getfield(lua, -1, cstr_literal!("x"));
+                        lua_getfield(lua, -2, cstr_literal!("y"));
+                        lua_getfield(lua, -3, cstr_literal!("z"));
+
+                        let x = lua_tonumber(lua, -3) as f32;
+                        let y = lua_tonumber(lua, -2) as f32;
+                        let z = lua_tonumber(lua, -1) as f32;
+                        // Pop the fields, but keep the inner table for the next iteration
+                        lua_pop!(lua, 3);
+
+                        path.push(Vec3 { x, y, z });
+                    }
+                    lua_pop!(lua, 1);
+                }
+            }
+            store_path_to_db(zonetext, path)?;
+        }
+        Opcode::PlaybackPath if nargs == 3 => {
+            let zonetext = lua_tostring!(lua, 2)?;
+            let id = lua_tonumber(lua, 3) as i32;
+            let reversed = lua_toboolean(lua, 4) == 1;
+            if let Some(mut path) = query_path_from_db(&zonetext, id)? {
+                println!(
+                    "Starting path playback path id {id} @ {zonetext} (reversed: {reversed}): {path:?}"
+                );
+                if reversed {
+                    path.reverse();
+                }
+                for point in path {
+                    ctm::add_to_queue(CtmEvent {
+                        target_pos: point,
+                        priority: CtmPriority::Low,
+                        action: CtmAction::Move,
+                        ..Default::default()
+                    })?;
+                }
+            } else {
+                println!("Path not found in db");
+            }
+        }
         Opcode::Debug => {
             // for c in combat_participants {
             //     chatframe_print!("{}", c);
@@ -632,23 +751,6 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
     }
 }
 
-#[macro_export]
-macro_rules! chatframe_print {
-    ($fmt:expr, $($args:expr),*) => {
-        use crate::dostring;
-        if let Err(e) = dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage(\"[DLL]: ", $fmt, "\")"), $($args),*) {
-            println!("chatframe_print failed with {e:?}, {}", format!($fmt, $($args),*));
-        }
-    };
-
-    ($msg:literal) => {
-        use crate::dostring;
-        if let Err(e) = dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage(\"", $msg, "\")")) {
-            println!("chatframe_print failed with {e:?}, msg: {}", $msg);
-        }
-    };
-}
-
 pub fn get_wow_lua_state() -> LoleResult<lua_State> {
     let res = deref::<lua_State, 1>(addrs::wow_lua_State);
     if !res.is_null() {
@@ -665,7 +767,7 @@ pub fn register_lop_exec_if_not_registered() -> LoleResult<()> {
     }
 
     let lua = get_wow_lua_state()?;
-    lua_getglobal!(lua, b"lop_exec\0".as_ptr());
+    lua_getglobal!(lua, cstr_literal!("lop_exec"));
     let var_type = lua_gettype(lua, -1);
     lua_pop!(lua, 1);
     match var_type.try_into() {

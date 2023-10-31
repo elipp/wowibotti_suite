@@ -15,6 +15,7 @@ local LOP = {
 	RefreshHwEventTimestamp = 11,
 	StopFollowSpread = 12,
 	GetCombatParticipants = 13,
+	StorePath = 0x100,
   Debug = 0x400,
   Dump = 0x401,
   DoString = 0x402,
@@ -150,6 +151,48 @@ function walk_to(x, y, z, prio)
 	-- the last argument is the priority level
 	--echo(x .. ", " .. y .. ", " .. z)
 	LOP:call(LOP.ClickToMove, x, y, z, prio)
+end
+
+local PATH_RECORD_INTERVAL = 3.5
+
+PATH_RECORDER = {
+	frame=CreateFrame("Frame", "lolePathRecorder"),
+	points={},
+	num_points=0,
+	recording=false,
+	last_timestamp=0,
+	zonetext=nil,
+}
+
+function PATH_RECORDER:OnUpdate() 
+	local t = GetTime()
+	if self.recording and (t - self.last_timestamp) > PATH_RECORD_INTERVAL then
+		self:AddPoint()
+	end
+end
+
+function PATH_RECORDER:AddPoint()
+	local x,y,z,_ = get_unit_position("player")
+	table.insert(self.points, {x=x,y=y,z=z})
+	self.last_timestamp = GetTime()
+	self.num_points = self.num_points + 1
+	echo("inserted path point ", x, y, z, " - num_points:", self.num_points)
+end
+
+PATH_RECORDER.frame:SetScript("OnUpdate", function() PATH_RECORDER:OnUpdate() end)
+
+function PATH_RECORDER:Start()
+	self.points = {}
+	self.num_points = 0
+	self:AddPoint()
+	self.recording = true
+	self.zonetext = GetZoneText()
+end
+
+function PATH_RECORDER:Stop()
+	self.recording = false
+	self:AddPoint()
+	LOP:call(LOP.StorePath, self.zonetext, self.points)
 end
 
 local TRYING_TO_FOLLOW = nil
