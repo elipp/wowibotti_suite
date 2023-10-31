@@ -1,6 +1,6 @@
 use std::cell::Cell;
 use std::f32::consts::PI;
-use std::ffi::{c_char, c_void};
+use std::ffi::{c_char, c_void, CString};
 
 use windows::Win32::System::SystemInformation::GetTickCount;
 
@@ -10,7 +10,7 @@ use crate::addrs::{SelectUnit, LAST_HARDWARE_EVENT};
 use crate::chatframe_print;
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
 use crate::define_wow_cfunc;
-use crate::objectmanager::{guid_from_str, ObjectManager};
+use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
 use crate::socket::set_facing;
 use crate::vec3::{Vec3, TWO_PI};
@@ -248,6 +248,7 @@ add_repr_and_tryfrom! {
         HealerRangeCheck = 10,
         RefreshHwEventTimestamp = 11,
         StopFollowSpread = 12,
+        GetCombatParticipants = 13,
         Debug = 0x400,
         Dump = 0x401,
         DoString = 0x402,
@@ -595,8 +596,22 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 ..Default::default()
             })?;
         }
+        Opcode::GetCombatParticipants => {
+            let combat_participants: Vec<_> = om
+                .get_units_and_npcs()
+                .filter(|o| o.in_combat().unwrap_or(false))
+                .collect();
+            let num = combat_participants.len() as i32;
+            for c in combat_participants {
+                let guid = CString::new(format!("{}", GUIDFmt(c.get_guid())))?;
+                lua_pushstring(lua, guid.as_c_str().as_ptr());
+            }
+            return Ok(num);
+        }
         Opcode::Debug => {
-            chatframe_print!("playermode is: {:?}", playermode());
+            // for c in combat_participants {
+            //     chatframe_print!("{}", c);
+            // }
         }
         Opcode::EjectDll => {
             SHOULD_EJECT.set(true);

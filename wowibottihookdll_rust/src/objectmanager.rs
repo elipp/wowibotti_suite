@@ -64,6 +64,8 @@ mod wowobject {
     pub const NpcPosZ: Offset = UnitPosX + 0x8;
     pub const NpcRot: Offset = UnitPosX + 0xC;
 
+    pub const UnkState: Offset = 0x120;
+
     pub const UnitTargetGUID: Offset = 0x2680;
 
     pub const NPCHealth: Offset = 0x11E8;
@@ -207,6 +209,15 @@ impl WowObject {
         let (pos, rotvec) = self.get_pos_and_rotvec();
         pos + (yards * rotvec)
     }
+
+    pub fn in_combat(&self) -> LoleResult<bool> {
+        let unk_state = deref::<Addr, 1>(self.base + wowobject::UnkState);
+        if unk_state == 0 {
+            return Err(LoleError::NullPtrError);
+        }
+        let combat_flags = deref::<u32, 1>(unk_state + 0xA0);
+        Ok((combat_flags >> 0x13) & 0x1 != 0)
+    }
 }
 
 impl std::fmt::Display for WowObject {
@@ -299,10 +310,12 @@ impl ObjectManager {
             None
         }
     }
-    pub fn get_unit_by_name(&self, name: &str) -> Option<WowObject> {
+    pub fn get_units_and_npcs(&self) -> impl Iterator<Item = WowObject> {
         self.iter()
             .filter(|w| matches!(w.get_type(), WowObjectType::Npc | WowObjectType::Unit))
-            .find(|w| w.get_name() == name)
+    }
+    pub fn get_unit_by_name(&self, name: &str) -> Option<WowObject> {
+        self.get_units_and_npcs().find(|w| w.get_name() == name)
     }
     fn get_first_object(&self) -> Option<WowObject> {
         // no need to check for base != 0, because ::new is the only way to construct ObjectManager

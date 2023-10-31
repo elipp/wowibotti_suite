@@ -18,8 +18,8 @@ local TOTEMS = {
     earth={name="Strength of Earth Totem", range=30},
     -- earth={name="Stoneskin Totem", range=30},
     -- earth={name="Tremor Totem", range=20},
-    water={name="Mana Spring Totem", range=30},
-    -- water={name="Poison Cleansing Totem", range=20},
+    -- water={name="Mana Spring Totem", range=30},
+    water={name="Poison Cleansing Totem", range=20},
     air={name="Windfury Totem", range=20},
 }
 

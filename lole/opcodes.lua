@@ -14,6 +14,7 @@ local LOP = {
 	HealerRangeCheck = 10,
 	RefreshHwEventTimestamp = 11,
 	StopFollowSpread = 12,
+	GetCombatParticipants = 13,
   Debug = 0x400,
   Dump = 0x401,
   DoString = 0x402,
@@ -107,6 +108,10 @@ end
 function walk_to_pulling_range()
 	-- assuming the pull target is already selected
 	LOP:call(LOP.WALK_TO_PULLING_RANGE)
+end
+
+function get_combat_participants()
+	return LOP:call(LOP.GetCombatParticipants)
 end
 
 function tank_face()
