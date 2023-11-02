@@ -43,42 +43,38 @@ local function handle_subcommand(args)
 end
 
 function lole_main(args)
-
 	if args and args ~= "" then
-		handle_subcommand(args)
-		return;
+		return handle_subcommand(args)
 	end
 
-    if lole_subcommands.get("buffmode") == 1 then
-        lole_buffs();
-    else
-        if (time() - LAST_BUFF_CHECK) > 30 then
-            lole_buffcheck(nil, false);
-        elseif (lole_subcommands.get("combatbuffmode") == 1 or LBUFFCHECK_ISSUED) and BUFFS_CHECKED and (time() - LAST_BUFF_CHECK) > 1 then
-            lole_subcommands.set("buffmode", "on");
-            BUFFS_CHECKED = false;
-			return;
-        end
+  if lole_subcommands.get("buffmode") == 1 then
+    return lole_buffs()
+  end
+	
+	if (time() - LAST_BUFF_CHECK) > 30 then
+      lole_buffcheck(nil, false)
+  elseif (lole_subcommands.get("combatbuffmode") == 1 or LBUFFCHECK_ISSUED) and BUFFS_CHECKED and (time() - LAST_BUFF_CHECK) > 1 then
+      BUFFS_CHECKED = false
+      return lole_subcommands.set("buffmode", "on")
+  end
 
-		if not playermode() then
-        if UnitExists("focus") and UnitIsDead("focus") then
-            L_ClearFocus()
+	if not playermode() then
+    if UnitExists("focus") and UnitIsDead("focus") then
+        ClearFocus()
 		end
 
 		local curconf = get_current_config()
-      -- if has_aggro() then -- TODO IMPLEMENT!
-      --     curconf.survive();
-      -- end
+	  -- if has_aggro() then -- TODO IMPLEMENT!
+	  --     curconf.survive();
+	  -- end
 
 		curconf.combat();
 
-      elseif OVERRIDE_COMMAND then
-          run_override();
-      end
-    end
+  elseif OVERRIDE_COMMAND then
+      run_override();
+  end
 
-
-	if (IsRaidLeader()) then
+	if IsRaidLeader() then
 		--if (BLAST_TARGET_GUID ~= NOTARGET or (not UnitExists("focus")))
 		if (UnitExists("focus") and UnitIsDead("focus")) then
 			clear_target()
@@ -90,14 +86,13 @@ function lole_main(args)
 				if UnitExists("target") and not UnitIsDead("target") and UnitReaction("target", "player") < 5 then
 					set_target(UnitGUID("target"))
 					lole_subcommands.broadcast("target", UnitGUID("target"));
-				end
-			else
+				else
 					-- not sure if this is reachable or not
-				clear_target()
+					clear_target()
+				end
 			end
 		end
 	end
-
 end
 
 local function lole_SlashCommand(args)
@@ -239,10 +234,10 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
             if not playermode() then
                 OVERRIDE_COMMAND = message;
                 lole_subcommands.set("playermode", 1);
-                L_SpellStopCasting();
+                SpellStopCasting();
             end
         else
-            SendChatMessage("lole_runscript: " .. sender .. " doesn't appear to be a member of Uuslapio, not running script!", "GUILD");
+            echo("lole_runscript: " .. sender .. " doesn't appear to be a member of the guild, not running script!");
         end
 
     elseif (prefix == "lole_healers") then

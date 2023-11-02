@@ -8,7 +8,7 @@ use rand::Rng;
 
 use crate::addrs::{SelectUnit, LAST_HARDWARE_EVENT};
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
-use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager};
+use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager, WowObjectType};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
 use crate::socket::set_facing;
 use crate::vec3::{Vec3, TWO_PI};
@@ -45,23 +45,19 @@ const LUA_NO_RETVALS: i32 = 0;
 macro_rules! chatframe_print {
     ($fmt:expr, $($args:expr),*) => {
         use crate::dostring;
-        if let Err(e) = dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage(\"[DLL]: ", $fmt, "\")"), $($args),*) {
-            println!("chatframe_print failed with {e:?}, {}", format!($fmt, $($args),*));
-        }
+        dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage(\"[DLL]: ", $fmt, "\")"), $($args),*)
     };
 
     ($msg:literal) => {
         use crate::dostring;
-        if let Err(e) = dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage(\"", $msg, "\")")) {
-            println!("chatframe_print failed with {e:?}, msg: {}", $msg);
-        }
+        dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage(\"", $msg, "\")"))
     };
 }
 
 add_repr_and_tryfrom! {
     i32,
     #[derive(Debug)]
-    enum LuaType {
+    pub enum LuaType {
         Nil = 0,
         Boolean = 1,
         UserData = 2,
@@ -143,11 +139,17 @@ define_wow_cfunc!(
 macro_rules! lua_tostring {
     ($lua:expr, $idx:literal) => {{
         let mut len: usize = 0;
-        let s = lua_tolstring($lua, $idx, &mut len);
-        if !s.is_null() {
-            cstr_to_str!(s)
-        } else {
-            Err(LoleError::NullPtrError)
+        match lua_gettype($lua, $idx).try_into() {
+            Ok(LuaType::String) => {
+                let s = lua_tolstring($lua, $idx, &mut len);
+                if !s.is_null() {
+                    cstr_to_str!(s)
+                } else {
+                    Err(LoleError::NullPtrError)
+                }
+            }
+            Ok(t) => Err(LoleError::LuaUnexpectedTypeError(t, LuaType::String)),
+            Err(e) => Err(e)?,
         }
     }};
 }
@@ -185,13 +187,10 @@ define_wow_cfunc!(
 #[macro_export]
 macro_rules! dostring {
     ($fmt:expr, $($args:expr),*) => {{
-        use std::ffi::CString;
         use crate::lua::lua_dostring;
-        let s = format!($fmt, $($args),*);
-        match CString::new(s) {
-            Ok(c_str) => Ok(lua_dostring(c_str.as_ptr(), c_str.as_ptr(), 0)),
-            Err(_) => Err(LoleError::InvalidRawString(format!($fmt, $($args),*)))
-        }
+        use std::ffi::c_char;
+        let s = format!(concat!($fmt, "\0"), $($args),*);
+        lua_dostring(s.as_ptr() as *const c_char, s.as_ptr() as *const c_char, 0)
     }};
 
     ($script:expr) => {{
@@ -280,6 +279,7 @@ add_repr_and_tryfrom! {
         RefreshHwEventTimestamp = 11,
         StopFollowSpread = 12,
         GetCombatParticipants = 13,
+        GetCombatMobs = 14,
         StorePath = 0x100,
         PlaybackPath = 0x101,
         Debug = 0x400,
@@ -424,26 +424,47 @@ fn get_postgres_conn() -> Result<postgres::Client, postgres::Error> {
     postgres::Client::connect(&conn_str, postgres::NoTls)
 }
 
-fn store_path_to_db(zonetext: &str, points: Vec<Vec3>) -> LoleResult<()> {
+fn store_path_to_db(zonetext: &str, points: Vec<Vec3>, name: &str) -> LoleResult<()> {
     let as_json = serde_json::to_value(&points)
         .map_err(|_| LoleError::InvalidParam("invalid path json".to_owned()))?;
 
     let mut client = get_postgres_conn()?;
     let query =
-        "INSERT INTO path_recordings (zonetext, point_data) VALUES ($1, $2::jsonb) RETURNING id";
-    let inserted_id: i32 = client.query_one(query, &[&zonetext, &as_json])?.get(0);
+        "INSERT INTO path_recordings (zonetext, point_data, name) VALUES ($1, $2::jsonb, $3) RETURNING id";
+    let inserted_id: i32 = client
+        .query_one(query, &[&zonetext, &as_json, &name])?
+        .get(0);
+
     chatframe_print!("Inserted new path to database with id {}!", inserted_id);
     Ok(())
 }
 
-fn query_path_from_db(zonetext: &str, id: i32) -> LoleResult<Option<Vec<Vec3>>> {
-    let mut client = get_postgres_conn()?;
-    let query = "SELECT point_data FROM path_recordings WHERE id = $1 AND zonetext = $2 LIMIT 1";
-    match client.query_opt(query, &[&id, &zonetext]) {
-        Ok(Some(row)) => {
-            Ok(serde_json::from_value(row.get(0))
-                .map_err(|e| LoleError::DeserializationError(e))?)
+#[derive(Debug)]
+struct PathRecording {
+    id: i32,
+    name: String,
+    zonetext: String,
+    point_data: Vec<Vec3>,
+}
+
+impl From<postgres::Row> for PathRecording {
+    fn from(value: postgres::Row) -> Self {
+        let as_json: serde_json::Value = value.get(3);
+        let point_data: Vec<Vec3> = serde_json::from_value(as_json).unwrap_or_default();
+        Self {
+            id: value.get(0),
+            name: value.get(1),
+            zonetext: value.get(2),
+            point_data,
         }
+    }
+}
+
+fn query_path_from_db(name: &str) -> LoleResult<Option<PathRecording>> {
+    let mut client = get_postgres_conn()?;
+    let query = "SELECT id, name, zonetext, point_data FROM path_recordings WHERE name = $1";
+    match client.query_opt(query, &[&name]) {
+        Ok(Some(row)) => Ok(Some(PathRecording::from(row))),
         Ok(None) => Ok(None),
         Err(e) => Err(e)?,
     }
@@ -475,7 +496,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 let tpdiff = tp - pp;
                 let distance = tpdiff.length();
                 if distance < 10.0 {
-                    dostring!("FollowUnit(\"{}\")", t.get_name())?;
+                    dostring!("FollowUnit(\"{}\")", t.get_name());
                 } else {
                     TRYING_TO_FOLLOW.set(Some(t.get_guid()));
                 }
@@ -669,18 +690,30 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             })?;
         }
         Opcode::GetCombatParticipants => {
-            let combat_participants: Vec<_> = om
+            let mut num = 0i32;
+            for c in om
                 .get_units_and_npcs()
                 .filter(|o| o.in_combat().unwrap_or(false))
-                .collect();
-            let num = combat_participants.len() as i32;
-            for c in combat_participants {
+            {
                 let guid = CString::new(format!("{}", GUIDFmt(c.get_guid())))?;
                 lua_pushstring(lua, guid.as_c_str().as_ptr());
+                num += 1;
             }
             return Ok(num);
         }
-        Opcode::StorePath if nargs == 2 => {
+        Opcode::GetCombatMobs => {
+            let mut num = 0i32;
+            for c in om.iter().filter(|o| {
+                matches!(o.get_type(), WowObjectType::Npc) && o.in_combat().unwrap_or(false)
+            }) {
+                let guid = CString::new(format!("{}", GUIDFmt(c.get_guid())))?;
+                lua_pushstring(lua, guid.as_c_str().as_ptr());
+                num += 1;
+            }
+            return Ok(num);
+        }
+
+        Opcode::StorePath if nargs == 3 => {
             let mut path = Vec::new();
             let zonetext = lua_tostring!(lua, 2)?;
             if let Ok(LuaType::Table) = lua_gettype(lua, 3).try_into() {
@@ -702,29 +735,27 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                     lua_pop!(lua, 1);
                 }
             }
-            store_path_to_db(zonetext, path)?;
+            let name = lua_tostring!(lua, 4)?;
+            store_path_to_db(zonetext, path, &name)?;
         }
-        Opcode::PlaybackPath if nargs == 3 => {
-            let zonetext = lua_tostring!(lua, 2)?;
-            let id = lua_tonumber(lua, 3) as i32;
-            let reversed = lua_toboolean(lua, 4) == 1;
-            if let Some(mut path) = query_path_from_db(&zonetext, id)? {
-                println!(
-                    "Starting path playback path id {id} @ {zonetext} (reversed: {reversed}): {path:?}"
-                );
+        Opcode::PlaybackPath if nargs == 2 => {
+            let name = lua_tostring!(lua, 2)?;
+            let reversed = lua_toboolean(lua, 3) == 1;
+            if let Some(mut path_recording) = query_path_from_db(&name)? {
+                chatframe_print!("Starting playback for path `{}`", name);
                 if reversed {
-                    path.reverse();
+                    path_recording.point_data.reverse();
                 }
-                for point in path {
+                for point in path_recording.point_data {
                     ctm::add_to_queue(CtmEvent {
                         target_pos: point,
-                        priority: CtmPriority::Low,
+                        priority: CtmPriority::Path,
                         action: CtmAction::Move,
                         ..Default::default()
                     })?;
                 }
             } else {
-                println!("Path not found in db");
+                chatframe_print!("Path with name \"{}\" not found in db", name);
             }
         }
         Opcode::Debug => {

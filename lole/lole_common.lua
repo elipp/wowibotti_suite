@@ -853,18 +853,18 @@ end
 
 function cleanse_party(debuffname)
 	for i=1,5,1 do
-        local exists = true;
-        local name = "party" .. i;
-        if i == 5 then
-            name = "player"
-        else
-            exists = GetPartyMember(i)
-        end
-        if exists and has_debuff(name, debuffname) then
-			L_TargetUnit(name);
-            L_CastSpellByName("Cleanse");
-			L_CastSpellByName("Dispel Magic")
-            return true;
+    local exists = true;
+    local name = "party" .. i;
+    if i == 5 then
+        name = "player"
+    else
+        exists = GetPartyMember(i)
+    end
+    if exists and has_debuff(name, debuffname) then
+	    TargetUnit(name);
+      CastSpellByName("Cleanse");
+			CastSpellByName("Dispel Magic")
+      return true;
 		end
 	end
 	return false;
@@ -1899,7 +1899,7 @@ function run_override()
                 passes = 0;
             end
         else
-            L_RunScript(OVERRIDE_COMMAND);
+            RunScript(OVERRIDE_COMMAND);
         end
         lole_subcommands.set("playermode", 0);
         OVERRIDE_COMMAND = nil;

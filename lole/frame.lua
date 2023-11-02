@@ -313,7 +313,6 @@ local cooldowns_button =
 create_simple_button("cooldowns_button", lole_frame, 115, -130, "Cooldowns", 115, 27,
 function()
 	lole_subcommands.broadcast("cooldowns");
-	L_RunMacroText("/lole run w Ghospodi /cast Heroism")
 end);
 
 local drink_button =

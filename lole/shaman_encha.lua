@@ -18,8 +18,8 @@ local TOTEMS = {
     earth={name="Strength of Earth Totem", range=30},
     -- earth={name="Stoneskin Totem", range=30},
     -- earth={name="Tremor Totem", range=20},
-    -- water={name="Mana Spring Totem", range=30},
-    water={name="Poison Cleansing Totem", range=20},
+    water={name="Mana Spring Totem", range=30},
+    -- water={name="Poison Cleansing Totem", range=20},
     air={name="Windfury Totem", range=20},
 }
 
@@ -46,6 +46,7 @@ function combat_shaman_encha()
 
         if cast_if_nocd("Stormstrike") then return end
         if has_buff("player", "Focused") and cast_if_nocd("Earth Shock") then return end
+        if (mana_percentage("player") < 20) and (#{get_combat_mobs()} > 2) and cast_if_nocd("Shamanistic Rage") then return end
         CastSpellByName("Purge")
     end
     

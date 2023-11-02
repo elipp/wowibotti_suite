@@ -15,7 +15,9 @@ local LOP = {
 	RefreshHwEventTimestamp = 11,
 	StopFollowSpread = 12,
 	GetCombatParticipants = 13,
+	GetCombatMobs = 14,
 	StorePath = 0x100,
+	PlaybackPath = 0x101,
   Debug = 0x400,
   Dump = 0x401,
   DoString = 0x402,
@@ -115,6 +117,10 @@ function get_combat_participants()
 	return LOP:call(LOP.GetCombatParticipants)
 end
 
+function get_combat_mobs()
+	return LOP:call(LOP.GetCombatMobs)
+end
+
 function tank_face()
 	LOP:call(LOP.TANK_FACE)
 end
@@ -153,7 +159,6 @@ function walk_to(x, y, z, prio)
 	LOP:call(LOP.ClickToMove, x, y, z, prio)
 end
 
-local PATH_RECORD_INTERVAL = 3.5
 
 PATH_RECORDER = {
 	frame=CreateFrame("Frame", "lolePathRecorder"),
@@ -162,11 +167,12 @@ PATH_RECORDER = {
 	recording=false,
 	last_timestamp=0,
 	zonetext=nil,
+	sample_interval=1.5
 }
 
 function PATH_RECORDER:OnUpdate() 
 	local t = GetTime()
-	if self.recording and (t - self.last_timestamp) > PATH_RECORD_INTERVAL then
+	if self.recording and (t - self.last_timestamp) > self.sample_interval then
 		self:AddPoint()
 	end
 end
@@ -181,18 +187,22 @@ end
 
 PATH_RECORDER.frame:SetScript("OnUpdate", function() PATH_RECORDER:OnUpdate() end)
 
-function PATH_RECORDER:Start()
+function PATH_RECORDER:Start(sample_interval)
+	if self.recording then
+		return echo("Recording in progress; stop ongoing recording first!")
+	end
 	self.points = {}
 	self.num_points = 0
 	self:AddPoint()
 	self.recording = true
 	self.zonetext = GetZoneText()
+	self.sample_interval = sample_interval or 1.5
 end
 
-function PATH_RECORDER:Stop()
+function PATH_RECORDER:Stop(name)
 	self.recording = false
 	self:AddPoint()
-	LOP:call(LOP.StorePath, self.zonetext, self.points)
+	LOP:call(LOP.StorePath, name, self.zonetext, self.points)
 end
 
 local TRYING_TO_FOLLOW = nil

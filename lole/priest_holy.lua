@@ -266,7 +266,7 @@ function combat_priest_holy()
     if target_HPP < 50 then
         cast_heal("Greater Heal")
     elseif target_HPP < 70 then
-        cast_heal("Heal(Rank 3)")
+        cast_heal("Heal")
     elseif not has_renew then
         cast_heal("Renew")
     elseif validate_target() then

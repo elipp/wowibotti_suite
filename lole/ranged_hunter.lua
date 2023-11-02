@@ -77,8 +77,8 @@ local function attack()
             return CastSpellByName("Viper Sting")
         elseif (not has_viper_sting) and (not has_debuff("target", "Serpent Sting")) then
             return CastSpellByName("Serpent Sting")
-        -- elseif cast_if_nocd("Multi-Shot") then
-        --     return
+        elseif #{get_combat_mobs()} > 2 and cast_if_nocd("Multi-Shot") then
+            return
         -- elseif cast_if_nocd("Arcane Shot") then # implement aoe feasibility  
         --     return
         end
@@ -97,7 +97,6 @@ local function need_mana()
     end
     return false;
 end
-
 
 function combat_ranged_hunter()
     -- if need_mana() then return end;

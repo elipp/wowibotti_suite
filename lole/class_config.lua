@@ -53,14 +53,8 @@ local available_configs = {
 	default =
 	class_config:create("default", {}, {}, "FFFFFF", function() end, {}, 0, "NONE", function() end),
 
-	-- druid_resto =
-	-- class_config:create("druid_resto", {"Mark of the Wild", "Thorns"}, {"Tree of Life"}, get_class_color("druid"), combat_druid_resto, {}, ROLES.healer, "HEALER", survive_druid_resto),
-
 	hunter =
 	class_config:create("hunter", {}, {}, get_class_color("hunter"), combat_hunter, {"Bestial Wrath", "Rapid Fire", "Call of the Wild"}, ROLES.mana_melee, "RANGED", survive_hunter),
-
-	-- mage_fire =
-	-- class_config:create("mage_fire", {"Arcane Intellect", "Amplify Magic"}, {"Molten Armor"}, get_class_color("mage"), combat_mage_fire, {"Icy Veins", "Combustion", "Mirror Image"}, ROLES.caster, "RANGED", survive_mage_fire),
 
 	paladin_prot =
 	class_config:create("paladin_prot", {}, {"Devotion Aura", "Righteous Fury", "Seal of Command"}, get_class_color("paladin"), combat_paladin_prot, {}, ROLES.mana_tank, "TANK", survive_paladin_prot),
@@ -74,16 +68,10 @@ local available_configs = {
 	shaman_resto =
 	class_config:create("shaman_resto", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_resto, {"Bloodlust"}, ROLES.healer, "HEALER", survive_shaman_resto),
 
- --  warlock_demo =
- --  class_config:create("warlock_demo", {}, {"Fel Armor"}, get_class_color("warlock"), combat_warlock_demo, {"Metamorphosis"}, ROLES.caster, "RANGED", survive_warlock_demo),
-
-	-- warrior_fury =
-	-- class_config:create("warrior_fury", {}, {"Battle Shout"}, get_class_color("warrior"), combat_warrior_fury, {"Death Wish", "Recklessness"}, ROLES.melee, "MELEE", survive_warrior_fury),
-
 	warrior_prot =
 	class_config:create("warrior_prot", {}, {"Commanding Shout"}, get_class_color("warrior"), combat_warrior_prot, {}, ROLES.tank, "TANK", survive_warrior_prot),
 
-	ranged_hunter = class_config:create("ranged_hunter", {}, {}, get_class_color("hunter"), combat_ranged_hunter, {}, ROLES.caster, "RANGED", survive_template),
+	ranged_hunter = class_config:create("ranged_hunter", {}, {}, get_class_color("hunter"), combat_ranged_hunter, {"Bestial Wrath"}, ROLES.caster, "RANGED", survive_template),
 
 	enchantement_shaman = class_config:create("shaman_encha", {}, {}, get_class_color("shaman"), combat_shaman_encha, {}, ROLES.mana_melee, "MELEE", hunter_survive),
 

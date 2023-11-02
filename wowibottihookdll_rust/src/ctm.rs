@@ -15,6 +15,7 @@ use crate::{addrs, asm, Addr, LoleError, LoleResult, Offset};
 use crate::{chatframe_print, dostring};
 
 use lazy_static::lazy_static;
+use rand::Rng;
 
 lazy_static! {
     // turns out that thread_local! { RefCell }, while possible, is kinda tedious
@@ -30,6 +31,7 @@ lazy_static! {
 
 thread_local! {
     pub static TRYING_TO_FOLLOW: Cell<Option<GUID>> = Cell::new(None);
+    pub static CTM_EVENT_ID: Cell<u64> = Cell::new(0);
 }
 
 #[derive(Debug, Default)]
@@ -58,6 +60,11 @@ impl<const W: usize> MovingAverage<W> {
     pub fn window_full(&self) -> bool {
         self.data.len() == W
     }
+
+    pub fn reset(&mut self) {
+        self.sum = 0.0;
+        self.data.clear();
+    }
 }
 
 #[derive(Debug)]
@@ -66,7 +73,7 @@ struct CtmQueue {
     current: Option<(CtmEvent, Instant)>,
     prev_pos: Vec3,
     last_frame_time: Instant,
-    yards_moved: MovingAverage<60>,
+    yards_moved: MovingAverage<30>,
 }
 
 impl Ord for CtmPriority {
@@ -96,26 +103,24 @@ impl CtmQueue {
         if let Some((current, start_time)) = self.current.as_mut() {
             if ev.priority < current.priority {
                 return Ok(());
-            } else if ev.priority == current.priority {
+            } else if (current.priority, ev.priority) == (CtmPriority::Path, CtmPriority::Path) {
                 let dist = (ev.target_pos - current.target_pos).length();
-                if start_time.elapsed() > CTM_COOLDOWN
-                    && dist > ALMOST_IDENTICAL_TARGET_POS_THRESHOLD
-                {
-                    current.update_target_pos(ev.target_pos, ev.distance_margin);
-                    current.commit()?;
-                } else {
+                if dist > ALMOST_IDENTICAL_TARGET_POS_THRESHOLD {
                     self.events.push_back(ev);
                 }
-            } else {
+            } else if start_time.elapsed() > CTM_COOLDOWN {
+                // ev.priority > current.priority
                 self.replace_current(ev)?;
             }
         } else {
             self.replace_current(ev)?;
         }
+        println!("{}", self.events.len());
         Ok(())
     }
     fn replace_current(&mut self, ev: CtmEvent) -> LoleResult<()> {
-        ev.commit()?;
+        ev.commit_to_memory()?;
+        self.events.clear();
         self.current = Some((ev, Instant::now()));
         Ok(())
     }
@@ -163,7 +168,7 @@ impl CtmQueue {
                     TRYING_TO_FOLLOW.set(None);
                     // doing FollowUnit() here causes a ctm_finished, causing a deadlock on the QUEUE mutex.
                     // is avoidable using try_lock();
-                    dostring!("FollowUnit(\"{}\")", t.get_name())?;
+                    dostring!("FollowUnit(\"{}\")", t.get_name());
                     self.current = None;
                 } else {
                     self.replace_current(CtmEvent {
@@ -174,7 +179,7 @@ impl CtmQueue {
                     })?;
                 }
             } else {
-                chatframe_print!(
+                println!(
                     "follow: object with guid {} doesn't exist, stopping trying to follow",
                     GUIDFmt(guid)
                 );
@@ -182,25 +187,36 @@ impl CtmQueue {
                 self.current = None;
             }
         } else if let Some((current, start_time)) = self.current.as_mut() {
-            if start_time.elapsed() > Duration::from_secs(3)
-                && self.yards_moved.calculate() < PROBABLY_STUCK_THRESHOLD
+            let yards_moved = self.yards_moved.calculate();
+            if start_time.elapsed() > Duration::from_millis(500)
+                && yards_moved < PROBABLY_STUCK_THRESHOLD
             {
-                chatframe_print!("we're probably stuck, aborting current CtmEvent");
-                self.abort_current()?;
-            } else if (pp - current.target_pos).length() < current.distance_margin.unwrap_or(1.5) {
-                // this replaces `ctm_finished` :D
+                println!(
+                    "we're probably stuck, aborting current CtmEvent ({})",
+                    current.id
+                );
                 self.advance()?;
+            } else if current.priority == CtmPriority::Path {
+                if rand::thread_rng().gen::<f32>() < 0.003 {
+                    dostring!("JumpOrAscendStart(); AscendStop()")?;
+                }
             }
+        } else {
+            self.advance()?;
         }
 
         Ok(())
     }
     pub fn advance(&mut self) -> LoleResult<()> {
-        if let Some(ev) = self.events.pop_front() {
-            ev.commit()?;
-            self.current = Some((ev, Instant::now()));
+        let prev_current = self.current.take();
+        if let Some(next) = self.events.pop_front() {
+            self.yards_moved.reset();
+            next.commit_to_memory()?;
+            self.current = Some((next, Instant::now()));
         } else {
-            self.current = None;
+            if prev_current.is_some() {
+                dostring!("MoveForwardStop()")?;
+            }
         }
         Ok(())
     }
@@ -244,13 +260,14 @@ add_repr_and_tryfrom! {
     #[derive(Debug, Copy, Clone, PartialEq, Eq)]
     pub enum CtmPriority {
         None = 0,
-        Low = 1,
-        Replace = 2,
-        Exclusive = 3,
-        Follow = 4,
-        NoOverride = 5,
-        HoldPosition = 6,
-        ClearHold = 7,
+        Path = 1,
+        Move = 2,
+        Replace = 3,
+        Exclusive = 4,
+        Follow = 5,
+        NoOverride = 6,
+        HoldPosition = 7,
+        ClearHold = 8,
     }
 }
 
@@ -279,6 +296,7 @@ pub enum CtmPostHook {
 
 #[derive(Debug)]
 pub struct CtmEvent {
+    pub id: u64,
     pub target_pos: Vec3,
     pub priority: CtmPriority,
     pub action: CtmAction,
@@ -296,7 +314,10 @@ impl CtmEvent {
 
 impl Default for CtmEvent {
     fn default() -> Self {
+        let id = CTM_EVENT_ID.get();
+        CTM_EVENT_ID.set(id + 1);
         Self {
+            id,
             target_pos: Vec3::default(),
             priority: CtmPriority::None,
             action: CtmAction::Move,
@@ -316,7 +337,7 @@ mod constants {
 }
 
 impl CtmEvent {
-    fn commit(&self) -> LoleResult<()> {
+    fn commit_to_memory(&self) -> LoleResult<()> {
         let om = ObjectManager::new()?;
         let p = om.get_player()?;
         let ppos = p.get_pos();
@@ -383,21 +404,30 @@ pub fn poll() -> LoleResult<()> {
 
 unsafe extern "C" fn ctm_finished() {
     if let Ok(mut ctm_queue) = QUEUE.try_lock() {
-        if let Some((current, _)) = ctm_queue.current.take() {
-            println!("ctm finished! removed {current:?}");
-            let wow_internal_target_pos = get_wow_ctm_target_pos();
-            if (current.target_pos - wow_internal_target_pos).length() > 2.0 {
-                chatframe_print!("warning: internal & CtmQueue target coordinates don't match");
-            }
-            if let Some(hooks) = current.hooks {
-                let res = match hooks.first() {
-                    Some(CtmPostHook::FaceTarget(rot)) => set_facing(*rot),
-                    Some(CtmPostHook::FollowUnit(name)) => dostring!("FollowUnit(\"{}\")", name),
-                    _ => Ok(()),
-                };
-                if res.is_err() {
-                    println!("warning: {res:?}");
+        if let Some((_current, _)) = ctm_queue.current.take() {
+            if !ctm_queue.events.is_empty() {
+                if let Err(_) = dostring!("MoveForwardStart()") {
+                    println!("dostring(MoveForwardStart()) failed");
                 }
+            } else {
+                if let Err(_) = dostring!("MoveForwardStop()") {
+                    println!("dostring(MoveForwardStop()) failed");
+                }
+            }
+            // this shit is broken
+            // if let Some(hooks) = old_current.hooks {
+            //     let res = match hooks.first() {
+            //         Some(CtmPostHook::FaceTarget(rot)) => set_facing(*rot),
+            //         Some(CtmPostHook::FollowUnit(name)) => dostring!("FollowUnit(\"{}\")", name),
+            //         _ => Ok(()),
+            //     };
+            //     if res.is_err() {
+            //         println!("warning: {res:?}");
+            //     }
+            // }
+        } else {
+            if let Err(_) = dostring!("MoveForwardStop()") {
+                println!("dostring(MoveForwardStop()) failed");
             }
         }
     } else {
