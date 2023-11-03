@@ -44,13 +44,14 @@ const LUA_NO_RETVALS: i32 = 0;
 #[macro_export]
 macro_rules! chatframe_print {
     ($fmt:expr, $($args:expr),*) => {
+        // this [=[ blah blah blah ]=] syntax is a "level 1 long bracket"
         use crate::dostring;
-        dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage(\"[DLL]: ", $fmt, "\")"), $($args),*)
+        dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage([=[[DLL]: ", $fmt, "]=])"), $($args),*)
     };
 
     ($msg:literal) => {
         use crate::dostring;
-        dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage(\"", $msg, "\")"))
+        dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage([=[", $msg, "]=])"))
     };
 }
 
@@ -139,6 +140,7 @@ define_wow_cfunc!(
 macro_rules! lua_tostring {
     ($lua:expr, $idx:literal) => {{
         let mut len: usize = 0;
+        // NOTE: lua actually checks for `lua_isstring` before `lua_tostring`, this is pretty good still
         match lua_gettype($lua, $idx).try_into() {
             Ok(LuaType::String) => {
                 let s = lua_tolstring($lua, $idx, &mut len);
@@ -424,18 +426,29 @@ fn get_postgres_conn() -> Result<postgres::Client, postgres::Error> {
     postgres::Client::connect(&conn_str, postgres::NoTls)
 }
 
-fn store_path_to_db(zonetext: &str, points: Vec<Vec3>, name: &str) -> LoleResult<()> {
-    let as_json = serde_json::to_value(&points)
-        .map_err(|_| LoleError::InvalidParam("invalid path json".to_owned()))?;
-
+fn store_path_to_db(name: &str, zonetext: &str, points: Vec<Vec3>) -> LoleResult<()> {
     let mut client = get_postgres_conn()?;
-    let query =
-        "INSERT INTO path_recordings (zonetext, point_data, name) VALUES ($1, $2::jsonb, $3) RETURNING id";
-    let inserted_id: i32 = client
-        .query_one(query, &[&zonetext, &as_json, &name])?
+
+    let path_recording_id: i32 = client
+        .query_one(
+            "INSERT INTO path_recordings (name, zonetext) VALUES ($1, $2) RETURNING id",
+            &[&name, &zonetext],
+        )?
         .get(0);
 
-    chatframe_print!("Inserted new path to database with id {}!", inserted_id);
+    for p in points {
+        client.execute(
+            "INSERT INTO path_waypoints (x,y,z,path_recording_id) VALUES ($1, $2, $3, $4)",
+            &[&p.x, &p.y, &p.z, &path_recording_id],
+        )?;
+    }
+
+    chatframe_print!(
+        "Inserted new path to database with name `{}` (id: {})!",
+        name,
+        path_recording_id
+    );
+
     Ok(())
 }
 
@@ -444,29 +457,39 @@ struct PathRecording {
     id: i32,
     name: String,
     zonetext: String,
-    point_data: Vec<Vec3>,
+    waypoints: Vec<Vec3>,
 }
 
-impl From<postgres::Row> for PathRecording {
+impl From<postgres::Row> for Vec3 {
     fn from(value: postgres::Row) -> Self {
-        let as_json: serde_json::Value = value.get(3);
-        let point_data: Vec<Vec3> = serde_json::from_value(as_json).unwrap_or_default();
         Self {
-            id: value.get(0),
-            name: value.get(1),
-            zonetext: value.get(2),
-            point_data,
+            x: value.get(0),
+            y: value.get(1),
+            z: value.get(2),
         }
     }
 }
 
 fn query_path_from_db(name: &str) -> LoleResult<Option<PathRecording>> {
     let mut client = get_postgres_conn()?;
-    let query = "SELECT id, name, zonetext, point_data FROM path_recordings WHERE name = $1";
-    match client.query_opt(query, &[&name]) {
-        Ok(Some(row)) => Ok(Some(PathRecording::from(row))),
-        Ok(None) => Ok(None),
-        Err(e) => Err(e)?,
+    if let Some(path_recording) = client.query_opt(
+        "SELECT id, zonetext FROM path_recordings WHERE name=$1",
+        &[&name],
+    )? {
+        let path_recording_id: i32 = path_recording.get(0);
+        let points: Vec<Vec3> = client
+            .query("SELECT x,y,z FROM path_recordings p INNER JOIN path_waypoints w ON p.id = w.path_recording_id WHERE p.id = $1 ORDER BY w.id", &[&path_recording_id])?
+            .into_iter()
+            .map(Vec3::from)
+            .collect();
+        Ok(Some(PathRecording {
+            id: path_recording_id,
+            name: name.to_owned(),
+            zonetext: path_recording.get(1),
+            waypoints: points,
+        }))
+    } else {
+        Ok(None)
     }
 }
 
@@ -715,10 +738,11 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
 
         Opcode::StorePath if nargs == 3 => {
             let mut path = Vec::new();
-            let zonetext = lua_tostring!(lua, 2)?;
-            if let Ok(LuaType::Table) = lua_gettype(lua, 3).try_into() {
+            let name = lua_tostring!(lua, 2)?;
+            let zonetext = lua_tostring!(lua, 3)?;
+            if let Ok(LuaType::Table) = lua_gettype(lua, 4).try_into() {
                 lua_pushnil(lua); // starts the outer table iteration
-                while lua_next(lua, 3) != 0 {
+                while lua_next(lua, 4) != 0 {
                     if let Ok(LuaType::Table) = lua_gettype(lua, -1).try_into() {
                         lua_getfield(lua, -1, cstr_literal!("x"));
                         lua_getfield(lua, -2, cstr_literal!("y"));
@@ -735,18 +759,21 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                     lua_pop!(lua, 1);
                 }
             }
-            let name = lua_tostring!(lua, 4)?;
-            store_path_to_db(zonetext, path, &name)?;
+            store_path_to_db(name, zonetext, path)?;
         }
-        Opcode::PlaybackPath if nargs == 2 => {
+        Opcode::PlaybackPath if 1 <= nargs && nargs <= 2 => {
             let name = lua_tostring!(lua, 2)?;
-            let reversed = lua_toboolean(lua, 3) == 1;
+            let reversed = if nargs == 2 {
+                lua_toboolean(lua, 3) == 1
+            } else {
+                false
+            };
             if let Some(mut path_recording) = query_path_from_db(&name)? {
                 chatframe_print!("Starting playback for path `{}`", name);
                 if reversed {
-                    path_recording.point_data.reverse();
+                    path_recording.waypoints.reverse();
                 }
-                for point in path_recording.point_data {
+                for point in path_recording.waypoints {
                     ctm::add_to_queue(CtmEvent {
                         target_pos: point,
                         priority: CtmPriority::Path,
@@ -777,6 +804,7 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
         Ok(num_retvals) => num_retvals,
         Err(error) => {
             println!("lop_exec: error: {:?}", error);
+            chatframe_print!("lop_exec: error: {:?}", error);
             LUA_NO_RETVALS
         }
     }

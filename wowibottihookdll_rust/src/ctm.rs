@@ -431,7 +431,7 @@ unsafe extern "C" fn ctm_finished() {
             }
         }
     } else {
-        println!("warning: couldn't lock ctm::QUEUE mutex")
+        println!("warning: couldn't lock ctm::QUEUE mutex");
     }
 }
 

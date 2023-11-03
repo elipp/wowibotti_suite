@@ -200,9 +200,16 @@ function PATH_RECORDER:Start(sample_interval)
 end
 
 function PATH_RECORDER:Stop(name)
+	if (self.num_points == 0) and (not self.recording) then 
+		return echo("PATH_RECORDER is not recording or no waypoints stored")
+	end
+	if not name then
+		return echo("PATH_RECORDER: `name` argument is mandatory; rerun :Stop(\"name\")")
+	end
 	self.recording = false
 	self:AddPoint()
 	LOP:call(LOP.StorePath, name, self.zonetext, self.points)
+	self.points = {}
 end
 
 local TRYING_TO_FOLLOW = nil
