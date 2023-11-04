@@ -1,6 +1,8 @@
 use std::cell::Cell;
+use std::collections::VecDeque;
 use std::f32::consts::PI;
 use std::ffi::{c_char, c_void, CString};
+use std::sync::Mutex;
 
 use windows::Win32::System::SystemInformation::GetTickCount;
 
@@ -10,15 +12,16 @@ use crate::addrs::{SelectUnit, LAST_HARDWARE_EVENT};
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
 use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager, WowObjectType};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
-use crate::socket::set_facing;
+use crate::socket::{movement_flags, set_facing, set_facing_local};
 use crate::vec3::{Vec3, TWO_PI};
-use crate::{add_repr_and_tryfrom, asm, LoleError, LoleResult, LAST_SPELL_ERR_MSG, SHOULD_EJECT};
+use crate::{
+    add_repr_and_tryfrom, asm, global_var, LoleError, LoleResult, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
+};
 use crate::{define_wow_cfunc, POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
 
 thread_local! {
     // this is modified from CtmAction::commit() and set_facing
     pub static SETFACING_STATE: Cell<(f32, std::time::Instant)> = Cell::new((0.0, std::time::Instant::now()));
-    pub static TICK_COUNT: Cell<u32> = Cell::new(0);
 }
 
 const SETFACING_DELAY_MILLIS: u64 = 300;
@@ -355,7 +358,7 @@ fn set_facing_if_not_in_cooldown(new_angle: f32) -> LoleResult<()> {
         if (prev_angle - new_angle).abs() < 0.05 {
             return Ok(());
         } else if !ctm::event_in_progress()? {
-            set_facing(new_angle)?;
+            set_facing(new_angle, movement_flags::NOT_MOVING)?;
         }
     }
     Ok(())
@@ -375,7 +378,7 @@ pub fn get_facing_angle_to_target() -> LoleResult<Option<f32>> {
 
 pub fn set_facing_force(new_angle: f32) -> LoleResult<()> {
     if !ctm::event_in_progress()? {
-        set_facing(new_angle)?;
+        set_facing(new_angle, movement_flags::NOT_MOVING)?;
     }
     Ok(())
 }
@@ -403,7 +406,6 @@ pub fn playermode() -> LoleResult<bool> {
 
 fn write_hwevent_timestamp() -> LoleResult<()> {
     let ticks = unsafe { GetTickCount() };
-    TICK_COUNT.set(ticks);
     write_addr(LAST_HARDWARE_EVENT, &[ticks])
 }
 
@@ -426,26 +428,27 @@ fn get_postgres_conn() -> Result<postgres::Client, postgres::Error> {
     postgres::Client::connect(&conn_str, postgres::NoTls)
 }
 
-fn store_path_to_db(name: &str, zonetext: &str, points: Vec<Vec3>) -> LoleResult<()> {
+impl From<serde_json::Error> for LoleError {
+    fn from(err: serde_json::Error) -> Self {
+        LoleError::SerdeError(err)
+    }
+}
+
+fn store_path_to_db(name: &str, zonetext: &str, waypoint_data: Vec<Vec3>) -> LoleResult<()> {
     let mut client = get_postgres_conn()?;
+    let waypoint_data = serde_json::to_value(waypoint_data)?;
 
     let path_recording_id: i32 = client
         .query_one(
-            "INSERT INTO path_recordings (name, zonetext) VALUES ($1, $2) RETURNING id",
-            &[&name, &zonetext],
+            "INSERT INTO path_recordings (name, zonetext, waypoint_data) VALUES ($1, $2, $3) RETURNING id",
+            &[&name, &zonetext, &waypoint_data],
         )?
         .get(0);
 
-    for p in points {
-        client.execute(
-            "INSERT INTO path_waypoints (x,y,z,path_recording_id) VALUES ($1, $2, $3, $4)",
-            &[&p.x, &p.y, &p.z, &path_recording_id],
-        )?;
-    }
-
     chatframe_print!(
-        "Inserted new path to database with name `{}` (id: {})!",
+        "Inserted path recording `{}` @ {} to db (id: {})!",
         name,
+        zonetext,
         path_recording_id
     );
 
@@ -460,12 +463,13 @@ struct PathRecording {
     waypoints: Vec<Vec3>,
 }
 
-impl From<postgres::Row> for Vec3 {
+impl From<postgres::Row> for PathRecording {
     fn from(value: postgres::Row) -> Self {
         Self {
-            x: value.get(0),
-            y: value.get(1),
-            z: value.get(2),
+            id: value.get(0),
+            name: value.get(1),
+            zonetext: value.get(2),
+            waypoints: serde_json::from_value(value.get(3)).unwrap_or_default(),
         }
     }
 }
@@ -473,21 +477,10 @@ impl From<postgres::Row> for Vec3 {
 fn query_path_from_db(name: &str) -> LoleResult<Option<PathRecording>> {
     let mut client = get_postgres_conn()?;
     if let Some(path_recording) = client.query_opt(
-        "SELECT id, zonetext FROM path_recordings WHERE name=$1",
+        "SELECT id, name, zonetext, waypoint_data FROM path_recordings WHERE name = $1",
         &[&name],
     )? {
-        let path_recording_id: i32 = path_recording.get(0);
-        let points: Vec<Vec3> = client
-            .query("SELECT x,y,z FROM path_recordings p INNER JOIN path_waypoints w ON p.id = w.path_recording_id WHERE p.id = $1 ORDER BY w.id", &[&path_recording_id])?
-            .into_iter()
-            .map(Vec3::from)
-            .collect();
-        Ok(Some(PathRecording {
-            id: path_recording_id,
-            name: name.to_owned(),
-            zonetext: path_recording.get(1),
-            waypoints: points,
-        }))
+        Ok(Some(PathRecording::from(path_recording)))
     } else {
         Ok(None)
     }
@@ -519,7 +512,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 let tpdiff = tp - pp;
                 let distance = tpdiff.length();
                 if distance < 10.0 {
-                    dostring!("FollowUnit(\"{}\")", t.get_name());
+                    dostring!("MoveForwardStop(); FollowUnit(\"{}\")", t.get_name());
                 } else {
                     TRYING_TO_FOLLOW.set(Some(t.get_guid()));
                 }
@@ -778,6 +771,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                         target_pos: point,
                         priority: CtmPriority::Path,
                         action: CtmAction::Move,
+                        distance_margin: Some(0.1),
                         ..Default::default()
                     })?;
                 }
@@ -786,9 +780,8 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
         }
         Opcode::Debug => {
-            // for c in combat_participants {
-            //     chatframe_print!("{}", c);
-            // }
+            let [_, _, _, r] = player.get_xyzr();
+            set_facing(r + 0.01, movement_flags::NOT_MOVING)?;
         }
         Opcode::EjectDll => {
             SHOULD_EJECT.set(true);

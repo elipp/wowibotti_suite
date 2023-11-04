@@ -1,4 +1,5 @@
 use core::cell::Cell;
+use objectmanager::ObjectManager;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use windows::Win32::System::SystemInformation::GetTickCount;
@@ -27,6 +28,7 @@ pub mod asm;
 pub mod ctm;
 pub mod lua;
 pub mod objectmanager;
+pub mod opcodes;
 pub mod patch;
 pub mod socket;
 pub mod spell_error;
@@ -36,6 +38,7 @@ use crate::ctm::prepare_ctm_finished_patch;
 // use crate::ctm::prepare_ctm_finished_patch;
 use crate::lua::{prepare_lua_prot_patch, register_lop_exec, LuaType};
 use crate::patch::Patch;
+use crate::socket::prepare_dump_outbound_packet_patch;
 use crate::spell_error::{prepare_spell_err_msg_trampoline, SpellError};
 
 pub const POSTGRES_ADDR: &str = "127.0.0.1:5432";
@@ -69,7 +72,7 @@ macro_rules! global_var {
     ($name:ident) => {
         match $name.lock() {
             Ok(lock) => lock,
-            Err(e) => unsafe { fatal_error_exit(e.into()) },
+            Err(e) => unsafe { crate::fatal_error_exit(e.into()) },
         }
     };
 }
@@ -94,6 +97,17 @@ macro_rules! windows_string {
     ($s:expr) => {
         PCWSTR::from_raw(wide_null($s).as_ptr())
     };
+}
+
+fn print_as_c_array(title: &str, bytes: &[u8]) {
+    println!("{title}:");
+    for (i, b) in bytes.iter().enumerate() {
+        print!("0x{:X}, ", b);
+        if i % 10 == 9 {
+            println!("");
+        }
+    }
+    println!("");
 }
 
 fn reopen_stdout() -> windows::core::Result<HANDLE> {
@@ -170,13 +184,17 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     lua_prot.enable()?;
     patches.push(lua_prot);
 
-    let ctm_finished = prepare_ctm_finished_patch();
-    ctm_finished.enable()?;
-    patches.push(ctm_finished);
+    // let ctm_finished = prepare_ctm_finished_patch();
+    // ctm_finished.enable()?;
+    // patches.push(ctm_finished);
 
     let spell_err_msg = prepare_spell_err_msg_trampoline();
     spell_err_msg.enable()?;
     patches.push(spell_err_msg);
+
+    let outbound_packet_dump = prepare_dump_outbound_packet_patch();
+    outbound_packet_dump.enable()?;
+    patches.push(outbound_packet_dump);
 
     register_lop_exec()?;
 
@@ -248,7 +266,7 @@ pub enum LoleError {
     LuaError,
     LuaUnexpectedTypeError(LuaType, LuaType),
     DbError(postgres::Error),
-    DeserializationError(serde_json::Error),
+    SerdeError(serde_json::Error),
     NotImplemented,
 }
 

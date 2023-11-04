@@ -709,7 +709,6 @@ end
 
 
 lole_frame:SetScript("OnUpdate", function()
-
 	if not query_injected() then 
 		return update_injected_status(false)
 	else

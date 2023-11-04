@@ -1,12 +1,16 @@
 use std::arch::asm;
+use std::slice::from_raw_parts;
 
 use windows::Win32::Networking::WinSock::SOCKET;
 use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS};
+use windows::Win32::System::SystemInformation::GetTickCount;
 
-use crate::lua::{SETFACING_STATE, TICK_COUNT};
+use crate::lua::SETFACING_STATE;
 use crate::objectmanager::ObjectManager;
-use crate::vec3::Vec3;
-use crate::{addrs, chatframe_print};
+use crate::opcodes::{MSG_MOVE_SET_FACING, OPCODE_NAME_MAP};
+use crate::patch::{copy_original_opcodes, InstructionBuffer, Patch, PatchKind};
+use crate::vec3::{Vec3, TWO_PI};
+use crate::{addrs, asm, chatframe_print, print_as_c_array, Offset};
 use crate::{objectmanager::GUID, patch::deref, Addr, LoleError, LoleResult};
 
 mod socket {
@@ -78,7 +82,8 @@ pub fn pack_guid(mut guid: GUID) -> Box<[u8]> {
     packed[..size].into()
 }
 
-fn set_facing_local(angle: f32) -> LoleResult<()> {
+pub fn set_facing_local(angle: f32) -> LoleResult<()> {
+    let angle = angle % TWO_PI;
     let om = ObjectManager::new()?;
     let player = om.get_player()?;
     let movement_info = player.get_movement_info();
@@ -96,14 +101,37 @@ fn set_facing_local(angle: f32) -> LoleResult<()> {
     Ok(())
 }
 
-const MSG_SET_FACING: u16 = 0x00DA;
+// opcode: MSG_MOVE_SET_FACING
+// outbound packet:
+// 0x0, 0x31, 0xDA, 0x0,
+// 0x0, 0x0, 0x1, 0x10, 0x0, 0x0, 0x0,
+// 0xA, 0x26, 0x28, 0x1, 0x3B, 0x97, 0xD0, 0x44, 0xB1,
+// 0x31, 0x88, 0xC5, 0x43, 0xB2, 0xEB, 0x41, 0xD8, 0x89, 0x91,
+// 0x40, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1A,
+// 0x88, 0x23, 0xBE, 0xE5, 0xB6, 0x7C, 0xBF, 0x0, 0x0, 0xE0,
+// 0x40,
 
-fn set_facing_remote(pos: Vec3, angle: f32) -> LoleResult<()> {
+pub mod movement_flags {
+    pub const NOT_MOVING: u8 = 0x0;
+    pub const FORWARD: u8 = 0x1;
+    pub const BACKWARD: u8 = 0x2;
+    pub const STRAFE_LEFT: u8 = 0x4;
+    pub const STRAFE_RIGHT: u8 = 0x8;
+    pub const IN_AIR: u8 = 0x10;
+}
+
+fn set_facing_remote(pos: Vec3, angle: f32, movement_flags: u8) -> LoleResult<()> {
+    let angle = angle % TWO_PI;
+
     let mut packet = vec![0x00, 0x21]; // size "without" header
-    packet.extend(MSG_SET_FACING.to_le_bytes());
-    packet.extend([0x0; 7]);
+    packet.extend(MSG_MOVE_SET_FACING.to_le_bytes());
 
-    let ticks = TICK_COUNT.get();
+    packet.extend([0x0; 2]);
+    packet.push(movement_flags);
+    // NOTE: IN_AIR belongs to the byte after movement flags, if that's ever needed :D
+    packet.extend([0x0; 4]);
+
+    let ticks = unsafe { GetTickCount() } + 0x15; // there's a small discrepancy
     packet.extend(ticks.to_le_bytes());
 
     packet.extend(
@@ -135,13 +163,73 @@ fn set_facing_remote(pos: Vec3, angle: f32) -> LoleResult<()> {
     Ok(())
 }
 
-pub fn set_facing(angle: f32) -> LoleResult<()> {
+pub fn set_facing(angle: f32, movement_flags: u8) -> LoleResult<()> {
     chatframe_print!("calling set_facing: {}", angle);
     let om = ObjectManager::new()?;
     let player = om.get_player()?;
     let pos = player.get_pos();
-    set_facing_remote(pos, angle)?;
+    set_facing_remote(pos, angle, movement_flags)?;
     set_facing_local(angle)?;
     SETFACING_STATE.set((angle, std::time::Instant::now()));
     Ok(())
 }
+
+unsafe extern "stdcall" fn dump_outbound_packet(edi: usize) {
+    if edi == 0 {
+        return println!("dump_outbound_packet: edi was null");
+    }
+    let packet_addr: Addr = deref::<_, 1>(edi + 0x8);
+    let packet_size_total: Addr = deref::<_, 1>(edi + 0xC);
+    if packet_addr == 0 || packet_size_total == 0 {
+        return println!("dump_outbound_packet: invalid packet data");
+    }
+    let packet_bytes = std::slice::from_raw_parts(packet_addr as *const u8, packet_size_total);
+    let opcode_bytes = [packet_bytes[2], packet_bytes[3]];
+    let opcode = u16::from_le_bytes(opcode_bytes);
+    if let Some(opcode_name) = OPCODE_NAME_MAP.get(&opcode) {
+        println!("opcode: {}, our ticks: 0x{:X}", opcode_name, unsafe {
+            GetTickCount()
+        });
+    } else {
+        println!("warning: unknown opcode 0x{:X}", opcode);
+    }
+    print_as_c_array("outbound packet", packet_bytes);
+}
+
+pub fn prepare_dump_outbound_packet_patch() -> Patch {
+    const DUMP_OUTBOUND_PACKET_PATCHADDR: Addr = 0x42050E;
+    let patch_addr = DUMP_OUTBOUND_PACKET_PATCHADDR;
+    let original_opcodes = copy_original_opcodes(patch_addr, 9);
+
+    let mut patch_opcodes = InstructionBuffer::new();
+    patch_opcodes.push(asm::PUSHAD);
+    patch_opcodes.push(asm::PUSH_EDI);
+    patch_opcodes.push_call_to(dump_outbound_packet as Addr);
+    patch_opcodes.push(asm::POPAD);
+    patch_opcodes.push_slice(&original_opcodes);
+    patch_opcodes.push(asm::PUSH_IMM);
+    patch_opcodes.push_slice(&(patch_addr + original_opcodes.len() as Offset).to_le_bytes());
+    patch_opcodes.push(asm::RET);
+
+    Patch {
+        name: "dump_outbound_packet_patch",
+        patch_addr,
+        patch_opcodes,
+        original_opcodes,
+        kind: PatchKind::JmpToTrampoline,
+    }
+}
+
+// opcode: MSG_MOVE_SET_FACING, our ticks: 0x13DEC1F
+// outbound packet:
+// 0x0, 0x21, 0xDA, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0,
+// 0x0, 0x36, 0xEC, 0x3D, 0x1, 0x56, 0x87, 0xCF, 0x44, 0xFF,
+// 0xB6, 0x88, 0xC5, 0xC9, 0x7F, 0xC0, 0x41, 0xE6, 0xEB, 0xB8,
+// // 0x3F, 0x9, 0x0, 0x0, 0x0,
+
+// opcode: MSG_MOVE_STOP, our ticks: 0x13F3335
+// outbound packet:
+// 0x0, 0x21, 0xB7, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+// 0x0, 0x4E, 0x33, 0x3F, 0x1, 0x60, 0x80, 0xCF, 0x44, 0x7C,
+// 0x3E, 0x88, 0xC5, 0xF4, 0x93, 0xD3, 0x41, 0xD2, 0xE7, 0xB5,
+// 0x3F, 0x9, 0x0, 0x0, 0x0,

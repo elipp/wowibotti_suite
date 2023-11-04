@@ -9,7 +9,7 @@ use crate::objectmanager::{GUIDFmt, ObjectManager, GUID, NO_TARGET};
 use crate::patch::{
     copy_original_opcodes, read_elems_from_addr, write_addr, InstructionBuffer, Patch, PatchKind,
 };
-use crate::socket::set_facing;
+use crate::socket::{movement_flags, set_facing};
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{addrs, asm, Addr, LoleError, LoleResult, Offset};
 use crate::{chatframe_print, dostring};
@@ -29,9 +29,19 @@ lazy_static! {
     });
 }
 
+#[derive(Clone, Copy)]
+struct InterpStatus {
+    start_angle: f32,
+    end_angle: f32,
+    dt: f32,
+    t: f32,
+}
+
 thread_local! {
     pub static TRYING_TO_FOLLOW: Cell<Option<GUID>> = Cell::new(None);
     pub static CTM_EVENT_ID: Cell<u64> = Cell::new(0);
+
+    static ANGLE_INTERP_STATUS: Cell<Option<InterpStatus>> = Cell::new(None);
 }
 
 #[derive(Debug, Default)]
@@ -94,9 +104,59 @@ pub fn get_wow_ctm_target_pos() -> Vec3 {
     Vec3 { x, y, z }
 }
 
+pub fn short_angle_dist(start: f32, end: f32) -> f32 {
+    let da = (end - start) % TWO_PI;
+    2.0 * da % TWO_PI - da
+}
+
+pub fn angle_lerp(start: f32, end: f32, t: f32) -> f32 {
+    (start + short_angle_dist(start, end) * t) % TWO_PI
+}
+
 const PROBABLY_STUCK_THRESHOLD: f32 = 4.0;
 const CTM_COOLDOWN: Duration = Duration::from_millis(150);
 const ALMOST_IDENTICAL_TARGET_POS_THRESHOLD: f32 = 0.2;
+
+const INTERP_DT_DEFAULT: f32 = 0.035; // lower means smoother turns :D
+const INTERP_NONE: f32 = 1.0;
+
+fn handle_walking_angle_interp(player_r: f32, diff_rot: f32) -> LoleResult<()> {
+    if let Some(InterpStatus {
+        start_angle,
+        end_angle,
+        dt,
+        t,
+    }) = ANGLE_INTERP_STATUS.take()
+    {
+        if t >= 1.0 {
+            set_facing(diff_rot, movement_flags::FORWARD)?;
+            ANGLE_INTERP_STATUS.set(None);
+        } else {
+            if short_angle_dist(player_r, diff_rot).abs() > 0.01 {
+                set_facing(
+                    angle_lerp(start_angle, end_angle, t),
+                    movement_flags::FORWARD,
+                )?;
+            }
+            ANGLE_INTERP_STATUS.set(Some(InterpStatus {
+                start_angle,
+                end_angle: diff_rot,
+                dt,
+                t: t + dt,
+            }));
+        }
+    } else {
+        if short_angle_dist(player_r, diff_rot).abs() > 0.01 {
+            ANGLE_INTERP_STATUS.set(Some(InterpStatus {
+                start_angle: player_r,
+                end_angle: diff_rot,
+                dt: INTERP_DT_DEFAULT,
+                t: 0.0,
+            }));
+        }
+    }
+    Ok(())
+}
 
 impl CtmQueue {
     fn add_to_queue(&mut self, ev: CtmEvent) -> LoleResult<()> {
@@ -115,11 +175,10 @@ impl CtmQueue {
         } else {
             self.replace_current(ev)?;
         }
-        println!("{}", self.events.len());
         Ok(())
     }
     fn replace_current(&mut self, ev: CtmEvent) -> LoleResult<()> {
-        ev.commit_to_memory()?;
+        ev.start_walking_towards()?;
         self.events.clear();
         self.current = Some((ev, Instant::now()));
         Ok(())
@@ -153,7 +212,8 @@ impl CtmQueue {
         self.last_frame_time = Instant::now();
 
         let om = ObjectManager::new()?;
-        let pp = om.get_player()?.get_pos();
+        let player = om.get_player()?;
+        let pp = player.get_pos();
 
         let dt = prev_frame_time.elapsed().as_secs_f32().max(0.001);
         self.yards_moved
@@ -168,13 +228,14 @@ impl CtmQueue {
                     TRYING_TO_FOLLOW.set(None);
                     // doing FollowUnit() here causes a ctm_finished, causing a deadlock on the QUEUE mutex.
                     // is avoidable using try_lock();
-                    dostring!("FollowUnit(\"{}\")", t.get_name());
+                    dostring!("MoveForwardStop(); FollowUnit(\"{}\")", t.get_name());
                     self.current = None;
                 } else {
                     self.replace_current(CtmEvent {
                         target_pos: tp,
                         priority: CtmPriority::Follow,
                         action: CtmAction::Move,
+                        angle_interp_dt: INTERP_NONE,
                         ..Default::default()
                     })?;
                 }
@@ -187,14 +248,23 @@ impl CtmQueue {
                 self.current = None;
             }
         } else if let Some((current, start_time)) = self.current.as_mut() {
+            let diff = current.target_pos - pp;
+            let diff_rot = diff.unit().to_rot_value();
+            let [_, _, _, r] = player.get_xyzr();
+
+            handle_walking_angle_interp(r, diff_rot)?;
+
             let yards_moved = self.yards_moved.calculate();
-            if start_time.elapsed() > Duration::from_millis(500)
-                && yards_moved < PROBABLY_STUCK_THRESHOLD
-            {
-                println!(
-                    "we're probably stuck, aborting current CtmEvent ({})",
-                    current.id
-                );
+            let probably_stuck = start_time.elapsed() > Duration::from_millis(100)
+                && yards_moved < PROBABLY_STUCK_THRESHOLD;
+
+            if probably_stuck || ((pp - current.target_pos).zero_z().length() < 0.9) {
+                if probably_stuck {
+                    println!(
+                        "we're probably stuck, skipping to next CtmEvent ({})",
+                        current.id
+                    );
+                }
                 self.advance()?;
             } else if current.priority == CtmPriority::Path {
                 if rand::thread_rng().gen::<f32>() < 0.003 {
@@ -211,7 +281,7 @@ impl CtmQueue {
         let prev_current = self.current.take();
         if let Some(next) = self.events.pop_front() {
             self.yards_moved.reset();
-            next.commit_to_memory()?;
+            next.start_walking_towards()?;
             self.current = Some((next, Instant::now()));
         } else {
             if prev_current.is_some() {
@@ -303,13 +373,7 @@ pub struct CtmEvent {
     pub interact_guid: Option<GUID>,
     pub hooks: Option<Vec<CtmPostHook>>,
     pub distance_margin: Option<f32>,
-}
-
-impl CtmEvent {
-    fn update_target_pos(&mut self, new_pos: Vec3, distance_margin: Option<f32>) {
-        self.target_pos = new_pos;
-        self.distance_margin = distance_margin;
-    }
+    pub angle_interp_dt: f32,
 }
 
 impl Default for CtmEvent {
@@ -324,6 +388,7 @@ impl Default for CtmEvent {
             interact_guid: None,
             hooks: None,
             distance_margin: None,
+            angle_interp_dt: INTERP_DT_DEFAULT,
         }
     }
 }
@@ -337,6 +402,10 @@ mod constants {
 }
 
 impl CtmEvent {
+    fn update_target_pos(&mut self, new_pos: Vec3, distance_margin: Option<f32>) {
+        self.target_pos = new_pos;
+        self.distance_margin = distance_margin;
+    }
     fn commit_to_memory(&self) -> LoleResult<()> {
         let om = ObjectManager::new()?;
         let p = om.get_player()?;
@@ -369,14 +438,27 @@ impl CtmEvent {
         write_addr(addrs::ctm::GLOBAL_CONST2, &[const2])?;
         write_addr(addrs::ctm::MIN_DISTANCE, &[min_distance])?;
 
+        let imaginary_point = self.target_pos + 2.5 * (self.target_pos - ppos).unit(); // set target "too far", such that `ctm_finished` is not triggered
+
         write_addr(
             addrs::ctm::TARGET_POS_X,
-            &[self.target_pos.x, self.target_pos.y, self.target_pos.z],
+            &[imaginary_point.x, imaginary_point.y, imaginary_point.z],
         )?;
 
         let action: u8 = self.action.into();
         write_addr(addrs::ctm::ACTION, &[action])?;
         SETFACING_STATE.set((walking_angle, std::time::Instant::now()));
+        Ok(())
+    }
+    fn start_walking_towards(&self) -> LoleResult<()> {
+        let om = ObjectManager::new()?;
+        let p = om.get_player()?;
+        let ppos = p.get_pos();
+        let [_, _, _, r] = p.get_xyzr();
+        let diff = self.target_pos - ppos;
+        let walking_angle = diff.unit().to_rot_value();
+        handle_walking_angle_interp(r, walking_angle)?;
+        dostring!("MoveForwardStart()")?;
         Ok(())
     }
 }
@@ -403,36 +485,36 @@ pub fn poll() -> LoleResult<()> {
 }
 
 unsafe extern "C" fn ctm_finished() {
-    if let Ok(mut ctm_queue) = QUEUE.try_lock() {
-        if let Some((_current, _)) = ctm_queue.current.take() {
-            if !ctm_queue.events.is_empty() {
-                if let Err(_) = dostring!("MoveForwardStart()") {
-                    println!("dostring(MoveForwardStart()) failed");
-                }
-            } else {
-                if let Err(_) = dostring!("MoveForwardStop()") {
-                    println!("dostring(MoveForwardStop()) failed");
-                }
-            }
-            // this shit is broken
-            // if let Some(hooks) = old_current.hooks {
-            //     let res = match hooks.first() {
-            //         Some(CtmPostHook::FaceTarget(rot)) => set_facing(*rot),
-            //         Some(CtmPostHook::FollowUnit(name)) => dostring!("FollowUnit(\"{}\")", name),
-            //         _ => Ok(()),
-            //     };
-            //     if res.is_err() {
-            //         println!("warning: {res:?}");
-            //     }
-            // }
-        } else {
-            if let Err(_) = dostring!("MoveForwardStop()") {
-                println!("dostring(MoveForwardStop()) failed");
-            }
-        }
-    } else {
-        println!("warning: couldn't lock ctm::QUEUE mutex");
-    }
+    // if let Ok(mut ctm_queue) = QUEUE.try_lock() {
+    //     if let Some((_current, _)) = ctm_queue.current.take() {
+    //         if !ctm_queue.events.is_empty() {
+    //             if let Err(_) = dostring!("MoveForwardStart()") {
+    //                 println!("dostring(MoveForwardStart()) failed");
+    //             }
+    //         } else {
+    //             if let Err(_) = dostring!("MoveForwardStop()") {
+    //                 println!("dostring(MoveForwardStop()) failed");
+    //             }
+    //         }
+    //         // this shit is broken
+    //         // if let Some(hooks) = old_current.hooks {
+    //         //     let res = match hooks.first() {
+    //         //         Some(CtmPostHook::FaceTarget(rot)) => set_facing(*rot),
+    //         //         Some(CtmPostHook::FollowUnit(name)) => dostring!("FollowUnit(\"{}\")", name),
+    //         //         _ => Ok(()),
+    //         //     };
+    //         //     if res.is_err() {
+    //         //         println!("warning: {res:?}");
+    //         //     }
+    //         // }
+    //     } else {
+    //         if let Err(_) = dostring!("MoveForwardStop()") {
+    //             println!("dostring(MoveForwardStop()) failed");
+    //         }
+    //     }
+    // } else {
+    //     println!("warning: couldn't lock ctm::QUEUE mutex");
+    // }
 }
 
 pub fn prepare_ctm_finished_patch() -> Patch {
