@@ -192,9 +192,9 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     spell_err_msg.enable()?;
     patches.push(spell_err_msg);
 
-    let outbound_packet_dump = prepare_dump_outbound_packet_patch();
-    outbound_packet_dump.enable()?;
-    patches.push(outbound_packet_dump);
+    // let outbound_packet_dump = prepare_dump_outbound_packet_patch();
+    // outbound_packet_dump.enable()?;
+    // patches.push(outbound_packet_dump);
 
     register_lop_exec()?;
 
