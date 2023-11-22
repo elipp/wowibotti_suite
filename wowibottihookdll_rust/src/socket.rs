@@ -1,13 +1,12 @@
 use std::arch::asm;
-use std::slice::from_raw_parts;
 
 use windows::Win32::Networking::WinSock::SOCKET;
 use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS};
-use windows::Win32::System::SystemInformation::GetTickCount;
 
+use crate::addrs::GetOsTickCount;
 use crate::lua::SETFACING_STATE;
 use crate::objectmanager::ObjectManager;
-use crate::opcodes::{MSG_MOVE_SET_FACING, OPCODE_NAME_MAP};
+use crate::opcodes::{is_movement_opcode, MSG_MOVE_SET_FACING, OPCODE_NAME_MAP};
 use crate::patch::{copy_original_opcodes, InstructionBuffer, Patch, PatchKind};
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{addrs, asm, chatframe_print, print_as_c_array, Offset};
@@ -111,6 +110,14 @@ pub fn set_facing_local(angle: f32) -> LoleResult<()> {
 // 0x88, 0x23, 0xBE, 0xE5, 0xB6, 0x7C, 0xBF, 0x0, 0x0, 0xE0,
 // 0x40,
 
+pub const TICK_COUNT: usize = 0xD7F418;
+pub const UNK_CLOCK_DRIFT: usize = 0xD7F420;
+
+pub fn read_os_tick_count() -> u32 {
+    deref::<u32, 1>(TICK_COUNT) + deref::<u32, 1>(UNK_CLOCK_DRIFT)
+    // GetOsTickCount()
+}
+
 pub mod movement_flags {
     pub const NOT_MOVING: u8 = 0x0;
     pub const FORWARD: u8 = 0x1;
@@ -131,7 +138,7 @@ fn set_facing_remote(pos: Vec3, angle: f32, movement_flags: u8) -> LoleResult<()
     // NOTE: IN_AIR belongs to the byte after movement flags, if that's ever needed :D
     packet.extend([0x0; 4]);
 
-    let ticks = unsafe { GetTickCount() } + 0x15; // there's a small discrepancy
+    let ticks = read_os_tick_count() + 1000; // empirically, seems to be a drift of about 1000 (maybe all the movement business reads ticks from another source?)
     packet.extend(ticks.to_le_bytes());
 
     packet.extend(
@@ -187,9 +194,22 @@ unsafe extern "stdcall" fn dump_outbound_packet(edi: usize) {
     let opcode_bytes = [packet_bytes[2], packet_bytes[3]];
     let opcode = u16::from_le_bytes(opcode_bytes);
     if let Some(opcode_name) = OPCODE_NAME_MAP.get(&opcode) {
-        println!("opcode: {}, our ticks: 0x{:X}", opcode_name, unsafe {
-            GetTickCount()
-        });
+        println!("opcode: {}", opcode_name,);
+        if is_movement_opcode(opcode) {
+            let our_ticks = read_os_tick_count();
+            let ticks = u32::from_le_bytes([
+                packet_bytes[11],
+                packet_bytes[12],
+                packet_bytes[13],
+                packet_bytes[14],
+            ]);
+            println!(
+                "packet ticks: 0x{:08X}, our ticks: 0x{:08X}, diff = {}",
+                ticks,
+                our_ticks,
+                ticks as i64 - our_ticks as i64
+            );
+        }
     } else {
         println!("warning: unknown opcode 0x{:X}", opcode);
     }

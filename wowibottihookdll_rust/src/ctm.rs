@@ -178,7 +178,14 @@ impl CtmQueue {
         Ok(())
     }
     fn replace_current(&mut self, ev: CtmEvent) -> LoleResult<()> {
-        ev.start_walking_towards()?;
+        match ev.backend {
+            CtmBackend::Ctm => {
+                ev.commit_to_memory()?;
+            }
+            CtmBackend::Playback => {
+                ev.start_walking_towards()?;
+            }
+        }
         self.events.clear();
         self.current = Some((ev, Instant::now()));
         Ok(())
@@ -255,7 +262,7 @@ impl CtmQueue {
             handle_walking_angle_interp(r, diff_rot)?;
 
             let yards_moved = self.yards_moved.calculate();
-            let probably_stuck = start_time.elapsed() > Duration::from_millis(100)
+            let probably_stuck = start_time.elapsed() > Duration::from_millis(300)
                 && yards_moved < PROBABLY_STUCK_THRESHOLD;
 
             if probably_stuck || ((pp - current.target_pos).zero_z().length() < 0.9) {
@@ -365,6 +372,12 @@ pub enum CtmPostHook {
 }
 
 #[derive(Debug)]
+pub enum CtmBackend {
+    Ctm,
+    Playback,
+}
+
+#[derive(Debug)]
 pub struct CtmEvent {
     pub id: u64,
     pub target_pos: Vec3,
@@ -374,6 +387,7 @@ pub struct CtmEvent {
     pub hooks: Option<Vec<CtmPostHook>>,
     pub distance_margin: Option<f32>,
     pub angle_interp_dt: f32,
+    pub backend: CtmBackend,
 }
 
 impl Default for CtmEvent {
@@ -389,6 +403,7 @@ impl Default for CtmEvent {
             hooks: None,
             distance_margin: None,
             angle_interp_dt: INTERP_DT_DEFAULT,
+            backend: CtmBackend::Playback,
         }
     }
 }

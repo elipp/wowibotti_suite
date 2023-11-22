@@ -15,6 +15,7 @@ pub mod wow_cfuncs {
     pub const SetFacing: Addr = 0x7B9DE0;
     pub const SpellErrMsg: Addr = 0x4988A0;
     pub const GetErrorText: Addr = 0x707200;
+    pub const GetOsTickCount: Addr = 0x65B3F0; // NOTE: this also writes a new value to the address
 }
 
 #[allow(non_upper_case_globals)]
@@ -85,4 +86,10 @@ define_wow_cfunc! {
     SelectUnit,
     wow_cfuncs::SelectUnit,
     (guid: GUID) -> i32
+}
+
+define_wow_cfunc! {
+    GetOsTickCount,
+    wow_cfuncs::GetOsTickCount,
+    () -> u32
 }

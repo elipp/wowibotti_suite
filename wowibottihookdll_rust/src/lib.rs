@@ -180,6 +180,8 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     open_console()?;
     let mut patches = global_var!(ENABLED_PATCHES);
 
+    println!("GetTickCount (rust): {}", GetTickCount as usize);
+
     let lua_prot = prepare_lua_prot_patch();
     lua_prot.enable()?;
     patches.push(lua_prot);

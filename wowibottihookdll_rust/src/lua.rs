@@ -4,15 +4,13 @@ use std::f32::consts::PI;
 use std::ffi::{c_char, c_void, CString};
 use std::sync::Mutex;
 
-use windows::Win32::System::SystemInformation::GetTickCount;
-
 use rand::Rng;
 
 use crate::addrs::{SelectUnit, LAST_HARDWARE_EVENT};
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
 use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager, WowObjectType};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
-use crate::socket::{movement_flags, set_facing, set_facing_local};
+use crate::socket::{movement_flags, read_os_tick_count, set_facing, set_facing_local};
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{
     add_repr_and_tryfrom, asm, global_var, LoleError, LoleResult, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
@@ -405,7 +403,7 @@ pub fn playermode() -> LoleResult<bool> {
 }
 
 fn write_hwevent_timestamp() -> LoleResult<()> {
-    let ticks = unsafe { GetTickCount() };
+    let ticks = read_os_tick_count();
     write_addr(LAST_HARDWARE_EVENT, &[ticks])
 }
 

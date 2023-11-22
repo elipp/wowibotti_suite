@@ -31,7 +31,7 @@ local function reapply_poisons()
       mh_apply = 1
     end
   elseif not has_oh then
-    RunMacroText("/use Instant Poison III")
+    RunMacroText("/use Instant Poison IV")
     if GetTime() - oh_at > 5 then
       oh_apply = 1
     end
@@ -99,7 +99,7 @@ function rogue_combat()
       CastSpellByName("Kick")
     end
     if not has_buff("player", "Slice and Dice") then
-      if GetComboPoints("player", "target") > 2 then
+      if GetComboPoints("player", "target") >= 2 then
         CastSpellByName("Slice and Dice")
         return
       end

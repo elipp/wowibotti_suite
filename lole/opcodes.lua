@@ -71,6 +71,10 @@ function healer_range_check(maxrange)
 	end
 end
 
+function playback_path(name, reversed)
+	LOP:call(LOP.PlaybackPath, name, reversed)
+end
+
 function target_unit_with_GUID(GUID)
 	LOP:call(LOP.TargetGuid, GUID)
 end
@@ -80,7 +84,7 @@ function refresh_hwevent_timestamp()
 end
 
 function melee_attack_behind(minrange) -- magic value is 1.5
-	if not playermode() then
+	if not playermode() and not UnitIsDead("player") then
 		LOP:call(LOP.MeleeBehind, minrange);
 	end
 end
