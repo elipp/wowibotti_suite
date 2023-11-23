@@ -1,3 +1,4 @@
+use std::arch::asm;
 use std::cell::Cell;
 use std::collections::VecDeque;
 use std::f32::consts::PI;
@@ -6,16 +7,17 @@ use std::sync::Mutex;
 
 use rand::Rng;
 
-use crate::addrs::{SelectUnit, LAST_HARDWARE_EVENT};
+use crate::addrs::offsets;
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
 use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager, WowObjectType};
 use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
 use crate::socket::{movement_flags, read_os_tick_count, set_facing, set_facing_local};
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{
-    add_repr_and_tryfrom, asm, global_var, LoleError, LoleResult, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
+    add_repr_and_tryfrom, assembly, global_var, LoleError, LoleResult, LAST_SPELL_ERR_MSG,
+    SHOULD_EJECT,
 };
-use crate::{define_wow_cfunc, POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
+use crate::{define_lua_function, POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
 
 thread_local! {
     // this is modified from CtmAction::commit() and set_facing
@@ -75,19 +77,19 @@ add_repr_and_tryfrom! {
     }
 }
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_gettop,
     (state: lua_State) -> i32
 );
 
 // kept here for reference (not allowed by the compiler atm):
 // const _lua_gettop: extern "C" fn(lua_State) -> i32 = {
-//     let ptr = addrs::lua_gettop as *const ();
+//     let ptr = offsets::lua_gettop as *const ();
 //     unsafe { std::mem::transmute(ptr) }
 //     // let func: extern "C" fn($($param_ty),*) -> $ret_ty = unsafe { std::mem::transmute(ptr) };
 // };
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_settop,
     (state: lua_State, idx: i32) -> ());
 
@@ -98,43 +100,43 @@ macro_rules! lua_pop {
     };
 }
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_pushcclosure,
     (state: lua_State, closure: lua_CFunction, n: i32) -> ());
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_pushnumber,
     (state: lua_State, number: lua_Number) -> ());
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_pushboolean,
     (state: lua_State, b: lua_Boolean) -> ());
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_gettable,
     (state: lua_State, idx: i32) -> ());
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_getfield,
-    (state: lua_State, idx: i32, k: *const c_char) -> i32);
+    (state: lua_State, idx: i32, k: *const c_char, strlen: usize) -> i32);
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_setfield,
     (state: lua_State, idx: i32, k: *const c_char) -> ());
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_tointeger,
     (state: lua_State, idx: i32) -> i32);
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_gettype,
     (state: lua_State, idx: i32) -> i32);
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_tolstring,
     (state: lua_State, idx: i32, len: *mut usize) -> *const c_char);
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_next,
     (state: lua_State, idx: i32) -> i32);
 
@@ -157,23 +159,23 @@ macro_rules! lua_tostring {
     }};
 }
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_tonumber,
     (state: lua_State, idx: i32) -> lua_Number);
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_pushnil,
     (state: lua_State) -> ());
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_pushstring,
     (state: lua_State, str: *const c_char) -> ());
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_pushlstring,
     (state: lua_State, str: *const c_char, len: usize) -> ());
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_toboolean,
     (state: lua_State, idx: i32) -> i32);
 
@@ -183,7 +185,7 @@ macro_rules! lua_tonumber_f32 {
     };
 }
 
-define_wow_cfunc!(
+define_lua_function!(
     lua_dostring,
     (script: *const c_char, _s: *const c_char, taint: u32) -> ());
 
@@ -222,9 +224,13 @@ macro_rules! lua_setglobal {
 }
 
 macro_rules! lua_register {
+    ($lua:expr, $name:literal, $closure:expr) => {
+        lua_pushcclosure($lua, $closure, 0);
+        lua_setglobal!($lua, $name)
+    };
     ($lua:expr, $name:expr, $closure:expr) => {
         lua_pushcclosure($lua, $closure, 0);
-        lua_setglobal!($lua, $name as *const c_char);
+        lua_setglobal!($lua, $name)
     };
 }
 
@@ -235,9 +241,24 @@ macro_rules! lua_unregister {
     };
 }
 
+macro_rules! lua_getfield_ {
+    ($lua:expr, $idx:expr, $s:literal) => {
+        let c_str = cstr_literal!($s);
+        lua_getfield($lua, $idx, c_str, $s.len())
+    };
+
+    ($lua:expr, $idx:expr, $s:expr) => {
+        let c_str = CString::new($s).expect("CString");
+        lua_getfield($lua, $idx, c_str.as_ptr(), c_str.as_bytes_with_nul().len())
+    };
+}
+
 macro_rules! lua_getglobal {
+    ($lua:expr, $s:literal) => {
+        lua_getfield_!($lua, LUA_GLOBALSINDEX, $s)
+    };
     ($lua:expr, $s:expr) => {
-        lua_getfield($lua, LUA_GLOBALSINDEX, $s as *const c_char)
+        lua_getfield_!($lua, LUA_GLOBALSINDEX, $s)
     };
 }
 
@@ -249,7 +270,7 @@ macro_rules! cstr_literal {
 }
 
 pub fn register_lop_exec() -> LoleResult<()> {
-    write_addr(addrs::vfp_max, &[0xEFFFFFFFu32])?;
+    write_addr(offsets::lua::vfp_max, &[0xEFFFFFFFu32])?;
     let lua = get_wow_lua_state()?;
     lua_register!(lua, cstr_literal!("lop_exec"), lop_exec);
     println!("lop_exec registered!");
@@ -257,7 +278,7 @@ pub fn register_lop_exec() -> LoleResult<()> {
 }
 
 pub fn unregister_lop_exec() -> LoleResult<()> {
-    write_addr(addrs::vfp_max, &[0xEFFFFFFFu32])?; // TODO: probably should look up what the original value was...
+    write_addr(offsets::lua::vfp_max, &[0xEFFFFFFFu32])?; // TODO: probably should look up what the original value was...
     let lua = get_wow_lua_state()?;
     lua_unregister!(lua, cstr_literal!("lop_exec"));
     println!("lop_exec un-registered!");
@@ -383,10 +404,10 @@ pub fn set_facing_force(new_angle: f32) -> LoleResult<()> {
 
 pub fn playermode() -> LoleResult<bool> {
     let lua = get_wow_lua_state()?;
-    lua_getglobal!(lua, cstr_literal!("LOLE_MODE_ATTRIBS"));
+    lua_getglobal!(lua, "LOLE_MODE_ATTRIBS");
     let res = match lua_gettype(lua, -1).try_into() {
         Ok(LuaType::Table) => {
-            lua_getfield(lua, -1, cstr_literal!("playermode"));
+            lua_getfield_!(lua, -1, "playermode");
             match lua_gettype(lua, -1).try_into()? {
                 LuaType::Number => {
                     let value = lua_tonumber(lua, -1);
@@ -404,7 +425,7 @@ pub fn playermode() -> LoleResult<bool> {
 
 fn write_hwevent_timestamp() -> LoleResult<()> {
     let ticks = read_os_tick_count();
-    write_addr(LAST_HARDWARE_EVENT, &[ticks])
+    write_addr(offsets::LAST_HARDWARE_EVENT, &[ticks])
 }
 
 fn random_01() -> f32 {
@@ -501,7 +522,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::TargetGuid if nargs == 1 => {
             let guid_str = lua_tostring!(lua, 2)?;
             let guid = guid_from_str(guid_str)?;
-            SelectUnit(guid);
+            offsets::SelectUnit(guid);
         }
         Opcode::Follow if nargs == 1 => {
             let name = lua_tostring!(lua, 2)?;
@@ -735,9 +756,9 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 lua_pushnil(lua); // starts the outer table iteration
                 while lua_next(lua, 4) != 0 {
                     if let Ok(LuaType::Table) = lua_gettype(lua, -1).try_into() {
-                        lua_getfield(lua, -1, cstr_literal!("x"));
-                        lua_getfield(lua, -2, cstr_literal!("y"));
-                        lua_getfield(lua, -3, cstr_literal!("z"));
+                        lua_getfield_!(lua, -1, "x");
+                        lua_getfield_!(lua, -2, "y");
+                        lua_getfield_!(lua, -3, "z");
 
                         let x = lua_tonumber(lua, -3) as f32;
                         let y = lua_tonumber(lua, -2) as f32;
@@ -802,7 +823,7 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
 }
 
 pub fn get_wow_lua_state() -> LoleResult<lua_State> {
-    let res = deref::<lua_State, 1>(addrs::wow_lua_State);
+    let res = deref::<lua_State, 1>(offsets::lua::wow_lua_State);
     if !res.is_null() {
         Ok(res)
     } else {
@@ -817,7 +838,7 @@ pub fn register_lop_exec_if_not_registered() -> LoleResult<()> {
     }
 
     let lua = get_wow_lua_state()?;
-    lua_getglobal!(lua, cstr_literal!("lop_exec"));
+    lua_getglobal!(lua, "lop_exec");
     let var_type = lua_gettype(lua, -1);
     lua_pop!(lua, 1);
     match var_type.try_into() {
@@ -829,54 +850,23 @@ pub fn register_lop_exec_if_not_registered() -> LoleResult<()> {
 
 pub fn prepare_lua_prot_patch() -> Patch {
     let mut patch_opcodes = InstructionBuffer::new();
-    patch_opcodes.push_slice(&[0xB8, 0x01, 0x00, 0x00, 0x00, 0x5D, 0xC3, asm::NOP, asm::NOP]);
+    patch_opcodes.push_slice(&[
+        0xB8,
+        0x01,
+        0x00,
+        0x00,
+        0x00,
+        0x5D,
+        0xC3,
+        assembly::NOP,
+        assembly::NOP,
+    ]);
 
     Patch {
         name: "Lua_Prot",
-        patch_addr: crate::addrs::LUA_PROT_PATCHADDR,
-        original_opcodes: copy_original_opcodes(crate::addrs::LUA_PROT_PATCHADDR, 9),
+        patch_addr: offsets::LUA_PROT_PATCHADDR,
+        original_opcodes: copy_original_opcodes(offsets::LUA_PROT_PATCHADDR, 9),
         patch_opcodes,
         kind: PatchKind::OverWrite,
     }
 }
-
-#[allow(non_upper_case_globals)]
-mod addrs {
-    use crate::Addr;
-    pub const lua_gettop: Addr = 0x0072DAE0;
-    pub const lua_settop: Addr = 0x0072DB00;
-    pub const lua_tonumber: Addr = 0x0072DF40;
-    pub const lua_tointeger: Addr = 0x0072DF80;
-    pub const lua_tostring: Addr = 0x0072DFF0;
-    pub const lua_touserdata: Addr = 0x0072E120;
-    pub const lua_toboolean: Addr = 0x0072DFC0;
-    pub const lua_pushnumber: Addr = 0x0072E1A0;
-    pub const lua_pushinteger: Addr = 0x0072E1D0;
-    pub const lua_isstring: Addr = 0x0072DE70;
-    pub const lua_tolstring: Addr = 0x0072DFF0;
-    pub const lua_pushlstring: Addr = 0x0072E200;
-    pub const lua_pushstring: Addr = 0x0072E250;
-    pub const lua_pushboolean: Addr = 0x0072E3B0;
-    pub const lua_pushcclosure: Addr = 0x0072E2F0;
-    pub const lua_pushnil: Addr = 0x0072E180;
-    pub const lua_gettable: Addr = 0x0072E440;
-    pub const lua_setfield: Addr = 0x0072E7E0;
-    pub const lua_getfield: Addr = 0x0072E470;
-    pub const lua_getfield_wow_weird: Addr = 0x0072F710;
-    pub const lua_replace: Addr = 0x0072DC80;
-    pub const lua_next: Addr = 0x0072EE30;
-    pub const lua_gettype: Addr = 0x0072DDC0;
-    pub const lua_gettypestring: Addr = 0x0072DDE0;
-    pub const lua_dostring: Addr = 0x00706C80;
-
-    pub const wow_lua_State: Addr = 0xE1DB84;
-
-    // the Lua stack in wow prevents all lua_pushcclosure calls
-    // where the closure address isn't within Wow.exe's .code section
-    // this is the upper limit
-
-    pub const vfp_max: Addr = 0xE1F834;
-    // pub const FrameScript_Register: Addr = 0x007059B0;
-}
-
-// NOTE: /script DEFAULT_CHAT_FRAME:AddMessage( GetMouseFocus():GetName() ); is a great way to find out stuff

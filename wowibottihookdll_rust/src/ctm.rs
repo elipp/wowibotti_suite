@@ -4,6 +4,7 @@ use std::f32::consts::PI;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+use crate::addrs::offsets;
 use crate::lua::SETFACING_STATE;
 use crate::objectmanager::{GUIDFmt, ObjectManager, GUID, NO_TARGET};
 use crate::patch::{
@@ -11,7 +12,7 @@ use crate::patch::{
 };
 use crate::socket::{movement_flags, set_facing};
 use crate::vec3::{Vec3, TWO_PI};
-use crate::{addrs, asm, Addr, LoleError, LoleResult, Offset};
+use crate::{assembly, Addr, LoleError, LoleResult, Offset};
 use crate::{chatframe_print, dostring};
 
 use lazy_static::lazy_static;
@@ -100,7 +101,7 @@ impl PartialOrd for CtmPriority {
 }
 
 pub fn get_wow_ctm_target_pos() -> Vec3 {
-    let [x, y, z] = read_elems_from_addr::<3, f32>(addrs::ctm::TARGET_POS_X);
+    let [x, y, z] = read_elems_from_addr::<3, f32>(offsets::ctm::TARGET_POS_X);
     Vec3 { x, y, z }
 }
 
@@ -179,7 +180,7 @@ impl CtmQueue {
     }
     fn replace_current(&mut self, ev: CtmEvent) -> LoleResult<()> {
         match ev.backend {
-            CtmBackend::Ctm => {
+            CtmBackend::ClickToMove => {
                 ev.commit_to_memory()?;
             }
             CtmBackend::Playback => {
@@ -202,7 +203,7 @@ impl CtmQueue {
 
         // write_addr(0xD689C0, &[0i32; 3])?; // C0 to C8
         // write_addr(0xD68998, &[0i32; 2])?; // 98 and 9C
-        // write_addr::<i32>(addrs::ctm::ACTION, &[CtmAction::Done as i32])?;
+        // write_addr::<i32>(offsets::ctm::ACTION, &[CtmAction::Done as i32])?;
 
         let om = ObjectManager::new()?;
         let player = om.get_player()?;
@@ -373,7 +374,7 @@ pub enum CtmPostHook {
 
 #[derive(Debug)]
 pub enum CtmBackend {
-    Ctm,
+    ClickToMove,
     Playback,
 }
 
@@ -403,7 +404,7 @@ impl Default for CtmEvent {
             hooks: None,
             distance_margin: None,
             angle_interp_dt: INTERP_DT_DEFAULT,
-            backend: CtmBackend::Playback,
+            backend: CtmBackend::ClickToMove,
         }
     }
 }
@@ -448,20 +449,24 @@ impl CtmEvent {
         };
         let min_distance = self.distance_margin.unwrap_or(min_distance);
 
-        write_addr(addrs::ctm::WALKING_ANGLE, &[walking_angle])?;
-        write_addr(addrs::ctm::GLOBAL_CONST1, &[constants::GLOBAL_CONST1])?;
-        write_addr(addrs::ctm::GLOBAL_CONST2, &[const2])?;
-        write_addr(addrs::ctm::MIN_DISTANCE, &[min_distance])?;
+        write_addr(offsets::ctm::WALKING_ANGLE, &[walking_angle])?;
+        write_addr(offsets::ctm::GLOBAL_CONST1, &[constants::GLOBAL_CONST1])?;
+        write_addr(offsets::ctm::GLOBAL_CONST2, &[const2])?;
+        write_addr(offsets::ctm::MIN_DISTANCE, &[min_distance])?;
 
-        let imaginary_point = self.target_pos + 2.5 * (self.target_pos - ppos).unit(); // set target "too far", such that `ctm_finished` is not triggered
+        let final_target_point = self.target_pos; // + 2.5 * (self.target_pos - ppos).unit(); // set target "too far", such that `ctm_finished` is not triggered
 
         write_addr(
-            addrs::ctm::TARGET_POS_X,
-            &[imaginary_point.x, imaginary_point.y, imaginary_point.z],
+            offsets::ctm::TARGET_POS_X,
+            &[
+                final_target_point.x,
+                final_target_point.y,
+                final_target_point.z,
+            ],
         )?;
 
         let action: u8 = self.action.into();
-        write_addr(addrs::ctm::ACTION, &[action])?;
+        write_addr(offsets::ctm::ACTION, &[action])?;
         SETFACING_STATE.set((walking_angle, std::time::Instant::now()));
         Ok(())
     }
@@ -538,13 +543,13 @@ pub fn prepare_ctm_finished_patch() -> Patch {
     let original_opcodes = copy_original_opcodes(patch_addr, 12);
 
     let mut patch_opcodes = InstructionBuffer::new();
-    patch_opcodes.push(asm::PUSHAD);
+    patch_opcodes.push(assembly::PUSHAD);
     patch_opcodes.push_call_to(ctm_finished as Addr);
-    patch_opcodes.push(asm::POPAD);
+    patch_opcodes.push(assembly::POPAD);
     patch_opcodes.push_slice(&original_opcodes);
-    patch_opcodes.push(asm::PUSH_IMM);
+    patch_opcodes.push(assembly::PUSH_IMM);
     patch_opcodes.push_slice(&(patch_addr + original_opcodes.len() as Offset).to_le_bytes());
-    patch_opcodes.push(asm::RET);
+    patch_opcodes.push(assembly::RET);
 
     Patch {
         name: "CTM_finished",

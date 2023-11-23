@@ -2,8 +2,10 @@ use std::ffi::c_char;
 
 use crate::lua::{get_facing_angle_to_target, playermode, set_facing_force};
 use crate::patch::{copy_original_opcodes, InstructionBuffer, Patch, PatchKind};
-use crate::{add_repr_and_tryfrom, addrs, asm, Addr};
-use crate::{cstr_to_str, LoleError, LAST_FRAME_NUM, LAST_SPELL_ERR_MSG};
+use crate::{add_repr_and_tryfrom, assembly, Addr};
+use crate::{LoleError, LAST_FRAME_NUM, LAST_SPELL_ERR_MSG};
+
+use crate::addrs::offsets;
 
 add_repr_and_tryfrom! {
     i32,
@@ -64,18 +66,18 @@ extern "stdcall" fn spell_err_msg(msg_id: i32, _msg: *const c_char) {
 }
 
 pub fn prepare_spell_err_msg_trampoline() -> Patch {
-    let original_opcodes = copy_original_opcodes(addrs::wow_cfuncs::SpellErrMsg, 9);
+    let original_opcodes = copy_original_opcodes(offsets::wow_cfuncs::SpellErrMsg, 9);
     let mut patch_opcodes = InstructionBuffer::new();
-    patch_opcodes.push(asm::PUSHAD);
-    patch_opcodes.push(asm::PUSH_EDI);
-    patch_opcodes.push(asm::PUSH_EAX);
+    patch_opcodes.push(assembly::PUSHAD);
+    patch_opcodes.push(assembly::PUSH_EDI);
+    patch_opcodes.push(assembly::PUSH_EAX);
     patch_opcodes.push_call_to(spell_err_msg as Addr);
-    patch_opcodes.push(asm::POPAD);
+    patch_opcodes.push(assembly::POPAD);
     patch_opcodes.push_slice(&original_opcodes);
-    patch_opcodes.push_default_return(addrs::wow_cfuncs::SpellErrMsg, 9);
+    patch_opcodes.push_default_return(offsets::wow_cfuncs::SpellErrMsg, 9);
     Patch {
         name: "SpellErrMsg",
-        patch_addr: addrs::wow_cfuncs::SpellErrMsg,
+        patch_addr: offsets::wow_cfuncs::SpellErrMsg,
         original_opcodes,
         patch_opcodes,
         kind: PatchKind::JmpToTrampoline,

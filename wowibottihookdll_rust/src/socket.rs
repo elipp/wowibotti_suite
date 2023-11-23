@@ -3,13 +3,13 @@ use std::arch::asm;
 use windows::Win32::Networking::WinSock::SOCKET;
 use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS};
 
-use crate::addrs::GetOsTickCount;
+use crate::addrs::offsets;
 use crate::lua::SETFACING_STATE;
 use crate::objectmanager::ObjectManager;
 use crate::opcodes::{is_movement_opcode, MSG_MOVE_SET_FACING, OPCODE_NAME_MAP};
 use crate::patch::{copy_original_opcodes, InstructionBuffer, Patch, PatchKind};
 use crate::vec3::{Vec3, TWO_PI};
-use crate::{addrs, asm, chatframe_print, print_as_c_array, Offset};
+use crate::{assembly, chatframe_print, print_as_c_array, Offset};
 use crate::{objectmanager::GUID, patch::deref, Addr, LoleError, LoleResult};
 
 mod socket {
@@ -92,7 +92,7 @@ pub fn set_facing_local(angle: f32) -> LoleResult<()> {
             "call {func_addr:e}",
             in("ecx") movement_info,
             angle = in(reg) angle,
-            func_addr = in(reg) addrs::wow_cfuncs::SetFacing,
+            func_addr = in(reg) offsets::wow_cfuncs::SetFacing,
             out("eax") _,
             out("edx") _,
         }
@@ -222,14 +222,14 @@ pub fn prepare_dump_outbound_packet_patch() -> Patch {
     let original_opcodes = copy_original_opcodes(patch_addr, 9);
 
     let mut patch_opcodes = InstructionBuffer::new();
-    patch_opcodes.push(asm::PUSHAD);
-    patch_opcodes.push(asm::PUSH_EDI);
+    patch_opcodes.push(assembly::PUSHAD);
+    patch_opcodes.push(assembly::PUSH_EDI);
     patch_opcodes.push_call_to(dump_outbound_packet as Addr);
-    patch_opcodes.push(asm::POPAD);
+    patch_opcodes.push(assembly::POPAD);
     patch_opcodes.push_slice(&original_opcodes);
-    patch_opcodes.push(asm::PUSH_IMM);
+    patch_opcodes.push(assembly::PUSH_IMM);
     patch_opcodes.push_slice(&(patch_addr + original_opcodes.len() as Offset).to_le_bytes());
-    patch_opcodes.push(asm::RET);
+    patch_opcodes.push(assembly::RET);
 
     Patch {
         name: "dump_outbound_packet_patch",

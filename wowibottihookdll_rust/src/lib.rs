@@ -24,7 +24,7 @@ type Addr = usize;
 type Offset = usize;
 
 pub mod addrs;
-pub mod asm;
+pub mod assembly;
 pub mod ctm;
 pub mod lua;
 pub mod objectmanager;
@@ -180,25 +180,25 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     open_console()?;
     let mut patches = global_var!(ENABLED_PATCHES);
 
-    println!("GetTickCount (rust): {}", GetTickCount as usize);
-
-    let lua_prot = prepare_lua_prot_patch();
-    lua_prot.enable()?;
-    patches.push(lua_prot);
+    // let lua_prot = prepare_lua_prot_patch();
+    // lua_prot.enable()?;
+    // patches.push(lua_prot);
 
     // let ctm_finished = prepare_ctm_finished_patch();
     // ctm_finished.enable()?;
     // patches.push(ctm_finished);
 
-    let spell_err_msg = prepare_spell_err_msg_trampoline();
-    spell_err_msg.enable()?;
-    patches.push(spell_err_msg);
+    // let spell_err_msg = prepare_spell_err_msg_trampoline();
+    // spell_err_msg.enable()?;
+    // patches.push(spell_err_msg);
 
     // let outbound_packet_dump = prepare_dump_outbound_packet_patch();
     // outbound_packet_dump.enable()?;
     // patches.push(outbound_packet_dump);
 
-    register_lop_exec()?;
+    // register_lop_exec()?;
+
+    // dostring!(r#"SetCVar("realmList", "127.0.0.1")"#)?;
 
     println!("wowibottihookdll_rust: init done! :D enabled_patches:");
 

@@ -8,11 +8,12 @@ use windows::Win32::System::{
     Threading::GetCurrentProcess,
 };
 
-use crate::cstr_to_str;
 use crate::{
-    add_repr_and_tryfrom, addrs, asm, chatframe_print, Addr, EndScene_hook, LoleError, LoleResult,
+    add_repr_and_tryfrom, assembly, chatframe_print, Addr, EndScene_hook, LoleError, LoleResult,
     LAST_FRAME_NUM, LAST_SPELL_ERR_MSG,
 };
+
+use crate::addrs::offsets;
 
 const INSTRBUF_SIZE: usize = 64;
 
@@ -25,7 +26,7 @@ pub struct InstructionBuffer {
 impl InstructionBuffer {
     pub fn new() -> Self {
         Self {
-            instructions: Pin::new(Box::new([asm::INT3; INSTRBUF_SIZE])),
+            instructions: Pin::new(Box::new([assembly::INT3; INSTRBUF_SIZE])),
             current_offset: 0,
         }
     }
@@ -48,7 +49,7 @@ impl InstructionBuffer {
     }
 
     pub fn push_call_to(&mut self, to: Addr) {
-        self.push(asm::CALL);
+        self.push(assembly::CALL);
         let target = to - (self.get_address() as Addr + self.current_offset) - 4;
         self.push_slice(&target.to_le_bytes());
     }
@@ -60,9 +61,9 @@ impl InstructionBuffer {
 
     pub fn push_default_return(&mut self, patch_addr: Addr, patch_size: usize) {
         let target = patch_addr + patch_size;
-        self.push(asm::PUSH_IMM);
+        self.push(assembly::PUSH_IMM);
         self.push_slice(&target.to_le_bytes());
-        self.push(asm::RET);
+        self.push(assembly::RET);
     }
 }
 
@@ -115,11 +116,14 @@ impl Patch {
                 .map_err(|e| LoleError::PatchError(format!("{:?}", e)))?;
 
                 let mut patch = InstructionBuffer::new();
-                patch.push(asm::JMP);
+                patch.push(assembly::JMP);
                 let jmp_target =
                     self.patch_opcodes.get_address() as i32 - self.patch_addr as i32 - 5;
                 patch.push_slice(&jmp_target.to_le_bytes());
-                patch.push_slice(&vec![asm::NOP; self.original_opcodes.len() - patch.len()]);
+                patch.push_slice(&vec![
+                    assembly::NOP;
+                    self.original_opcodes.len() - patch.len()
+                ]);
                 self.commit(&patch)?;
             }
             PatchKind::OverWrite => unsafe {
@@ -185,9 +189,9 @@ pub fn prepare_endscene_trampoline() -> Patch {
     let original_opcodes = copy_original_opcodes(EndScene, 7);
 
     let mut patch_opcodes = InstructionBuffer::new();
-    patch_opcodes.push(asm::PUSHAD);
+    patch_opcodes.push(assembly::PUSHAD);
     patch_opcodes.push_call_to(EndScene_hook as Addr);
-    patch_opcodes.push(asm::POPAD);
+    patch_opcodes.push(assembly::POPAD);
     patch_opcodes.push_slice(&original_opcodes);
     patch_opcodes.push_default_return(EndScene, 7);
 
@@ -202,7 +206,7 @@ pub fn prepare_endscene_trampoline() -> Patch {
 
 #[allow(non_snake_case)]
 fn find_EndScene() -> Addr {
-    let wowd3d9 = deref::<Addr, 1>(crate::addrs::D3D9_DEVICE);
-    let d3d9 = deref::<Addr, 2>(wowd3d9 + crate::addrs::D3D9_DEVICE_OFFSET);
+    let wowd3d9 = deref::<Addr, 1>(offsets::D3D9_DEVICE);
+    let d3d9 = deref::<Addr, 2>(wowd3d9 + offsets::D3D9_DEVICE_OFFSET);
     deref::<Addr, 1>(d3d9 + 0x2A * 4)
 }
