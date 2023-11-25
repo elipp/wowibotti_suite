@@ -5,6 +5,7 @@ use crate::vec3::Vec3;
 use crate::{add_repr_and_tryfrom, Addr, LoleError, LoleResult};
 
 use crate::addrs::offsets;
+use crate::addrs::offsets::wowobject;
 use crate::cstr_to_str;
 
 use std::arch::asm;
@@ -29,58 +30,6 @@ pub const NO_TARGET: GUID = 0x0;
 #[derive(Clone, Copy)]
 pub struct WowObject {
     base: Addr,
-}
-
-#[allow(non_upper_case_globals)]
-mod wowobject {
-    use crate::Offset;
-    pub const Type: Offset = 0x14;
-    pub const GUID: Offset = 0x30;
-    pub const Next: Offset = 0x3C;
-    // For UNITs, both the UnitPosX... and these seem to contain these coord values
-    pub const PosX: Offset = 0xBF0;
-    pub const PosY: Offset = PosX + 0x4;
-    pub const PosZ: Offset = PosX + 0x8;
-    pub const Rot: Offset = PosX + 0xC;
-
-    pub const MovementInfo: Offset = 0x128; // todo: deref this to get to the movementinfo, for posx etc
-
-    pub const UnitHealth: Offset = 0x2698;
-    pub const UnitMana: Offset = UnitHealth + 0x4;
-    pub const UnitRage: Offset = UnitHealth + 0x8;
-    pub const UnitFocus: Offset = UnitHealth + 0xC;
-    pub const UnitHealthMax: Offset = UnitHealth + 0x18;
-    pub const UnitManaMax: Offset = UnitHealthMax + 0x4;
-    pub const UnitRageMax: Offset = UnitHealthMax + 0x8;
-    pub const UnitFocusMax: Offset = UnitHealthMax + 0xC;
-
-    pub const UnitPosX: Offset = 0xBE8;
-    pub const UnitPosY: Offset = UnitPosX + 0x4;
-    pub const UnitPosZ: Offset = UnitPosX + 0x8;
-    pub const UnitRot: Offset = UnitPosX + 0xC;
-
-    pub const NpcPosX: Offset = 0xC28;
-    pub const NpcPosY: Offset = UnitPosX + 0x4;
-    pub const NpcPosZ: Offset = UnitPosX + 0x8;
-    pub const NpcRot: Offset = UnitPosX + 0xC;
-
-    pub const UnkState: Offset = 0x120;
-
-    pub const UnitTargetGUID: Offset = 0x2680;
-
-    pub const NPCHealth: Offset = 0x11E8;
-    pub const NPCMana: Offset = NPCHealth + 0x4;
-    pub const NPCRage: Offset = NPCHealth + 0x8;
-    pub const NPCEnergy: Offset = NPCHealth + 0xC;
-    pub const NPCFocus: Offset = NPCHealth + 0x10;
-
-    pub const NPCHealthMax: Offset = 0x1200;
-    pub const NPCManaMax: Offset = NPCHealthMax + 0x4;
-    pub const NPCRageMax: Offset = NPCHealthMax + 0x8;
-    pub const NPCEnergyMax: Offset = NPCHealthMax + 0xC;
-    pub const NPCFocusMax: Offset = NPCHealthMax + 0x10;
-
-    pub const NPCTargetGUID: Offset = 0xF08;
 }
 
 add_repr_and_tryfrom! {

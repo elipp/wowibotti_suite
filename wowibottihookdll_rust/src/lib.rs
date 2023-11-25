@@ -198,7 +198,7 @@ unsafe fn initialize_dll() -> LoleResult<()> {
 
     // register_lop_exec()?;
 
-    // dostring!(r#"SetCVar("realmList", "127.0.0.1")"#)?;
+    dostring!(r#"SetCVar("realmList", "127.0.0.1")"#)?;
 
     println!("wowibottihookdll_rust: init done! :D enabled_patches:");
 

@@ -12,21 +12,15 @@ use crate::vec3::{Vec3, TWO_PI};
 use crate::{assembly, chatframe_print, print_as_c_array, Offset};
 use crate::{objectmanager::GUID, patch::deref, Addr, LoleError, LoleResult};
 
-mod socket {
-    use crate::{Addr, Offset};
-    pub const CONNECTION: Addr = 0xD4332C;
-    pub const SOCKOBJ: Offset = 0x2198;
-}
-
 #[derive(Debug)]
 pub struct WowSocket(Addr, SOCKET);
 
 pub fn get_wow_sockobj() -> LoleResult<WowSocket> {
-    let tmp = deref::<Addr, 1>(socket::CONNECTION);
+    let tmp = deref::<Addr, 1>(offsets::socket::CONNECTION);
     if tmp == 0 {
         return Err(LoleError::WowSocketNotAvailable);
     }
-    let sockobj = deref::<Addr, 1>(tmp + socket::SOCKOBJ);
+    let sockobj = deref::<Addr, 1>(tmp + offsets::socket::SOCKOBJ);
     if sockobj == 0 {
         return Err(LoleError::WowSocketNotAvailable);
     }

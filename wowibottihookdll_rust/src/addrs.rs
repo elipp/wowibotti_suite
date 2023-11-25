@@ -121,10 +121,69 @@ pub mod offsets {
         // this is the upper limit
 
         pub const vfp_max: Addr = 0xE1F834;
+        pub const vfp_original: u32 = 0xDEADBEEF;
         // pub const FrameScript_Register: Addr = 0x007059B0;
     }
 
+    pub mod socket {
+        use crate::{Addr, Offset};
+        pub const CONNECTION: Addr = 0xD4332C;
+        pub const SOCKOBJ: Offset = 0x2198;
+    }
+
     // NOTE: /script DEFAULT_CHAT_FRAME:AddMessage( GetMouseFocus():GetName() ); is a great way to find out stuff
+
+    #[allow(non_upper_case_globals)]
+    pub mod wowobject {
+        use crate::Offset;
+        pub const Type: Offset = 0x14;
+        pub const GUID: Offset = 0x30;
+        pub const Next: Offset = 0x3C;
+        // For UNITs, both the UnitPosX... and these seem to contain these coord values
+        pub const PosX: Offset = 0xBF0;
+        pub const PosY: Offset = PosX + 0x4;
+        pub const PosZ: Offset = PosX + 0x8;
+        pub const Rot: Offset = PosX + 0xC;
+
+        pub const MovementInfo: Offset = 0x128; // todo: deref this to get to the movementinfo, for posx etc
+
+        pub const UnitHealth: Offset = 0x2698;
+        pub const UnitMana: Offset = UnitHealth + 0x4;
+        pub const UnitRage: Offset = UnitHealth + 0x8;
+        pub const UnitFocus: Offset = UnitHealth + 0xC;
+        pub const UnitHealthMax: Offset = UnitHealth + 0x18;
+        pub const UnitManaMax: Offset = UnitHealthMax + 0x4;
+        pub const UnitRageMax: Offset = UnitHealthMax + 0x8;
+        pub const UnitFocusMax: Offset = UnitHealthMax + 0xC;
+
+        pub const UnitPosX: Offset = 0xBE8;
+        pub const UnitPosY: Offset = UnitPosX + 0x4;
+        pub const UnitPosZ: Offset = UnitPosX + 0x8;
+        pub const UnitRot: Offset = UnitPosX + 0xC;
+
+        pub const NpcPosX: Offset = 0xC28;
+        pub const NpcPosY: Offset = UnitPosX + 0x4;
+        pub const NpcPosZ: Offset = UnitPosX + 0x8;
+        pub const NpcRot: Offset = UnitPosX + 0xC;
+
+        pub const UnkState: Offset = 0x120;
+
+        pub const UnitTargetGUID: Offset = 0x2680;
+
+        pub const NPCHealth: Offset = 0x11E8;
+        pub const NPCMana: Offset = NPCHealth + 0x4;
+        pub const NPCRage: Offset = NPCHealth + 0x8;
+        pub const NPCEnergy: Offset = NPCHealth + 0xC;
+        pub const NPCFocus: Offset = NPCHealth + 0x10;
+
+        pub const NPCHealthMax: Offset = 0x1200;
+        pub const NPCManaMax: Offset = NPCHealthMax + 0x4;
+        pub const NPCRageMax: Offset = NPCHealthMax + 0x8;
+        pub const NPCEnergyMax: Offset = NPCHealthMax + 0xC;
+        pub const NPCFocusMax: Offset = NPCHealthMax + 0x10;
+
+        pub const NPCTargetGUID: Offset = 0xF08;
+    }
 
     define_lua_function! {
         SelectUnit,
@@ -140,7 +199,7 @@ pub mod offsets {
 }
 
 #[cfg(feature = "wotlk")]
-pub mod wotlk {
+pub mod offsets {
     use crate::{objectmanager::GUID, Addr, Offset};
 
     use super::UNKNOWN_ADDRESS;
@@ -153,7 +212,8 @@ pub mod wotlk {
     #[allow(non_upper_case_globals)]
     pub mod wow_cfuncs {
         use crate::{addrs::UNKNOWN_ADDRESS, Addr};
-        pub const GetUnitOrNPCNameAddr: Addr = 0x614520;
+        // pub const GetUnitOrNPCNameAddr: Addr = 0x614520;
+        pub const GetUnitOrNPCNameAddr: Addr = 0x72A000;
         pub const SelectUnit: Addr = 0x524BF0;
         pub const SetFacing: Addr = 0x989B70;
         pub const SpellErrMsg: Addr = 0x808200;
@@ -196,8 +256,8 @@ pub mod wotlk {
         pub const lua_pushnil: Addr = 0x84E280;
         pub const lua_gettable: Addr = 0x84E560;
         pub const lua_setfield: Addr = 0x84E900;
-        pub const lua_getfield: Addr = 0x84F3B0;
-        pub const lua_getfield_wow_weird: Addr = UNKNOWN_ADDRESS;
+        pub const lua_getfield: Addr = 0x84E590;
+        pub const lua_getfield_wow_weird: Addr = 0x84F380;
         pub const lua_replace: Addr = UNKNOWN_ADDRESS;
         pub const lua_next: Addr = 0x854690;
         pub const lua_gettype: Addr = 0x84DEB0;
@@ -211,6 +271,7 @@ pub mod wotlk {
         // this is the upper limit
 
         pub const vfp_max: Addr = 0xD415BC;
+        pub const vfp_original: u32 = 0x9DE3B3;
         // pub const FrameScript_Register: Addr = 0x007059B0;
     }
 
@@ -241,6 +302,64 @@ pub mod wotlk {
         pub const MYSTERY_C8: Addr = UNKNOWN_ADDRESS;
         pub const MYSTERY_90: Addr = UNKNOWN_ADDRESS;
         pub const MYSTERY_94: Addr = UNKNOWN_ADDRESS;
+    }
+
+    pub mod socket {
+        use crate::{Addr, Offset};
+        pub const CONNECTION: Addr = 0xC79CF4;
+        pub const SOCKOBJ: Offset = 0x2E38;
+    }
+
+    #[allow(non_upper_case_globals)]
+    pub mod wowobject {
+        use crate::Offset;
+        pub const Type: Offset = 0x14;
+        pub const GUID: Offset = 0x30;
+        pub const Next: Offset = 0x3C;
+        // For UNITs, both the UnitPosX... and these seem to contain these coord values
+        pub const PosX: Offset = 0xBF0;
+        pub const PosY: Offset = PosX + 0x4;
+        pub const PosZ: Offset = PosX + 0x8;
+        pub const Rot: Offset = PosX + 0xC;
+
+        pub const MovementInfo: Offset = 0x128; // todo: deref this to get to the movementinfo, for posx etc
+
+        pub const UnitHealth: Offset = 0x2698;
+        pub const UnitMana: Offset = UnitHealth + 0x4;
+        pub const UnitRage: Offset = UnitHealth + 0x8;
+        pub const UnitFocus: Offset = UnitHealth + 0xC;
+        pub const UnitHealthMax: Offset = UnitHealth + 0x18;
+        pub const UnitManaMax: Offset = UnitHealthMax + 0x4;
+        pub const UnitRageMax: Offset = UnitHealthMax + 0x8;
+        pub const UnitFocusMax: Offset = UnitHealthMax + 0xC;
+
+        pub const UnitPosX: Offset = 0xBE8;
+        pub const UnitPosY: Offset = UnitPosX + 0x4;
+        pub const UnitPosZ: Offset = UnitPosX + 0x8;
+        pub const UnitRot: Offset = UnitPosX + 0xC;
+
+        pub const NpcPosX: Offset = 0xC28;
+        pub const NpcPosY: Offset = UnitPosX + 0x4;
+        pub const NpcPosZ: Offset = UnitPosX + 0x8;
+        pub const NpcRot: Offset = UnitPosX + 0xC;
+
+        pub const UnkState: Offset = 0x120;
+
+        pub const UnitTargetGUID: Offset = 0x2680;
+
+        pub const NPCHealth: Offset = 0x11E8;
+        pub const NPCMana: Offset = NPCHealth + 0x4;
+        pub const NPCRage: Offset = NPCHealth + 0x8;
+        pub const NPCEnergy: Offset = NPCHealth + 0xC;
+        pub const NPCFocus: Offset = NPCHealth + 0x10;
+
+        pub const NPCHealthMax: Offset = 0x1200;
+        pub const NPCManaMax: Offset = NPCHealthMax + 0x4;
+        pub const NPCRageMax: Offset = NPCHealthMax + 0x8;
+        pub const NPCEnergyMax: Offset = NPCHealthMax + 0xC;
+        pub const NPCFocusMax: Offset = NPCHealthMax + 0x10;
+
+        pub const NPCTargetGUID: Offset = 0xF08;
     }
 
     define_lua_function! {

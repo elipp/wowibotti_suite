@@ -218,8 +218,11 @@ macro_rules! dostring {
 }
 
 macro_rules! lua_setglobal {
+    ($lua:expr, $key:literal) => {
+        lua_setfield_!($lua, LUA_GLOBALSINDEX, $key)
+    };
     ($lua:expr, $key:expr) => {
-        lua_setfield($lua, LUA_GLOBALSINDEX, $key);
+        lua_setfield_!($lua, LUA_GLOBALSINDEX, $key)
     };
 }
 
@@ -237,19 +240,31 @@ macro_rules! lua_register {
 macro_rules! lua_unregister {
     ($lua:expr, $name:expr) => {
         lua_pushnil($lua);
-        lua_setglobal!($lua, $name as *const c_char);
+        lua_setglobal!($lua, $name);
     };
 }
 
 macro_rules! lua_getfield_ {
     ($lua:expr, $idx:expr, $s:literal) => {
         let c_str = cstr_literal!($s);
-        lua_getfield($lua, $idx, c_str, $s.len())
+        lua_getfield($lua, $idx, c_str, 0) //$s.len()) // the last argument is some weird wow internal
     };
 
     ($lua:expr, $idx:expr, $s:expr) => {
         let c_str = CString::new($s).expect("CString");
-        lua_getfield($lua, $idx, c_str.as_ptr(), c_str.as_bytes_with_nul().len())
+        lua_getfield($lua, $idx, c_str.as_ptr(), 0) // c_str.as_bytes_with_nul().len())
+    };
+}
+
+macro_rules! lua_setfield_ {
+    ($lua:expr, $idx:expr, $s:literal) => {
+        let c_str = cstr_literal!($s);
+        lua_setfield($lua, $idx, c_str)
+    };
+
+    ($lua:expr, $idx:expr, $s:expr) => {
+        let c_str = CString::new($s).expect("CString");
+        lua_setfield($lua, $idx, c_str.as_ptr())
     };
 }
 
@@ -272,15 +287,16 @@ macro_rules! cstr_literal {
 pub fn register_lop_exec() -> LoleResult<()> {
     write_addr(offsets::lua::vfp_max, &[0xEFFFFFFFu32])?;
     let lua = get_wow_lua_state()?;
-    lua_register!(lua, cstr_literal!("lop_exec"), lop_exec);
+    lua_register!(lua, "lop_exec", lop_exec);
     println!("lop_exec registered!");
+    // write_addr(offsets::lua::vfp_max, &[offsets::lua::vfp_original])?;
     Ok(())
 }
 
 pub fn unregister_lop_exec() -> LoleResult<()> {
-    write_addr(offsets::lua::vfp_max, &[0xEFFFFFFFu32])?; // TODO: probably should look up what the original value was...
+    write_addr(offsets::lua::vfp_max, &[offsets::lua::vfp_original])?; // TODO: probably should look up what the original value was...
     let lua = get_wow_lua_state()?;
-    lua_unregister!(lua, cstr_literal!("lop_exec"));
+    lua_unregister!(lua, "lop_exec");
     println!("lop_exec un-registered!");
     Ok(())
 }
@@ -799,8 +815,12 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
         }
         Opcode::Debug => {
-            let [_, _, _, r] = player.get_xyzr();
-            set_facing(r + 0.01, movement_flags::NOT_MOVING)?;
+            // let [_, _, _, r] = player.get_xyzr();
+            // set_facing(r + 0.01, movement_flags::NOT_MOVING)?;
+            lua_getglobal!(lua, "lop_exec");
+            let var_type: LuaType = lua_gettype(lua, -1).try_into()?;
+            println!("{:?}", var_type);
+            lua_pop!(lua, 1);
         }
         Opcode::EjectDll => {
             SHOULD_EJECT.set(true);
