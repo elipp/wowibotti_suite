@@ -58,6 +58,43 @@ impl WowObject {
         let t = deref::<i32, 1>(self.base + wowobject::Type);
         t.try_into().unwrap_or(WowObjectType::Unknown)
     }
+
+    #[cfg(feature = "wotlk")]
+    pub fn get_name(&self) -> &str {
+        match self.get_type() {
+            WowObjectType::Npc | WowObjectType::Unit => {
+                let mut result: *const c_char; // looks so weird, but the compiler is giving a warning if it's initialized :D
+                let mut unknown: usize = 0; // needs some stack address (never modified, apparently)
+                let base = self.base;
+                let func_addr = offsets::wow_cfuncs::GetUnitOrNPCNameAddr;
+                unsafe {
+                    asm!(
+                        "push 1",
+                        "push {unknown}",
+                        "call {func_addr:e}",
+                        "mov {result}, eax",
+                        in("ecx") base,
+                        unknown = in(reg) &unknown,
+                        func_addr = in(reg) func_addr,
+                        result = out(reg) result,
+                        out("eax") _,
+                        out("edx") _,
+                    )
+                }
+                cstr_to_str!(result).unwrap_or("(null)")
+
+                // can possibly be refactored to:
+                // let ptr = offsets::GetUnitOrNPCNameAddr as *const ();
+                // let func: extern "thiscall" fn(*mut c_void) -> *const c_char =
+                //     unsafe { std::mem::transmute(ptr) };
+                // cstr_to_str!(func(self.base)).unwrap_or("!StringError!")
+            }
+
+            _ => "Unknown",
+        }
+    }
+
+    #[cfg(feature = "tbc")]
     pub fn get_name(&self) -> &str {
         match self.get_type() {
             WowObjectType::Npc | WowObjectType::Unit => {
