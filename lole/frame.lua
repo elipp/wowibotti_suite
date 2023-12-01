@@ -206,14 +206,15 @@ for k, v in pairs_by_key(get_available_configs()) do
 	drop_configs[#drop_configs + 1] = { unformatted = k, formatted = "|cFF" .. v.color .. k }
 end
 
-local function config_drop_onclick()
-	UIDropDownMenu_SetSelectedID(config_dropdown, this:GetID(), 0)
-	lole_subcommands.setconfig(this.value)
+local function config_drop_onclick(self)
+        UIDropDownMenu_SetSelectedID(config_dropdown, self:GetID())
+        lole_subcommands.setconfig(self.value)
 end
 
 local function config_drop_initialize(self, level)
+	local info = UIDropDownMenu_CreateInfo()
 	for k,v in pairs(drop_configs) do
-		local info = {}
+		info = UIDropDownMenu_CreateInfo()
 		info.text = v.formatted
 		info.value = v.unformatted
 		info.func = config_drop_onclick
@@ -222,17 +223,17 @@ local function config_drop_initialize(self, level)
 end
 
 UIDropDownMenu_Initialize(config_dropdown, config_drop_initialize)
-UIDropDownMenu_SetWidth(100, config_dropdown); -- NOTE: in Wotlk, these parameters are in the opposite order
-UIDropDownMenu_SetButtonWidth(124, config_dropdown)
+UIDropDownMenu_SetWidth(config_dropdown, 100);
+UIDropDownMenu_SetButtonWidth(config_dropdown, 124)
 UIDropDownMenu_SetSelectedValue(config_dropdown, get_current_config().name)
-UIDropDownMenu_JustifyText("LEFT", config_dropdown)
+UIDropDownMenu_JustifyText(config_dropdown, "LEFT")
 
 function set_visible_dropdown_config(configname)
-	for k,v in pairs(drop_configs) do
-		if v.unformatted == configname then
-			UIDropDownMenu_SetSelectedValue(config_dropdown, v.unformatted)
-		end
-	end
+  for k,v in pairs(drop_configs) do
+	  if v.unformatted == configname then
+      UIDropDownMenu_SetSelectedValue(config_dropdown, v.unformatted)
+	  end
+  end
 end
 
 local function create_simple_button(name, parent, x, y, text, width, height, onclick, scale) -- scale optional

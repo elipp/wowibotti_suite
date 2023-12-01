@@ -7,17 +7,20 @@ use std::sync::Mutex;
 
 use rand::Rng;
 
-use crate::addrs::offsets;
+use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
 use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager, WowObjectType};
-use crate::patch::{copy_original_opcodes, deref, write_addr, InstructionBuffer, Patch, PatchKind};
+use crate::patch::{
+    copy_original_opcodes, deref, read_elems_from_addr, write_addr, InstructionBuffer, Patch,
+    PatchKind,
+};
 use crate::socket::{movement_flags, read_os_tick_count, set_facing, set_facing_local};
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{
     add_repr_and_tryfrom, assembly, global_var, LoleError, LoleResult, LAST_SPELL_ERR_MSG,
     SHOULD_EJECT,
 };
-use crate::{define_lua_function, POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
+use crate::{define_lua_function, Addr}; // POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
 
 thread_local! {
     // this is modified from CtmAction::commit() and set_facing
@@ -449,19 +452,19 @@ fn random_01() -> f32 {
     rng.gen()
 }
 
-impl From<postgres::Error> for LoleError {
-    fn from(err: postgres::Error) -> Self {
-        Self::DbError(err)
-    }
-}
+// impl From<postgres::Error> for LoleError {
+//     fn from(err: postgres::Error) -> Self {
+//         Self::DbError(err)
+//     }
+// }
 
-fn get_postgres_conn() -> Result<postgres::Client, postgres::Error> {
-    let conn_str = format!(
-        "postgresql://{}:{}@{}/{}",
-        POSTGRES_USER, POSTGRES_PASS, POSTGRES_ADDR, POSTGRES_DB
-    );
-    postgres::Client::connect(&conn_str, postgres::NoTls)
-}
+// fn get_postgres_conn() -> Result<postgres::Client, postgres::Error> {
+//     let conn_str = format!(
+//         "postgresql://{}:{}@{}/{}",
+//         POSTGRES_USER, POSTGRES_PASS, POSTGRES_ADDR, POSTGRES_DB
+//     );
+//     postgres::Client::connect(&conn_str, postgres::NoTls)
+// }
 
 impl From<serde_json::Error> for LoleError {
     fn from(err: serde_json::Error) -> Self {
@@ -470,22 +473,22 @@ impl From<serde_json::Error> for LoleError {
 }
 
 fn store_path_to_db(name: &str, zonetext: &str, waypoint_data: Vec<Vec3>) -> LoleResult<()> {
-    let mut client = get_postgres_conn()?;
-    let waypoint_data = serde_json::to_value(waypoint_data)?;
+    //     let mut client = get_postgres_conn()?;
+    //     let waypoint_data = serde_json::to_value(waypoint_data)?;
 
-    let path_recording_id: i32 = client
-        .query_one(
-            "INSERT INTO path_recordings (name, zonetext, waypoint_data) VALUES ($1, $2, $3) RETURNING id",
-            &[&name, &zonetext, &waypoint_data],
-        )?
-        .get(0);
+    //     let path_recording_id: i32 = client
+    //         .query_one(
+    //             "INSERT INTO path_recordings (name, zonetext, waypoint_data) VALUES ($1, $2, $3) RETURNING id",
+    //             &[&name, &zonetext, &waypoint_data],
+    //         )?
+    //         .get(0);
 
-    chatframe_print!(
-        "Inserted path recording `{}` @ {} to db (id: {})!",
-        name,
-        zonetext,
-        path_recording_id
-    );
+    //     chatframe_print!(
+    //         "Inserted path recording `{}` @ {} to db (id: {})!",
+    //         name,
+    //         zonetext,
+    //         path_recording_id
+    //     );
 
     Ok(())
 }
@@ -498,30 +501,51 @@ struct PathRecording {
     waypoints: Vec<Vec3>,
 }
 
-impl From<postgres::Row> for PathRecording {
-    fn from(value: postgres::Row) -> Self {
-        Self {
-            id: value.get(0),
-            name: value.get(1),
-            zonetext: value.get(2),
-            waypoints: serde_json::from_value(value.get(3)).unwrap_or_default(),
+// // impl From<postgres::Row> for PathRecording {
+//     fn from(value: postgres::Row) -> Self {
+//         Self {
+//             id: value.get(0),
+//             name: value.get(1),
+//             zonetext: value.get(2),
+//             waypoints: serde_json::from_value(value.get(3)).unwrap_or_default(),
+//         }
+//     }
+// }
+
+fn query_path_from_db(name: &str) -> LoleResult<Option<PathRecording>> {
+    //     let mut client = get_postgres_conn()?;
+    //     if let Some(path_recording) = client.query_opt(
+    //         "SELECT id, name, zonetext, waypoint_data FROM path_recordings WHERE name = $1",
+    //         &[&name],
+    //     )? {
+    //         Ok(Some(PathRecording::from(path_recording)))
+    //     } else {
+    //         Ok(None)
+    //     }
+    Ok(None)
+}
+
+struct TaintReseter(Addr);
+
+impl TaintReseter {
+    pub fn new() -> Self {
+        unsafe {
+            let [taint_caller] = read_elems_from_addr::<1, Addr>(TAINT_CALLER);
+            write_addr(TAINT_CALLER, &[0x0u32]).unwrap();
+            TaintReseter(taint_caller)
         }
     }
 }
 
-fn query_path_from_db(name: &str) -> LoleResult<Option<PathRecording>> {
-    let mut client = get_postgres_conn()?;
-    if let Some(path_recording) = client.query_opt(
-        "SELECT id, name, zonetext, waypoint_data FROM path_recordings WHERE name = $1",
-        &[&name],
-    )? {
-        Ok(Some(PathRecording::from(path_recording)))
-    } else {
-        Ok(None)
+impl Drop for TaintReseter {
+    fn drop(&mut self) {
+        write_addr(TAINT_CALLER, &[self.0]).unwrap()
     }
 }
 
 fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
+    let _taint_reseter = TaintReseter::new();
+
     let nargs = lua_gettop(lua);
     if nargs == 0 {
         println!("lop_exec: no opcode provided");

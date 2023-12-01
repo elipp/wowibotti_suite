@@ -267,7 +267,7 @@ pub enum LoleError {
     StringConvError(String),
     LuaError,
     LuaUnexpectedTypeError(LuaType, LuaType),
-    DbError(postgres::Error),
+    // DbError(postgres::Error),
     SerdeError(serde_json::Error),
     NotImplemented,
 }

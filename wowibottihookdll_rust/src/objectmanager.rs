@@ -162,6 +162,7 @@ impl WowObject {
             None
         }
     }
+    #[cfg(feature = "wotlk")]
     pub fn get_xyzr(&self) -> [f32; 4] {
         match self.get_type() {
             WowObjectType::Npc | WowObjectType::Unit => {
@@ -169,7 +170,24 @@ impl WowObject {
                 if movement_info.is_null() {
                     return [0., 0., 0., 0.];
                 } else {
-                    read_elems_from_addr::<4, f32>(movement_info as Addr + 0x10)
+                    let movement_info = movement_info as Addr;
+                    let [x, y, z] = read_elems_from_addr::<3, f32>(movement_info + 0x10);
+                    // wotlk seems to have some other value after xyz
+                    [x, y, z, deref::<f32, 1>(movement_info + 0x20)]
+                }
+            }
+            _ => [0., 0., 0., 0.],
+        }
+    }
+    #[cfg(feature = "tbc")]
+    pub fn get_xyzr(&self) -> [f32; 4] {
+        match self.get_type() {
+            WowObjectType::Npc | WowObjectType::Unit => {
+                let movement_info = self.get_movement_info();
+                if movement_info.is_null() {
+                    return [0., 0., 0., 0.];
+                } else {
+                    read_elems_from_addr::<4, f32>(movement_info + 0x10)
                 }
             }
             _ => [0., 0., 0., 0.],
@@ -184,8 +202,8 @@ impl WowObject {
         (Vec3 { x, y, z }, Vec3::from_rot_value(r))
     }
     pub fn get_rotvec(&self) -> Vec3 {
-        let rot = deref::<f32, 1>(self.base + wowobject::Rot);
-        Vec3::from_rot_value(rot)
+        let [_, _, _, r] = self.get_xyzr();
+        Vec3::from_rot_value(r)
     }
     pub fn get_movement_info(&self) -> *const c_void {
         deref::<_, 1>(self.base + wowobject::MovementInfo)

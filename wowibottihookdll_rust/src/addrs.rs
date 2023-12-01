@@ -31,6 +31,11 @@ pub mod offsets {
 
     pub const LAST_HARDWARE_EVENT: Addr = 0xBE10FC;
 
+    pub const TICK_COUNT: usize = 0xD7F418;
+    pub const UNK_CLOCK_DRIFT: usize = 0xD7F420;
+
+    pub const TAINT_CALLER: Addr = UNKNOWN_ADDRESS;
+
     #[allow(non_upper_case_globals)]
     pub mod wow_cfuncs {
         use crate::Addr;
@@ -209,6 +214,11 @@ pub mod offsets {
 
     pub const LAST_HARDWARE_EVENT: Addr = 0xB499A4;
 
+    pub const TICK_COUNT: usize = 0xB1D618;
+    pub const UNK_CLOCK_DRIFT: usize = 0xB1D61C; // just a guess
+
+    pub const TAINT_CALLER: Addr = 0xD4139C;
+
     #[allow(non_upper_case_globals)]
     pub mod wow_cfuncs {
         use crate::{addrs::UNKNOWN_ADDRESS, Addr};
@@ -322,7 +332,7 @@ pub mod offsets {
         pub const PosZ: Offset = PosX + 0x8;
         pub const Rot: Offset = PosX + 0xC;
 
-        pub const MovementInfo: Offset = 0x128; // todo: deref this to get to the movementinfo, for posx etc
+        pub const MovementInfo: Offset = 0xD8; // todo: deref this to get to the movementinfo, for posx etc
 
         pub const UnitHealth: Offset = 0x2698;
         pub const UnitMana: Offset = UnitHealth + 0x4;

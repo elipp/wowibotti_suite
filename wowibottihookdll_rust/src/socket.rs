@@ -3,11 +3,13 @@ use std::arch::asm;
 use windows::Win32::Networking::WinSock::SOCKET;
 use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS};
 
-use crate::addrs::offsets;
+use crate::addrs::offsets::{self, TAINT_CALLER, TICK_COUNT, UNK_CLOCK_DRIFT};
 use crate::lua::SETFACING_STATE;
 use crate::objectmanager::ObjectManager;
 use crate::opcodes::{is_movement_opcode, MSG_MOVE_SET_FACING, OPCODE_NAME_MAP};
-use crate::patch::{copy_original_opcodes, InstructionBuffer, Patch, PatchKind};
+use crate::patch::{
+    copy_original_opcodes, read_elems_from_addr, write_addr, InstructionBuffer, Patch, PatchKind,
+};
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{assembly, chatframe_print, print_as_c_array, Offset};
 use crate::{objectmanager::GUID, patch::deref, Addr, LoleError, LoleResult};
@@ -104,12 +106,9 @@ pub fn set_facing_local(angle: f32) -> LoleResult<()> {
 // 0x88, 0x23, 0xBE, 0xE5, 0xB6, 0x7C, 0xBF, 0x0, 0x0, 0xE0,
 // 0x40,
 
-pub const TICK_COUNT: usize = 0xD7F418;
-pub const UNK_CLOCK_DRIFT: usize = 0xD7F420;
-
 pub fn read_os_tick_count() -> u32 {
-    deref::<u32, 1>(TICK_COUNT) + deref::<u32, 1>(UNK_CLOCK_DRIFT)
-    // GetOsTickCount()
+    deref::<u32, 1>(TICK_COUNT) // + deref::<u32, 1>(UNK_CLOCK_DRIFT)
+                                // GetOsTickCount()
 }
 
 pub mod movement_flags {
