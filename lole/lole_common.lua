@@ -678,7 +678,7 @@ end
 
 function cast_if_nocd(spellname, rank)
 	if GetSpellCooldown(spellname) == 0 then
-		CastSpellByName(spellname);
+		L_CastSpellByName(spellname);
         if INSTANT_HEALS[spellname] or HEAL_ESTIMATES[spellname] or (rank and HEAL_ESTIMATES[spellname.."("..rank..")"]) then
             track_heal_attempts(UnitName("target"));
         end
@@ -701,7 +701,7 @@ end
 function cast_heal(spellname, target, range)
 
     if range == nil then range = 35; end
-    if target then TargetUnit(target); end
+    if target then L_TargetUnit(target); end
     if spellname ~= "Prayer of Healing" then
         healer_range_check(range);
     end
@@ -861,9 +861,9 @@ function cleanse_party(debuffname)
         exists = GetPartyMember(i)
     end
     if exists and has_debuff(name, debuffname) then
-	    TargetUnit(name);
-      CastSpellByName("Cleanse");
-			CastSpellByName("Dispel Magic")
+	    L_TargetUnit(name);
+      L_CastSpellByName("Cleanse");
+			L_CastSpellByName("Dispel Magic")
       return true;
 		end
 	end

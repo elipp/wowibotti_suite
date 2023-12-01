@@ -9,7 +9,7 @@ local rotation = Rotation(
 local function imbue_weapons()
     local mh_imbue, _, _, oh_imbue, _, _ = GetWeaponEnchantInfo();
     if (not mh_imbue) or (not oh_imbue) then
-        CastSpellByName("Windfury Weapon");
+        L_CastSpellByName("Windfury Weapon");
     end
 end
 
@@ -30,7 +30,7 @@ local function set_totems()
     -- end
     for slot, needs_recasting in pairs(totem_status) do
         if needs_recasting then
-            return CastSpellByName(TOTEMS[slot].name)
+            return L_CastSpellByName(TOTEMS[slot].name)
         end
     end
 end
@@ -39,7 +39,7 @@ function combat_shaman_encha()
     imbue_weapons()
     if validate_target() then
         set_totems()
-        StartAttack();
+        L_StartAttack();
         if melee_attack_behind(1.5) then end
         
         -- rotation:run();
@@ -47,7 +47,7 @@ function combat_shaman_encha()
         if cast_if_nocd("Stormstrike") then return end
         if has_buff("player", "Focused") and cast_if_nocd("Earth Shock") then return end
         if (mana_percentage("player") < 20) and (#{get_combat_mobs()} > 2) and cast_if_nocd("Shamanistic Rage") then return end
-        CastSpellByName("Purge")
+        L_CastSpellByName("Purge")
     end
     
 end

@@ -24,15 +24,15 @@ function tmp_paladin_combat()
     local target = get_highest_prio_heal_target()
     if target == nil and not UnitAffectingCombat("player") then
         if not has_buff("player", "Devotion Aura") then
-            CastSpellByName("Devotion Aura")
+            L_CastSpellByName("Devotion Aura")
         end
         if not has_buff("player", "Blessing of Wisdom") then
             TargetUnit("player")
-            CastSpellByName("Blessing of Wisdom")
+            L_CastSpellByName("Blessing of Wisdom")
         end
         if not has_buff("Krahu", "Blessing of Might") then
             TargetUnit("Krahu")
-            CastSpellByName("Blessing of Might")
+            L_CastSpellByName("Blessing of Might")
         end
         follow_unit("Krahu")
         return
@@ -43,14 +43,14 @@ function tmp_paladin_combat()
     if table.contains(cd_heals, LAST_SUCCESSFUL_SPELL.name) and
             GetTime() - LAST_SUCCESSFUL_SPELL.cast_time < 0.9 then
         -- Avoid casting overheals if we just healed
-        SpellStopCasting()
+        L_SpellStopCasting()
         return
     elseif target == nil then
-        SpellStopCasting()
+        L_SpellStopCasting()
         return
     else
         TargetUnit(target)
-        CastSpellByName("Holy Light")
+        L_CastSpellByName("Holy Light")
     end
 
     --if health_percentage("Krahu") < 50 then

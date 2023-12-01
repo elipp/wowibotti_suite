@@ -93,22 +93,22 @@ function rogue_combat()
 
   if validate_target() then
     melee_attack_behind(1.5);
-    StartAttack();
+    L_StartAttack();
     if #{get_combat_mobs()} > 2 and cast_if_nocd("Blade Flurry") then return end
     if unit_castorchannel("target") then
-      CastSpellByName("Kick")
+      L_CastSpellByName("Kick")
     end
     if not has_buff("player", "Slice and Dice") then
       if GetComboPoints("player", "target") >= 2 then
-        CastSpellByName("Slice and Dice")
+        L_CastSpellByName("Slice and Dice")
         return
       end
     else
       if GetComboPoints("player", "target") >= 4 then
-        CastSpellByName("Eviscerate")
+        L_CastSpellByName("Eviscerate")
         return
       end
     end
-    CastSpellByName("Sinister Strike")
+    L_CastSpellByName("Sinister Strike")
   end
 end

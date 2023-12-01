@@ -439,7 +439,7 @@ function buff_if_eligible(buffname, targetname, range_limit)
     range_limit = range_limit or false
     if not UnitIsDead(targetname) and
             not has_buff(targetname, buffname) then
-        TargetUnit(targetname)
-        CastSpellByName(buffname)
+        L_TargetUnit(targetname)
+        L_CastSpellByName(buffname)
     end
 end

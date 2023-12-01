@@ -11,8 +11,8 @@ use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
 use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager, WowObjectType};
 use crate::patch::{
-    copy_original_opcodes, deref, read_elems_from_addr, write_addr, InstructionBuffer, Patch,
-    PatchKind,
+    copy_original_opcodes, deref, read_addr, read_elems_from_addr, write_addr, InstructionBuffer,
+    Patch, PatchKind,
 };
 use crate::socket::{movement_flags, read_os_tick_count, set_facing, set_facing_local};
 use crate::vec3::{Vec3, TWO_PI};
@@ -323,6 +323,7 @@ add_repr_and_tryfrom! {
         StopFollowSpread = 12,
         GetCombatParticipants = 13,
         GetCombatMobs = 14,
+        SetTaint = 15,
         StorePath = 0x100,
         PlaybackPath = 0x101,
         Debug = 0x400,
@@ -529,11 +530,9 @@ struct TaintReseter(Addr);
 
 impl TaintReseter {
     pub fn new() -> Self {
-        unsafe {
-            let [taint_caller] = read_elems_from_addr::<1, Addr>(TAINT_CALLER);
-            write_addr(TAINT_CALLER, &[0x0u32]).unwrap();
-            TaintReseter(taint_caller)
-        }
+        let taint_caller = read_addr::<Addr>(TAINT_CALLER);
+        write_addr(TAINT_CALLER, &[0x0u32]).unwrap();
+        TaintReseter(taint_caller)
     }
 }
 

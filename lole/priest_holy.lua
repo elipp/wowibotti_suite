@@ -256,7 +256,7 @@ function combat_priest_holy()
         if not target then
             return
         else
-            TargetUnit(target);
+            L_TargetUnit(target);
         end
     end
   
@@ -270,10 +270,10 @@ function combat_priest_holy()
     elseif not has_renew then
         cast_heal("Renew")
     elseif validate_target() then
-        CastSpellByName("Mana Tap")
+        L_CastSpellByName("Mana Tap")
         local has, _, count = has_buff("player", "Mana Tap")
         if has ~= nil and count >= 2 then
-            CastSpellByName("Arcane Torrent")
+            L_CastSpellByName("Arcane Torrent")
         end
     end
 end

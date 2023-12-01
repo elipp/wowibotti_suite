@@ -78,7 +78,7 @@ function get_totem_status(totems)
 				should_recast = true
 				-- TODO: check if totem is even the same name :D
 			else
-				TargetUnit(spell_info.name)
+				L_TargetUnit(spell_info.name)
 				should_recast = get_distance_between("player", "target") > (spell_info.range - 2)
 			end
 			res[slot] = should_recast

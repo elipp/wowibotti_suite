@@ -64,8 +64,8 @@ local function set_hunters_mark()
 end
 
 local function attack()
-    StartAttack();
-    PetAttack();
+    L_StartAttack();
+    L_PetAttack();
     if player_is_targeted() and get_distance_between("player", "target") < 15 then
         melee_rotation:run();
         return;
@@ -74,9 +74,9 @@ local function attack()
         -- rotation:run();
         local has_viper_sting = has_debuff("target", "Viper Sting")
         if (UnitPowerType("target") == 0) and (UnitHealth("target") > 2000) and (UnitMana("target") > 200) and (not has_viper_sting) then
-            return CastSpellByName("Viper Sting")
+            return L_CastSpellByName("Viper Sting")
         elseif (not has_viper_sting) and (not has_debuff("target", "Serpent Sting")) then
-            return CastSpellByName("Serpent Sting")
+            return L_CastSpellByName("Serpent Sting")
         elseif #{get_combat_mobs()} > 2 and cast_if_nocd("Multi-Shot") then
             return
         -- elseif cast_if_nocd("Arcane Shot") then # implement aoe feasibility  
@@ -105,7 +105,7 @@ function combat_ranged_hunter()
     if validate_target() then
         -- -- when the padit loppuivat: melee mode XD 
         -- StartAttack()
-        -- CastSpellByName("Raptor Strike")
+        -- L_CastSpellByName("Raptor Strike")
         set_hunters_mark();
         attack();
     end

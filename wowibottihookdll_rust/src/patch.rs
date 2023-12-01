@@ -146,6 +146,12 @@ pub fn deref<T: Copy, const N: u8>(addr: Addr) -> T {
     unsafe { *(t as *const T) }
 }
 
+pub fn read_addr<T: Default + Sized + Copy + std::fmt::Debug>(addr: Addr) -> T {
+    let mut res = T::default();
+    unsafe { std::ptr::copy(addr as *const _, &mut res, 1) };
+    res
+}
+
 pub fn read_elems_from_addr<const N: usize, T: Default + Sized + Copy + std::fmt::Debug>(
     addr: Addr,
 ) -> [T; N] {
