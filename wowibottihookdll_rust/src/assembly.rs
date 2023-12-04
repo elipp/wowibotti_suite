@@ -3,6 +3,7 @@ pub const PUSH_EAX: u8 = 0x50;
 pub const PUSH_ECX: u8 = 0x51;
 pub const PUSH_EDX: u8 = 0x52;
 pub const PUSH_EBX: u8 = 0x53;
+pub const PUSH_ESI: u8 = 0x56;
 pub const PUSH_EDI: u8 = 0x57;
 pub const POP_ECX: u8 = 0x59;
 pub const POPAD: u8 = 0x61;

@@ -232,6 +232,13 @@ pub mod offsets {
     }
 
     #[allow(non_upper_case_globals)]
+    pub mod lua_funcs {
+        use crate::Addr;
+
+        pub const ClosePetStables: Addr = 0x5A1950;
+    }
+
+    #[allow(non_upper_case_globals)]
     pub mod objectmanager {
         use crate::{Addr, Offset};
 

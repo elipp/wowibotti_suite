@@ -6,7 +6,7 @@ use windows::Win32::System::SystemInformation::GetTickCount;
 use windows::Win32::System::Threading::ExitProcess;
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
-use lua::{register_lop_exec_if_not_registered, unregister_lop_exec, Opcode};
+use lua::Opcode;
 use patch::{prepare_endscene_trampoline, write_addr};
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
@@ -36,7 +36,7 @@ pub mod vec3;
 
 use crate::ctm::prepare_ctm_finished_patch;
 // use crate::ctm::prepare_ctm_finished_patch;
-use crate::lua::{prepare_lua_prot_patch, register_lop_exec, LuaType};
+use crate::lua::{prepare_ClosePetStables_patch, register_lop_exec, LuaType};
 use crate::patch::Patch;
 use crate::socket::prepare_dump_outbound_packet_patch;
 use crate::spell_error::{prepare_spell_err_msg_trampoline, SpellError};
@@ -133,7 +133,6 @@ unsafe fn eject_dll() -> LoleResult<()> {
     for patch in patches.drain(..) {
         patch.disable()?;
     }
-    unregister_lop_exec()?;
     restore_original_stdout()?;
     CloseHandle(CONSOLE_CONOUT.get())?;
     FreeConsole()?;
@@ -146,7 +145,6 @@ unsafe fn eject_dll() -> LoleResult<()> {
 const ROUGHLY_SIXTY_FPS: Duration = Duration::from_micros((950000.0 / 60.0) as u64);
 
 fn main_entrypoint() -> LoleResult<()> {
-    register_lop_exec_if_not_registered()?;
     ctm::poll()?;
     if let Some(dt) = ROUGHLY_SIXTY_FPS.checked_sub(LAST_FRAME_TIME.get().elapsed()) {
         std::thread::sleep(dt);
@@ -196,7 +194,9 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     // outbound_packet_dump.enable()?;
     // patches.push(outbound_packet_dump);
 
-    // register_lop_exec()?;
+    let closepetstables = prepare_ClosePetStables_patch();
+    closepetstables.enable()?;
+    patches.push(closepetstables);
 
     dostring!(r#"SetCVar("realmList", "127.0.0.1")"#)?;
 

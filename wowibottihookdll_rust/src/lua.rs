@@ -891,6 +891,7 @@ pub fn register_lop_exec_if_not_registered() -> LoleResult<()> {
     Ok(())
 }
 
+#[cfg(feature = "tbc")]
 pub fn prepare_lua_prot_patch() -> Patch {
     let mut patch_opcodes = InstructionBuffer::new();
     patch_opcodes.push_slice(&[
@@ -911,5 +912,31 @@ pub fn prepare_lua_prot_patch() -> Patch {
         original_opcodes: copy_original_opcodes(offsets::LUA_PROT_PATCHADDR, 9),
         patch_opcodes,
         kind: PatchKind::OverWrite,
+    }
+}
+
+extern "stdcall" fn closepetstables_lop_exec(lua: lua_State) -> i32 {
+    match handle_lop_exec(lua) {
+        Ok(res) => res,
+        Err(e) => {
+            println!("lop_exec error: {:?}", e);
+            0
+        }
+    }
+}
+
+#[cfg(feature = "wotlk")]
+#[allow(non_snake_case)]
+pub fn prepare_ClosePetStables_patch() -> Patch {
+    let mut patch_opcodes = InstructionBuffer::new();
+    patch_opcodes.push(assembly::PUSH_ESI);
+    patch_opcodes.push_call_to(closepetstables_lop_exec as Addr);
+    patch_opcodes.push(assembly::RET); // ret val is in eax
+    Patch {
+        name: "ClosePetStables__lop_exec",
+        patch_addr: offsets::lua_funcs::ClosePetStables,
+        original_opcodes: copy_original_opcodes(offsets::lua_funcs::ClosePetStables, 15),
+        patch_opcodes,
+        kind: PatchKind::JmpToTrampoline,
     }
 }
