@@ -330,6 +330,7 @@ add_repr_and_tryfrom! {
         Dump = 0x401,
         DoString = 0x402,
         EjectDll = 0x403,
+        QueryInjected = 0x404,
     }
 }
 
@@ -847,6 +848,10 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         }
         Opcode::EjectDll => {
             SHOULD_EJECT.set(true);
+        }
+        Opcode::QueryInjected => {
+            lua_pushboolean(lua, 1);
+            return Ok(1);
         }
         v => return Err(LoleError::InvalidOrUnimplementedOpcodeCallNargs(v, nargs)),
     }

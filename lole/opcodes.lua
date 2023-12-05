@@ -22,7 +22,10 @@ local LOP = {
   Dump = 0x401,
   DoString = 0x402,
   EjectDll = 0x403,
+	QueryInjected = 0x404,
 }
+
+local lop_exec = ClosePetStables -- Can't actually lua_register a new function, because of warden and vfp_max :D
 
 function LOP:call(opcode, ...)
 	if query_injected() then
@@ -271,7 +274,8 @@ function interact_with_spellnpc(...)
 end
 
 function query_injected()
-	return _G.lop_exec ~= nil
+	-- return _G.lop_exec ~= nil
+	return lop_exec(LOP.QueryInjected) -- must be lop_exec (not LOP:Call) because LOP:call calls query_injected :D
 end
 
 function iccrocket(mirror_data)
