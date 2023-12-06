@@ -50,7 +50,10 @@ impl InstructionBuffer {
 
     pub fn push_call_to(&mut self, to: Addr) {
         self.push(assembly::CALL);
-        let target = to - (self.get_address() as Addr + self.current_offset) - 4;
+        let target: i32 =
+            (to as i64 - (self.get_address() as Addr + self.current_offset) as i64 - 4)
+                .try_into()
+                .expect("valid jmp target address");
         self.push_slice(&target.to_le_bytes());
     }
 

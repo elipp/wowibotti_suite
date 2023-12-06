@@ -1,4 +1,4 @@
-local pet_food = "Cured Ham Steak";
+local pet_food = "Sandworm Meat";
 local last_feed_time = 0;
 local FEED_INTERVAL = 60;
 
@@ -81,7 +81,10 @@ local function attack()
             return
         -- elseif cast_if_nocd("Arcane Shot") then # implement aoe feasibility  
         --     return
+        else
+            L_CastSpellByName("Steady Shot")
         end
+
     end
 end
 

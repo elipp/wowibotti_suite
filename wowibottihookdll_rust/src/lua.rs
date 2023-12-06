@@ -839,12 +839,10 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
         }
         Opcode::Debug => {
-            // let [_, _, _, r] = player.get_xyzr();
-            // set_facing(r + 0.01, movement_flags::NOT_MOVING)?;
-            lua_getglobal!(lua, "lop_exec");
-            let var_type: LuaType = lua_gettype(lua, -1).try_into()?;
-            println!("{:?}", var_type);
-            lua_pop!(lua, 1);
+            if nargs >= 1 {
+                let angle = lua_tonumber_f32!(lua, 2);
+                set_facing(angle, movement_flags::NOT_MOVING)?;
+            }
         }
         Opcode::EjectDll => {
             SHOULD_EJECT.set(true);

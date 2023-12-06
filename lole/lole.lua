@@ -60,7 +60,7 @@ function lole_main(args)
 
 	if not playermode() then
     if UnitExists("focus") and UnitIsDead("focus") then
-        ClearFocus()
+        L_ClearFocus()
 		end
 
 		local curconf = get_current_config()

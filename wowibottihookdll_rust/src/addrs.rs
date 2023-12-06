@@ -45,6 +45,7 @@ pub mod offsets {
         pub const SpellErrMsg: Addr = 0x4988A0;
         pub const GetErrorText: Addr = 0x707200;
         pub const GetOsTickCount: Addr = 0x65B3F0; // NOTE: this also writes a new value to the address
+        pub const SARC4_ENCRYPT_BYTE: Addr = 0x41F610;
     }
 
     #[allow(non_upper_case_globals)]
@@ -229,6 +230,8 @@ pub mod offsets {
         pub const SpellErrMsg: Addr = 0x808200;
         pub const GetErrorText: Addr = UNKNOWN_ADDRESS;
         pub const GetOsTickCount: Addr = 0x749850; // NOTE: this also writes a new value to the address
+        pub const SARC4_Encrypt: Addr = 0x774EA0;
+        pub const EncryptPacketHeader: Addr = 0x4665B0;
     }
 
     #[allow(non_upper_case_globals)]

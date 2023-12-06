@@ -269,11 +269,5 @@ function combat_priest_holy()
         cast_heal("Heal")
     elseif not has_renew then
         cast_heal("Renew")
-    elseif validate_target() then
-        L_CastSpellByName("Mana Tap")
-        local has, _, count = has_buff("player", "Mana Tap")
-        if has ~= nil and count >= 2 then
-            L_CastSpellByName("Arcane Torrent")
-        end
     end
 end

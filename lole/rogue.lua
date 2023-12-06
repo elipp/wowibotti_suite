@@ -12,26 +12,26 @@ local rotation = Rotation(
 local function reapply_poisons()
 
   if mh_apply then
-    RunMacroText("/use 16")
+    L_RunMacroText("/use 16")
     mh_at = GetTime()
     mh_apply = nil
   elseif oh_apply then
-    RunMacroText("/use 17")
+    L_RunMacroText("/use 17")
     oh_at = GetTime()
     oh_apply = nil
   end
 
   local has_mh, mh_exp, mh_charges, has_oh, oh_exp, oh_charges = GetWeaponEnchantInfo()
---  echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
+ -- echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
 
   -- if not has_mh then
   if false then -- windfury totem brah
-    RunMacroText("/use Instant Poison")
+    L_RunMacroText("/use Instant Poison V")
     if GetTime() - mh_at > 5 then
       mh_apply = 1
     end
   elseif not has_oh then
-    RunMacroText("/use Instant Poison IV")
+    L_RunMacroText("/use Instant Poison V")
     if GetTime() - oh_at > 5 then
       oh_apply = 1
     end
@@ -66,7 +66,7 @@ function rogue_combat_before()
     -- don't return, this will fail if no bleed active
   end
 
-  if GetSpellCooldown("Vanish") == 0 and not has_buff('player', "Overkill") then
+  if GetSpellCooldown("Vanish") == 0 and not has_buff("player", "Overkill") then
     L_CastSpellByName("Vanish")
   end
 

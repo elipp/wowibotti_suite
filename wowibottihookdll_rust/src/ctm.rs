@@ -404,7 +404,7 @@ impl Default for CtmEvent {
             hooks: None,
             distance_margin: None,
             angle_interp_dt: INTERP_DT_DEFAULT,
-            backend: CtmBackend::ClickToMove,
+            backend: CtmBackend::Playback,
         }
     }
 }

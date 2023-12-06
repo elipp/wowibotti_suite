@@ -33,10 +33,10 @@ pub fn get_wow_sockobj() -> LoleResult<WowSocket> {
     Ok(WowSocket(sockobj, SOCKET(socket)))
 }
 
-const SARC4_ENCRYPT_BYTE: Addr = 0x41F610;
-
 impl WowSocket {
+    #[cfg(feature = "tbc")]
     pub fn encrypt_packet(&self, packet: &mut [u8]) -> LoleResult<()> {
+        use crate::addrs::offsets::wow_cfuncs::SARC4_ENCRYPT_BYTE;
         if packet.len() < 6 {
             return Err(LoleError::PacketSynthError(format!(
                 "packet too short ({} bytes)",
@@ -55,6 +55,29 @@ impl WowSocket {
                     out("eax") _,
                     out("edx") _,
                 }
+            }
+        }
+        Ok(())
+    }
+    #[cfg(feature = "wotlk")]
+    pub fn encrypt_packet(&self, packet: &mut [u8]) -> LoleResult<()> {
+        use crate::addrs::offsets::wow_cfuncs::EncryptPacketHeader;
+        if packet.len() < 6 {
+            return Err(LoleError::PacketSynthError(format!(
+                "packet too short ({} bytes)",
+                packet.len()
+            )));
+        }
+        unsafe {
+            asm! {
+                "push 0x6",
+                "push {byte_addr:e}",
+                "call {sarc4_encrypt:e}",
+                in("ecx") self.0,
+                byte_addr = in(reg) packet.as_mut_ptr(),
+                sarc4_encrypt = in(reg) EncryptPacketHeader,
+                out("eax") _,
+                out("edx") _,
             }
         }
         Ok(())
@@ -168,13 +191,15 @@ pub fn set_facing(angle: f32, movement_flags: u8) -> LoleResult<()> {
     let om = ObjectManager::new()?;
     let player = om.get_player()?;
     let pos = player.get_pos();
-    set_facing_remote(pos, angle, movement_flags)?;
+    // set_facing_remote(pos, angle, movement_flags)?;
     set_facing_local(angle)?;
+    dostring!("StrafeLeftStart(); StrafeLeftStop()")?;
+
     SETFACING_STATE.set((angle, std::time::Instant::now()));
     Ok(())
 }
 
-unsafe extern "stdcall" fn dump_outbound_packet(edi: usize) {
+unsafe extern "stdcall" fn dump_outbound_packet(edi: Addr) {
     if edi == 0 {
         return println!("dump_outbound_packet: edi was null");
     }
@@ -184,17 +209,27 @@ unsafe extern "stdcall" fn dump_outbound_packet(edi: usize) {
         return println!("dump_outbound_packet: invalid packet data");
     }
     let packet_bytes = std::slice::from_raw_parts(packet_addr as *const u8, packet_size_total);
-    let opcode_bytes = [packet_bytes[2], packet_bytes[3]];
-    let opcode = u16::from_le_bytes(opcode_bytes);
+    let opcode = u16::from_le_bytes([packet_bytes[2], packet_bytes[3]]);
     if let Some(opcode_name) = OPCODE_NAME_MAP.get(&opcode) {
-        println!("opcode: {}", opcode_name,);
+        println!(
+            "opcode: {}, packet_size_total: {}",
+            opcode_name, packet_size_total
+        );
         if is_movement_opcode(opcode) {
             let our_ticks = read_os_tick_count();
+            #[cfg(feature = "tbc")]
             let ticks = u32::from_le_bytes([
                 packet_bytes[11],
                 packet_bytes[12],
                 packet_bytes[13],
                 packet_bytes[14],
+            ]);
+            #[cfg(feature = "wotlk")]
+            let ticks = u32::from_le_bytes([
+                packet_bytes[14],
+                packet_bytes[15],
+                packet_bytes[16],
+                packet_bytes[17],
             ]);
             println!(
                 "packet ticks: 0x{:08X}, our ticks: 0x{:08X}, diff = {}",
@@ -209,6 +244,7 @@ unsafe extern "stdcall" fn dump_outbound_packet(edi: usize) {
     print_as_c_array("outbound packet", packet_bytes);
 }
 
+#[cfg(feature = "tbc")]
 pub fn prepare_dump_outbound_packet_patch() -> Patch {
     const DUMP_OUTBOUND_PACKET_PATCHADDR: Addr = 0x42050E;
     let patch_addr = DUMP_OUTBOUND_PACKET_PATCHADDR;
@@ -233,6 +269,30 @@ pub fn prepare_dump_outbound_packet_patch() -> Patch {
     }
 }
 
+#[cfg(feature = "wotlk")]
+pub fn prepare_dump_outbound_packet_patch() -> Patch {
+    use crate::addrs::offsets::wow_cfuncs::EncryptPacketHeader;
+
+    const DUMP_OUTBOUND_PACKET_PATCHADDR: Addr = 0x46776E;
+    let patch_addr = DUMP_OUTBOUND_PACKET_PATCHADDR;
+    let original_opcodes = copy_original_opcodes(patch_addr, 5);
+
+    let mut patch_opcodes = InstructionBuffer::new();
+    patch_opcodes.push(assembly::PUSHAD);
+    patch_opcodes.push(assembly::PUSH_EDI);
+    patch_opcodes.push_call_to(dump_outbound_packet as Addr);
+    patch_opcodes.push(assembly::POPAD);
+    patch_opcodes.push_call_to(EncryptPacketHeader);
+    patch_opcodes.push_default_return(DUMP_OUTBOUND_PACKET_PATCHADDR, 5);
+
+    Patch {
+        name: "dump_outbound_packet_patch",
+        patch_addr,
+        patch_opcodes,
+        original_opcodes,
+        kind: PatchKind::JmpToTrampoline,
+    }
+}
 // opcode: MSG_MOVE_SET_FACING, our ticks: 0x13DEC1F
 // outbound packet:
 // 0x0, 0x21, 0xDA, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0,
