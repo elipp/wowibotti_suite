@@ -49,7 +49,11 @@ local function set_pet_state()
 end
 
 local function check_buffs()
-    if not has_buff("player", "Aspect of the Hawk") then
+    if not UnitAffectingCombat("player") then    
+        if not has_buff("player", "Aspect of the Viper") then
+            L_CastSpellByName("Aspect of the Viper")
+        end
+    elseif not has_buff("player", "Aspect of the Hawk") then
         L_CastSpellByName("Aspect of the Hawk")
     end
 end
@@ -106,7 +110,7 @@ function combat_ranged_hunter()
     check_buffs();
     set_pet_state();
     if validate_target() then
-        -- -- when the padit loppuivat: melee mode XD 
+        -- when the padit loppuivat: melee mode XD 
         -- StartAttack()
         -- L_CastSpellByName("Raptor Strike")
         set_hunters_mark();

@@ -8,8 +8,10 @@ local rotation = Rotation(
 
 local function imbue_weapons()
     local mh_imbue, _, _, oh_imbue, _, _ = GetWeaponEnchantInfo();
-    if (not mh_imbue) or (not oh_imbue) then
+    if not mh_imbue then
         L_CastSpellByName("Windfury Weapon");
+    elseif not oh_imbue then
+        L_CastSpellByName("Flametongue Weapon")
     end
 end
 
@@ -47,6 +49,7 @@ function combat_shaman_encha()
         if cast_if_nocd("Stormstrike") then return end
         if has_buff("player", "Focused") and cast_if_nocd("Earth Shock") then return end
         if (mana_percentage("player") < 20) and (#{get_combat_mobs()} > 2) and cast_if_nocd("Shamanistic Rage") then return end
+        if cast_if_nocd("Lava Lash") then return end
         L_CastSpellByName("Purge")
     end
     
