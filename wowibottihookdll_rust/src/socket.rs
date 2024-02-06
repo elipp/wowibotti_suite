@@ -101,7 +101,7 @@ pub fn pack_guid(mut guid: GUID) -> Box<[u8]> {
 }
 
 pub fn set_facing_local(angle: f32) -> LoleResult<()> {
-    let angle = angle % TWO_PI;
+    let angle = angle.rem_euclid(TWO_PI);
     let om = ObjectManager::new()?;
     let player = om.get_player()?;
     let movement_info = player.get_movement_info();
@@ -144,7 +144,7 @@ pub mod movement_flags {
 }
 
 fn set_facing_remote(pos: Vec3, angle: f32, movement_flags: u8) -> LoleResult<()> {
-    let angle = angle % TWO_PI;
+    let angle = angle.rem_euclid(TWO_PI);
 
     let mut packet = vec![0x00, 0x21]; // size "without" header
     packet.extend(MSG_MOVE_SET_FACING.to_le_bytes());

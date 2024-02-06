@@ -48,6 +48,11 @@ function combat_shaman_encha()
 
         if cast_if_nocd("Stormstrike") then return end
         if has_buff("player", "Focused") and cast_if_nocd("Earth Shock") then return end
+        local has, timeleft, stacks = has_buff("player", "Maelstrom Weapon");
+        if has and stacks > 4 then
+            return L_CastSpellByName("Lightning Bolt")
+        end
+        
         if (mana_percentage("player") < 20) and (#{get_combat_mobs()} > 2) and cast_if_nocd("Shamanistic Rage") then return end
         if cast_if_nocd("Lava Lash") then return end
         L_CastSpellByName("Purge")

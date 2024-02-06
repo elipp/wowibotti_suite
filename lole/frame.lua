@@ -857,11 +857,11 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 		execute_script("RunMacroText(\"/click LFDDungeonReadyDialogEnterDungeonButton\")")
 
 	elseif event == "LFG_ROLE_CHECK_SHOW" then
-			execute_script("RunMacroText(\"/click LFDRoleCheckPopupAcceptButton\")")
+		execute_script("RunMacroText(\"/click LFDRoleCheckPopupAcceptButton\")")
 
 	elseif event == "LFG_BOOT_PROPOSAL_UPDATE" then
 			--execute_script("RunMacroText(\"/click StaticPopup1Button1\")")
-	        SetLFGBootVote(true)
+    execute_script("SetLFGBootVote(true)")
 
 	elseif event == "PLAYER_ENTERING_WORLD" then
 
@@ -875,7 +875,7 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 				local num_items = GetNumLootItems()
 				for i = 1, num_items do
 					local icon, name = GetLootSlotInfo(i)
-					if name == "Badge of Justice" then LootSlot(i) end
+					if name == "Badge of Justice" then execute_script("LootSlot("..i..")") end
 				end
 			end
 		end

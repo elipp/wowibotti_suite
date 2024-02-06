@@ -104,12 +104,7 @@ impl Vec3 {
     }
     pub fn to_rot_value(self) -> f32 {
         // assumes this is an unit direction vector
-        let angle = self.y.atan2(self.x);
-        if angle < 0.0 {
-            angle + 2.0 * PI
-        } else {
-            angle
-        }
+        self.y.atan2(self.x).rem_euclid(TWO_PI)
     }
     pub fn dot(a: Self, b: Self) -> f32 {
         a.x * b.x + a.y * b.y + a.z * b.z
