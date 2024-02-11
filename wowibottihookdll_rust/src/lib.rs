@@ -189,8 +189,37 @@ struct AccountInfo {
 }
 
 #[derive(Debug, Deserialize)]
+struct RealmInfo {
+    login_server: String,
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct ClientConfig {
+    realm: Option<RealmInfo>,
     credentials: Option<AccountInfo>,
+}
+
+impl AccountInfo {
+    fn login(&self) -> LoleResult<()> {
+        dostring!(
+            "DefaultServerLogin(\"{}\", \"{}\")",
+            self.username,
+            self.password
+        );
+        Ok(())
+    }
+}
+
+impl RealmInfo {
+    fn set_realm_info(&self) -> LoleResult<()> {
+        dostring!(
+            "SetCVar(\"realmList\", \"{}\"); SetCVar(\"realmName\", \"{}\")",
+            self.login_server,
+            self.name
+        );
+        Ok(())
+    }
 }
 
 fn read_config_from_file(pid: u32) -> LoleResult<ClientConfig> {
@@ -207,8 +236,14 @@ fn read_config_from_file(pid: u32) -> LoleResult<ClientConfig> {
 
 unsafe fn initialize_dll() -> LoleResult<()> {
     open_console()?;
-    let config = read_config_from_file(std::process::id());
-    println!("{config:?}");
+    if let Ok(config) = read_config_from_file(std::process::id()) {
+        if let Some(realm) = config.realm {
+            realm.set_realm_info()?;
+        }
+        if let Some(creds) = config.credentials {
+            creds.login()?;
+        }
+    }
     let mut patches = global_var!(ENABLED_PATCHES);
 
     // let lua_prot = prepare_lua_prot_patch();
@@ -305,6 +340,7 @@ pub enum LoleError {
     SerdeError(serde_json::Error),
     InvalidDllConfig(String),
     DllConfigReadError(String),
+    MissingCredentials,
     NotImplemented,
 }
 

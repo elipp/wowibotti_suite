@@ -459,7 +459,8 @@ static int remote_thread_dll(wowcl_t *cl) {
 		printf("writing config to %s\n", fullPath);
 		FILE *config_file;
 		fopen_s(&config_file, fullPath, "w");
-		auto config = std::format("{{ \"credentials\": {{ \"username\": \"{}\", \"password\": \"{}\", \"character\": {{ \"name\": \"{}\", \"class\": \"{}\" }} }} }}\n",
+		auto config = std::format(
+			"{{ \"realm\": {{ \"name\": \"Lordaeron\", \"login_server\": \"logon.warmane.com\" }}, \"credentials\": {{ \"username\": \"{}\", \"password\": \"{}\", \"character\": {{ \"name\": \"{}\", \"class\": \"{}\" }} }} }}\n",
 			cl->account->login_name, cl->account->password, cl->account->char_name, cl->account->class_name);
 
 		fwrite(config.c_str(), config.length(), 1, config_file);
