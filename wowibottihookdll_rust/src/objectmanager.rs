@@ -29,7 +29,7 @@ pub const NO_TARGET: GUID = 0x0;
 
 #[derive(Clone, Copy)]
 pub struct WowObject {
-    base: Addr,
+    pub base: Addr,
 }
 
 add_repr_and_tryfrom! {
@@ -209,6 +209,14 @@ impl WowObject {
         deref::<_, 1>(self.base + wowobject::MovementInfo)
     }
 
+    pub fn npc_has_loot_table(&self) -> LoleResult<bool> {
+        if let WowObjectType::Npc = self.get_type() {
+            Ok(!deref::<*const c_void, 1>(self.base + 0x2A * 4).is_null())
+        } else {
+            Err(LoleError::InvalidWowObjectType)
+        }
+    }
+
     pub fn yards_in_front_of(&self, yards: f32) -> Vec3 {
         let (pos, rotvec) = self.get_pos_and_rotvec();
         pos + (yards * rotvec)
@@ -220,7 +228,8 @@ impl WowObject {
             return Err(LoleError::NullPtrError);
         }
         let combat_flags = deref::<u32, 1>(unk_state + 0xA0);
-        Ok((combat_flags >> 0x13) & 0x1 != 0)
+        Ok(combat_flags & (0x1 << 0x13) != 0)
+        // Ok((combat_flags >> 0x13) & 0x1 != 0)
     }
 }
 
@@ -228,12 +237,18 @@ impl std::fmt::Display for WowObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[0x{:X}] WowObjectType::[{:?}] - GUID: {} - Name: {}",
+            "{:#010X} | WowObjectType::{:?} - GUID: {} - Name: {}",
             self.base,
             self.get_type(),
             GUIDFmt(self.get_guid()),
             self.get_name(),
         )
+    }
+}
+
+impl std::fmt::Debug for WowObject {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 

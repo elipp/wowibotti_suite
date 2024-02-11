@@ -11,7 +11,7 @@ use crate::patch::{
     copy_original_opcodes, read_elems_from_addr, write_addr, InstructionBuffer, Patch, PatchKind,
 };
 use crate::vec3::{Vec3, TWO_PI};
-use crate::{assembly, chatframe_print, print_as_c_array, Offset};
+use crate::{assembly, chatframe_print, dostring, print_as_c_array, Offset};
 use crate::{objectmanager::GUID, patch::deref, Addr, LoleError, LoleResult};
 
 #[derive(Debug)]
@@ -101,7 +101,6 @@ pub fn pack_guid(mut guid: GUID) -> Box<[u8]> {
 }
 
 pub fn set_facing_local(angle: f32) -> LoleResult<()> {
-    let angle = angle.rem_euclid(TWO_PI);
     let om = ObjectManager::new()?;
     let player = om.get_player()?;
     let movement_info = player.get_movement_info();
@@ -144,8 +143,6 @@ pub mod movement_flags {
 }
 
 fn set_facing_remote(pos: Vec3, angle: f32, movement_flags: u8) -> LoleResult<()> {
-    let angle = angle.rem_euclid(TWO_PI);
-
     let mut packet = vec![0x00, 0x21]; // size "without" header
     packet.extend(MSG_MOVE_SET_FACING.to_le_bytes());
 
@@ -187,13 +184,14 @@ fn set_facing_remote(pos: Vec3, angle: f32, movement_flags: u8) -> LoleResult<()
 }
 
 pub fn set_facing(angle: f32, movement_flags: u8) -> LoleResult<()> {
-    chatframe_print!("calling set_facing: {}", angle);
     let om = ObjectManager::new()?;
     let player = om.get_player()?;
     let pos = player.get_pos();
+    let angle = angle.rem_euclid(TWO_PI);
+    chatframe_print!("calling set_facing: {}", angle);
     // set_facing_remote(pos, angle, movement_flags)?;
     set_facing_local(angle)?;
-    dostring!("StrafeLeftStart(); StrafeLeftStop()")?;
+    dostring!("StrafeLeftStart(); StrafeLeftStop()")?; // can't remember what this is for... does this send the new facing info to the server?
 
     SETFACING_STATE.set((angle, std::time::Instant::now()));
     Ok(())

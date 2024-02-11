@@ -16,6 +16,8 @@ local LOP = {
 	StopFollowSpread = 12,
 	GetCombatParticipants = 13,
 	GetCombatMobs = 14,
+  SetTaint = 15,
+  LootMob = 16,
 	StorePath = 0x100,
 	PlaybackPath = 0x101,
   Debug = 0x400,
@@ -23,6 +25,7 @@ local LOP = {
   DoString = 0x402,
   EjectDll = 0x403,
 	QueryInjected = 0x404,
+	DumpWowObject = 0x405,
 }
 
 local lop_exec = ClosePetStables -- Can't actually lua_register a new function, because of warden and vfp_max :D
@@ -156,6 +159,13 @@ function lole_debug_dump_wowobjects(type_filter, ...)
 	return true;
 end
 
+function lole_debug_dump_wowobject_memory(n_bytes)
+	if UnitName("target") == nil then
+		return echo("Please select a target")
+	end
+	LOP:call(LOP.DumpWowObject, bytes)
+end
+
 function lole_debug_loot_all()
 	LOP:call(LOP.LDOP_LOOT_ALL);
 end
@@ -164,6 +174,11 @@ function walk_to(x, y, z, prio)
 	-- the last argument is the priority level
 	--echo(x .. ", " .. y .. ", " .. z)
 	LOP:call(LOP.ClickToMove, x, y, z, prio)
+end
+
+
+function loot_mob()
+	LOP:call(LOP.LootMob)
 end
 
 

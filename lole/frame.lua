@@ -30,6 +30,8 @@ end
 local last_status_sent = 0
 
 LOOT_OPENED_REASON = nil
+-- LOOT_OPENED_REASON = "BECAUSE_WARMANE_RDF_IS_RETARDED"
+-- lole_frame:RegisterEvent("LOOT_OPENED")
 
 local every_4th_frame = 0
 local every_30th_frame = 0
@@ -752,6 +754,10 @@ end);
 -- This might be pure shit but worth a try
 last_cast_spell = { name = nil, cast_time = nil; };
 
+local function loot_everything()
+		for i = 1, GetNumLootItems() do execute_script("LootSlot("..i..")") end
+end
+
 lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
 	--DEFAULT_CHAT_FRAME:AddMessage("LOLE_EventHandler: event:" .. event)
 
@@ -854,7 +860,9 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 		end
 
 	elseif event == "LFG_PROPOSAL_SHOW" then
-		execute_script("RunMacroText(\"/click LFDDungeonReadyDialogEnterDungeonButton\")")
+		execute_script("RunMacroText(\"/click LFDDungeonReadyDialogEnterDungeonButton\"); SetOptOutOfLoot(true)")
+		LOOT_OPENED_REASON = "BECAUSE_WARMANE_RDF_IS_RETARDED"
+		lole_frame:RegisterEvent("LOOT_OPENED")
 
 	elseif event == "LFG_ROLE_CHECK_SHOW" then
 		execute_script("RunMacroText(\"/click LFDRoleCheckPopupAcceptButton\")")
@@ -867,10 +875,10 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 
 	elseif event == "LOOT_OPENED" then
 		if LOOT_OPENED_REASON then
-			if LOOT_OPENED_REASON == "DE_GREENIEZ" then
-				local num_items = GetNumLootItems()
-				for i = 1, num_items do LootSlot(i) end
-
+			if LOOT_OPENED_REASON == "BECAUSE_WARMANE_RDF_IS_RETARDED" then
+				return loot_everything() -- note: early-exit
+			elseif LOOT_OPENED_REASON == "DE_GREENIEZ" then
+				loot_everything()
 			elseif LOOT_OPENED_REASON == "LOOT_BADGE" then
 				local num_items = GetNumLootItems()
 				for i = 1, num_items do

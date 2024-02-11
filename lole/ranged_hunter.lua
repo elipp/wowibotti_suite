@@ -49,7 +49,7 @@ local function set_pet_state()
 end
 
 local function check_buffs()
-    if not UnitAffectingCombat("player") then    
+    if false then -- not UnitAffectingCombat("player") then    
         if not has_buff("player", "Aspect of the Viper") then
             L_CastSpellByName("Aspect of the Viper")
         end
@@ -86,7 +86,7 @@ local function attack()
         -- elseif cast_if_nocd("Arcane Shot") then # implement aoe feasibility  
         --     return
         else
-            L_CastSpellByName("Steady Shot")
+            return -- L_CastSpellByName("Steady Shot")
         end
 
     end

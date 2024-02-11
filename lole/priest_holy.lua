@@ -263,13 +263,14 @@ function combat_priest_holy()
     local target_HPP = health_percentage("target")
     local has_renew, renew_timeleft = has_buff("target", "Renew");
 
-    if target_HPP < 65 then
-        cast_heal("Greater Heal")
+    if target_HPP < 60 then
+        cast_heal("Heal")
     elseif target_HPP < 75 then
-        if not targeting_self and health_percentage("player") < 75 then
-            cast_heal("Binding Heal");
-        end
-    elseif not has_renew then
+        cast_heal("Lesser Heal")
+    --     if not targeting_self and health_percentage("player") < 75 then
+    --         cast_heal("Binding Heal");
+    --     end
+    elseif target_HPP < 85 and not has_renew then
         cast_heal("Renew")
     end
 end

@@ -300,9 +300,9 @@ BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 OVERRIDE_COMMAND = nil;
 
-HEALERS = {"Sbogi"}; -- for keeping order mostly
+HEALERS = {"Bacc"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
-  Sbogi = {heals={"raid"}, hots={"Chonkki"}}
+  Bacc = {heals={"raid"}, hots={"Raimo"}}
 }
 ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
 HEALS_IN_PROGRESS = {};
@@ -1252,11 +1252,10 @@ end
 
 local guild_members = {
   ["Chonkki"] = 1,
-  ["Kuolija"] = 2,
-  ["Umennaan"] = 3,
-  ["Sbogi"] = 4,
-  ["Rikisorsanve"] = 5,
-  ["Paladayum"] = 6,
+  ["Bacc"] = 2,
+  ["Boyee"] = 3,
+  ["Setitboy"] = 4,
+  ["Raimo"] = 5,
 }
 
 for name, num in pairs(guild_members) do

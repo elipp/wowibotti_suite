@@ -8,8 +8,8 @@ use std::sync::Mutex;
 use rand::Rng;
 
 use crate::addrs::offsets::{self, TAINT_CALLER};
-use crate::ctm::{self, CtmAction, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
-use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager, WowObjectType};
+use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
+use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager, WowObject, WowObjectType};
 use crate::patch::{
     copy_original_opcodes, deref, read_addr, read_elems_from_addr, write_addr, InstructionBuffer,
     Patch, PatchKind,
@@ -51,13 +51,11 @@ const LUA_NO_RETVALS: i32 = 0;
 macro_rules! chatframe_print {
     ($fmt:expr, $($args:expr),*) => {
         // this [=[ blah blah blah ]=] syntax is a "level 1 long bracket"
-        use crate::dostring;
-        dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage([=[[DLL]: ", $fmt, "]=])"), $($args),*)
+        crate::dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage([=[[DLL]: ", $fmt, "]=])"), $($args),*)
     };
 
     ($msg:literal) => {
-        use crate::dostring;
-        dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage([=[", $msg, "]=])"))
+        crate::dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage([=[", $msg, "]=])"))
     };
 }
 
@@ -324,6 +322,7 @@ add_repr_and_tryfrom! {
         GetCombatParticipants = 13,
         GetCombatMobs = 14,
         SetTaint = 15,
+        LootMob = 16,
         StorePath = 0x100,
         PlaybackPath = 0x101,
         Debug = 0x400,
@@ -331,6 +330,7 @@ add_repr_and_tryfrom! {
         DoString = 0x402,
         EjectDll = 0x403,
         QueryInjected = 0x404,
+        DumpWowObject = 0x405,
     }
 }
 
@@ -541,6 +541,15 @@ impl Drop for TaintReseter {
     fn drop(&mut self) {
         write_addr(TAINT_CALLER, &[self.0]).unwrap()
     }
+}
+
+unsafe fn mem_as_slice<'a, T>(addr: Addr, n_bytes: usize) -> &'a [T] {
+    // Convert the byte slice to a pointer to u32 and determine its length
+    let ptr = addr as *const T;
+    let len = (n_bytes as usize) / std::mem::size_of::<T>(); //truncate
+
+    // Create a slice from the pointer and length
+    std::slice::from_raw_parts(ptr, len)
 }
 
 fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
@@ -788,6 +797,29 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             return Ok(num);
         }
 
+        Opcode::LootMob => {
+            let ppos = player.get_pos();
+            let mut lootable: Vec<_> = om
+                .iter()
+                .filter(|o| {
+                    o.npc_has_loot_table().unwrap_or(false) && (o.get_pos() - ppos).length() < 30.0
+                })
+                .collect();
+            lootable.sort_unstable_by_key(|l| ((l.get_pos() - ppos).length() * 1024.0) as u32);
+            if let Some(closest) = lootable.iter().next() {
+                chatframe_print!("looting mob {}", closest);
+                let action = CtmEvent {
+                    target_pos: closest.get_pos(),
+                    priority: CtmPriority::Replace,
+                    action: CtmAction::Loot,
+                    interact_guid: Some(closest.get_guid()),
+                    backend: CtmBackend::ClickToMove,
+                    ..Default::default()
+                };
+                ctm::add_to_queue(action)?;
+            }
+        }
+
         Opcode::StorePath if nargs == 3 => {
             let mut path = Vec::new();
             let name = lua_tostring!(lua, 2)?;
@@ -850,6 +882,31 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::QueryInjected => {
             lua_pushboolean(lua, 1);
             return Ok(1);
+        }
+
+        Opcode::DumpWowObject => {
+            // when mob is looted, base + 0x2A*4 is set to 0, meanwhile "NpcState" seems to not be very interesting
+            let n_bytes = if nargs >= 1 {
+                lua_tointeger(lua, 2)
+            } else {
+                1024
+            };
+            if let (_, Some(o)) = om.get_player_and_target()? {
+                chatframe_print!("{}, {}, {}", o, o.base, deref::<u32, 1>(o.base + 0x2a * 4));
+                // let slice: &[u8] = unsafe { mem_as_slice(base, n_bytes as usize) };
+                // println!(
+                //     "dumping {}*{} bytes from wowobject@{:#010X}",
+                //     slice.len(),
+                //     std::mem::size_of::<u8>(),
+                //     base
+                // );
+                // for (i, u) in slice.iter().enumerate() {
+                //     print!("{:02X} ", u);
+                //     if (i + 1) % 4 == 0 {
+                //         println!("");
+                //     }
+                // }
+            }
         }
         v => return Err(LoleError::InvalidOrUnimplementedOpcodeCallNargs(v, nargs)),
     }

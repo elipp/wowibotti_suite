@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 pub const TWO_PI: f32 = PI * 2.0;
 
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+#[repr(C)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,

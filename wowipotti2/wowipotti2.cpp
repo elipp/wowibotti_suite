@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cctype>
 #include <string>
+#include <format>
 
 static std::string make_lower(const std::string &s) {
 	std::string lower = s;
@@ -26,8 +27,17 @@ static std::string make_lower(const std::string &s) {
 	return lower;
 }
 
-
 #include "UI.h"
+#include <optional>
+
+#define MAX_LOADSTRING 100
+
+#define CHAR_POS_DX 78
+
+#ifdef _DEBUG
+#define DEBUG_CONSOLE
+#endif
+
 
 static HINSTANCE hInst;
 static HWND main_window_hWnd;
@@ -48,15 +58,40 @@ static int num_characters_selected = 0;
 
 static std::unordered_map <std::string, HWND> char_select_checkboxes;
 
+struct wowaccount_t;
+static std::unordered_map <DWORD, wowaccount_t> creds;
+
 static std::string DLL_path;
 
-#define MAX_LOADSTRING 100
+struct wowaccount_t {
+	std::string login_name, password, char_name, class_name;
+	int valid;
+	wowaccount_t(std::string ln, std::string pw, std::string chn, std::string cln)
+		: login_name(ln), password(pw), char_name(chn), class_name(cln), valid(1) {}
 
-#define CHAR_POS_DX 78
+	wowaccount_t() : valid(0) {}
 
-#ifdef _DEBUG
-#define DEBUG_CONSOLE
-#endif
+	std::string get_pipe_formatted_cred_string() const {
+		return login_name + "," + password + "," + char_name;
+	}
+};
+
+static std::optional<wowaccount_t> get_account_by_pid(DWORD pid) {
+	
+	if (creds.size() < 1) {
+		printf("(send_credentials: no credentials appear to have been assigned. Skipping!)\n");
+		return std::nullopt;
+	}
+
+	auto account = creds.find(pid);
+	if (account == creds.end()) {
+		printf("send_credentials: No credentials were assigned to pid %d. Exiting.\n", pid);
+		return std::nullopt;
+	}
+	else {
+		return account->second;
+	}
+}
 
 struct wowcl_t {
 	HWND window_handle;
@@ -66,11 +101,13 @@ struct wowcl_t {
 	DWORD tid; // tid of window thread
 	int index;
 	HANDLE library_handle;
+	std::optional<wowaccount_t> account;
 	wowcl_t() {};
 	wowcl_t(HWND hWnd, std::string title, int client_index)
 		: window_handle(hWnd), window_title(title), valid(1), index(client_index) {
 		tid = GetWindowThreadProcessId(hWnd, &pid);
 		char *endptr;
+		account = get_account_by_pid(pid);
 		//ShowWindow(main_window_hWnd, SW_HIDE);
 
 		if (index + 1 < 10) {
@@ -98,22 +135,6 @@ static void clear_wow_handles() {
 	wow_handles = std::vector<wowcl_t*>();
 
 }
-
-struct wowaccount_t {
-	std::string login_name, password, char_name, class_name;
-	int valid;
-	wowaccount_t(std::string ln, std::string pw, std::string chn, std::string cln)
-		: login_name(ln), password(pw), char_name(chn), class_name(cln), valid(1) {}
-
-	wowaccount_t() : valid(0) {}
-
-	std::string get_pipe_formatted_cred_string() const {
-		return login_name + "," + password + "," + char_name;
-	}
-};
-
-static std::unordered_map <DWORD, wowaccount_t> creds;
-
 
 static void error_box(const std::string &msg) {
 	MessageBox(NULL, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
@@ -428,6 +449,23 @@ static int remote_thread_dll(wowcl_t *cl) {
 	DWORD ret = WriteProcessMemory(hProcess, LLParam, DLL_path.c_str(), DLL_path.length(), NULL);
 	if (ret == 0) { printf("WriteProcessMemory failed: %d\n", GetLastError()); return 0; }
 
+
+	if (cl->account.has_value()) {
+		TCHAR expandedPath[MAX_PATH];
+		DWORD result = ExpandEnvironmentStrings(TEXT("%localappdata%\\Temp\\wow-%u.json"), expandedPath, MAX_PATH);
+
+		TCHAR fullPath[MAX_PATH];
+		sprintf_s(fullPath, MAX_PATH, expandedPath, cl->pid);
+		printf("writing config to %s\n", fullPath);
+		FILE *config_file;
+		fopen_s(&config_file, fullPath, "w");
+		auto config = std::format("{{ \"credentials\": {{ \"username\": \"{}\", \"password\": \"{}\", \"character\": {{ \"name\": \"{}\", \"class\": \"{}\" }} }} }}\n",
+			cl->account->login_name, cl->account->password, cl->account->char_name, cl->account->class_name);
+
+		fwrite(config.c_str(), config.length(), 1, config_file);
+		fclose(config_file);
+	}
+
 	HANDLE rt = CreateRemoteThread(hProcess, NULL, NULL, (LPTHREAD_START_ROUTINE)LoadLibraryAddr,
 		LLParam, NULL, NULL);
 
@@ -535,112 +573,6 @@ static int suspend_and_apply_patches(DWORD pid, const std::vector<patch_t> patch
 	return 1;
 }
 
-static int get_credentials(DWORD pid, std::string *cred_str) {
-
-	if (creds.size() < 1) {
-		printf("(send_credentials: no credentials appear to have been assigned. Skipping!)\n");
-		return 0;
-	}
-
-	if (creds.find(pid) == creds.end()) {
-		printf("send_credentials: No credentials were assigned to pid %d. Exiting.\n", pid);
-		return 0;
-	}
-
-	const wowaccount_t &account = creds[pid];
-
-	*cred_str = account.get_pipe_formatted_cred_string();
-
-	return 1;
-
-}
-
-
-static int do_pipe_operations(DWORD pid) {
-
-#define PIPE_READ_BUF_SIZE 1024
-#define PIPE_WRITE_BUF_SIZE 1024
-
-	HANDLE hPipe;
-	DWORD last_err;
-
-	std::string pipe_name = "\\\\.\\pipe\\" + std::to_string(pid);
-
-	printf("Trying to connect to pipe %s...\n", pipe_name.c_str());
-
-	hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | FILE_WRITE_DATA, 0, NULL, OPEN_EXISTING, 0, NULL);
-
-	const int num_retries = 4;
-	int rnum = 1;
-	while (hPipe == INVALID_HANDLE_VALUE) {
-
-		if (rnum > num_retries) {
-			printf("do_pipe_operations: maximum number of retries reached; client could have already been injected to (or crashed).\n");
-			return 0;
-		}
-
-		last_err = GetLastError();
-		if (last_err == ERROR_FILE_NOT_FOUND) {
-			printf("(warning: pipe descriptor %s not (yet?) available (ERROR_FILE_NOT_FOUND), retrying after 500 ms (%d/%d)...)\n", pipe_name.c_str(), rnum, num_retries);
-			Sleep(500);
-			hPipe = CreateFile(pipe_name.c_str(), GENERIC_READ | FILE_WRITE_DATA, 0, NULL, OPEN_EXISTING, 0, NULL);
-		}
-		else {
-			printf("CreateFile failed with error %d, aborting!\n", GetLastError());
-			return 0;
-		}
-
-		++rnum;
-
-	}
-
-	BYTE read_buf[PIPE_READ_BUF_SIZE];
-
-	static const std::string PATCH_OK = "PATCH_OK";
-	static const std::string PATCH_FAIL = "PATCH_FAIL";
-
-	DWORD sc = 0;
-	DWORD num_bytes = 0;
-
-	printf("pipe connection established; waiting for client to send data...\n");
-
-	sc = ReadFile(hPipe, read_buf, PIPE_READ_BUF_SIZE, &num_bytes, NULL); // wait for client to propagate patch addresses
-
-	if (!sc || num_bytes == 0) {
-		printf("pipe %s: ReadFile returned %d; last error: %d\n", pipe_name.c_str(), sc, GetLastError());
-	}
-
-	std::vector<patch_t> patches;
-
-	std::string response_str;
-
-	if (parse_pipe_response(read_buf, num_bytes, patches)) {
-		response_str = PATCH_OK;
-		suspend_and_apply_patches(pid, patches);
-
-		for (auto &p : patches) {
-			delete[] p.original_opcodes;
-			delete[] p.patch_opcodes;
-		}
-
-		std::string cred_str;
-		if (get_credentials(pid, &cred_str)) {
-			response_str.append(";CREDENTIALS=" + cred_str);
-		}
-
-	}
-	else {
-		response_str = PATCH_FAIL;
-		printf("parse_pipe_response() failed :(\n");
-	}
-
-	sc = WriteFile(hPipe, response_str.c_str(), response_str.length() + 1, &num_bytes, NULL);
-	printf("Sent response %s to client %d. Closing pipe.\n", response_str.c_str(), pid);
-
-	CloseHandle(hPipe);
-
-	return 1;
-}
 
 static DWORD WINAPI inject_threadfunc(LPVOID param) {
 

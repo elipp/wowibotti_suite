@@ -1,14 +1,16 @@
+use std::arch::asm;
 use std::cell::Cell;
 use std::collections::VecDeque;
 use std::f32::consts::PI;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use crate::addrs::offsets;
+use crate::addrs::{self, offsets};
 use crate::lua::SETFACING_STATE;
 use crate::objectmanager::{GUIDFmt, ObjectManager, GUID, NO_TARGET};
 use crate::patch::{
-    copy_original_opcodes, read_elems_from_addr, write_addr, InstructionBuffer, Patch, PatchKind,
+    copy_original_opcodes, deref, read_elems_from_addr, write_addr, InstructionBuffer, Patch,
+    PatchKind,
 };
 use crate::socket::{movement_flags, set_facing};
 use crate::vec3::{Vec3, TWO_PI};
@@ -179,15 +181,9 @@ impl CtmQueue {
         Ok(())
     }
     fn replace_current(&mut self, ev: CtmEvent) -> LoleResult<()> {
-        match ev.backend {
-            CtmBackend::ClickToMove => {
-                ev.commit_to_memory()?;
-            }
-            CtmBackend::Playback => {
-                ev.start_walking_towards()?;
-            }
-        }
         self.events.clear();
+        // NOTE: if mixing Backends, probably should set ctm memory state to 0xD (done) in between?
+        ev.commit()?;
         self.current = Some((ev, Instant::now()));
         Ok(())
     }
@@ -260,7 +256,9 @@ impl CtmQueue {
             let diff_rot = diff.unit().to_rot_value();
             let [_, _, _, r] = player.get_xyzr();
 
-            handle_walking_angle_interp(r, diff_rot)?;
+            if let CtmBackend::Playback = current.backend {
+                handle_walking_angle_interp(r, diff_rot)?;
+            }
 
             let yards_moved = self.yards_moved.calculate();
             let probably_stuck = start_time.elapsed() > Duration::from_millis(300)
@@ -289,7 +287,7 @@ impl CtmQueue {
         let prev_current = self.current.take();
         if let Some(next) = self.events.pop_front() {
             self.yards_moved.reset();
-            next.start_walking_towards()?;
+            next.commit()?;
             self.current = Some((next, Instant::now()));
         } else {
             if prev_current.is_some() {
@@ -404,7 +402,7 @@ impl Default for CtmEvent {
             hooks: None,
             distance_margin: None,
             angle_interp_dt: INTERP_DT_DEFAULT,
-            backend: CtmBackend::Playback,
+            backend: CtmBackend::ClickToMove,
         }
     }
 }
@@ -417,24 +415,99 @@ mod constants {
     pub const LOOT_MINDISTANCE: f32 = 3.6666666;
 }
 
+// extern "stdcall" wow_click_to_move(action: u32, coordinates: *const f32, guid: *const GUID, unk: u32);
+
 impl CtmEvent {
     fn update_target_pos(&mut self, new_pos: Vec3, distance_margin: Option<f32>) {
         self.target_pos = new_pos;
         self.distance_margin = distance_margin;
+    }
+
+    unsafe fn get_unk_ctm_state() -> u32 {
+        let func: extern "cdecl" fn(a: u32, b: u32, c: u32, d: u32, e: u32) -> u32 =
+            std::mem::transmute(0x4D4DB0 as *const ());
+
+        let ecx = func(
+            deref::<u32, 1>(0xCA1238),
+            deref::<u32, 1>(0xCA123C),
+            8,
+            0xA34B10,
+            0x3CC4,
+        );
+        ecx
+    }
+    unsafe fn call_wow_click_to_move(&self) -> LoleResult<()> {
+        // CPU Disasm
+        // Address   Hex dump          Command                                  Comments
+        // 0073154F  |.  A1 3C12CA00   MOV EAX,DWORD PTR DS:[0CA123C]
+        // 00731554  |.  8B0D 3812CA00 MOV ECX,DWORD PTR DS:[0CA1238]
+        // 0073155A  |.  68 C43C0000   PUSH 3CC4
+        // 0073155F  |.  68 104BA300   PUSH OFFSET 00A34B10                     ; ASCII ".\Unit_C.cpp"
+        // 00731564  |.  6A 08         PUSH 8
+        // 00731566  |.  50            PUSH EAX
+        // 00731567  |.  51            PUSH ECX
+        // 00731568  |.  E8 4338DAFF   CALL 004D4DB0
+
+        let ecx = CtmEvent::get_unk_ctm_state();
+
+        let action: u8 = self.action.into();
+        let interact_guid = self.interact_guid.unwrap_or(0x0);
+
+        asm! {
+            "push 0",
+            "push {}",
+            "push {}",
+            "push {}",
+            in(reg) &self.target_pos.x as *const f32,
+            in(reg) &interact_guid as *const GUID,
+            in(reg) action as u32,
+            out("ecx") _,
+        }
+
+        asm! {
+            "mov ecx, {}",
+            "call {}",
+            in(reg) ecx,
+            in(reg) addrs::offsets::ctm::WOW_CLICK_TO_MOVE,
+            out("ecx") _,
+            clobber_abi("stdcall"),
+        }
+
+        Ok(())
+    }
+    fn commit(&self) -> LoleResult<()> {
+        match self.backend {
+            CtmBackend::ClickToMove => {
+                // self.commit_to_memory()?;
+                unsafe { self.call_wow_click_to_move()? }
+            }
+            CtmBackend::Playback => {
+                self.start_walking_towards()?;
+            }
+        }
+        Ok(())
     }
     fn commit_to_memory(&self) -> LoleResult<()> {
         let om = ObjectManager::new()?;
         let p = om.get_player()?;
         let ppos = p.get_pos();
         let diff = ppos - self.target_pos;
-        let walking_angle = (diff.y.atan2(diff.x) - ppos.y.atan2(ppos.x) - 0.5 * PI) % TWO_PI;
+        let walking_angle =
+            (diff.y.atan2(diff.x) - ppos.y.atan2(ppos.x) - 0.5 * PI).rem_euclid(TWO_PI);
 
-        let (const2, min_distance, _interact_guid) = match self.action {
-            CtmAction::Loot => (
-                constants::LOOT_CONST2,
-                constants::LOOT_MINDISTANCE,
-                NO_TARGET, // todo!() actual GUID
-            ),
+        let (const2, min_distance, interact_guid) = match self.action {
+            CtmAction::Loot => match self.interact_guid {
+                Some(interact_guid) if interact_guid != NO_TARGET => (
+                    constants::LOOT_CONST2,
+                    constants::LOOT_MINDISTANCE,
+                    interact_guid,
+                ),
+                _ => {
+                    return Err(LoleError::InvalidParam(
+                        "CtmAction::Loot requires interact_guid".to_string(),
+                    ));
+                }
+            },
             CtmAction::Move => (
                 constants::MOVE_CONST2,
                 constants::MOVE_MINDISTANCE,
@@ -447,12 +520,15 @@ impl CtmEvent {
                 NO_TARGET,
             ),
         };
-        let min_distance = self.distance_margin.unwrap_or(min_distance);
 
         write_addr(offsets::ctm::WALKING_ANGLE, &[walking_angle])?;
+        write_addr(offsets::ctm::INTERACT_GUID, &[interact_guid])?;
         write_addr(offsets::ctm::GLOBAL_CONST1, &[constants::GLOBAL_CONST1])?;
         write_addr(offsets::ctm::GLOBAL_CONST2, &[const2])?;
-        write_addr(offsets::ctm::MIN_DISTANCE, &[min_distance])?;
+        write_addr(
+            offsets::ctm::MIN_DISTANCE,
+            &[self.distance_margin.unwrap_or(min_distance)],
+        )?;
 
         let final_target_point = self.target_pos; // + 2.5 * (self.target_pos - ppos).unit(); // set target "too far", such that `ctm_finished` is not triggered
 
@@ -465,8 +541,7 @@ impl CtmEvent {
             ],
         )?;
 
-        let action: u8 = self.action.into();
-        write_addr(offsets::ctm::ACTION, &[action])?;
+        write_addr::<u8>(offsets::ctm::ACTION, &[self.action.into()])?;
         SETFACING_STATE.set((walking_angle, std::time::Instant::now()));
         Ok(())
     }

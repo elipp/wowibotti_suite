@@ -297,6 +297,7 @@ pub mod offsets {
 
     pub mod ctm {
         use crate::{addrs::UNKNOWN_ADDRESS, Addr};
+        pub const WOW_CLICK_TO_MOVE: Addr = 0x727400;
 
         pub const PREV_POS_X: Addr = UNKNOWN_ADDRESS;
         pub const PREV_POS_Y: Addr = UNKNOWN_ADDRESS;
@@ -364,6 +365,7 @@ pub mod offsets {
         pub const NpcRot: Offset = UnitPosX + 0xC;
 
         pub const UnkState: Offset = 0x120;
+        pub const UnkNpcState2: Offset = 0xBC;
 
         pub const UnitTargetGUID: Offset = 0x2680;
 

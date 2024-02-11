@@ -1,5 +1,6 @@
 use core::cell::Cell;
 use objectmanager::ObjectManager;
+use serde::Deserialize;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use windows::Win32::System::SystemInformation::GetTickCount;
@@ -174,8 +175,40 @@ unsafe fn open_console() -> LoleResult<()> {
 // instead of trying to catch SIGABRT, try creating WER crash dumps:
 // https://learn.microsoft.com/en-us/windows/win32/wer/collecting-user-mode-dumps?redirectedfrom=MSDN
 
+#[derive(Debug, Deserialize)]
+struct CharacterInfo {
+    name: String,
+    class: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct AccountInfo {
+    username: String,
+    password: String,
+    character: CharacterInfo,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClientConfig {
+    credentials: Option<AccountInfo>,
+}
+
+fn read_config_from_file(pid: u32) -> LoleResult<ClientConfig> {
+    let local_app_data = std::env::var("LOCALAPPDATA").expect("localappdata env var missing");
+    let file_path = format!("{}\\Temp\\wow-{}.json", local_app_data, pid);
+    match std::fs::read_to_string(&file_path) {
+        Ok(contents) => match serde_json::from_str::<ClientConfig>(&contents) {
+            Ok(config) => Ok(config),
+            Err(err) => Err(LoleError::InvalidDllConfig(err.to_string())),
+        },
+        Err(err) => Err(LoleError::DllConfigReadError(err.to_string())),
+    }
+}
+
 unsafe fn initialize_dll() -> LoleResult<()> {
     open_console()?;
+    let config = read_config_from_file(std::process::id());
+    println!("{config:?}");
     let mut patches = global_var!(ENABLED_PATCHES);
 
     // let lua_prot = prepare_lua_prot_patch();
@@ -251,6 +284,7 @@ pub enum LoleError {
     ObjectManagerIsNull,
     PlayerNotFound,
     InvalidParam(String),
+    InvalidWowObjectType,
     MemoryWriteError,
     PartialMemoryWriteError,
     LuaStateIsNull,
@@ -269,6 +303,8 @@ pub enum LoleError {
     LuaUnexpectedTypeError(LuaType, LuaType),
     // DbError(postgres::Error),
     SerdeError(serde_json::Error),
+    InvalidDllConfig(String),
+    DllConfigReadError(String),
     NotImplemented,
 }
 

@@ -78,7 +78,8 @@ local available_configs = {
 	tmp_warlock = class_config:create("tmp_warlock", {}, {}, get_class_color("warlock"), tmp_warlock_combat, {}, ROLES.caster, "RANGED", survive_template),
 	tmp_priest = class_config:create("tmp_priest", {"Power Word: Fortitude"}, {}, get_class_color("priest"), tmp_priest_combat, {}, ROLES.caster, "RANGED", survive_template),
 	tmp_mage = class_config:create("tmp_mage", {}, {}, get_class_color("mage"), tmp_mage_combat, {}, ROLES.caster, "RANGED", survive_template),
-	tmp_paladin = class_config:create("tmp_paladin", {"Blessing of Wisdom"}, {}, get_class_color("paladin"), tmp_paladin_combat, {}, ROLES.healer, "HEALER", survive_template),
+	-- tmp_paladin = class_config:create("tmp_paladin", {"Blessing of Wisdom"}, {}, get_class_color("paladin"), tmp_paladin_combat, {}, ROLES.healer, "HEALER", survive_template),
+	tmp_paladin = class_config:create("tmp_paladin", {}, {}, get_class_color("paladin"), tmp_paladin_combat, {}, ROLES.mana_melee, "MELEE", survive_template),
 };
 
 function get_available_configs()
