@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use crate::addrs::{self, offsets};
-use crate::lua::SETFACING_STATE;
+use crate::lua::{RUN_SCRIPT_AFTER_N_FRAMES, SETFACING_STATE};
 use crate::objectmanager::{GUIDFmt, ObjectManager, GUID, NO_TARGET};
 use crate::patch::{
     copy_original_opcodes, deref, read_elems_from_addr, write_addr, InstructionBuffer, Patch,
@@ -212,6 +212,14 @@ impl CtmQueue {
         })
     }
     fn poll(&mut self) -> LoleResult<()> {
+        if let Some((script, n)) = RUN_SCRIPT_AFTER_N_FRAMES.get() {
+            if n <= 1 {
+                dostring!(script)?;
+                RUN_SCRIPT_AFTER_N_FRAMES.set(None);
+            } else {
+                RUN_SCRIPT_AFTER_N_FRAMES.set(Some((script, n - 1)));
+            }
+        }
         let prev_frame_time = self.last_frame_time;
         self.last_frame_time = Instant::now();
 
@@ -232,7 +240,7 @@ impl CtmQueue {
                     TRYING_TO_FOLLOW.set(None);
                     // doing FollowUnit() here causes a ctm_finished, causing a deadlock on the QUEUE mutex.
                     // is avoidable using try_lock();
-                    dostring!("MoveForwardStop(); FollowUnit(\"{}\")", t.get_name());
+                    dostring!("MoveForwardStop(); FollowUnit('{}')", t.get_name());
                     self.current = None;
                 } else {
                     self.replace_current(CtmEvent {
@@ -407,7 +415,7 @@ impl Default for CtmEvent {
     }
 }
 
-mod constants {
+pub mod constants {
     pub const GLOBAL_CONST1: f32 = 13.9626340866; // this is 9/4 PI ? :D
     pub const MOVE_CONST2: f32 = 0.25;
     pub const MOVE_MINDISTANCE: f32 = 0.5;
@@ -454,7 +462,7 @@ impl CtmEvent {
         let interact_guid = self.interact_guid.unwrap_or(0x0);
 
         asm! {
-            "push 0",
+            "push 0", // is an unknown float value, stored into [CA11EC]
             "push {}",
             "push {}",
             "push {}",

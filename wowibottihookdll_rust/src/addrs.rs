@@ -137,7 +137,7 @@ pub mod offsets {
         pub const SOCKOBJ: Offset = 0x2198;
     }
 
-    // NOTE: /script DEFAULT_CHAT_FRAME:AddMessage( GetMouseFocus():GetName() ); is a great way to find out stuff
+    // NOTE: /SCRIPT DEFAULT_CHAT_FRAME:ADDMESSAGE( GETMOUSEFOCUS():GETNAME() ); is a great way to find out stuff
 
     #[allow(non_upper_case_globals)]
     pub mod wowobject {
@@ -226,6 +226,7 @@ pub mod offsets {
         // pub const GetUnitOrNPCNameAddr: Addr = 0x614520;
         pub const GetUnitOrNPCNameAddr: Addr = 0x72A000;
         pub const SelectUnit: Addr = 0x524BF0;
+        pub const UpdatePlayer: Addr = 0x5FC200;
         pub const SetFacing: Addr = 0x989B70;
         pub const SpellErrMsg: Addr = 0x808200;
         pub const GetErrorText: Addr = UNKNOWN_ADDRESS;
@@ -385,7 +386,13 @@ pub mod offsets {
     }
 
     define_lua_function! {
-        SelectUnit,
+        CUpdatePlayer,
+        wow_cfuncs::UpdatePlayer,
+        () -> ()
+    }
+
+    define_lua_function! {
+        CSelectUnit,
         wow_cfuncs::SelectUnit,
         (guid: GUID) -> i32
     }

@@ -1,7 +1,8 @@
 use core::cell::Cell;
 use objectmanager::ObjectManager;
 use serde::Deserialize;
-use std::sync::Mutex;
+use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use windows::Win32::System::SystemInformation::GetTickCount;
 use windows::Win32::System::Threading::ExitProcess;
@@ -51,6 +52,7 @@ lazy_static! {
     // just in case DllMain is called from a non-main thread? :D
     pub static ref ENABLED_PATCHES: Mutex<Vec<Patch>> = Mutex::new(vec![]);
     pub static ref DLL_HANDLE: Mutex<HINSTANCE> = Mutex::new(HINSTANCE(0));
+
 }
 
 thread_local! {
@@ -62,6 +64,16 @@ thread_local! {
         Cell::new(std::time::Instant::now());
     pub static LAST_SPELL_ERR_MSG: Cell<Option<(SpellError, u32)>> = Cell::new(None);
     pub static LAST_FRAME_NUM: Cell<u32> = Cell::new(0);
+
+    pub static ASYNC_RUNTIME: RefCell<tokio::runtime::Runtime> = RefCell::new(
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap());
+
+    pub static LOCALSET: RefCell<tokio::task::LocalSet> = RefCell::new(
+        tokio::task::LocalSet::new());
+
 }
 
 pub fn wide_null(s: &str) -> Vec<u16> {
@@ -202,8 +214,11 @@ struct ClientConfig {
 
 impl AccountInfo {
     fn login(&self) -> LoleResult<()> {
+        std::thread::sleep(std::time::Duration::from_millis(
+            rand::random::<u64>() % 5000,
+        ));
         dostring!(
-            "DefaultServerLogin(\"{}\", \"{}\")",
+            "DefaultServerLogin('{}', '{}')",
             self.username,
             self.password
         );
@@ -214,7 +229,7 @@ impl AccountInfo {
 impl RealmInfo {
     fn set_realm_info(&self) -> LoleResult<()> {
         dostring!(
-            "SetCVar(\"realmList\", \"{}\"); SetCVar(\"realmName\", \"{}\")",
+            "SetCVar('realmList', '{}'); SetCVar('realmName', '{}')",
             self.login_server,
             self.name
         );
@@ -266,9 +281,34 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     closepetstables.enable()?;
     patches.push(closepetstables);
 
-    // dostring!(r#"SetCVar("realmList", "127.0.0.1")"#)?;
-
     println!("wowibottihookdll_rust: init done! :D enabled_patches:");
+
+    // let localset = tokio::task::LocalSet::new();
+
+    // ASYNC_RUNTIME.with_borrow(|r| {
+    //     r.block_on(async {
+    //         localset
+    //             .run_until(async move {
+    //                 tokio::task::spawn_local(async {
+    //                     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+    //                     println!("moikkuliii :D");
+    //                 })
+    //                 .await
+    //             })
+    //             .await;
+    //     })
+    // });
+
+    // loop {
+    //     // Poll the task
+    //     ASYNC_RUNTIME.with_borrow(|r| {
+    //         r.block_on(async {
+    //             tokio::task::yield_now().await;
+    //         })
+    //     });
+    //     break;
+    //     // Optionally, you can perform other work here while waiting for the task to complete
+    // }
 
     for p in patches.iter() {
         println!("* {} @ 0x{:08X}", p.name, p.patch_addr);

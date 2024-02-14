@@ -211,7 +211,10 @@ impl WowObject {
 
     pub fn npc_has_loot_table(&self) -> LoleResult<bool> {
         if let WowObjectType::Npc = self.get_type() {
-            Ok(!deref::<*const c_void, 1>(self.base + 0x2A * 4).is_null())
+            Ok(
+                (self.get_guid() >> 52) == 0xF13 // pets seem to have the below field set, and this excludes them
+                && !deref::<*const c_void, 1>(self.base + 0x2A * 4).is_null(),
+            )
         } else {
             Err(LoleError::InvalidWowObjectType)
         }

@@ -4,7 +4,7 @@ use windows::Win32::Networking::WinSock::SOCKET;
 use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS};
 
 use crate::addrs::offsets::{self, TAINT_CALLER, TICK_COUNT, UNK_CLOCK_DRIFT};
-use crate::lua::SETFACING_STATE;
+use crate::lua::{RUN_SCRIPT_AFTER_N_FRAMES, SETFACING_STATE};
 use crate::objectmanager::ObjectManager;
 use crate::opcodes::{is_movement_opcode, MSG_MOVE_SET_FACING, OPCODE_NAME_MAP};
 use crate::patch::{
@@ -191,9 +191,11 @@ pub fn set_facing(angle: f32, movement_flags: u8) -> LoleResult<()> {
     chatframe_print!("calling set_facing: {}", angle);
     // set_facing_remote(pos, angle, movement_flags)?;
     set_facing_local(angle)?;
-    dostring!("StrafeLeftStart(); StrafeLeftStop()")?; // can't remember what this is for... does this send the new facing info to the server?
+    dostring!("TurnLeftStart()")?; // this is to update does this send the new facing info to the server?
+                                   // offsets::CUpdatePlayer();
 
     SETFACING_STATE.set((angle, std::time::Instant::now()));
+    RUN_SCRIPT_AFTER_N_FRAMES.set(Some(("TurnLeftStop()", 2)));
     Ok(())
 }
 

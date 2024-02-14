@@ -711,6 +711,16 @@ local function lole_inv_ordered()
 	end
 end
 
+local function lole_invite()
+	for name, i in pairs(get_guild_members()) do
+		echo(name)
+		InviteUnit(name)
+		if GetNumPartyMembers() >= 5 then
+			ConvertToRaid()
+		end
+	end
+end
+
 local function lole_raid_aoe(on_off_str)
     local script_text = "RunMacroText(\"/lole set aoemode " .. on_off_str .. "\")";
     SendAddonMessage("lole_runscript", script_text, "RAID");
@@ -1142,6 +1152,10 @@ local function lole_hconfig(...)
 	hconfig(catd)
 end
 
+local function lole_loot_mob()
+	loot_nearest_lootable_mob()
+end
+
 local function lole_eject()
 	eject_DLL()
 end
@@ -1223,6 +1237,7 @@ lole_subcommands = {
 	getbiscuit = lole_getbiscuit,
 	loot_badge = lole_loot_badge,
 	invite_guild = lole_invite_guild,
+	invite = lole_invite,
 	boss_action = lole_boss_action,
 	ba = lole_boss_action,
 
@@ -1231,20 +1246,19 @@ lole_subcommands = {
 	spread = lole_spread_those_cheeks,
 	click_essence_portal = lole_click_essence_portal,
 
-	setselection = lole_setselection;
-	clearselection = lole_clearselection;
+	setselection = lole_setselection,
+	clearselection = lole_clearselection,
 
-	resetcamera = lole_resetcamera;
-	capturerender = lole_capturerender;
+	resetcamera = lole_resetcamera,
+	capturerender = lole_capturerender,
 
 	iccrocket = lole_iccrocket,
 
-	wc3mode = lole_wc3mode;
-	hold = lole_hold;
+	wc3mode = lole_wc3mode,
+	hold = lole_hold,
 
-	eject = lole_eject;
+	eject = lole_eject,
 
-	console_print = lole_console_print;
-
-
+	console_print = lole_console_print,
+	loot = lole_loot_mob,
 }

@@ -25,6 +25,7 @@ use crate::{define_lua_function, Addr}; // POSTGRES_ADDR, POSTGRES_DB, POSTGRES_
 thread_local! {
     // this is modified from CtmAction::commit() and set_facing
     pub static SETFACING_STATE: Cell<(f32, std::time::Instant)> = Cell::new((0.0, std::time::Instant::now()));
+    pub static RUN_SCRIPT_AFTER_N_FRAMES: Cell<Option<(&'static str, usize)>> = Cell::new(None);
 }
 
 const SETFACING_DELAY_MILLIS: u64 = 300;
@@ -571,7 +572,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::TargetGuid if nargs == 1 => {
             let guid_str = lua_tostring!(lua, 2)?;
             let guid = guid_from_str(guid_str)?;
-            offsets::SelectUnit(guid);
+            offsets::CSelectUnit(guid);
         }
         Opcode::Follow if nargs == 1 => {
             let name = lua_tostring!(lua, 2)?;
@@ -580,7 +581,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 let tpdiff = tp - pp;
                 let distance = tpdiff.length();
                 if distance < 10.0 {
-                    dostring!("MoveForwardStop(); FollowUnit(\"{}\")", t.get_name());
+                    dostring!("MoveForwardStop(); FollowUnit('{}')", t.get_name());
                 } else {
                     TRYING_TO_FOLLOW.set(Some(t.get_guid()));
                 }
@@ -807,16 +808,20 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 .collect();
             lootable.sort_unstable_by_key(|l| ((l.get_pos() - ppos).length() * 1024.0) as u32);
             if let Some(closest) = lootable.iter().next() {
-                chatframe_print!("looting mob {}", closest);
-                let action = CtmEvent {
-                    target_pos: closest.get_pos(),
-                    priority: CtmPriority::Replace,
-                    action: CtmAction::Loot,
-                    interact_guid: Some(closest.get_guid()),
-                    backend: CtmBackend::ClickToMove,
-                    ..Default::default()
-                };
-                ctm::add_to_queue(action)?;
+                if (closest.get_pos() - ppos).length() > ctm::constants::LOOT_MINDISTANCE {
+                    let action = CtmEvent {
+                        target_pos: closest.get_pos(),
+                        priority: CtmPriority::Replace,
+                        action: CtmAction::Loot,
+                        interact_guid: Some(closest.get_guid()),
+                        backend: CtmBackend::ClickToMove,
+                        ..Default::default()
+                    };
+                    ctm::add_to_queue(action)?;
+                } else {
+                    offsets::CSelectUnit(closest.get_guid());
+                    dostring!("InteractUnit('target')")?;
+                }
             }
         }
 
@@ -867,7 +872,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                     })?;
                 }
             } else {
-                chatframe_print!("Path with name \"{}\" not found in db", name);
+                chatframe_print!("Path with name '{}' not found in db", name);
             }
         }
         Opcode::Debug => {

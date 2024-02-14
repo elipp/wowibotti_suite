@@ -490,3 +490,7 @@ end
 function read_file(filename)
 	return LOP:call(LOP.READ_FILE, filename)
 end
+
+function loot_nearest_lootable_mob()
+	return LOP:call(LOP.LootMob)
+end
