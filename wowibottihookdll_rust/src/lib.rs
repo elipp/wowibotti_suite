@@ -252,11 +252,13 @@ fn read_config_from_file(pid: u32) -> LoleResult<ClientConfig> {
 unsafe fn initialize_dll() -> LoleResult<()> {
     open_console()?;
     if let Ok(config) = read_config_from_file(std::process::id()) {
-        if let Some(realm) = config.realm {
-            realm.set_realm_info()?;
-        }
-        if let Some(creds) = config.credentials {
-            creds.login()?;
+        if let Err(LoleError::ObjectManagerIsNull) = ObjectManager::new() {
+            if let Some(realm) = config.realm {
+                realm.set_realm_info()?;
+            }
+            if let Some(creds) = config.credentials {
+                creds.login()?;
+            }
         }
     }
     let mut patches = global_var!(ENABLED_PATCHES);
@@ -382,6 +384,7 @@ pub enum LoleError {
     DllConfigReadError(String),
     MissingCredentials,
     NotImplemented,
+    UnknownBranchTaken,
 }
 
 pub type LoleResult<T> = std::result::Result<T, LoleError>;

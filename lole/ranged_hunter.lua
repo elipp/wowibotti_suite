@@ -49,21 +49,12 @@ local function set_pet_state()
 end
 
 local function check_buffs()
-    if false then -- not UnitAffectingCombat("player") then    
+    if not UnitAffectingCombat("player") then
         if not has_buff("player", "Aspect of the Viper") then
             L_CastSpellByName("Aspect of the Viper")
         end
     elseif not has_buff("player", "Aspect of the Hawk") then
         L_CastSpellByName("Aspect of the Hawk")
-    end
-end
-
-local function set_hunters_mark()
-    -- Only apply Hunter's Mark on downtime or when not in combat
-    if can_attack_target() and
-            health_percentage("target") > 85 and
-            not has_debuff("target", "Hunter's Mark") then
-        L_CastSpellByName("Hunter's Mark");
     end
 end
 
@@ -75,7 +66,6 @@ local function attack()
         return;
     else
         caster_range_check(6, 30);
-        -- rotation:run();
         local has_viper_sting = has_debuff("target", "Viper Sting")
         if (UnitPowerType("target") == 0) and (UnitHealth("target") > 2000) and (UnitMana("target") > 200) and (not has_viper_sting) then
             return L_CastSpellByName("Viper Sting")
@@ -83,8 +73,8 @@ local function attack()
             return L_CastSpellByName("Serpent Sting")
         elseif #{get_combat_mobs()} > 2 and cast_if_nocd("Multi-Shot") then
             return
-        -- elseif cast_if_nocd("Arcane Shot") then # implement aoe feasibility  
-        --     return
+        elseif cast_if_nocd("Arcane Shot") then
+            return
         else
             return -- L_CastSpellByName("Steady Shot")
         end
@@ -113,7 +103,10 @@ function combat_ranged_hunter()
         -- when the padit loppuivat: melee mode XD 
         -- StartAttack()
         -- L_CastSpellByName("Raptor Strike")
-        set_hunters_mark();
+        
+        if not has_debuff("target", "Hunter's Mark") then
+            L_CastSpellByName("Hunter's Mark");
+        end
         attack();
     end
     --echo("Combat activated")

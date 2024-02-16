@@ -366,6 +366,8 @@ pub mod offsets {
         pub const NpcRot: Offset = UnitPosX + 0xC;
 
         pub const UnkState: Offset = 0x120;
+        pub const UnkState2: Offset = 0xD0;
+        pub const UnkState2CombatFlags: Offset = 0xD4;
         pub const UnkNpcState2: Offset = 0xBC;
 
         pub const UnitTargetGUID: Offset = 0x2680;

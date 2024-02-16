@@ -17,8 +17,8 @@ use crate::patch::{
 use crate::socket::{movement_flags, read_os_tick_count, set_facing, set_facing_local};
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{
-    add_repr_and_tryfrom, assembly, global_var, LoleError, LoleResult, LAST_SPELL_ERR_MSG,
-    SHOULD_EJECT,
+    add_repr_and_tryfrom, assembly, global_var, iter_objects, LoleError, LoleResult,
+    LAST_SPELL_ERR_MSG, SHOULD_EJECT,
 };
 use crate::{define_lua_function, Addr}; // POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
 
@@ -777,7 +777,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::GetCombatParticipants => {
             let mut num = 0i32;
             for c in om
-                .get_units_and_npcs()
+                .iter_units_and_npcs()
                 .filter(|o| o.in_combat().unwrap_or(false))
             {
                 let guid = CString::new(format!("{}", GUIDFmt(c.get_guid())))?;
@@ -788,9 +788,10 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         }
         Opcode::GetCombatMobs => {
             let mut num = 0i32;
-            for c in om.iter().filter(|o| {
-                matches!(o.get_type(), WowObjectType::Npc) && o.in_combat().unwrap_or(false)
-            }) {
+            for c in om
+                .iter_mobs()
+                .filter(|o| o.in_combat().unwrap_or(false) && !o.is_dead().unwrap_or(true))
+            {
                 let guid = CString::new(format!("{}", GUIDFmt(c.get_guid())))?;
                 lua_pushstring(lua, guid.as_c_str().as_ptr());
                 num += 1;

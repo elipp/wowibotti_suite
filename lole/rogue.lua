@@ -24,14 +24,13 @@ local function reapply_poisons()
   local has_mh, mh_exp, mh_charges, has_oh, oh_exp, oh_charges = GetWeaponEnchantInfo()
  -- echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
 
-  -- if not has_mh then
-  if false then -- windfury totem brah
-    L_RunMacroText("/use Instant Poison V")
+  if not has_mh then
+    L_RunMacroText("/use Instant Poison")
     if GetTime() - mh_at > 5 then
       mh_apply = 1
     end
   elseif not has_oh then
-    L_RunMacroText("/use Instant Poison V")
+    L_RunMacroText("/use Instant Poison")
     if GetTime() - oh_at > 5 then
       oh_apply = 1
     end
@@ -89,7 +88,7 @@ end
 
 function rogue_combat()
 
-  -- reapply_poisons()
+  reapply_poisons()
 
   if validate_target() then
     melee_attack_behind(1.5);

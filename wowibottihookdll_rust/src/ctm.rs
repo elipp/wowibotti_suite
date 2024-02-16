@@ -458,6 +458,10 @@ impl CtmEvent {
 
         let ecx = CtmEvent::get_unk_ctm_state();
 
+        if ecx == 0 {
+            return Err(LoleError::NullPtrError);
+        }
+
         let action: u8 = self.action.into();
         let interact_guid = self.interact_guid.unwrap_or(0x0);
 

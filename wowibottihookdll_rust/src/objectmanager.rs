@@ -226,13 +226,29 @@ impl WowObject {
     }
 
     pub fn in_combat(&self) -> LoleResult<bool> {
-        let unk_state = deref::<Addr, 1>(self.base + wowobject::UnkState);
+        let unk_state = deref::<Addr, 1>(self.base + wowobject::UnkState2);
         if unk_state == 0 {
             return Err(LoleError::NullPtrError);
         }
-        let combat_flags = deref::<u32, 1>(unk_state + 0xA0);
+        let combat_flags = deref::<u32, 1>(unk_state + wowobject::UnkState2CombatFlags);
         Ok(combat_flags & (0x1 << 0x13) != 0)
-        // Ok((combat_flags >> 0x13) & 0x1 != 0)
+    }
+
+    pub fn is_dead(&self) -> LoleResult<bool> {
+        let unk_state = deref::<Addr, 1>(self.base + wowobject::UnkState2);
+        if unk_state == 0 {
+            return Err(LoleError::NullPtrError);
+        }
+        let current_health = deref::<Addr, 1>(unk_state + 0x48);
+        if current_health == 0 {
+            return Ok(true);
+        }
+        let edx = deref::<Addr, 1>(unk_state + 0x124);
+        if edx & (0x1 << 0x5) == 0 {
+            return Ok(false);
+        } else {
+            Err(LoleError::UnknownBranchTaken)
+        }
     }
 }
 
@@ -285,6 +301,13 @@ pub struct ObjectManager {
     base: Addr,
 }
 
+#[macro_export]
+macro_rules! iter_objects {
+    ($om:expr, $($object_filters:tt)*) => {
+        $om.iter().filter(|o| matches!(o.get_type(), $($object_filters)*))
+    };
+}
+
 impl ObjectManager {
     pub fn new() -> LoleResult<Self> {
         let client_connection = deref::<Addr, 1>(offsets::objectmanager::ClientConnection);
@@ -332,12 +355,15 @@ impl ObjectManager {
             None
         }
     }
-    pub fn get_units_and_npcs(&self) -> impl Iterator<Item = WowObject> {
-        self.iter()
-            .filter(|w| matches!(w.get_type(), WowObjectType::Npc | WowObjectType::Unit))
+    pub fn iter_mobs(&self) -> impl Iterator<Item = WowObject> {
+        iter_objects!(self, WowObjectType::Npc).filter(|o| (o.get_guid() >> 52) == 0xF13)
+        // pets seem to have guids starting with 0xF14
+    }
+    pub fn iter_units_and_npcs(&self) -> impl Iterator<Item = WowObject> {
+        iter_objects!(self, WowObjectType::Npc | WowObjectType::Unit)
     }
     pub fn get_unit_by_name(&self, name: &str) -> Option<WowObject> {
-        self.get_units_and_npcs().find(|w| w.get_name() == name)
+        self.iter_units_and_npcs().find(|w| w.get_name() == name)
     }
     fn get_first_object(&self) -> Option<WowObject> {
         // no need to check for base != 0, because ::new is the only way to construct ObjectManager

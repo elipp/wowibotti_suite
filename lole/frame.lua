@@ -862,7 +862,12 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 
 
 	elseif event == "LFG_PROPOSAL_SHOW" then
-		execute_script("RunMacroText(\"/click LFDDungeonReadyDialogEnterDungeonButton\")")
+		execute_script('RunMacroText("/click LFDDungeonReadyDialogEnterDungeonButton")')
+		if UnitName("player") ~= "Raimo" then
+			SetOptOutOfLoot(true)
+		else
+			SetOptOutOfLoot(false)
+		end
 		LOOT_OPENED_REASON = "BECAUSE_WARMANE_RDF_IS_RETARDED"
 		lole_frame:RegisterEvent("LOOT_OPENED")
 
@@ -877,7 +882,7 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 
 	elseif event == "START_LOOT_ROLL" and LOOT_OPENED_REASON == "BECAUSE_WARMANE_RDF_IS_RETARDED" then
 		-- execute_script("RollOnLoot("..message..", 0)") -- message == rollID, 0 -> pass -- doesn't seem to work
-		execute_script('RunMacroText("/click GroupLootFrame1PassButton")')
+		-- execute_script('RunMacroText("/click GroupLootFrame1PassButton")')
 	elseif event == "LOOT_OPENED" then
 		if LOOT_OPENED_REASON then
 			if LOOT_OPENED_REASON == "BECAUSE_WARMANE_RDF_IS_RETARDED" then
