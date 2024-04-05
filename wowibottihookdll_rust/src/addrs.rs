@@ -213,12 +213,12 @@ pub mod offsets {
     pub const D3D9_DEVICE: Addr = 0xC5DF88;
     pub const D3D9_DEVICE_OFFSET: Offset = 0x397C;
 
-    pub const LAST_HARDWARE_EVENT: Addr = 0xB499A4;
-
     pub const TICK_COUNT: usize = 0xB1D618;
     pub const UNK_CLOCK_DRIFT: usize = 0xB1D61C; // just a guess
 
     pub const TAINT_CALLER: Addr = 0xD4139C;
+
+    pub const LAST_HARDWARE_ACTION: Addr = 0xB499A4;
 
     #[allow(non_upper_case_globals)]
     pub mod wow_cfuncs {

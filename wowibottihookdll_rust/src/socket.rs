@@ -2,8 +2,9 @@ use std::arch::asm;
 
 use windows::Win32::Networking::WinSock::SOCKET;
 use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS};
+use windows::Win32::System::SystemInformation::GetTickCount;
 
-use crate::addrs::offsets::{self, TAINT_CALLER, TICK_COUNT, UNK_CLOCK_DRIFT};
+use crate::addrs::offsets::{self, GetOsTickCount, TAINT_CALLER, TICK_COUNT, UNK_CLOCK_DRIFT};
 use crate::lua::{RUN_SCRIPT_AFTER_N_FRAMES, SETFACING_STATE};
 use crate::objectmanager::ObjectManager;
 use crate::opcodes::{is_movement_opcode, MSG_MOVE_SET_FACING, OPCODE_NAME_MAP};
@@ -129,8 +130,9 @@ pub fn set_facing_local(angle: f32) -> LoleResult<()> {
 // 0x40,
 
 pub fn read_os_tick_count() -> u32 {
-    deref::<u32, 1>(TICK_COUNT) // + deref::<u32, 1>(UNK_CLOCK_DRIFT)
-                                // GetOsTickCount()
+    // deref::<u32, 1>(TICK_COUNT) // + deref::<u32, 1>(UNK_CLOCK_DRIFT)
+    // GetOsTickCount()
+    unsafe { GetTickCount() }
 }
 
 pub mod movement_flags {

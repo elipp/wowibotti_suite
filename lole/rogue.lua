@@ -25,12 +25,12 @@ local function reapply_poisons()
  -- echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
 
   if not has_mh then
-    L_RunMacroText("/use Instant Poison")
+    L_RunMacroText("/use Instant Poison IV")
     if GetTime() - mh_at > 5 then
       mh_apply = 1
     end
   elseif not has_oh then
-    L_RunMacroText("/use Instant Poison")
+    L_RunMacroText("/use Instant Poison IV")
     if GetTime() - oh_at > 5 then
       oh_apply = 1
     end
@@ -89,25 +89,23 @@ end
 function rogue_combat()
 
   reapply_poisons()
+  if not validate_target() then return end
 
-  if validate_target() then
-    melee_attack_behind(1.5);
-    L_StartAttack();
-    if #{get_combat_mobs()} > 2 and cast_if_nocd("Blade Flurry") then return end
-    if unit_castorchannel("target") then
-      L_CastSpellByName("Kick")
-    end
-    if not has_buff("player", "Slice and Dice") then
-      if GetComboPoints("player", "target") >= 2 then
-        L_CastSpellByName("Slice and Dice")
-        return
-      end
-    else
-      if GetComboPoints("player", "target") >= 4 then
-        L_CastSpellByName("Eviscerate")
-        return
-      end
-    end
-    L_CastSpellByName("Sinister Strike")
+  if UnitAffectingCombat("Raimo") and not UnitAffectingCombat("player") then
+    L_CastSpellByName("Stealth")
   end
+  melee_attack_behind(1.5);
+  if has_buff("player", "Stealth") then
+    return cast_if_nocd("Ambush")
+  end
+  L_StartAttack();
+  if #{get_combat_mobs()} > 2 and cast_if_nocd("Blade Flurry") then return end
+  if unit_castorchannel("target") then
+    L_CastSpellByName("Kick")
+  elseif not has_buff("player", "Slice and Dice") and GetComboPoints("player", "target") >= 2 then
+      return L_CastSpellByName("Slice and Dice")
+  elseif GetComboPoints("player", "target") >= 4 or health_percentage("target") < 15 then
+      return L_CastSpellByName("Eviscerate")
+  end
+  L_CastSpellByName("Backstab")
 end

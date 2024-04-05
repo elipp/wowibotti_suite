@@ -1,6 +1,8 @@
+use addrs::offsets::{LAST_HARDWARE_ACTION, TICK_COUNT};
 use core::cell::Cell;
 use objectmanager::ObjectManager;
 use serde::Deserialize;
+use socket::read_os_tick_count;
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -9,7 +11,7 @@ use windows::Win32::System::Threading::ExitProcess;
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
 use lua::Opcode;
-use patch::{prepare_endscene_trampoline, write_addr};
+use patch::{prepare_endscene_trampoline, read_addr, write_addr};
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
 use windows::Win32::Storage::FileSystem::{
@@ -65,15 +67,7 @@ thread_local! {
     pub static LAST_SPELL_ERR_MSG: Cell<Option<(SpellError, u32)>> = Cell::new(None);
     pub static LAST_FRAME_NUM: Cell<u32> = Cell::new(0);
 
-    pub static ASYNC_RUNTIME: RefCell<tokio::runtime::Runtime> = RefCell::new(
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap());
-
-    pub static LOCALSET: RefCell<tokio::task::LocalSet> = RefCell::new(
-        tokio::task::LocalSet::new());
-
+    pub static LAST_HARDWARE_INTERVAL: Cell<std::time::Instant> = Cell::new(std::time::Instant::now());
 }
 
 pub fn wide_null(s: &str) -> Vec<u16> {
@@ -157,11 +151,23 @@ unsafe fn eject_dll() -> LoleResult<()> {
 
 const ROUGHLY_SIXTY_FPS: Duration = Duration::from_micros((950000.0 / 60.0) as u64);
 
+fn write_last_hardware_action() -> LoleResult<()> {
+    let ticks = read_os_tick_count();
+    write_addr(LAST_HARDWARE_ACTION, &[ticks - 1000])?;
+    Ok(())
+}
+
 fn main_entrypoint() -> LoleResult<()> {
     ctm::poll()?;
-    if let Some(dt) = ROUGHLY_SIXTY_FPS.checked_sub(LAST_FRAME_TIME.get().elapsed()) {
-        std::thread::sleep(dt);
+    // if let Some(dt) = ROUGHLY_SIXTY_FPS.checked_sub(LAST_FRAME_TIME.get().elapsed()) {
+    //     std::thread::sleep(dt);
+    // }
+
+    if LAST_HARDWARE_INTERVAL.get().elapsed() > std::time::Duration::from_secs(20) {
+        LAST_HARDWARE_INTERVAL.set(std::time::Instant::now());
+        write_last_hardware_action()?;
     }
+
     Ok(())
 }
 

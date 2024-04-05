@@ -111,7 +111,7 @@ function lole_buffs()
         if not BUFF_TABLE_READY then
             missing_buffs_copy = shallowcopy(MISSING_BUFFS);
         end
-		lole_subcommands.buffs(missing_buffs_copy);
+    		lole_subcommands.buffs(missing_buffs_copy);
     end
 end
 
@@ -137,7 +137,7 @@ end
 
 -- verbose: either nil or boolean
 function lole_buffcheck(arg, verbose)
-    if true then return nil end -- FIXME FIXME: disabled for now
+    -- if true then return nil end -- FIXME FIXME: disabled for now
     
     if verbose == nil then
         verbose = true;
@@ -149,8 +149,9 @@ function lole_buffcheck(arg, verbose)
     end
 
     local buffname_timeleft_map = {}
-    -- Wotlk: local unit_buff = UnitAura
-    local unit_buff = UnitBuff
+    -- Wotlk:
+    local unit_buff = UnitAura
+    -- local unit_buff = UnitBuff
     
 
     for i=1,60 do local name, rank, icon, count, debuffType, duration, expirationTime = unit_buff("player", i) -- |HARMFUL|PASSIVE"); -- not needed really

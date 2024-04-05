@@ -1898,7 +1898,7 @@ function run_override()
                 passes = 0;
             end
         else
-            RunScript(OVERRIDE_COMMAND);
+            L_RunScript(OVERRIDE_COMMAND);
         end
         lole_subcommands.set("playermode", 0);
         OVERRIDE_COMMAND = nil;

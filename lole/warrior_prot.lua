@@ -11,7 +11,7 @@ end
 
 combat_warrior_prot = function()
 
-	RunMacroText("/cast [nostance:2] Defensive Stance")
+	L_RunMacroText("/cast [nostance:2] Defensive Stance")
 
 	if not has_buff("player", "Commanding Shout") then
 		L_CastSpellByName("Commanding Shout");

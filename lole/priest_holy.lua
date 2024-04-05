@@ -247,7 +247,7 @@ function combat_priest_holy()
     -- end
     local top_prio = heal_targets[1]
     if top_prio == nil then
-        ClearTarget()
+        L_ClearTarget()
         return
     end
 
@@ -260,17 +260,21 @@ function combat_priest_holy()
         end
     end
   
+    if health_percentage("player") < 50 and cast_if_nocd("Desperate Prayer") then return end
+    
     local target_HPP = health_percentage("target")
     local has_renew, renew_timeleft = has_buff("target", "Renew");
 
-    if target_HPP < 60 then
-        cast_heal("Heal")
-    elseif target_HPP < 75 then
-        cast_heal("Lesser Heal")
+    if target_HPP < 30 then
+        cast_heal("Flash Heal")
+    elseif target_HPP < 85 and not has_renew then
+        cast_heal("Renew")
+    elseif target_HPP < 60 then
+        cast_heal("Greater Heal")
     --     if not targeting_self and health_percentage("player") < 75 then
     --         cast_heal("Binding Heal");
     --     end
-    elseif target_HPP < 85 and not has_renew then
-        cast_heal("Renew")
+    elseif has_debuff("target", "Hammer of Justice") then
+        L_CastSpellByName("Dispel Magic")
     end
 end

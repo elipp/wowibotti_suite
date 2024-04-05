@@ -4,7 +4,8 @@ LOLE_CLASS_CONFIG_ATTRIBS_SAVED = nil;
 LOLE_HEALER_TARGETS_SAVED = nil;
 
 -- this will apparently fix recount
-local f = CreateFrame("frame",nil, UIParent); f:SetScript("OnUpdate", CombatLogClearEntries);
+-- local f = CreateFrame("frame",nil, UIParent);
+-- f:SetScript("OnUpdate", CombatLogClearEntries);
 
 local function usage()
 	echo("|cFFFFFF00/lole usage: /lole subcmd subcmd_arg");
@@ -48,7 +49,7 @@ function lole_main(args)
 	end
 
   if lole_subcommands.get("buffmode") == 1 then
-    return lole_buffs()
+		 return lole_buffs()
   end
 	
 	if (time() - LAST_BUFF_CHECK) > 30 then

@@ -49,7 +49,7 @@ local function set_pet_state()
 end
 
 local function check_buffs()
-    if not UnitAffectingCombat("player") then
+    if not UnitAffectingCombat("Raimo") then
         if not has_buff("player", "Aspect of the Viper") then
             L_CastSpellByName("Aspect of the Viper")
         end
@@ -65,7 +65,7 @@ local function attack()
         melee_rotation:run();
         return;
     else
-        caster_range_check(6, 30);
+        caster_range_check(5, 30);
         local has_viper_sting = has_debuff("target", "Viper Sting")
         if (UnitPowerType("target") == 0) and (UnitHealth("target") > 2000) and (UnitMana("target") > 200) and (not has_viper_sting) then
             return L_CastSpellByName("Viper Sting")

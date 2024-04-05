@@ -447,7 +447,7 @@ pub fn playermode() -> LoleResult<bool> {
 
 fn write_hwevent_timestamp() -> LoleResult<()> {
     let ticks = read_os_tick_count();
-    write_addr(offsets::LAST_HARDWARE_EVENT, &[ticks])
+    write_addr(offsets::LAST_HARDWARE_ACTION, &[ticks])
 }
 
 fn random_01() -> f32 {

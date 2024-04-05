@@ -240,7 +240,7 @@ end
 local function do_buffs(missing_buffs)
 
 	if not BUFF_TABLE_READY then
-        local GROUP_BUFF_MAP, buffs = {}, {}
+    local GROUP_BUFF_MAP, buffs = {}, {}
 		local config_name = get_current_config().name;
 
         if need_to_buff() then
@@ -313,6 +313,7 @@ local function do_buffs(missing_buffs)
             return false;
         else
             local char, buff = next(SPAM_TABLE[1]);
+						echo('casting to ', char, buff)
             L_TargetUnit(char);
             L_CastSpellByName(buff);
             BUFF_TIME = GetTime();
