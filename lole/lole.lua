@@ -235,7 +235,7 @@ local function OnMsgEvent(self, event, prefix, message, channel, sender)
             if not playermode() then
                 OVERRIDE_COMMAND = message;
                 lole_subcommands.set("playermode", 1);
-                SpellStopCasting();
+                L_SpellStopCasting();
             end
         else
             echo("lole_runscript: " .. sender .. " doesn't appear to be a member of the guild, not running script!");

@@ -30,7 +30,7 @@ local function reapply_poisons()
       mh_apply = 1
     end
   elseif not has_oh then
-    L_RunMacroText("/use Instant Poison IV")
+    L_RunMacroText("/use Deadly Poison III")
     if GetTime() - oh_at > 5 then
       oh_apply = 1
     end
