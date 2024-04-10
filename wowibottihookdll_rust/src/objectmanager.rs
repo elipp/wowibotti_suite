@@ -150,6 +150,20 @@ impl WowObject {
         }
     }
 
+    pub fn unit_reaction(&self, other: &WowObject) -> i32 {
+        let mut reaction: i32;
+        unsafe {
+            asm! {
+                "push {other_base:e}",
+                "call {unit_reaction:e}",
+                other_base = in(reg) other.base,
+                unit_reaction = in(reg) offsets::wow_cfuncs::UnitReaction,
+                in("ecx") self.base,
+                out("eax") reaction,
+            }
+        }
+        reaction.wrapping_add(1)
+    }
     fn get_next(&self) -> Option<WowObject> {
         let next_base_addr = deref::<Addr, 1>(self.base + wowobject::Next);
         WowObject::try_new(next_base_addr)
@@ -232,6 +246,22 @@ impl WowObject {
         }
         let combat_flags = deref::<u32, 1>(unk_state + wowobject::UnkState2CombatFlags);
         Ok(combat_flags & (0x1 << 0x13) != 0)
+    }
+
+    pub fn health(&self) -> LoleResult<u32> {
+        let unk_state = deref::<Addr, 1>(self.base + wowobject::UnkState2);
+        if unk_state == 0 {
+            return Err(LoleError::NullPtrError);
+        }
+        Ok(deref::<_, 1>(unk_state + 0x48))
+    }
+
+    pub fn health_max(&self) -> LoleResult<u32> {
+        let unk_state = deref::<Addr, 1>(self.base + wowobject::UnkState2);
+        if unk_state == 0 {
+            return Err(LoleError::NullPtrError);
+        }
+        Ok(deref::<_, 1>(unk_state + 0x4C))
     }
 
     pub fn is_dead(&self) -> LoleResult<bool> {

@@ -324,6 +324,7 @@ add_repr_and_tryfrom! {
         GetCombatMobs = 14,
         SetTaint = 15,
         LootMob = 16,
+        GetAoeFeasibility = 17,
         StorePath = 0x100,
         PlaybackPath = 0x101,
         Debug = 0x400,
@@ -786,12 +787,29 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
             return Ok(num);
         }
+        Opcode::GetAoeFeasibility if nargs == 1 => {
+            let radius = lua_tonumber_f32!(lua, 2);
+            let mut feasibility = 0.0;
+
+            if let Some(target) = target {
+                for mob in om.iter_mobs().filter(|o| {
+                    o.unit_reaction(&player) < 5
+                        && o.is_dead().is_ok_and(|dead| !dead)
+                        && o.health().is_ok_and(|health| health > 2500)
+                }) {
+                    let distance_from_target = (target.get_pos() - mob.get_pos()).length();
+                    feasibility += ((-0.5 / radius) * distance_from_target + 1.0).clamp(0.0, 1.0);
+                }
+                lua_pushnumber(lua, feasibility as lua_Number);
+                return Ok(1);
+            }
+            return Ok(LUA_NO_RETVALS);
+        }
         Opcode::GetCombatMobs => {
             let mut num = 0i32;
-            for c in om
-                .iter_mobs()
-                .filter(|o| o.in_combat().unwrap_or(false) && !o.is_dead().unwrap_or(true))
-            {
+            for c in om.iter_mobs().filter(|o| {
+                o.in_combat().is_ok_and(|combat| combat) && o.is_dead().is_ok_and(|dead| !dead)
+            }) {
                 let guid = CString::new(format!("{}", GUIDFmt(c.get_guid())))?;
                 lua_pushstring(lua, guid.as_c_str().as_ptr());
                 num += 1;

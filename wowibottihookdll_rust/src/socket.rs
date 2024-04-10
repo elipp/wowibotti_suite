@@ -4,7 +4,7 @@ use windows::Win32::Networking::WinSock::SOCKET;
 use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS};
 use windows::Win32::System::SystemInformation::GetTickCount;
 
-use crate::addrs::offsets::{self, GetOsTickCount, TAINT_CALLER, TICK_COUNT, UNK_CLOCK_DRIFT};
+use crate::addrs::offsets::{self, TAINT_CALLER, TICK_COUNT, UNK_CLOCK_DRIFT};
 use crate::lua::{RUN_SCRIPT_AFTER_N_FRAMES, SETFACING_STATE};
 use crate::objectmanager::ObjectManager;
 use crate::opcodes::{is_movement_opcode, MSG_MOVE_SET_FACING, OPCODE_NAME_MAP};

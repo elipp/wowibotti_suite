@@ -62,8 +62,7 @@ local function attack()
     L_StartAttack();
     L_PetAttack();
     if player_is_targeted() and get_distance_between("player", "target") < 15 then
-        melee_rotation:run();
-        return;
+        return melee_rotation:run()
     else
         caster_range_check(5, 30);
         local has_viper_sting = has_debuff("target", "Viper Sting")
@@ -76,9 +75,8 @@ local function attack()
         elseif cast_if_nocd("Arcane Shot") then
             return
         else
-            return -- L_CastSpellByName("Steady Shot")
+            L_CastSpellByName("Steady Shot")
         end
-
     end
 end
 

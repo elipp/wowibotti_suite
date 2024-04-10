@@ -226,6 +226,7 @@ pub mod offsets {
         // pub const GetUnitOrNPCNameAddr: Addr = 0x614520;
         pub const GetUnitOrNPCNameAddr: Addr = 0x72A000;
         pub const SelectUnit: Addr = 0x524BF0;
+        pub const UnitReaction: Addr = 0x7251C0;
         pub const UpdatePlayer: Addr = 0x5FC200;
         pub const SetFacing: Addr = 0x989B70;
         pub const SpellErrMsg: Addr = 0x808200;
@@ -397,11 +398,5 @@ pub mod offsets {
         CSelectUnit,
         wow_cfuncs::SelectUnit,
         (guid: GUID) -> i32
-    }
-
-    define_lua_function! {
-        GetOsTickCount,
-        wow_cfuncs::GetOsTickCount,
-        () -> u32
     }
 }

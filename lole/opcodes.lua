@@ -18,6 +18,7 @@ local LOP = {
 	GetCombatMobs = 14,
   SetTaint = 15,
   LootMob = 16,
+	GetAoeFeasibility = 17,
 	StorePath = 0x100,
 	PlaybackPath = 0x101,
   Debug = 0x400,
@@ -348,7 +349,7 @@ function enable_wc3mode(enabled)
 end
 
 function get_aoe_feasibility(range)
-	return LOP:call(LOP.GET_AOE_FEASIBILITY, range)
+	return LOP:call(LOP.GetAoeFeasibility, range)
 end
 
 function L_ClearTarget()
