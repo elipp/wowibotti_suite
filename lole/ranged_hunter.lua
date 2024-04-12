@@ -59,19 +59,17 @@ local function check_buffs()
 end
 
 local function attack()
-    L_StartAttack();
-    L_PetAttack();
     if player_is_targeted() and get_distance_between("player", "target") < 15 then
         return melee_rotation:run()
     else
-        caster_range_check(6, 30);
+        if not caster_range_check(6, 30) then return end
+        local feasibility = get_aoe_feasibility("target", 8)
         if lole_subcommands.get("aoemode") == 1 and UnitMana("player") > 600 and get_aoe_feasibility("target", 8) > 4.5 then
-            if UnitChannelInfo("player") == "Volley" then
-                return
-            else
-                return cast_gtaoe("Volley(Rank 2)", get_unit_position("target"))
-            end
+            return cast_gtaoe("Volley(Rank 2)", get_unit_position("target"))
         end
+        
+        L_StartAttack();
+        L_PetAttack();
         
         local has_viper_sting = has_debuff("target", "Viper Sting")
         if (UnitPowerType("target") == 0) and (UnitHealth("target") > 2000) and (UnitMana("target") > 200) and (not has_viper_sting) then
@@ -109,7 +107,7 @@ function combat_ranged_hunter()
         -- when the padit loppuivat: melee mode XD 
         -- StartAttack()
         -- L_CastSpellByName("Raptor Strike")
-        
+        if UnitChannelInfo("player") == "Volley" then return end
         if not has_debuff("target", "Hunter's Mark") then
             L_CastSpellByName("Hunter's Mark");
         end
