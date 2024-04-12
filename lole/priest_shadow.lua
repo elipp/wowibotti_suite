@@ -50,7 +50,7 @@ function combat_priest_shadow()
     end
   end
 
-  if lole_get("aoemode") == 1 and get_aoe_feasibility(15) > 3 then
+  if lole_get("aoemode") == 1 and get_aoe_feasibility("target", 15) > 3 then
     L_CastSpellByName("Mind Sear")
     return
   end

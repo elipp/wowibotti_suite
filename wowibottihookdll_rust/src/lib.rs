@@ -318,6 +318,8 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     //     // Optionally, you can perform other work here while waiting for the task to complete
     // }
 
+    println!("{:p}", GetTickCount as *const ());
+
     for p in patches.iter() {
         println!("* {} @ 0x{:08X}", p.name, p.patch_addr);
     }
@@ -382,7 +384,7 @@ pub enum LoleError {
     SocketSendError(String),
     MutexLockError,
     StringConvError(String),
-    LuaError,
+    LuaError(String),
     LuaUnexpectedTypeError(LuaType, LuaType),
     // DbError(postgres::Error),
     SerdeError(serde_json::Error),

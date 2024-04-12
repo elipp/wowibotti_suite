@@ -548,18 +548,8 @@ local function lole_dscript(...)
 
 end
 
-local last_gtaoe_timestamp = GetTime()
-
 local function lole_cast_gtaoe(spellname, x, y, z)
-	local spellID = get_AOE_spellID(spellname)
-	if not spellID then
-		lole_error("cast_gtaoe: no valid ground-target-AOE spell \"" .. spellname .. "\"!")
-	else
-		if GetTime() - last_gtaoe_timestamp > 1.5 then
-			cast_GTAOE(spellID, x, y, z);
-			last_gtaoe_timestamp = GetTime()
-		end
-	end
+	cast_gtaoe(spellname, x, y, z);
 end
 
 local function lole_setselection(targets)

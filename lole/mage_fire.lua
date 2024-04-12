@@ -51,8 +51,8 @@ combat_mage_fire = function()
 		L_CastSpellByName("Counterspell")
 	end
 
-	if lole_subcommands.get("aoemode") == 1 and get_aoe_feasibility(15) > 3 then
-			lole_subcommands.cast_gtaoe("Flamestrike", get_unit_position("target"))
+	if lole_subcommands.get("aoemode") == 1 and get_aoe_feasibility("target", 15) > 3 then
+			cast_gtaoe("Flamestrike", get_unit_position("target"))
 			return
 	end
 
@@ -81,7 +81,7 @@ combat_mage_fire = function()
 		return
 	end
 
-	if lole_get("aoemode") == 1 and get_aoe_feasibility(15) > 3 then
+	if lole_get("aoemode") == 1 and get_aoe_feasibility("target", 15) > 3 then
 		for i,g in pairs({get_combat_targets()}) do
 			target_unit_with_GUID(g)
 

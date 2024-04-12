@@ -14,7 +14,7 @@ use crate::patch::{
     copy_original_opcodes, deref, read_addr, read_elems_from_addr, write_addr, InstructionBuffer,
     Patch, PatchKind,
 };
-use crate::socket::{movement_flags, read_os_tick_count, set_facing, set_facing_local};
+use crate::socket::{cast_gtaoe, movement_flags, read_os_tick_count, set_facing, set_facing_local};
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{
     add_repr_and_tryfrom, assembly, global_var, iter_objects, LoleError, LoleResult,
@@ -325,6 +325,7 @@ add_repr_and_tryfrom! {
         SetTaint = 15,
         LootMob = 16,
         GetAoeFeasibility = 17,
+        CastGtAoe = 18,
         StorePath = 0x100,
         PlaybackPath = 0x101,
         Debug = 0x400,
@@ -436,10 +437,10 @@ pub fn playermode() -> LoleResult<bool> {
                     let value = lua_tonumber(lua, -1);
                     Ok(value != 0.0)
                 }
-                _ => Err(LoleError::LuaError),
+                e => Err(LoleError::LuaError(format!("Unexpected type {e:?}"))),
             }
         }
-        _ => Err(LoleError::LuaError),
+        e => Err(LoleError::LuaError(format!("Unexpected type {e:?}"))),
     };
 
     lua_pop!(lua, 1);
@@ -787,23 +788,36 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
             return Ok(num);
         }
-        Opcode::GetAoeFeasibility if nargs == 1 => {
-            let radius = lua_tonumber_f32!(lua, 2);
+        Opcode::GetAoeFeasibility if nargs == 2 => {
+            let relative_to = lua_tostring!(lua, 2)?;
+            let radius = lua_tonumber_f32!(lua, 3);
             let mut feasibility = 0.0;
-
-            if let Some(target) = target {
-                for mob in om.iter_mobs().filter(|o| {
-                    o.unit_reaction(&player) < 5
-                        && o.is_dead().is_ok_and(|dead| !dead)
-                        && o.health().is_ok_and(|health| health > 2500)
-                }) {
-                    let distance_from_target = (target.get_pos() - mob.get_pos()).length();
-                    feasibility += ((-0.5 / radius) * distance_from_target + 1.0).clamp(0.0, 1.0);
+            let query_pos = match &relative_to[..] {
+                "target" => {
+                    if let Some(target) = target {
+                        target.get_pos()
+                    } else {
+                        return Ok(LUA_NO_RETVALS);
+                    }
                 }
-                lua_pushnumber(lua, feasibility as lua_Number);
-                return Ok(1);
+                "player" => player.get_pos(),
+                other => {
+                    return Err(LoleError::LuaError(format!(
+                        "Unimplemented AoeFeasibility target {other}"
+                    )));
+                }
+            };
+
+            for mob in om.iter_mobs().filter(|o| {
+                o.unit_reaction(&player) < 5
+                    && o.is_dead().is_ok_and(|dead| !dead)
+                    && o.health().is_ok_and(|health| health > 2500)
+            }) {
+                let dist = (query_pos - mob.get_pos()).length();
+                feasibility += (-(1.0 / radius.powi(3)) * dist.powi(3) + 1.0).clamp(0.0, 1.0);
             }
-            return Ok(LUA_NO_RETVALS);
+            lua_pushnumber(lua, feasibility as lua_Number);
+            return Ok(1);
         }
         Opcode::GetCombatMobs => {
             let mut num = 0i32;
@@ -842,6 +856,17 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                     dostring!("InteractUnit('target')")?;
                 }
             }
+        }
+
+        Opcode::CastGtAoe if nargs == 4 => {
+            let spellid = lua_tointeger(lua, 2);
+            let pos = Vec3 {
+                x: lua_tonumber_f32!(lua, 3),
+                y: lua_tonumber_f32!(lua, 4),
+                z: lua_tonumber_f32!(lua, 5),
+            };
+            cast_gtaoe(spellid, pos)?;
+            return Ok(LUA_NO_RETVALS);
         }
 
         Opcode::StorePath if nargs == 3 => {

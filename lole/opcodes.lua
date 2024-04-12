@@ -19,6 +19,7 @@ local LOP = {
   SetTaint = 15,
   LootMob = 16,
 	GetAoeFeasibility = 17,
+	CastGtAoe = 18,
 	StorePath = 0x100,
 	PlaybackPath = 0x101,
   Debug = 0x400,
@@ -254,8 +255,19 @@ function is_walking()
     return LOP:call(LOP.GetWalkingState)
 end
 
-function cast_GTAOE(spellID, x, y, z)
-	LOP:call(LOP.CastAoeSpell, spellID, x, y, z);
+
+local last_gtaoe_timestamp = GetTime()
+
+function cast_gtaoe(spell_name, x, y, z)
+	local spellID = get_AOE_spellID(spell_name)
+	if spellID ~= nil and IsSpellKnown(spellID) then
+		if GetTime() - last_gtaoe_timestamp > 1.5 then
+			LOP:call(LOP.CastGtAoe, spellID, x, y, z);
+			last_gtaoe_timestamp = GetTime()
+		end
+	else
+		return lole_error("cast_gtaoe: no valid ground-target-AOE spell \"" .. spell_name .. "\"!")
+	end
 end
 
 function has_aggro()
@@ -348,8 +360,8 @@ function enable_wc3mode(enabled)
 	LOP:call(LOP.WC3MODE, tonumber(enabled))
 end
 
-function get_aoe_feasibility(range)
-	return LOP:call(LOP.GetAoeFeasibility, range)
+function get_aoe_feasibility(relative_to, range)
+	return LOP:call(LOP.GetAoeFeasibility, relative_to, range)
 end
 
 function L_ClearTarget()

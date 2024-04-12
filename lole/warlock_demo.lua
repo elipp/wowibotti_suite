@@ -166,7 +166,7 @@ combat_warlock_demo = function()
 
 -- explanation: cast_barrier is something that should prevent a laggy AURA_UPDATE from fucking us up
 -- a second should be enough to
-    if lole_get("aoemode") == 1 and get_aoe_feasibility(15) > 3 then
+    if lole_get("aoemode") == 1 and get_aoe_feasibility("target", 15) > 3 then
         if GetTime() - cast_barrier < 1 or UnitCastingInfo("player") == "Seed of Corruption" then
           return
         end

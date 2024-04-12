@@ -54,7 +54,7 @@ function combat_warrior_fury()
     return
   end
 
-  if lole_get("aoemode") == 1 and get_aoe_feasibility(8) > 2.50 then
+  if lole_get("aoemode") == 1 and get_aoe_feasibility("target", 8) > 2.50 then
   --if lole_get("aoemode") == 1 then
     L_CastSpellByName("Cleave")
   else

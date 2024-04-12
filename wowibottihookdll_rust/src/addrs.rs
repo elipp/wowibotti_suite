@@ -219,6 +219,7 @@ pub mod offsets {
     pub const TAINT_CALLER: Addr = 0xD4139C;
 
     pub const LAST_HARDWARE_ACTION: Addr = 0xB499A4;
+    pub const SPELL_CAST_COUNTER: Addr = 0xD397D4; // actually the byte at SPELL_CAST_COUNTER+1
 
     #[allow(non_upper_case_globals)]
     pub mod wow_cfuncs {

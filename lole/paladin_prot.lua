@@ -29,7 +29,7 @@ function combat_paladin_prot()
 
     if cast_if_nocd("Hammer of the Righteous") then return; end
 
-    if get_aoe_feasibility(15) > 3 then
+    if get_aoe_feasibility("player", 15) > 3 then
       if cast_if_nocd("Consecration") then return; end
     end
 

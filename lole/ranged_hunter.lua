@@ -64,7 +64,14 @@ local function attack()
     if player_is_targeted() and get_distance_between("player", "target") < 15 then
         return melee_rotation:run()
     else
-        caster_range_check(5, 30);
+        caster_range_check(6, 30);
+        if lole_subcommands.get("aoemode") == 1 and UnitMana("player") > 600 and get_aoe_feasibility("target", 8) > 4.5 then
+            if UnitChannelInfo("player") == "Volley" then return end
+            else
+                return cast_gtaoe("Volley(Rank 2)", get_unit_position("target"))
+            end
+        end
+        
         local has_viper_sting = has_debuff("target", "Viper Sting")
         if (UnitPowerType("target") == 0) and (UnitHealth("target") > 2000) and (UnitMana("target") > 200) and (not has_viper_sting) then
             return L_CastSpellByName("Viper Sting")

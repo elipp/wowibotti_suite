@@ -18,6 +18,8 @@ use crate::{objectmanager::GUID, patch::deref, Addr, LoleError, LoleResult};
 #[derive(Debug)]
 pub struct WowSocket(Addr, SOCKET);
 
+impl WowSocket {}
+
 pub fn get_wow_sockobj() -> LoleResult<WowSocket> {
     let tmp = deref::<Addr, 1>(offsets::socket::CONNECTION);
     if tmp == 0 {
@@ -34,8 +36,8 @@ pub fn get_wow_sockobj() -> LoleResult<WowSocket> {
     Ok(WowSocket(sockobj, SOCKET(socket)))
 }
 
+#[cfg(feature = "tbc")]
 impl WowSocket {
-    #[cfg(feature = "tbc")]
     pub fn encrypt_packet(&self, packet: &mut [u8]) -> LoleResult<()> {
         use crate::addrs::offsets::wow_cfuncs::SARC4_ENCRYPT_BYTE;
         if packet.len() < 6 {
@@ -60,7 +62,9 @@ impl WowSocket {
         }
         Ok(())
     }
-    #[cfg(feature = "wotlk")]
+}
+#[cfg(feature = "wotlk")]
+impl WowSocket {
     pub fn encrypt_packet(&self, packet: &mut [u8]) -> LoleResult<()> {
         use crate::addrs::offsets::wow_cfuncs::EncryptPacketHeader;
         if packet.len() < 6 {
@@ -80,6 +84,18 @@ impl WowSocket {
                 out("eax") _,
                 out("edx") _,
             }
+        }
+        Ok(())
+    }
+
+    pub fn send_packet(&self, mut packet: Vec<u8>) -> LoleResult<()> {
+        self.encrypt_packet(&mut packet)?;
+        let res = unsafe { WinSock::send(self.1, &packet, SEND_RECV_FLAGS(0)) };
+        if res < 0 || res as usize != packet.len() {
+            return Err(LoleError::SocketSendError(format!(
+                "WinSock::send() returned {res}, should match packet len (= {})",
+                packet.len()
+            )));
         }
         Ok(())
     }
@@ -173,15 +189,7 @@ fn set_facing_remote(pos: Vec3, angle: f32, movement_flags: u8) -> LoleResult<()
     }
 
     let wowsocket = get_wow_sockobj()?;
-    wowsocket.encrypt_packet(&mut packet)?;
-
-    let res = unsafe { WinSock::send(wowsocket.1, &packet, SEND_RECV_FLAGS(0)) };
-    if res < 0 || res as usize != packet.len() {
-        return Err(LoleError::SocketSendError(format!(
-            "WinSock::send() returned {res}, should match packet len (= {})",
-            packet.len()
-        )));
-    }
+    wowsocket.send_packet(packet)?;
     Ok(())
 }
 
@@ -198,6 +206,33 @@ pub fn set_facing(angle: f32, movement_flags: u8) -> LoleResult<()> {
 
     SETFACING_STATE.set((angle, std::time::Instant::now()));
     RUN_SCRIPT_AFTER_N_FRAMES.set(Some(("TurnLeftStop()", 2)));
+    Ok(())
+}
+
+fn read_cast_count() -> LoleResult<u8> {
+    let byte = deref::<u32, 1>(offsets::SPELL_CAST_COUNTER);
+    let [_, counter, _, _] = byte.to_le_bytes();
+    Ok(counter)
+}
+
+fn increment_cast_count() -> LoleResult<()> {
+    let byte = deref::<u32, 1>(offsets::SPELL_CAST_COUNTER);
+    let [a, b, c, d] = byte.to_le_bytes();
+    let new_value = u32::from_le_bytes([a, b.wrapping_add(1), c, d]);
+    write_addr(offsets::SPELL_CAST_COUNTER, &[new_value])
+}
+
+pub fn cast_gtaoe(spellid: i32, pos: Vec3) -> LoleResult<()> {
+    let mut packet: Vec<u8> = vec![0x0, 0x1B, 0x2E, 0x1, 0x0, 0x0]; // packet size, 0x012E -> CMSG_CAST_SPELL
+    packet.push(read_cast_count()?);
+    packet.extend(spellid.to_le_bytes());
+    packet.extend([0x0, 0x40, 0x0, 0x0, 0x0, 0x0]); // flags + something
+    packet.extend(pos.x.to_le_bytes());
+    packet.extend(pos.y.to_le_bytes());
+    packet.extend(pos.z.to_le_bytes());
+    let wowsocket = get_wow_sockobj()?;
+    wowsocket.send_packet(packet)?;
+    increment_cast_count()?;
     Ok(())
 }
 
