@@ -66,7 +66,8 @@ local function attack()
     else
         caster_range_check(6, 30);
         if lole_subcommands.get("aoemode") == 1 and UnitMana("player") > 600 and get_aoe_feasibility("target", 8) > 4.5 then
-            if UnitChannelInfo("player") == "Volley" then return end
+            if UnitChannelInfo("player") == "Volley" then
+                return
             else
                 return cast_gtaoe("Volley(Rank 2)", get_unit_position("target"))
             end
