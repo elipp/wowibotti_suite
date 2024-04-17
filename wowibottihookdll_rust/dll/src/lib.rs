@@ -159,9 +159,9 @@ fn write_last_hardware_action() -> LoleResult<()> {
 
 fn main_entrypoint() -> LoleResult<()> {
     ctm::poll()?;
-    // if let Some(dt) = ROUGHLY_SIXTY_FPS.checked_sub(LAST_FRAME_TIME.get().elapsed()) {
-    //     std::thread::sleep(dt);
-    // }
+    if let Some(dt) = ROUGHLY_SIXTY_FPS.checked_sub(LAST_FRAME_TIME.get().elapsed()) {
+        std::thread::sleep(dt);
+    }
 
     if LAST_HARDWARE_INTERVAL.get().elapsed() > std::time::Duration::from_secs(20) {
         LAST_HARDWARE_INTERVAL.set(std::time::Instant::now());
@@ -317,8 +317,6 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     //     break;
     //     // Optionally, you can perform other work here while waiting for the task to complete
     // }
-
-    println!("{:p}", GetTickCount as *const ());
 
     for p in patches.iter() {
         println!("* {} @ 0x{:08X}", p.name, p.patch_addr);

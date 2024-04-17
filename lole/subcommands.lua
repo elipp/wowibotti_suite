@@ -7,6 +7,7 @@ local mode_attribs = {
 	aoemode = 0,
 	hold = 0,
 	dispelmode = 0,
+	strict_targeting = 0,
 }
 
 LOLE_MODE_ATTRIBS = mode_attribs
@@ -97,7 +98,7 @@ function lole_set(attrib_name, on_off_str)
 		return false;
 	end
 
-	if mode_attribs[attrib_name] then
+	if mode_attribs[attrib_name] ~= nil then
 		local state = get_int_from_strbool(on_off_str);
 		if state < 0 then
 			echo("lole_set: invalid argument \"" .. state .. "\" for attrib " .. attrib_name .. "! (use 1/on | 0/off)");

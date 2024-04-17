@@ -1,4 +1,4 @@
-local pet_food = "Sandworm Meat";
+local pet_food = "Soft Banana Bread";
 local last_feed_time = 0;
 local FEED_INTERVAL = 60;
 
@@ -49,7 +49,7 @@ local function set_pet_state()
 end
 
 local function check_buffs()
-    if not UnitAffectingCombat("Raimo") then
+    if not UnitAffectingCombat("Raimo") and not UnitAffectingCombat("player") then
         if not has_buff("player", "Aspect of the Viper") then
             L_CastSpellByName("Aspect of the Viper")
         end
@@ -62,14 +62,26 @@ local function attack()
     if player_is_targeted() and get_distance_between("player", "target") < 15 then
         return melee_rotation:run()
     else
+        set_pet_state();
+        
         if not caster_range_check(6, 30) then return end
+        
+        L_PetAttack()
+        if UnitChannelInfo("player") == "Volley" then return end
+        L_StartAttack();
+        
+        if not has_buff("player", "Aspect of the Hawk") then
+            L_CastSpellByName("Aspect of the Hawk")
+        end
+        
         local feasibility = get_aoe_feasibility("target", 8)
-        if lole_subcommands.get("aoemode") == 1 and UnitMana("player") > 600 and get_aoe_feasibility("target", 8) > 4.5 then
+        if lole_subcommands.get("aoemode") == 1 and UnitMana("player") > 600 and feasibility > 4.5 then
             return cast_gtaoe("Volley(Rank 2)", get_unit_position("target"))
         end
         
-        L_StartAttack();
-        L_PetAttack();
+        if UnitHealth("target") > 7500 and not has_debuff("target", "Hunter's Mark") then
+            return L_CastSpellByName("Hunter's Mark");
+        end
         
         local has_viper_sting = has_debuff("target", "Viper Sting")
         if (UnitPowerType("target") == 0) and (UnitHealth("target") > 2000) and (UnitMana("target") > 200) and (not has_viper_sting) then
@@ -100,19 +112,11 @@ local function need_mana()
 end
 
 function combat_ranged_hunter()
-    -- if need_mana() then return end;
-    check_buffs();
-    set_pet_state();
-    if validate_target() then
-        -- when the padit loppuivat: melee mode XD 
-        -- StartAttack()
-        -- L_CastSpellByName("Raptor Strike")
-        if UnitChannelInfo("player") == "Volley" then return end
-        if not has_debuff("target", "Hunter's Mark") then
-            L_CastSpellByName("Hunter's Mark");
+    if not UnitAffectingCombat("Raimo") and not UnitAffectingCombat("player") then
+        if not has_buff("player", "Aspect of the Viper") then
+            return L_CastSpellByName("Aspect of the Viper")
         end
-        attack();
+    elseif validate_target() then
+        attack()
     end
-    --echo("Combat activated")
-    --caster_range_check(5,25)
 end

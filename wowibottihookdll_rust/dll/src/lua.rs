@@ -811,7 +811,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             for mob in om.iter_mobs().filter(|o| {
                 o.unit_reaction(&player) < 5
                     && o.is_dead().is_ok_and(|dead| !dead)
-                    && o.health().is_ok_and(|health| health > 1000)
+                    && o.health().is_ok_and(|health| health > 0)
             }) {
                 let dist = (query_pos - mob.get_pos()).length();
                 feasibility += (-(1.0 / radius.powi(3)) * dist.powi(3) + 1.0).clamp(0.0, 1.0);

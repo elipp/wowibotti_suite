@@ -82,7 +82,7 @@ function lole_main(args)
 			lole_subcommands.broadcast("target", NOTARGET)
 		end
 
-		if BLAST_TARGET_GUID == NOTARGET then
+		if lole_subcommands.get("strict_targeting") == 0 and BLAST_TARGET_GUID == NOTARGET then
 			if not UnitExists("focus") then
 				if UnitExists("target") and not UnitIsDead("target") and UnitReaction("target", "player") < 5 then
 					set_target(UnitGUID("target"))

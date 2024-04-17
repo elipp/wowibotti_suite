@@ -345,40 +345,31 @@ local mode_attrib_title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "G
 mode_attrib_title_fontstr:SetPoint("BOTTOMRIGHT", -25, 80);
 mode_attrib_title_fontstr:SetText("Mode attribs:")
 
-local playermode_checkbutton = CreateFrame("CheckButton", "playermode_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
-playermode_checkbutton:SetPoint("BOTTOMRIGHT", -67, 50);
-playermode_checkbutton.tooltip = "Set to enabled if you're playing this character.";
---playermode_checkbutton:SetScale(0.8)
-
 --local mattrib_font = playermode_checkbutton:CreateFontString(nil, "OVERLAY")
 --mattrib_font:SetFont("Fonts\\FRIZQT__.TTF", 9);
 
-getglobal(playermode_checkbutton:GetName() .. "Text"):SetFont("Fonts\\FRIZQT__.TTF", 8)
-getglobal(playermode_checkbutton:GetName() .. "Text"):SetText("Player mode")
+local function create_mode_attrib_checkbox(attrib_name, title, tooltip, relative_to, position_x, position_y)
+	local checkbutton = CreateFrame("CheckButton", attrib_name.."checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
+	checkbutton:SetPoint(relative_to, position_x, position_y);
+	checkbutton.tooltip = tooltip
+	--aoemode_checkbutton:SetScale(0.8)
 
-playermode_checkbutton:SetScript("OnClick",
-  function()
-	local arg = playermode_checkbutton:GetChecked() and "1" or "0";
-	lole_subcommands.set("playermode", arg);
-  end
-);
+	getglobal(checkbutton:GetName() .. "Text"):SetFont("Fonts\\FRIZQT__.TTF", 8)
+	getglobal(checkbutton:GetName() .. "Text"):SetText(title)
+
+	checkbutton:SetScript("OnClick",
+	  function()
+			local arg = checkbutton:GetChecked() and "1" or "0";
+			lole_subcommands.set(attrib_name, arg);
+	  end
+	);
+end
 
 -- COLOR CODE FOR E.G. GameFontNormalSmall TEMPLATE: |cFFFFD100
 
-local aoemode_checkbutton = CreateFrame("CheckButton", "aoemode_checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
-aoemode_checkbutton:SetPoint("BOTTOMRIGHT", -67, 30);
-aoemode_checkbutton.tooltip = "AOE spells only";
---aoemode_checkbutton:SetScale(0.8)
-
-getglobal(aoemode_checkbutton:GetName() .. "Text"):SetFont("Fonts\\FRIZQT__.TTF", 8)
-getglobal(aoemode_checkbutton:GetName() .. "Text"):SetText("AOE mode")
-
-aoemode_checkbutton:SetScript("OnClick",
-  function()
-	local arg = aoemode_checkbutton:GetChecked() and "1" or "0";
-	lole_subcommands.set("aoemode", arg);
-  end
-);
+create_mode_attrib_checkbox("playermode", "Player mode", "Set to enabled if you're playing this character.", "BOTTOMRIGHT", -67, 55)
+create_mode_attrib_checkbox("aoemode", "AOE mode", "Cast AOE spells (if applicable).", "BOTTOMRIGHT", -67, 35)
+create_mode_attrib_checkbox("strict_targeting", "Strict targeting", "Never auto-update target", "BOTTOMRIGHT", -67, 15)
 
 local mode_attrib_checkboxes = {
 	["playermode"] = playermode_checkbutton,
@@ -633,7 +624,7 @@ create_simple_button("add_cc_button", lole_frame, 22, -175, "Add CC...", 85, 27,
 
 local inject_status_text = lole_frame:CreateFontString(nil, "OVERLAY");
 inject_status_text:SetFont("Fonts\\FRIZQT__.TTF", 9);
-inject_status_text:SetPoint("BOTTOMRIGHT", -22, 15);
+inject_status_text:SetPoint("BOTTOMRIGHT", -22, 10);
 inject_status_text:SetText("")
 
 local last_status = true -- hack to enable initial injected status display
