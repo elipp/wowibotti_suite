@@ -3,8 +3,8 @@ use serde::Serialize;
 use std::ffi::c_void;
 use std::os::windows::ffi::OsStrExt;
 use std::sync::{Arc, Mutex};
-
-use wowibottihookdll::{get_config_file_path, ClientConfig, RealmInfo};
+use windows::Win32::Foundation::WPARAM;
+use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, WM_USER};
 
 use windows::{
     core::{s, w, PCWSTR},
@@ -30,10 +30,13 @@ use windows::{
     },
 };
 
-use crate::{InjectQuery, PottiConfig, WowAccount};
+use crate::{str_into_vec_u16, InjectQuery, PottiConfig, WowAccount, DUMMY_WINDOW_HWND};
+
+pub const INJ_MESSAGE_REGISTER_HOTKEY: u32 = WM_USER;
+pub const INJ_MESSAGE_UNREGISTER_HOTKEY: u32 = WM_USER + 1;
 
 lazy_static! {
-    static ref CLIENTS: Arc<Mutex<Vec<WowClient>>> = Arc::new(Mutex::new(Vec::new()));
+    pub static ref CLIENTS: Arc<Mutex<Vec<WowClient>>> = Arc::new(Mutex::new(Vec::new()));
 }
 
 pub type InjectorResult<T> = Result<T, InjectorError>;
@@ -48,6 +51,7 @@ pub enum InjectorError {
     HttpError(http::Error),
     CharacterEntryNotFound(String),
     LaunchError(String),
+    HotkeyError(String),
     OtherError(String),
 }
 
@@ -57,26 +61,32 @@ impl From<http::Error> for InjectorError {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct WowClient {
-    window_handle: HWND,
+    pub window_handle: HWND,
     window_title: String,
     class_name: String,
     pid: u32,
     tid: u32, // tid of window thread
-    index: usize,
+    index: i32,
     library_handle: Option<HANDLE>,
+}
+
+impl Drop for WowClient {
+    fn drop(&mut self) {
+        self.unregister_hotkey().unwrap();
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct WowClientInfo {
     pid: u32,
     tid: u32,
-    index: usize,
+    index: i32,
 }
 
-impl From<WowClient> for WowClientInfo {
-    fn from(c: WowClient) -> Self {
+impl From<&WowClient> for WowClientInfo {
+    fn from(c: &WowClient) -> Self {
         Self {
             pid: c.pid,
             tid: c.tid,
@@ -86,36 +96,49 @@ impl From<WowClient> for WowClientInfo {
 }
 
 impl WowClient {
-    fn write_config_to_tmp_file(&self, account: WowAccount) -> InjectorResult<()> {
-        let full_path = get_config_file_path(self.pid).map_err(|e| InjectorError::OtherError(e))?;
+    fn register_hotkey(&self) -> InjectorResult<()> {
+        let index_str = str_into_vec_u16((self.index + 1).rem_euclid(10).to_string());
+        if index_str.len() < 1 {
+            return Err(InjectorError::HotkeyError(format!(
+                "Hotkey vkeycode conversion failed"
+            )));
+        }
+        unsafe {
+            SendMessageW(
+                *DUMMY_WINDOW_HWND.lock().unwrap(),
+                INJ_MESSAGE_REGISTER_HOTKEY,
+                WPARAM(self.index as usize),
+                LPARAM(index_str[0] as isize),
+            );
+        }
+        Ok(())
+    }
 
-        let client_config = ClientConfig {
-            realm: Some(RealmInfo {
-                login_server: String::from("logon.warmane.com"),
-                name: String::from("Lordaeron"),
-            }),
-            account: Some(account),
-            enabled_patches: None,
+    fn unregister_hotkey(&self) -> InjectorResult<()> {
+        unsafe {
+            SendMessageW(
+                *DUMMY_WINDOW_HWND.lock().unwrap(),
+                INJ_MESSAGE_UNREGISTER_HOTKEY,
+                WPARAM(self.index as usize),
+                LPARAM(0),
+            )
         };
-
-        let serialized = serde_json::to_string(&client_config)
-            .map_err(|_e| InjectorError::SerializationError(format!("{_e:?}")))?;
-
-        std::fs::write(&full_path, &serialized)
-            .map_err(|_e| InjectorError::OtherError(format!("{_e:?}")))?;
-
         Ok(())
     }
 
     fn inject(&self, account: Option<WowAccount>) -> InjectorResult<WowClientInfo> {
-        let client = self.clone();
+        let pid = self.pid;
+        let client_info = self.into();
         let modified_client = std::thread::spawn(move || unsafe {
             obtain_debug_privileges()?;
+
             if let Some(account) = account {
-                client.write_config_to_tmp_file(account)?;
+                account
+                    .write_config_to_tmp_file(pid)
+                    .map_err(|s| InjectorError::OtherError(s))?;
             }
 
-            let process = OpenProcess(PROCESS_ALL_ACCESS, FALSE, client.pid).unwrap();
+            let process = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid).unwrap();
 
             let load_library_addr = GetProcAddress(
                 GetModuleHandleW(w!("kernel32.dll")).map_err(|_e| {
@@ -139,7 +162,7 @@ impl WowClient {
                 )));
             }
 
-            let as_u16: Vec<u16> = dll_path.as_os_str().encode_wide().collect();
+            let as_u16: Vec<u16> = str_into_vec_u16(dll_path);
             let path_len_bytes = as_u16.len() * std::mem::size_of::<i16>();
 
             let llparam = VirtualAllocEx(
@@ -183,13 +206,13 @@ impl WowClient {
 
             WaitForSingleObject(rt, INFINITE);
             let mut library_handle = 0u32;
-            GetExitCodeThread(rt, &mut library_handle as *mut u32)
+            GetExitCodeThread(rt, &mut library_handle)
                 .map_err(|_e| InjectorError::InjectionError(String::from("GetExitCodeThread")))?;
             CloseHandle(process).unwrap();
             if library_handle == 0 {
                 Err(InjectorError::InjectionError(String::from("LoadLibraryW")))
             } else {
-                Ok::<WowClientInfo, InjectorError>(client.into())
+                Ok::<WowClientInfo, InjectorError>(client_info)
             }
         })
         .join()
@@ -207,12 +230,12 @@ unsafe fn obtain_debug_privileges() -> InjectorResult<()> {
         GetCurrentThread(),
         TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
         false,
-        &mut token as *mut HANDLE,
+        &mut token,
     )
     .map_err(|_e| InjectorError::DebugPrivilegesFailed(format!("OpenThreadToken: {_e:?}")))?;
 
     let mut luid: LUID = Default::default();
-    LookupPrivilegeValueW(None, SE_DEBUG_NAME, &mut luid as *mut LUID).map_err(|_e| {
+    LookupPrivilegeValueW(None, SE_DEBUG_NAME, &mut luid).map_err(|_e| {
         InjectorError::DebugPrivilegesFailed(format!("LookupPrivilegeValueW: {_e:?}"))
     })?;
 
@@ -243,7 +266,7 @@ unsafe extern "system" fn enum_windows_proc(hwnd: HWND, _lparam: LPARAM) -> BOOL
     let window_title = PCWSTR::from_raw(buf.as_ptr()).to_string().unwrap();
 
     let mut pid = 0u32;
-    let tid = GetWindowThreadProcessId(hwnd, Some(&mut pid as *mut u32));
+    let tid = GetWindowThreadProcessId(hwnd, Some(&mut pid));
 
     let mut clients = CLIENTS.lock().unwrap();
 
@@ -255,7 +278,7 @@ unsafe extern "system" fn enum_windows_proc(hwnd: HWND, _lparam: LPARAM) -> BOOL
             class_name,
             pid,
             tid,
-            index,
+            index: index as i32,
             library_handle: None,
         });
     }
@@ -276,6 +299,7 @@ fn inject_dll(
             .find(|a| &a.character.name == name)
             .ok_or_else(|| InjectorError::CharacterEntryNotFound(name.to_owned()))?;
         res.push(client.inject(Some(account.clone()))?);
+        client.register_hotkey()?;
     }
     Ok(res)
 }

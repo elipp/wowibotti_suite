@@ -251,6 +251,23 @@ impl WowAccount {
         );
         Ok(())
     }
+    pub fn write_config_to_tmp_file(&self, pid: u32) -> Result<(), String> {
+        let full_path = get_config_file_path(pid).map_err(|e| format!("Error: {e:?}"))?;
+
+        let client_config = ClientConfig {
+            realm: Some(RealmInfo {
+                login_server: String::from("logon.warmane.com"),
+                name: String::from("Lordaeron"),
+            }),
+            account: Some(self.clone()),
+            enabled_patches: None,
+        };
+
+        let serialized = serde_json::to_string(&client_config).map_err(|_e| format!("{_e:?}"))?;
+        std::fs::write(&full_path, &serialized).map_err(|_e| format!("{_e:?}"))?;
+
+        Ok(())
+    }
 }
 
 impl RealmInfo {

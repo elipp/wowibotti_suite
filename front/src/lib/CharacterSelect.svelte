@@ -2,11 +2,16 @@
 import { BACKEND_URL } from "../consts";
 import Character from "./Character.svelte";
 import { display_error } from "../error_display";
+    import { fade, slide } from "svelte/transition";
 
 export let config;
 export let num_selected = 0;
 
-let injection_result = undefined; 
+let injection = {
+  show_result: false,
+  clients: [],
+  timeout: undefined,
+}; 
 
 async function submit_inject_form(e) {
   let enabled_characters = []
@@ -24,7 +29,14 @@ async function submit_inject_form(e) {
     display_error({error: `injection failed: ${j.details}`})
   }
   else {
-    injection_result = j
+    if (injection.timeout) {
+      clearTimeout(injection.timeout);
+    }
+    injection = {
+      clients: j.clients,
+      timeout: setTimeout(() => injection = {clients: [], timeout: undefined, show_result: false}, 5000),
+      show_result: true,
+    }
   }
 }
 
@@ -50,13 +62,24 @@ function checkbox_onchange(e) {
   </form>
 </div>
 
-
+{#if injection.show_result }
+<div class="injection-result" transition:fade>
+  {#if injection.clients.length > 0}
+  <h3>Successfully injected dll to:</h3>
+  {#each injection.clients as c}
+    <p>Pid: {c.pid}</p>
+  {/each}
+  {:else}
+    <p>No clients were injected!</p>
+  {/if}
+</div>
+{/if}
 
 <style>
 .form-container {
   display: flex;
   flex-direction: column;
-  margin-bottom: 2em;
+  margin-bottom: 1em;
   line-height: 1.1;
 }
 
@@ -66,4 +89,7 @@ function checkbox_onchange(e) {
   margin-bottom: 2em;
 }
 
+.injection-result {
+  margin-bottom: 1em;
+}
 </style>

@@ -1,17 +1,38 @@
 use http::{Method, Request, Response, StatusCode};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
-use inject::{find_wow_windows_and_inject, InjectorError, InjectorResult};
+use inject::{
+    find_wow_windows_and_inject, InjectorError, InjectorResult, INJ_MESSAGE_REGISTER_HOTKEY,
+    INJ_MESSAGE_UNREGISTER_HOTKEY,
+};
+use lazy_static::lazy_static;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
-use std::{net::SocketAddr, os::windows::ffi::OsStrExt, path::PathBuf};
+use std::sync::{Arc, Mutex};
+use std::{ffi::OsString, net::SocketAddr, os::windows::ffi::OsStrExt, path::PathBuf};
 use tokio::net::TcpListener;
 use tokio_util::task::LocalPoolHandle;
+use windows::core::w;
+use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
+use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey, MOD_ALT};
+use windows::Win32::UI::WindowsAndMessaging::{
+    CreateWindowExW, DefWindowProcW, RegisterClassW, SetForegroundWindow, CS_HREDRAW, CS_VREDRAW,
+    CW_USEDEFAULT, WINDOW_EX_STYLE, WM_USER, WNDCLASSW, WS_OVERLAPPEDWINDOW, WS_VISIBLE,
+};
 use windows::{
     core::PCWSTR,
     core::PWSTR,
-    Win32::System::Threading::{
-        CreateProcessW, PROCESS_CREATION_FLAGS, PROCESS_INFORMATION, STARTUPINFOW,
+    Win32::{
+        Foundation::{FALSE, HWND},
+        System::{
+            LibraryLoader::GetModuleHandleW,
+            Threading::{
+                CreateProcessW, PROCESS_CREATION_FLAGS, PROCESS_INFORMATION, STARTUPINFOW,
+            },
+        },
+        UI::WindowsAndMessaging::{
+            DispatchMessageW, GetMessageW, TranslateMessage, MSG, WM_HOTKEY,
+        },
     },
 };
 
@@ -20,9 +41,14 @@ use http_body_util::BodyExt;
 mod inject;
 mod tokio_io;
 
+use crate::inject::CLIENTS;
 use crate::tokio_io::TokioIo;
 
-use wowibottihookdll::{windows_string, CharacterInfo, WowAccount};
+use wowibottihookdll::{CharacterInfo, WowAccount};
+
+lazy_static! {
+    static ref DUMMY_WINDOW_HWND: Arc<Mutex<HWND>> = Arc::new(Mutex::new(HWND(0)));
+}
 
 fn json_response_builder() -> http::response::Builder {
     http::Response::builder()
@@ -124,10 +150,16 @@ struct LaunchQuery {
     num_clients: i32,
 }
 
+pub fn str_into_vec_u16<S: Into<OsString>>(s: S) -> Vec<u16> {
+    let oss = s.into();
+    oss.as_os_str().encode_wide().chain([0u16]).collect()
+}
+
 impl LaunchQuery {
     fn launch(self, config: PottiConfig) -> InjectorResult<()> {
         unsafe {
-            let as_u16: Vec<u16> = config.wow_client_path.as_os_str().encode_wide().collect();
+            let path = config.wow_client_path.into_os_string();
+            let as_u16: Vec<u16> = str_into_vec_u16(path.clone());
             for _ in 0..self.num_clients {
                 let startup_info = STARTUPINFOW::default();
                 let mut process_information = PROCESS_INFORMATION::default();
@@ -141,9 +173,9 @@ impl LaunchQuery {
                     None,
                     None,
                     &startup_info as *const STARTUPINFOW,
-                    &mut process_information as *mut PROCESS_INFORMATION,
+                    &mut process_information,
                 )
-                .map_err(|_e| InjectorError::LaunchError(format!("{_e:?}")))?;
+                .map_err(|_e| InjectorError::LaunchError(format!("{_e:?} ({:?})", path)))?;
                 std::thread::sleep(std::time::Duration::from_millis(200));
             }
         }
@@ -199,16 +231,94 @@ async fn handle_request(
     }
 }
 
-#[tokio::main]
-pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let pool = LocalPoolHandle::new(2);
+unsafe extern "system" fn dummy_wndproc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
+    match msg {
+        WM_HOTKEY => {
+            let clients = CLIENTS.lock().unwrap();
+            if let Some(client) = clients.get(wparam.0) {
+                SetForegroundWindow(client.window_handle);
+            }
+        }
+        INJ_MESSAGE_REGISTER_HOTKEY => {
+            RegisterHotKey(hwnd, wparam.0 as i32, MOD_ALT, lparam.0 as u32).expect("RegisterHotKey")
+        }
 
+        INJ_MESSAGE_UNREGISTER_HOTKEY => {
+            UnregisterHotKey(hwnd, wparam.0 as i32).expect("UnregisterHotKey")
+        }
+        _ => {}
+    }
+    DefWindowProcW(hwnd, msg, wparam, lparam)
+}
+
+fn start_dummy_window() -> std::thread::JoinHandle<Result<(), InjectorError>> {
+    std::thread::spawn(|| unsafe {
+        let instance = GetModuleHandleW(None).unwrap();
+
+        let class_name = PCWSTR(
+            "InjectorHiddenWindow"
+                .encode_utf16()
+                .collect::<Vec<u16>>()
+                .as_ptr(),
+        );
+        let window_class = WNDCLASSW {
+            style: CS_HREDRAW | CS_VREDRAW,
+            lpfnWndProc: Some(dummy_wndproc),
+            hInstance: instance.into(),
+            lpszClassName: class_name,
+            ..Default::default()
+        };
+
+        RegisterClassW(&window_class);
+
+        let hwnd = CreateWindowExW(
+            WINDOW_EX_STYLE(0),
+            class_name,
+            w!("injector"),
+            WS_OVERLAPPEDWINDOW, //| WS_VISIBLE,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            None,
+            None,
+            instance,
+            None,
+        );
+
+        if hwnd == HWND(0) {
+            return Err(InjectorError::OtherError(format!("CreateWindowExW failed")));
+        }
+
+        *DUMMY_WINDOW_HWND.lock().unwrap() = hwnd;
+
+        // Normally you would show the window with ShowWindow, but we'll keep it hidden.
+        // ShowWindow(hwnd, SW_SHOW);
+
+        let mut msg = MSG::default();
+        while GetMessageW(&mut msg, None, 0, 0) != FALSE {
+            let _ = TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+        println!("exiting");
+        Ok(())
+    })
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    start_dummy_window();
+    let pool = LocalPoolHandle::new(2);
     let port = 7070;
     let addr: SocketAddr = ([127, 0, 0, 1], port).into();
-    println!("Injector listening for HTTP at {:?}", addr);
-
     // Bind to the port and listen for incoming TCP connections
     let listener = TcpListener::bind(addr).await?;
+    println!("Injector listening for HTTP at {:?}", addr);
     loop {
         let (stream, _) = listener.accept().await?;
         let io = TokioIo::new(stream);
@@ -224,4 +334,6 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
         });
     }
+
+    Ok(())
 }
