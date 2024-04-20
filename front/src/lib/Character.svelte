@@ -1,6 +1,7 @@
 <script>
 export let character;
 const input_id = `${character.name}`
+export let onchange;
 </script>
 
 <div>
@@ -8,7 +9,7 @@ const input_id = `${character.name}`
         <img src={`${character.class}.png`} alt={character.class}>
         <span>{character.name}</span>
     </label>
-    <input type="checkbox" id={input_id} name={input_id}>
+    <input type="checkbox" id={input_id} name={input_id} on:change={onchange}>
 </div>
 
 <style>

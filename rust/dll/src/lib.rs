@@ -75,10 +75,6 @@ thread_local! {
         .unwrap());
 }
 
-pub fn wide_null(s: &str) -> Vec<u16> {
-    s.encode_utf16().chain(Some(0)).collect()
-}
-
 #[macro_export]
 macro_rules! global_var {
     ($name:ident) => {
@@ -105,9 +101,15 @@ macro_rules! dump_to_logfile {
     }}
 }
 
+#[macro_export]
 macro_rules! windows_string {
     ($s:expr) => {
-        PCWSTR::from_raw(wide_null($s).as_ptr())
+        PCWSTR::from_raw(
+            $s.encode_utf16()
+                .chain(Some(0))
+                .collect::<Vec<u16>>()
+                .as_ptr(),
+        )
     };
 }
 

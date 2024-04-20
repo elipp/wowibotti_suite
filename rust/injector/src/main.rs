@@ -1,12 +1,19 @@
 use http::{Method, Request, Response, StatusCode};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
-use inject::{find_wow_windows_and_inject, InjectorError};
+use inject::{find_wow_windows_and_inject, InjectorError, InjectorResult};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, os::windows::ffi::OsStrExt, path::PathBuf};
 use tokio::net::TcpListener;
 use tokio_util::task::LocalPoolHandle;
+use windows::{
+    core::PCWSTR,
+    core::PWSTR,
+    Win32::System::Threading::{
+        CreateProcessW, PROCESS_CREATION_FLAGS, PROCESS_INFORMATION, STARTUPINFOW,
+    },
+};
 
 use http_body_util::BodyExt;
 
@@ -15,7 +22,7 @@ mod tokio_io;
 
 use crate::tokio_io::TokioIo;
 
-use wowibottihookdll::{CharacterInfo, WowAccount};
+use wowibottihookdll::{windows_string, CharacterInfo, WowAccount};
 
 fn json_response_builder() -> http::response::Builder {
     http::Response::builder()
@@ -59,12 +66,17 @@ fn internal_server_error<T: Serialize>(msg: T) -> IHttpResult {
 async fn handle_request_wrapper(req: Request<hyper::body::Incoming>) -> IHttpResult {
     match handle_request(req).await {
         Ok(r) => Ok(r),
+        Err(InjectorError::NotFound) => not_found(),
+        Err(InjectorError::DebugPrivilegesFailed(e)) => internal_server_error(format!(
+            "{e:?} (are you running injector as an Administrator?)"
+        )),
         Err(e) => internal_server_error(format!("{e:?}")),
     }
 }
 
 #[derive(Debug, Deserialize)]
 struct PottiConfig {
+    wow_client_path: PathBuf,
     accounts: Vec<WowAccount>,
 }
 
@@ -107,6 +119,37 @@ async fn parse_json_body_into<O: DeserializeOwned>(
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct LaunchQuery {
+    num_clients: i32,
+}
+
+impl LaunchQuery {
+    fn launch(self, config: PottiConfig) -> InjectorResult<()> {
+        unsafe {
+            let as_u16: Vec<u16> = config.wow_client_path.as_os_str().encode_wide().collect();
+            for _ in 0..self.num_clients {
+                let startup_info = STARTUPINFOW::default();
+                let mut process_information = PROCESS_INFORMATION::default();
+                CreateProcessW(
+                    PCWSTR::from_raw(as_u16.as_ptr()),
+                    PWSTR::null(),
+                    None,
+                    None,
+                    false,
+                    PROCESS_CREATION_FLAGS(0),
+                    None,
+                    None,
+                    &startup_info as *const STARTUPINFOW,
+                    &mut process_information as *mut PROCESS_INFORMATION,
+                )
+                .map_err(|_e| InjectorError::LaunchError(format!("{_e:?}")))?;
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            }
+        }
+        Ok(())
+    }
+}
 async fn handle_request(
     req: Request<hyper::body::Incoming>,
 ) -> Result<Response<String>, InjectorError> {
@@ -143,6 +186,14 @@ async fn handle_request(
             Ok(json_response_builder()
                 .status(StatusCode::OK)
                 .body(json!({"status": "ok", "clients": serialized}).to_string())?)
+        }
+
+        (&Method::POST, "/launch") => {
+            let query: LaunchQuery = parse_json_body_into(req).await?;
+            query.launch(read_potti_conf()?)?;
+            Ok(json_response_builder()
+                .status(StatusCode::OK)
+                .body(json!({"status": "ok"}).to_string())?)
         }
         _ => Err(InjectorError::NotFound),
     }

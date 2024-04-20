@@ -1,21 +1,15 @@
 use lazy_static::lazy_static;
 use serde::Serialize;
 use std::ffi::c_void;
-use std::fmt::Write;
-use std::fs;
 use std::os::windows::ffi::OsStrExt;
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use wowibottihookdll::{get_config_file_path, ClientConfig, RealmInfo};
 
-use windows::core::HSTRING;
 use windows::{
     core::{s, w, PCWSTR},
     Win32::{
-        Foundation::{
-            CloseHandle, GetLastError, BOOL, ERROR_NO_TOKEN, FALSE, HANDLE, HWND, LPARAM, LUID,
-        },
+        Foundation::{CloseHandle, BOOL, FALSE, HANDLE, HWND, LPARAM, LUID},
         Security::{
             AdjustTokenPrivileges, ImpersonateSelf, LookupPrivilegeValueW, SecurityImpersonation,
             SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED, TOKEN_ADJUST_PRIVILEGES, TOKEN_PRIVILEGES,
@@ -53,6 +47,7 @@ pub enum InjectorError {
     NotFound,
     HttpError(http::Error),
     CharacterEntryNotFound(String),
+    LaunchError(String),
     OtherError(String),
 }
 
