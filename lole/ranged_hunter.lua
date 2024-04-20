@@ -64,8 +64,6 @@ local function attack()
     else
         set_pet_state();
         
-        if not caster_range_check(6, 30) then return end
-        
         L_PetAttack()
         if UnitChannelInfo("player") == "Volley" then return end
         L_StartAttack();
@@ -74,8 +72,10 @@ local function attack()
             L_CastSpellByName("Aspect of the Hawk")
         end
         
+        caster_range_check(6, 30)
+        
         local feasibility = get_aoe_feasibility("target", 8)
-        if lole_subcommands.get("aoemode") == 1 and UnitMana("player") > 600 and feasibility > 4.5 then
+        if lole_subcommands.get("aoemode") == 1 and get_distance_between("player", "target") < 30 and UnitMana("player") > 600 and feasibility > 4.5 then
             return cast_gtaoe("Volley(Rank 2)", get_unit_position("target"))
         end
         

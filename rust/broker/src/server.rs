@@ -3,11 +3,11 @@ use std::sync::{mpsc, Arc, Mutex};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
-type ConnectionId = i32;
+type ConnectionId = u32;
 
 pub const BUF_SIZE: usize = 4096;
 pub const SERVER_CONNECTION_ID: ConnectionId = 0;
-pub const UNINITIALIZED_CONNECTION_ID: ConnectionId = -1;
+pub const UNINITIALIZED_CONNECTION_ID: ConnectionId = u32::MAX;
 
 struct Connection {
     id: ConnectionId,
@@ -23,7 +23,7 @@ impl std::fmt::Display for Connection {
 #[derive(Debug, Clone, bitcode::Encode, bitcode::Decode)]
 pub enum Msg {
     Hello,
-    Welcome(i32),
+    Welcome(ConnectionId),
     String(String),
 }
 
@@ -51,7 +51,7 @@ async fn main() {
 
     let (tx, rx) = mpsc::channel::<MsgWrapper>(); // Channel for broadcasting messages
     let clients: Arc<Mutex<Vec<Connection>>> = Arc::new(Mutex::new(Vec::new()));
-    let client_id_counter: Arc<Mutex<i32>> = Arc::new(Mutex::new(1));
+    let client_id_counter: Arc<Mutex<ConnectionId>> = Arc::new(Mutex::new(1));
 
     let cloned_clients = clients.clone();
     // Spawn a task to handle broadcasting messages to all connected clients
@@ -124,7 +124,7 @@ async fn main() {
                             .decode::<MsgWrapper>(&buf[..bytes_read])
                             .expect("deserialization");
                         println!("got message {msg}");
-                        if msg.from_connection_id == -1 {
+                        if msg.from_connection_id == UNINITIALIZED_CONNECTION_ID {
                             if let Msg::Hello = msg.message {
                                 tx_clone
                                     .send(MsgWrapper {

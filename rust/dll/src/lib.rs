@@ -1,13 +1,13 @@
 use addrs::offsets::{LAST_HARDWARE_ACTION, TICK_COUNT};
 use core::cell::Cell;
 use objectmanager::ObjectManager;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use socket::read_os_tick_count;
 use std::cell::RefCell;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use windows::Win32::System::SystemInformation::GetTickCount;
-use windows::Win32::System::Threading::ExitProcess;
+use windows::Win32::System::Threading::{ExitProcess, GetCurrentProcessId};
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
 use lua::Opcode;
@@ -44,6 +44,7 @@ use crate::lua::{prepare_ClosePetStables_patch, register_lop_exec, LuaType};
 use crate::patch::Patch;
 use crate::socket::prepare_dump_outbound_packet_patch;
 use crate::spell_error::{prepare_spell_err_msg_trampoline, SpellError};
+use tokio::task;
 
 pub const POSTGRES_ADDR: &str = "127.0.0.1:5432";
 pub const POSTGRES_USER: &str = "lole";
@@ -51,10 +52,7 @@ pub const POSTGRES_PASS: &str = "lole";
 pub const POSTGRES_DB: &str = "lole";
 
 lazy_static! {
-    // just in case DllMain is called from a non-main thread? :D
     pub static ref ENABLED_PATCHES: Mutex<Vec<Patch>> = Mutex::new(vec![]);
-    pub static ref DLL_HANDLE: Mutex<HINSTANCE> = Mutex::new(HINSTANCE(0));
-
 }
 
 thread_local! {
@@ -68,6 +66,13 @@ thread_local! {
     pub static LAST_FRAME_NUM: Cell<u32> = Cell::new(0);
 
     pub static LAST_HARDWARE_INTERVAL: Cell<std::time::Instant> = Cell::new(std::time::Instant::now());
+    pub static DLL_HANDLE: Cell<HINSTANCE> = Cell::new(HINSTANCE(0));
+    pub static LOCAL_SET: RefCell<task::LocalSet> = RefCell::new(task::LocalSet::new());
+    pub static TOKIO_RUNTIME: RefCell<tokio::runtime::Runtime> = RefCell::new(
+        tokio::runtime::Builder::new_current_thread()
+        .enable_time()
+        .build()
+        .unwrap());
 }
 
 pub fn wide_null(s: &str) -> Vec<u16> {
@@ -144,7 +149,7 @@ unsafe fn eject_dll() -> LoleResult<()> {
     CloseHandle(CONSOLE_CONOUT.get())?;
     FreeConsole()?;
     std::thread::spawn(|| {
-        FreeLibraryAndExitThread(*global_var!(DLL_HANDLE), 0);
+        FreeLibraryAndExitThread(DLL_HANDLE.get(), 0);
     });
     Ok(())
 }
@@ -193,32 +198,46 @@ unsafe fn open_console() -> LoleResult<()> {
 // instead of trying to catch SIGABRT, try creating WER crash dumps:
 // https://learn.microsoft.com/en-us/windows/win32/wer/collecting-user-mode-dumps?redirectedfrom=MSDN
 
-#[derive(Debug, Deserialize)]
-struct CharacterInfo {
-    name: String,
-    class: String,
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum CharacterClass {
+    Druid,
+    Hunter,
+    DeathKnight,
+    Paladin,
+    Priest,
+    Rogue,
+    Mage,
+    Warlock,
+    Warrior,
 }
 
-#[derive(Debug, Deserialize)]
-struct AccountInfo {
-    username: String,
-    password: String,
-    character: CharacterInfo,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CharacterInfo {
+    pub name: String,
+    pub class: CharacterClass,
 }
 
-#[derive(Debug, Deserialize)]
-struct RealmInfo {
-    login_server: String,
-    name: String,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WowAccount {
+    pub username: String,
+    pub password: String,
+    pub character: CharacterInfo,
 }
 
-#[derive(Debug, Deserialize)]
-struct ClientConfig {
-    realm: Option<RealmInfo>,
-    credentials: Option<AccountInfo>,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RealmInfo {
+    pub login_server: String,
+    pub name: String,
 }
 
-impl AccountInfo {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClientConfig {
+    pub realm: Option<RealmInfo>,
+    pub account: Option<WowAccount>,
+    pub enabled_patches: Option<Vec<String>>,
+}
+
+impl WowAccount {
     fn login(&self) -> LoleResult<()> {
         std::thread::sleep(std::time::Duration::from_millis(
             rand::random::<u64>() % 5000,
@@ -243,28 +262,40 @@ impl RealmInfo {
     }
 }
 
-fn read_config_from_file(pid: u32) -> LoleResult<ClientConfig> {
-    let local_app_data = std::env::var("LOCALAPPDATA").expect("localappdata env var missing");
-    let file_path = format!("{}\\Temp\\wow-{}.json", local_app_data, pid);
-    match std::fs::read_to_string(&file_path) {
+pub fn get_config_file_path(pid: u32) -> Result<PathBuf, String> {
+    let localappdata =
+        std::env::var("LOCALAPPDATA").map_err(|_e| String::from("LOCALAPPDATA missing"))?;
+    Ok(Path::new(&localappdata)
+        .join("Temp")
+        .join(&format!("wow-{pid}.json")))
+}
+
+fn read_config_from_file(pid: u32) -> Result<ClientConfig, String> {
+    let config_path = get_config_file_path(pid)?;
+    match std::fs::read_to_string(&config_path) {
         Ok(contents) => match serde_json::from_str::<ClientConfig>(&contents) {
             Ok(config) => Ok(config),
-            Err(err) => Err(LoleError::InvalidDllConfig(err.to_string())),
+            Err(err) => Err(format!("InvalidDllConfig: {err:?}")),
         },
-        Err(err) => Err(LoleError::DllConfigReadError(err.to_string())),
+        Err(err) => Err(format!("DllConfigReadErr: {err:?}")),
     }
 }
 
 unsafe fn initialize_dll() -> LoleResult<()> {
     open_console()?;
-    if let Ok(config) = read_config_from_file(std::process::id()) {
-        if let Err(LoleError::ObjectManagerIsNull) = ObjectManager::new() {
-            if let Some(realm) = config.realm {
-                realm.set_realm_info()?;
+    match read_config_from_file(std::process::id()) {
+        Ok(config) => {
+            if let Err(LoleError::ObjectManagerIsNull) = ObjectManager::new() {
+                if let Some(realm) = config.realm {
+                    realm.set_realm_info()?;
+                }
+                if let Some(creds) = config.account {
+                    creds.login()?;
+                }
             }
-            if let Some(creds) = config.credentials {
-                creds.login()?;
-            }
+        }
+        Err(e) => {
+            println!("warning: reading config failed with {e:?}");
         }
     }
     let mut patches = global_var!(ENABLED_PATCHES);
@@ -290,33 +321,6 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     patches.push(closepetstables);
 
     println!("wowibottihookdll_rust: init done! :D enabled_patches:");
-
-    // let localset = tokio::task::LocalSet::new();
-
-    // ASYNC_RUNTIME.with_borrow(|r| {
-    //     r.block_on(async {
-    //         localset
-    //             .run_until(async move {
-    //                 tokio::task::spawn_local(async {
-    //                     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
-    //                     println!("moikkuliii :D");
-    //                 })
-    //                 .await
-    //             })
-    //             .await;
-    //     })
-    // });
-
-    // loop {
-    //     // Poll the task
-    //     ASYNC_RUNTIME.with_borrow(|r| {
-    //         r.block_on(async {
-    //             tokio::task::yield_now().await;
-    //         })
-    //     });
-    //     break;
-    //     // Optionally, you can perform other work here while waiting for the task to complete
-    // }
 
     for p in patches.iter() {
         println!("* {} @ 0x{:08X}", p.name, p.patch_addr);
@@ -429,7 +433,7 @@ unsafe extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *m
                 fatal_error_exit(e);
             }
             global_var!(ENABLED_PATCHES).push(tramp);
-            *global_var!(DLL_HANDLE) = dll_module;
+            DLL_HANDLE.set(dll_module);
         }
         // DLL_PROCESS_DETACH => {},
         _ => (),
