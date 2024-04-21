@@ -126,15 +126,20 @@ impl WowClient {
         Ok(())
     }
 
-    fn inject(&self, account: Option<WowAccount>) -> InjectorResult<WowClientInfo> {
+    fn inject(
+        &self,
+        account: Option<WowAccount>,
+        query: &InjectQuery,
+    ) -> InjectorResult<WowClientInfo> {
         let pid = self.pid;
         let client_info = self.into();
+        let enabled_patches = query.enabled_patches.clone();
         let modified_client = std::thread::spawn(move || unsafe {
             obtain_debug_privileges()?;
 
             if let Some(account) = account {
                 account
-                    .write_config_to_tmp_file(pid)
+                    .write_config_to_tmp_file(pid, enabled_patches)
                     .map_err(|s| InjectorError::OtherError(s))?;
             }
 
@@ -298,7 +303,7 @@ fn inject_dll(
             .iter()
             .find(|a| &a.character.name == name)
             .ok_or_else(|| InjectorError::CharacterEntryNotFound(name.to_owned()))?;
-        res.push(client.inject(Some(account.clone()))?);
+        res.push(client.inject(Some(account.clone()), &query)?);
         client.register_hotkey()?;
     }
     Ok(res)

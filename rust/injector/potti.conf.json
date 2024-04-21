@@ -41,5 +41,11 @@
 				"class": "Rogue"
 			}
 		}
+	],
+	"available_patches": [
+		"ClosePetStables__lop_exec",
+		"dump_outbound_packet",
+		"SpellErrMsg",
+		"CTM_finished"
 	]
 }

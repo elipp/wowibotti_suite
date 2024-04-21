@@ -1,4 +1,4 @@
-use addrs::offsets::{LAST_HARDWARE_ACTION, TICK_COUNT};
+use addrs::offsets::LAST_HARDWARE_ACTION;
 use core::cell::Cell;
 use objectmanager::ObjectManager;
 use serde::{Deserialize, Serialize};
@@ -7,11 +7,11 @@ use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use windows::Win32::System::Threading::{ExitProcess, GetCurrentProcessId};
+use windows::Win32::System::Threading::ExitProcess;
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
 use lua::Opcode;
-use patch::{prepare_endscene_trampoline, read_addr, write_addr};
+use patch::write_addr;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
 use windows::Win32::Storage::FileSystem::{
@@ -38,12 +38,9 @@ pub mod socket;
 pub mod spell_error;
 pub mod vec3;
 
-use crate::ctm::prepare_ctm_finished_patch;
-// use crate::ctm::prepare_ctm_finished_patch;
-use crate::lua::{prepare_ClosePetStables_patch, register_lop_exec, LuaType};
-use crate::patch::Patch;
-use crate::socket::prepare_dump_outbound_packet_patch;
-use crate::spell_error::{prepare_spell_err_msg_trampoline, SpellError};
+use crate::lua::LuaType;
+use crate::patch::{Patch, AVAILABLE_PATCHES};
+use crate::spell_error::SpellError;
 use tokio::task;
 
 pub const POSTGRES_ADDR: &str = "127.0.0.1:5432";
@@ -52,7 +49,7 @@ pub const POSTGRES_PASS: &str = "lole";
 pub const POSTGRES_DB: &str = "lole";
 
 lazy_static! {
-    pub static ref ENABLED_PATCHES: Mutex<Vec<Patch>> = Mutex::new(vec![]);
+    pub static ref ENABLED_PATCHES: Arc<Mutex<Vec<Arc<Patch>>>> = Arc::new(Mutex::new(vec![]));
 }
 
 thread_local! {
@@ -236,7 +233,7 @@ pub struct RealmInfo {
 pub struct ClientConfig {
     pub realm: Option<RealmInfo>,
     pub account: Option<WowAccount>,
-    pub enabled_patches: Option<Vec<String>>,
+    pub enabled_patches: Vec<String>,
 }
 
 impl WowAccount {
@@ -251,7 +248,11 @@ impl WowAccount {
         );
         Ok(())
     }
-    pub fn write_config_to_tmp_file(&self, pid: u32) -> Result<(), String> {
+    pub fn write_config_to_tmp_file(
+        &self,
+        pid: u32,
+        enabled_patches: Vec<String>,
+    ) -> Result<(), String> {
         let full_path = get_config_file_path(pid).map_err(|e| format!("Error: {e:?}"))?;
 
         let client_config = ClientConfig {
@@ -260,7 +261,7 @@ impl WowAccount {
                 name: String::from("Lordaeron"),
             }),
             account: Some(self.clone()),
-            enabled_patches: None,
+            enabled_patches,
         };
 
         let serialized = serde_json::to_string(&client_config).map_err(|_e| format!("{_e:?}"))?;
@@ -311,37 +312,27 @@ unsafe fn initialize_dll() -> LoleResult<()> {
                 if let Some(creds) = config.account {
                     creds.login()?;
                 }
+                let available_patches = AVAILABLE_PATCHES.lock().unwrap();
+                let mut enabled_patches = global_var!(ENABLED_PATCHES);
+                for p in config.enabled_patches {
+                    if let Some(patch) = available_patches.get(p.as_str()) {
+                        let cloned = patch.clone();
+                        cloned.enable()?;
+                        enabled_patches.push(cloned);
+                    } else {
+                        println!("wtf {p}");
+                    }
+                }
             }
         }
         Err(e) => {
             println!("warning: reading config failed with {e:?}");
         }
     }
-    let mut patches = global_var!(ENABLED_PATCHES);
 
-    // let lua_prot = prepare_lua_prot_patch();
-    // lua_prot.enable()?;
-    // patches.push(lua_prot);
+    println!("wowibottihookdll_rust: init done! :D enabled patches:");
 
-    // let ctm_finished = prepare_ctm_finished_patch();
-    // ctm_finished.enable()?;
-    // patches.push(ctm_finished);
-
-    // let spell_err_msg = prepare_spell_err_msg_trampoline();
-    // spell_err_msg.enable()?;
-    // patches.push(spell_err_msg);
-
-    // let outbound_packet_dump = prepare_dump_outbound_packet_patch();
-    // outbound_packet_dump.enable()?;
-    // patches.push(outbound_packet_dump);
-
-    let closepetstables = prepare_ClosePetStables_patch();
-    closepetstables.enable()?;
-    patches.push(closepetstables);
-
-    println!("wowibottihookdll_rust: init done! :D enabled_patches:");
-
-    for p in patches.iter() {
+    for p in global_var!(ENABLED_PATCHES).iter() {
         println!("* {} @ 0x{:08X}", p.name, p.patch_addr);
     }
 
@@ -447,11 +438,12 @@ impl From<std::ffi::NulError> for LoleError {
 unsafe extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) -> bool {
     match call_reason {
         DLL_PROCESS_ATTACH => {
-            let tramp = prepare_endscene_trampoline();
+            let patches = AVAILABLE_PATCHES.lock().unwrap();
+            let tramp = patches.get("EndScene").expect("EndScene");
             if let Err(e) = tramp.enable() {
                 fatal_error_exit(e);
             }
-            global_var!(ENABLED_PATCHES).push(tramp);
+            global_var!(ENABLED_PATCHES).push(tramp.clone());
             DLL_HANDLE.set(dll_module);
         }
         // DLL_PROCESS_DETACH => {},

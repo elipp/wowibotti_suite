@@ -104,17 +104,20 @@ async fn handle_request_wrapper(req: Request<hyper::body::Incoming>) -> IHttpRes
 struct PottiConfig {
     wow_client_path: PathBuf,
     accounts: Vec<WowAccount>,
+    available_patches: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct CharacterList {
+struct ConfigResult {
     characters: Vec<CharacterInfo>,
+    available_patches: Vec<String>,
 }
 
-impl From<PottiConfig> for CharacterList {
+impl From<PottiConfig> for ConfigResult {
     fn from(p: PottiConfig) -> Self {
         Self {
             characters: p.accounts.into_iter().map(|a| a.character).collect(),
+            available_patches: p.available_patches.clone(),
         }
     }
 }
@@ -122,6 +125,7 @@ impl From<PottiConfig> for CharacterList {
 #[derive(Debug, Deserialize)]
 pub struct InjectQuery {
     enabled_characters: Vec<String>,
+    enabled_patches: Vec<String>,
 }
 
 fn read_potti_conf() -> Result<PottiConfig, InjectorError> {
@@ -205,7 +209,7 @@ async fn handle_request(
                 .status(StatusCode::OK)
                 .body(json!({
                     "status": "ok",
-                    "result": serde_json::to_value(CharacterList::from(config)).map_err(|_e|InjectorError::SerializationError(format!("{_e:?}")))?
+                    "result": serde_json::to_value(ConfigResult::from(config)).map_err(|_e|InjectorError::SerializationError(format!("{_e:?}")))?
                 }).to_string())?)
         }
 

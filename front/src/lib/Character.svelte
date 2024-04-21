@@ -1,6 +1,6 @@
 <script>
 export let character;
-const input_id = `${character.name}`
+const input_id = `character-${character.name}`
 export let onchange;
 </script>
 
@@ -21,7 +21,7 @@ div {
 
 label {
     display: inline-flex;
-    margin-right: 0.3em;
+    padding-right: 0.3em;
 }
 
 img {

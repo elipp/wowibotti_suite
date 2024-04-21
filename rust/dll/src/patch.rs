@@ -1,17 +1,38 @@
-use std::ffi::{c_char, c_void, CStr};
+use std::collections::HashMap;
+use std::ffi::c_void;
 use std::mem::size_of;
 use std::pin::Pin;
+use std::sync::{Arc, Mutex};
 
+use lazy_static::lazy_static;
 use windows::Win32::System::{
     Diagnostics::Debug::WriteProcessMemory,
     Memory::{VirtualProtect, PAGE_PROTECTION_FLAGS},
     Threading::GetCurrentProcess,
 };
 
-use crate::{
-    add_repr_and_tryfrom, assembly, chatframe_print, Addr, EndScene_hook, LoleError, LoleResult,
-    LAST_FRAME_NUM, LAST_SPELL_ERR_MSG,
-};
+use crate::ctm::prepare_ctm_finished_patch;
+use crate::lua::prepare_ClosePetStables_patch;
+use crate::socket::prepare_dump_outbound_packet_patch;
+use crate::spell_error::prepare_spell_err_msg_trampoline;
+use crate::{assembly, Addr, EndScene_hook, LoleError, LoleResult};
+
+lazy_static! {
+    pub static ref AVAILABLE_PATCHES: Arc<Mutex<HashMap<&'static str, Arc<Patch>>>> =
+        Arc::new(Mutex::new(HashMap::from_iter([
+            ("EndScene", prepare_endscene_trampoline().into()),
+            (
+                "ClosePetStables__lop_exec",
+                prepare_ClosePetStables_patch().into()
+            ),
+            ("CTM_finished", prepare_ctm_finished_patch().into()),
+            (
+                "dump_outbound_packet",
+                prepare_dump_outbound_packet_patch().into()
+            ),
+            ("SpellErrMsg", prepare_spell_err_msg_trampoline().into()),
+        ])));
+}
 
 use crate::addrs::offsets;
 
@@ -135,7 +156,7 @@ impl Patch {
         }
         Ok(())
     }
-    pub fn disable(self) -> LoleResult<()> {
+    pub fn disable(&self) -> LoleResult<()> {
         println!("disabling {}", self.name);
         write_addr(self.patch_addr, &self.original_opcodes)
     }
