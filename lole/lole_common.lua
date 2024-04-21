@@ -1250,11 +1250,11 @@ function trim_string(s)
 end
 
 local guild_members = {
-  ["Chonkki"] = 1,
-  ["Bacc"] = 2,
-  ["Boyee"] = 3,
-  ["Setitboy"] = 4,
-  ["Raimo"] = 5,
+  Chonkki = 1,
+  Bacc = 2,
+  Boyee = 3,
+  Setitboy = 4,
+  Raimo = 5,
 }
 
 for name, num in pairs(guild_members) do
@@ -1960,4 +1960,37 @@ function any(iterable, condition)
     if condition(k, v) then return true end
   end
   return false
+end
+
+local DISPEL_SPELLS = {
+  Poison = { Cleanse = 4987 },
+  Magic = { Cleanse = 4987, ["Dispel Magic"] = 988 },
+  Disease = { Cleanse = 4987, ["Abolish Disease"] = 552 },
+  -- Curse = { ":("}
+}
+
+local function get_eligible_player_dispel_spell(spell_type)
+  local spells = DISPEL_SPELLS[spell_type]
+  if spells ~= nil then
+    for spell_name, spellid in pairs(spells) do
+      if IsSpellKnown(spellid) then
+        return spell_name
+      end
+    end
+  end
+end
+
+function group_dispel()
+  local guildies = get_guild_members()
+  for guildie_name, _ in pairs(guildies) do
+    for i=1,40 do
+      local debuff_name, _rank, _icon, count, dispel_type = UnitAura(guildie_name, i, "HARMFUL")
+      if debuff_name == nil then break end
+      local dispel_spell = get_eligible_player_dispel_spell(dispel_type)
+      if dispel_spell ~= nil then
+        L_TargetUnit(guildie_name)
+        return L_CastSpellByName(dispel_spell)
+      end
+    end
+  end
 end

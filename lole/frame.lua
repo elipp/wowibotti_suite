@@ -340,6 +340,8 @@ create_simple_button("getbiscuit_button", lole_frame, 310, -130, "Biscuit", 68, 
 local loot_badge_button =
 create_simple_button("eject_dll_button", lole_frame, 310, -160, "Eject DLL", 68, 27, function() eject_DLL() end);
 
+local dispel_button =
+create_simple_button("dispel_button", lole_frame, 310, -190, "Dispel", 68, 27, function() lole_subcommands.sendmacro("RAID", "/lole dispel") end);
 
 local mode_attrib_title_fontstr = lole_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
 mode_attrib_title_fontstr:SetPoint("BOTTOMRIGHT", -25, 80);

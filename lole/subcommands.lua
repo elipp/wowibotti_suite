@@ -1253,4 +1253,6 @@ lole_subcommands = {
 
 	console_print = lole_console_print,
 	loot = lole_loot_mob,
+
+	dispel = group_dispel,
 }
