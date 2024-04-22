@@ -72,6 +72,9 @@ async function submit_inject_form(e) {
   <CharacterSelect config={result} bind:num_selected={num_selected}/>
   <h4>Select patches</h4>
   <div class="patch-select">
+    <div></div>
+    <input type="checkbox" disabled checked>
+    <div class="text-align-left">EndScene hook <i>(Always enabled)</i></div>
     {#each result.available_patches as p}
     <PatchOption name={p}/>
     {/each}
@@ -123,5 +126,10 @@ async function submit_inject_form(e) {
   display: grid;
   grid-template-columns: 0.5fr 0.1fr 1fr;
   margin-bottom: 2em;
+  grid-row-gap: 0.5em;
+}
+
+:global(.text-align-left) {
+  text-align: left;
 }
 </style>
