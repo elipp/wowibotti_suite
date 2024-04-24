@@ -18,6 +18,7 @@ lole_frame:RegisterEvent("LFG_ROLE_CHECK_SHOW")
 lole_frame:RegisterEvent("LFG_BOOT_PROPOSAL_UPDATE");
 lole_frame:RegisterEvent("UNIT_SPELLCAST_SENT");
 lole_frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED");
+lole_frame:RegisterEvent("UI_ERROR_MESSAGE");
 
 
 function lole_frame_register(EVENTNAME)
@@ -896,6 +897,9 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 	elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
 		last_cast_spell.name = message;
 		last_cast_spell.cast_time = GetTime();
+	elseif event == "UI_ERROR_MESSAGE" then
+		register_ui_error_message(prefix)
 	end
+	
 end
 )

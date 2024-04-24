@@ -49,7 +49,7 @@ local function set_pet_state()
 end
 
 local function check_buffs()
-    if not UnitAffectingCombat("Raimo") and not UnitAffectingCombat("player") then
+    if not UnitAffectingCombat("player") then
         if not has_buff("player", "Aspect of the Viper") then
             L_CastSpellByName("Aspect of the Viper")
         end

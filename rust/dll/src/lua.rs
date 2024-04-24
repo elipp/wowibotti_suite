@@ -334,6 +334,7 @@ add_repr_and_tryfrom! {
         EjectDll = 0x403,
         QueryInjected = 0x404,
         DumpWowObject = 0x405,
+        RegisterUiErrorMessage = 0x406,
     }
 }
 
@@ -956,6 +957,15 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 //     }
                 // }
             }
+        }
+        Opcode::RegisterUiErrorMessage if nargs == 1 => {
+            let msg = lua_tostring!(lua, 2)?;
+            match msg {
+                "You are facing the wrong way!" => {}
+                "You are too far away!" => {}
+                _ => {}
+            }
+            return Ok(LUA_NO_RETVALS);
         }
         v => return Err(LoleError::InvalidOrUnimplementedOpcodeCallNargs(v, nargs)),
     }

@@ -74,7 +74,7 @@ async function submit_inject_form(e) {
   <div class="patch-select">
     <div></div>
     <input type="checkbox" disabled checked>
-    <div class="text-align-left">EndScene hook <i>(Always enabled)</i></div>
+    <div class="text-align-left"><span class="monospace">EndScene_hook</span> <i>(Always enabled)</i></div>
     {#each result.available_patches as p}
     <PatchOption name={p}/>
     {/each}
@@ -132,4 +132,9 @@ async function submit_inject_form(e) {
 :global(.text-align-left) {
   text-align: left;
 }
+
+:global(.monospace) {
+    font-family: monospace;
+}
+
 </style>

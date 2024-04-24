@@ -51,7 +51,7 @@ local function should_cast_PoH(min_deficit, min_healable_chars)
 	return false;
 end
 
-local function get_CoH_target(urgencies, min_deficit, max_ineligible_chars)
+function get_CoH_target(urgencies, min_deficit, max_ineligible_chars)
     if get_current_config().name == "priest_holy_ds" then
         return nil;
     end
@@ -112,7 +112,7 @@ local function raid_heal(has_single_targets)
 
     local targeting_self = UnitName("target") == UnitName("player");
 
-    if should_cast_PoH(6000, 4) then
+    if should_cast_PoH(1500, 4) then
         cast_heal("Prayer of Healing");
         return true
     end
@@ -143,22 +143,22 @@ local function raid_heal(has_single_targets)
     elseif target_HPP < 50 then
         cast_heal("Greater Heal");
     elseif target_HPP < 75 then
-        if not targeting_self and health_percentage("player") < 75 then
-            cast_heal("Binding Heal");
-        else
-            cast_heal("Greater Heal(Rank 1)");
-        end
+        -- if not targeting_self and health_percentage("player") < 75 then
+        --     cast_heal("Binding Heal");
+        -- else
+        --     cast_heal("Greater Heal(Rank 1)");
+        -- end
     elseif target_HPP < 85 then
-        if cast_PoM_here(has_single_targets, true) and not has_buff("target", "Prayer of Mending") and time() - pom_time > 10 then
-            if cast_heal("Prayer of Mending") then
-                pom_time = time();
-            end
-        else
+        -- if cast_PoM_here(has_single_targets, true) and not has_buff("target", "Prayer of Mending") and time() - pom_time > 10 then
+        --     if cast_heal("Prayer of Mending") then
+        --         pom_time = time();
+        --     end
+        -- else
             local found, timeleft = has_buff("target", "Renew");
             if not found or not timeleft then
                 cast_heal("Renew");
             end
-        end
+        -- end
     else
         return false;
     end
@@ -239,17 +239,25 @@ end
 function combat_priest_holy()
     if casting_legit_heal() then return end
 
+    local target, urgencies = get_raid_heal_target(true);
+    local coh_target = get_CoH_target(urgencies);
+    print(coh_target)
+    if coh_target then
+        L_TargetUnit(coh_target);
+        return cast_heal("Circle of Healing");
+    end
+    
     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
 
     -- if heal_targets[1] == nil or heal_targets[1] == "raid" then
     --     raid_heal(false);
     --     return;
     -- end
-    local top_prio = heal_targets[1]
-    if top_prio == nil then
-        L_ClearTarget()
-        return
-    end
+    -- local top_prio = heal_targets[1]
+    -- if top_prio == nil then
+    --     L_ClearTarget()
+    --     return
+    -- end
 
     if heal_targets[1] == 'raid' then
         local target, urgencies = get_raid_heal_target(true);
@@ -264,6 +272,9 @@ function combat_priest_holy()
     
     local target_HPP = health_percentage("target")
     local has_renew, renew_timeleft = has_buff("target", "Renew");
+
+    local target, urgencies = get_raid_heal_target(true);
+    local coh = get_CoH_target(1500)
 
     if target_HPP < 30 then
         cast_heal("Flash Heal")

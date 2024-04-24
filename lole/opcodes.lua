@@ -28,6 +28,7 @@ local LOP = {
   EjectDll = 0x403,
 	QueryInjected = 0x404,
 	DumpWowObject = 0x405,
+	RegisterUiErrorMessage = 0x406,
 }
 
 local lop_exec = ClosePetStables -- Can't actually lua_register a new function, because of warden and vfp_max :D
@@ -506,4 +507,8 @@ end
 
 function loot_nearest_lootable_mob()
 	return LOP:call(LOP.LootMob)
+end
+
+function register_ui_error_message(message)
+	return LOP:call(LOP.RegisterUiErrorMessage)
 end

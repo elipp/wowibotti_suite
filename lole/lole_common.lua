@@ -807,7 +807,8 @@ function get_HP_table_and_maxmaxHP(party_only)
     else
         for i=1,num_raid_members,1 do
             local name = UnitName("raid" .. tonumber(i));
-            if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and UNREACHABLE_TARGETS[name] < GetTime() and is_valid_pair(UnitName("player"), name) then
+            local unr = UNREACHABLE_TARGETS[name]
+            if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and (unr ~= nil) and unr < GetTime() and is_valid_pair(UnitName("player"), name) then
                 HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
                 if HP_table[name][2] > maxmaxHP then
                     maxmaxHP = HP_table[name][2];
@@ -1255,6 +1256,11 @@ local guild_members = {
   Boyee = 3,
   Setitboy = 4,
   Raimo = 5,
+  Vomitonux = 6,
+  Abych = 7,
+  Nonankh = 8,
+  Flaunor = 9,
+  Ocdun = 10,
 }
 
 for name, num in pairs(guild_members) do
@@ -1264,6 +1270,14 @@ end
 
 function get_guild_members()
 	return guild_members
+end
+
+function get_guild_members_list()
+  local res = {}
+  for name, _ in pairs(get_guild_members()) do
+    table.insert(res, name)
+  end
+  return res
 end
 
 function tablelength(T)
@@ -1981,16 +1995,15 @@ local function get_eligible_player_dispel_spell(spell_type)
 end
 
 function group_dispel()
-  local guildies = get_guild_members()
-  for guildie_name, _ in pairs(guildies) do
-    for i=1,40 do
-      local debuff_name, _rank, _icon, count, dispel_type = UnitAura(guildie_name, i, "HARMFUL")
-      if debuff_name == nil then break end
-      local dispel_spell = get_eligible_player_dispel_spell(dispel_type)
-      if dispel_spell ~= nil then
-        L_TargetUnit(guildie_name)
-        return L_CastSpellByName(dispel_spell)
-      end
+  local guildies = get_guild_members_list()
+  local guildie_name = guildies[random(1, #guildies)]
+  for i=1,40 do
+    local debuff_name, _rank, _icon, count, dispel_type = UnitAura(guildie_name, i, "HARMFUL")
+    if debuff_name == nil then break end
+    local dispel_spell = get_eligible_player_dispel_spell(dispel_type)
+    if dispel_spell ~= nil then
+      L_TargetUnit(guildie_name)
+      return L_CastSpellByName(dispel_spell)
     end
   end
 end
