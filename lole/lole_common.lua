@@ -668,7 +668,7 @@ function track_heal_attempts(name)
         if HEAL_ATTEMPTS == MAX_HEAL_ATTEMPTS then
             HEAL_ATTEMPTS = 0;
             if UNREACHABLE_TARGETS[name] + 5 < GetTime() then
-                SendChatMessage(string.format("%s to the penalty box for 5 sec: %s", name, fail_msg), "GUILD");
+                print(string.format("%s to the penalty box for 5 sec: %s", name, fail_msg))
             end
             UNREACHABLE_TARGETS[name] = GetTime() + 5;
         end

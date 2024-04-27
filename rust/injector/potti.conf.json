@@ -43,9 +43,21 @@
 		}
 	],
 	"available_patches": [
-		"ClosePetStables__lop_exec",
-		"dump_outbound_packet",
-		"SpellErrMsg",
-		"CTM_finished"
+	{
+		"name":	"ClosePetStables__lop_exec",
+		"enabled_by_default": true
+	},
+	{
+		"name":	"dump_outbound_packet",
+		"enabled_by_default": true
+	},
+		{
+		"name":	"SpellErrMsg",
+		"enabled_by_default": true
+	},
+		{
+		"name":	"CTM_finished",
+		"enabled_by_default": false
+	}
 	]
 }

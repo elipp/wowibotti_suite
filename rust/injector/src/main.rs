@@ -100,17 +100,23 @@ async fn handle_request_wrapper(req: Request<hyper::body::Incoming>) -> IHttpRes
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PatchConfig {
+    name: String,
+    enabled_by_default: bool,
+}
+
 #[derive(Debug, Deserialize)]
 struct PottiConfig {
     wow_client_path: PathBuf,
     accounts: Vec<WowAccount>,
-    available_patches: Vec<String>,
+    available_patches: Vec<PatchConfig>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ConfigResult {
     characters: Vec<CharacterInfo>,
-    available_patches: Vec<String>,
+    available_patches: Vec<PatchConfig>,
 }
 
 impl From<PottiConfig> for ConfigResult {
@@ -245,15 +251,21 @@ unsafe extern "system" fn dummy_wndproc(
         WM_HOTKEY => {
             let clients = CLIENTS.lock().unwrap();
             if let Some(client) = clients.get(wparam.0) {
-                SetForegroundWindow(client.window_handle);
+                if SetForegroundWindow(client.window_handle) == FALSE {
+                    println!("warning: `SetForegroundWindow` failed");
+                }
             }
         }
         INJ_MESSAGE_REGISTER_HOTKEY => {
-            RegisterHotKey(hwnd, wparam.0 as i32, MOD_ALT, lparam.0 as u32).expect("RegisterHotKey")
+            if let Err(e) = RegisterHotKey(hwnd, wparam.0 as i32, MOD_ALT, lparam.0 as u32) {
+                println!("Warning: RegisterHotKey failed: {e:?}");
+            }
         }
 
         INJ_MESSAGE_UNREGISTER_HOTKEY => {
-            UnregisterHotKey(hwnd, wparam.0 as i32).expect("UnregisterHotKey")
+            if let Err(e) = UnregisterHotKey(hwnd, wparam.0 as i32) {
+                println!("Warning: UnregisterHotKey failed: {e:?}");
+            }
         }
         _ => {}
     }

@@ -1,12 +1,11 @@
 <script>
-export let name;
-const id = `patch-${name}`
-const is_main_entrypoint = name === 'ClosePetStables__lop_exec';
+export let config;
+const id = `patch-${config.name}`
 </script>
 
 <div></div>
-<input type="checkbox" id={id} name={id} checked={is_main_entrypoint}>
-<label for={id}><span class="monospace">{name}</span></label>
+<input type="checkbox" id={id} name={id} checked={config.enabled_by_default}>
+<label for={id}><span class="monospace">{config.name}</span></label>
 
 <style>
 label {

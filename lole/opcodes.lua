@@ -20,6 +20,7 @@ local LOP = {
   LootMob = 16,
 	GetAoeFeasibility = 17,
 	CastGtAoe = 18,
+	FaceMob = 19,
 	StorePath = 0x100,
 	PlaybackPath = 0x101,
   Debug = 0x400,
@@ -509,6 +510,8 @@ function loot_nearest_lootable_mob()
 	return LOP:call(LOP.LootMob)
 end
 
-function register_ui_error_message(message)
-	return LOP:call(LOP.RegisterUiErrorMessage)
+function face_mob()
+	if not playermode() then
+		return LOP:call(LOP.FaceMob)
+	end
 end

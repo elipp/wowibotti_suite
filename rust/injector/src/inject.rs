@@ -153,12 +153,7 @@ impl WowClient {
             )
             .ok_or_else(|| InjectorError::InjectionError(String::from("GetProcAddress")))?;
 
-            let dll_path = std::env::current_dir()
-                .unwrap()
-                .join("target")
-                .join("i686-pc-windows-msvc")
-                .join("debug")
-                .join("wowibottihookdll.dll");
+            let dll_path = std::env::current_dir().unwrap().join("lolerust.dll");
 
             if !dll_path.exists() {
                 return Err(InjectorError::InjectionError(format!(

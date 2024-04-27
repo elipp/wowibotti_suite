@@ -1129,11 +1129,11 @@ static void __stdcall EndScene_hook() {
 		glhProcess = GetCurrentProcess();
 		AllocConsole();
 		freopen("CONOUT$", "wb", stdout);
-		patch_lua_prot();
+		// patch_lua_prot();
 		register_lop_exec();
 		addresses_patched = true;
-		patch_t ctm_finished_patch(Addresses::TBC::CTM_finished_patchaddr, 12, prepare_CTM_finished_patch);
-		ctm_finished_patch.enable(glhProcess);
+		// patch_t ctm_finished_patch(Addresses::TBC::CTM_finished_patchaddr, 12, prepare_CTM_finished_patch);
+		// ctm_finished_patch.enable(glhProcess);
 		auto lua = get_lua_State();
 		lua_getglobal(lua, "lop_exec");
 		auto t = lua_gettype(lua, -1);

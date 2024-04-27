@@ -1,8 +1,7 @@
-use std::ffi::{c_char, c_void};
+use std::ffi::c_char;
 
-use crate::lua::{get_facing_angle_to_target, playermode, set_facing_force};
 use crate::patch::{copy_original_opcodes, InstructionBuffer, Patch, PatchKind};
-use crate::{add_repr_and_tryfrom, assembly, Addr};
+use crate::{add_repr_and_tryfrom, assembly, dostring, Addr};
 use crate::{LoleError, LAST_FRAME_NUM, LAST_SPELL_ERR_MSG};
 
 use crate::addrs::offsets;
@@ -69,7 +68,7 @@ add_repr_and_tryfrom! {
 struct SpellErrMsgArgs {
     u0: u32,
     u1: u32,
-    msg: u32,
+    msg: u32, // apparently, it's possible to just give this the SpellError type
     u2: u32,
     u3: u32,
     u4: u32,
@@ -80,41 +79,22 @@ unsafe extern "stdcall" fn spell_err_msg(msg_ptr: *const SpellErrMsgArgs) {
         return;
     }
     let msg = (*msg_ptr).msg;
-    println!("{msg:X}");
-    return;
-    match playermode() {
-        Ok(false) => {
-            let msg = msg.try_into();
-            match msg {
-                Ok(SpellError::NotInLineOfSight | SpellError::OutOfRange) => {
-                    // safety: below unwrap() ok because we matched against Ok()
-                    LAST_SPELL_ERR_MSG.set(Some((msg.unwrap(), LAST_FRAME_NUM.get())));
+    match msg.try_into() {
+        Ok(m) => {
+            println!("{m:?} ({msg:X})");
+            match m {
+                SpellError::NotInLineOfSight | SpellError::OutOfRange => {
+                    LAST_SPELL_ERR_MSG.set(Some((m, LAST_FRAME_NUM.get())));
                 }
-                Ok(SpellError::TargetNeedsToBeInFrontOfYou) => {
-                    // if let Ok(Some(angle)) = get_facing_angle_to_target() {
-                    //     if let Err(e) = set_facing_force(angle) {
-                    //         println!("spell_err_msg: error: {e:?}");
-                    //     }
-                    // }
+                SpellError::TargetNeedsToBeInFrontOfYou => {
+                    // for some reason, checking for playermode() here causes a crash, "Fatal condition"/error #134
+                    dostring!(c"face_mob()");
                 }
-                Ok(_) => {
-                    // unimplemented
-                }
-                Err(_) => {
-                    // unknown
-                }
+                _ => {}
             }
         }
-        Ok(true) => {}
-        Err(e) => println!("(warning: playermode() returned {e:?})"),
+        e => println!("(warning: {e:?})"),
     }
-    // } else {
-    //     if let Ok(msg) = cstr_to_str!(msg) {
-    //         println!("(unlisted spell error message: \"{msg}\")");
-    //     } else {
-    //         println!("(string conversion error: spell_err_msg: {msg_id:x})");
-    //     }
-    // }
 }
 
 #[cfg(feature = "tbc")]

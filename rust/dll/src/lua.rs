@@ -1,34 +1,28 @@
-use std::arch::asm;
 use std::cell::Cell;
-use std::collections::VecDeque;
 use std::f32::consts::PI;
-use std::ffi::{c_char, c_void, CString};
-use std::sync::Mutex;
+use std::ffi::{c_char, c_void, CStr, CString};
 
 use rand::Rng;
 
 use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
-use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager, WowObject, WowObjectType};
+use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager, WowObject};
 use crate::patch::{
-    copy_original_opcodes, deref, read_addr, read_elems_from_addr, write_addr, InstructionBuffer,
-    Patch, PatchKind,
+    copy_original_opcodes, deref, read_addr, write_addr, InstructionBuffer, Patch, PatchKind,
 };
-use crate::socket::{cast_gtaoe, movement_flags, read_os_tick_count, set_facing, set_facing_local};
+use crate::socket::facing::{self, set_facing};
+use crate::socket::movement_flags::NOT_MOVING;
+use crate::socket::{cast_gtaoe, movement_flags, read_os_tick_count};
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{
-    add_repr_and_tryfrom, assembly, global_var, iter_objects, LoleError, LoleResult,
-    LAST_SPELL_ERR_MSG, SHOULD_EJECT,
+    add_repr_and_tryfrom, assembly, LoleError, LoleResult, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
 };
 use crate::{define_lua_function, Addr}; // POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
 
 thread_local! {
     // this is modified from CtmAction::commit() and set_facing
-    pub static SETFACING_STATE: Cell<(f32, std::time::Instant)> = Cell::new((0.0, std::time::Instant::now()));
     pub static RUN_SCRIPT_AFTER_N_FRAMES: Cell<Option<(&'static str, usize)>> = Cell::new(None);
 }
-
-const SETFACING_DELAY_MILLIS: u64 = 300;
 
 #[allow(non_camel_case_types)]
 pub type lua_State = *mut c_void;
@@ -120,7 +114,7 @@ define_lua_function!(
 
 define_lua_function!(
     lua_getfield,
-    (state: lua_State, idx: i32, k: *const c_char, strlen: usize) -> i32);
+    (state: lua_State, idx: i32, k: *const c_char) -> i32);
 
 define_lua_function!(
     lua_setfield,
@@ -191,40 +185,38 @@ define_lua_function!(
     lua_dostring,
     (script: *const c_char, _s: *const c_char, taint: u32) -> ());
 
+pub fn string_to_nul_terminated(s: String) -> Vec<u8> {
+    let mut b = s.into_bytes();
+    b.push(0x0);
+    b
+}
+
 #[macro_export]
 macro_rules! dostring {
     ($fmt:expr, $($args:expr),*) => {{
-        use crate::lua::lua_dostring;
+        use crate::lua::{lua_dostring, string_to_nul_terminated};
         use std::ffi::c_char;
-        let s = format!(concat!($fmt, "\0"), $($args),*);
-        lua_dostring(s.as_ptr() as *const c_char, s.as_ptr() as *const c_char, 0)
+        let mut s = string_to_nul_terminated(format!($fmt, $($args),*));
+        lua_dostring(s.as_ptr() as *const c_char, s.as_ptr() as *const c_char, 0);
+    }};
+
+    ($s:literal) => {{
+        use crate::lua::{lua_dostring};
+        use std::ffi::c_char;
+        lua_dostring($s.as_ptr() as *const c_char, $s.as_ptr() as *const c_char, 0);
     }};
 
     ($script:expr) => {{
-        use std::ffi::CString;
-        use crate::lua::lua_dostring;
-        match CString::new($script) {
-            Ok(c_str) => Ok(lua_dostring(c_str.as_ptr(), c_str.as_ptr(), 0)),
-            Err(_) => Err(LoleError::InvalidRawString($script.to_owned()))
-        }
-    }};
-
-    ($script:literal) => {{
-        use std::ffi::CString;
-        use crate::lua::lua_dostring;
-        match CString::new($script) {
-            Ok(c_str) => Ok(lua_dostring(c_str.as_ptr(), c_str.as_ptr(), 0)),
-            Err(_) => Err(LoleError::InvalidRawString($script.to_owned()))
-        }
+        use crate::lua::{lua_dostring, string_to_nul_terminated};
+        use std::ffi::c_char;
+        let s = string_to_nul_terminated($script.to_string());
+        lua_dostring(s.as_ptr() as *const c_char, s.as_ptr() as *const c_char, 0);
     }};
 }
 
 macro_rules! lua_setglobal {
     ($lua:expr, $key:literal) => {
-        lua_setfield_!($lua, LUA_GLOBALSINDEX, $key)
-    };
-    ($lua:expr, $key:expr) => {
-        lua_setfield_!($lua, LUA_GLOBALSINDEX, $key)
+        lua_setfield_($lua, LUA_GLOBALSINDEX, $key)
     };
 }
 
@@ -240,56 +232,38 @@ macro_rules! lua_register {
 }
 
 macro_rules! lua_unregister {
+    ($lua:expr, $name:literal) => {
+        lua_pushnil($lua);
+        lua_setglobal!($lua, $name);
+    };
+
     ($lua:expr, $name:expr) => {
         lua_pushnil($lua);
         lua_setglobal!($lua, $name);
     };
 }
 
-macro_rules! lua_getfield_ {
-    ($lua:expr, $idx:expr, $s:literal) => {
-        let c_str = cstr_literal!($s);
-        lua_getfield($lua, $idx, c_str, 0) //$s.len()) // the last argument is some weird wow internal
-    };
-
-    ($lua:expr, $idx:expr, $s:expr) => {
-        let c_str = CString::new($s).expect("CString");
-        lua_getfield($lua, $idx, c_str.as_ptr(), 0) // c_str.as_bytes_with_nul().len())
-    };
+pub fn lua_getfield_(lua: lua_State, index: i32, name: &'static CStr) -> i32 {
+    lua_getfield(lua, index, name.as_ptr() as *const c_char) //$s.len()) // the last argument is some weird wow internal
 }
 
-macro_rules! lua_setfield_ {
-    ($lua:expr, $idx:expr, $s:literal) => {
-        let c_str = cstr_literal!($s);
-        lua_setfield($lua, $idx, c_str)
-    };
-
-    ($lua:expr, $idx:expr, $s:expr) => {
-        let c_str = CString::new($s).expect("CString");
-        lua_setfield($lua, $idx, c_str.as_ptr())
-    };
+pub fn lua_setfield_(lua: lua_State, index: i32, name: &'static CStr) {
+    lua_setfield(lua, index, name.as_ptr() as *const c_char)
 }
 
 macro_rules! lua_getglobal {
     ($lua:expr, $s:literal) => {
-        lua_getfield_!($lua, LUA_GLOBALSINDEX, $s)
+        lua_getfield_($lua, LUA_GLOBALSINDEX, $s)
     };
     ($lua:expr, $s:expr) => {
-        lua_getfield_!($lua, LUA_GLOBALSINDEX, $s)
-    };
-}
-
-#[macro_export]
-macro_rules! cstr_literal {
-    ($v:literal) => {
-        concat!($v, "\0").as_ptr() as *const c_char
+        lua_getfield_($lua, LUA_GLOBALSINDEX, $s)
     };
 }
 
 pub fn register_lop_exec() -> LoleResult<()> {
     write_addr(offsets::lua::vfp_max, &[0xEFFFFFFFu32])?;
     let lua = get_wow_lua_state()?;
-    lua_register!(lua, "lop_exec", lop_exec);
+    lua_register!(lua, c"lop_exec", lop_exec);
     println!("lop_exec registered!");
     // write_addr(offsets::lua::vfp_max, &[offsets::lua::vfp_original])?;
     Ok(())
@@ -298,7 +272,7 @@ pub fn register_lop_exec() -> LoleResult<()> {
 pub fn unregister_lop_exec() -> LoleResult<()> {
     write_addr(offsets::lua::vfp_max, &[offsets::lua::vfp_original])?; // TODO: probably should look up what the original value was...
     let lua = get_wow_lua_state()?;
-    lua_unregister!(lua, "lop_exec");
+    lua_unregister!(lua, c"lop_exec");
     println!("lop_exec un-registered!");
     Ok(())
 }
@@ -326,6 +300,7 @@ add_repr_and_tryfrom! {
         LootMob = 16,
         GetAoeFeasibility = 17,
         CastGtAoe = 18,
+        FaceMob = 19,
         StorePath = 0x100,
         PlaybackPath = 0x101,
         Debug = 0x400,
@@ -393,46 +368,12 @@ fn get_caster_position_status(
     }
 }
 
-fn set_facing_if_not_in_cooldown(new_angle: f32) -> LoleResult<()> {
-    let (prev_angle, timestamp) = SETFACING_STATE.get();
-    let timeout_passed =
-        timestamp.elapsed() > std::time::Duration::from_millis(SETFACING_DELAY_MILLIS);
-
-    if timeout_passed {
-        if (prev_angle - new_angle).abs() < 0.05 {
-            return Ok(());
-        } else if !ctm::event_in_progress()? {
-            set_facing(new_angle, movement_flags::NOT_MOVING)?;
-        }
-    }
-    Ok(())
-}
-
-pub fn get_facing_angle_to_target() -> LoleResult<Option<f32>> {
-    let om = ObjectManager::new()?;
-    let (player, target) = om.get_player_and_target()?;
-    if let Some(target) = target {
-        let (pp, tp) = (player.get_pos(), target.get_pos());
-        let tpdiff_unit = (tp - pp).zero_z().unit();
-        Ok(Some(tpdiff_unit.to_rot_value()))
-    } else {
-        Ok(None)
-    }
-}
-
-pub fn set_facing_force(new_angle: f32) -> LoleResult<()> {
-    if !ctm::event_in_progress()? {
-        set_facing(new_angle, movement_flags::NOT_MOVING)?;
-    }
-    Ok(())
-}
-
 pub fn playermode() -> LoleResult<bool> {
     let lua = get_wow_lua_state()?;
-    lua_getglobal!(lua, "LOLE_MODE_ATTRIBS");
+    lua_getglobal!(lua, c"LOLE_MODE_ATTRIBS");
     let res = match lua_gettype(lua, -1).try_into() {
         Ok(LuaType::Table) => {
-            lua_getfield_!(lua, -1, "playermode");
+            lua_getfield_(lua, -1, c"playermode");
             match lua_gettype(lua, -1).try_into()? {
                 LuaType::Number => {
                     let value = lua_tonumber(lua, -1);
@@ -547,6 +488,10 @@ impl Drop for TaintReseter {
     }
 }
 
+pub fn lua_debug_func(lua: lua_State) -> LoleResult<i32> {
+    Ok(LUA_NO_RETVALS)
+}
+
 unsafe fn mem_as_slice<'a, T>(addr: Addr, n_bytes: usize) -> &'a [T] {
     // Convert the byte slice to a pointer to u32 and determine its length
     let ptr = addr as *const T;
@@ -554,6 +499,16 @@ unsafe fn mem_as_slice<'a, T>(addr: Addr, n_bytes: usize) -> &'a [T] {
 
     // Create a slice from the pointer and length
     std::slice::from_raw_parts(ptr, len)
+}
+
+fn face_target(player: WowObject, target: Option<WowObject>) -> LoleResult<()> {
+    if let Some(target) = target {
+        let rot = (target.get_pos() - player.get_pos())
+            .zero_z()
+            .to_rot_value();
+        facing::set_facing(player, rot, NOT_MOVING)?;
+    }
+    Ok(())
 }
 
 fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
@@ -631,7 +586,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                         })?;
                     }
                     PlayerPositionStatus::WrongFacing => {
-                        set_facing_if_not_in_cooldown(tpdiff_unit.to_rot_value())?;
+                        facing::set_facing(player, tpdiff_unit.to_rot_value(), NOT_MOVING)?;
                     }
 
                     PlayerPositionStatus::Ok => {
@@ -658,7 +613,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 let tpdiff_unit = tpdiff.unit();
 
                 if target.get_target_guid() == Some(player.get_guid()) {
-                    set_facing_if_not_in_cooldown(tpdiff_unit.to_rot_value())?;
+                    facing::set_facing(player, tpdiff_unit.to_rot_value(), NOT_MOVING)?;
                     return Ok(LUA_NO_RETVALS);
                 }
                 let range_min = lua_tonumber_f32!(lua, 2);
@@ -683,7 +638,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                         })?;
                     }
                     PlayerPositionStatus::WrongFacing => {
-                        set_facing_if_not_in_cooldown(tpdiff.to_rot_value())?;
+                        facing::set_facing(player, tpdiff.to_rot_value(), NOT_MOVING)?;
                     }
                     PlayerPositionStatus::Ok => {
                         lua_pushboolean(lua, LUA_TRUE);
@@ -728,7 +683,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         }
         Opcode::DoString if nargs == 1 => {
             let script = lua_tostring!(lua, 2)?;
-            dostring!(script)?;
+            dostring!(script);
         }
         Opcode::GetUnitPosition if nargs == 1 => {
             let arg = lua_tostring!(lua, 2)?.trim();
@@ -854,7 +809,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                     ctm::add_to_queue(action)?;
                 } else {
                     offsets::CSelectUnit(closest.get_guid());
-                    dostring!("InteractUnit('target')")?;
+                    dostring!(c"InteractUnit('target')");
                 }
             }
         }
@@ -870,6 +825,11 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             return Ok(LUA_NO_RETVALS);
         }
 
+        Opcode::FaceMob if nargs == 0 => {
+            face_target(player, target)?;
+            return Ok(LUA_NO_RETVALS);
+        }
+
         Opcode::StorePath if nargs == 3 => {
             let mut path = Vec::new();
             let name = lua_tostring!(lua, 2)?;
@@ -878,9 +838,9 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 lua_pushnil(lua); // starts the outer table iteration
                 while lua_next(lua, 4) != 0 {
                     if let Ok(LuaType::Table) = lua_gettype(lua, -1).try_into() {
-                        lua_getfield_!(lua, -1, "x");
-                        lua_getfield_!(lua, -2, "y");
-                        lua_getfield_!(lua, -3, "z");
+                        lua_getfield_(lua, -1, c"x");
+                        lua_getfield_(lua, -2, c"y");
+                        lua_getfield_(lua, -3, c"z");
 
                         let x = lua_tonumber(lua, -3) as f32;
                         let y = lua_tonumber(lua, -2) as f32;
@@ -921,10 +881,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
         }
         Opcode::Debug => {
-            if nargs >= 1 {
-                let angle = lua_tonumber_f32!(lua, 2);
-                set_facing(angle, movement_flags::NOT_MOVING)?;
-            }
+            return lua_debug_func(lua);
         }
         Opcode::EjectDll => {
             SHOULD_EJECT.set(true);
@@ -959,12 +916,14 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
         }
         Opcode::RegisterUiErrorMessage if nargs == 1 => {
-            let msg = lua_tostring!(lua, 2)?;
-            match msg {
-                "You are facing the wrong way!" => {}
-                "You are too far away!" => {}
-                _ => {}
-            }
+            // let msg = lua_tostring!(lua, 2)?;
+            // match msg {
+            //     "You are facing the wrong way!" => {
+            //         face_target(player, target)?;
+            //     }
+            //     "You are too far away!" => {}
+            //     _ => {}
+            // }
             return Ok(LUA_NO_RETVALS);
         }
         v => return Err(LoleError::InvalidOrUnimplementedOpcodeCallNargs(v, nargs)),
@@ -1000,7 +959,7 @@ pub fn register_lop_exec_if_not_registered() -> LoleResult<()> {
     }
 
     let lua = get_wow_lua_state()?;
-    lua_getglobal!(lua, "lop_exec");
+    lua_getglobal!(lua, c"lop_exec");
     let var_type = lua_gettype(lua, -1);
     lua_pop!(lua, 1);
     match var_type.try_into() {

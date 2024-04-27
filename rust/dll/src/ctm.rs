@@ -2,20 +2,22 @@ use std::arch::asm;
 use std::cell::Cell;
 use std::collections::VecDeque;
 use std::f32::consts::PI;
+use std::ffi::c_char;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use crate::addrs::{self, offsets};
-use crate::lua::{RUN_SCRIPT_AFTER_N_FRAMES, SETFACING_STATE};
+use crate::dostring;
+use crate::lua::{lua_dostring, RUN_SCRIPT_AFTER_N_FRAMES};
 use crate::objectmanager::{GUIDFmt, ObjectManager, GUID, NO_TARGET};
 use crate::patch::{
     copy_original_opcodes, deref, read_elems_from_addr, write_addr, InstructionBuffer, Patch,
     PatchKind,
 };
-use crate::socket::{movement_flags, set_facing};
+use crate::socket::facing::{self, SETFACING_STATE};
+use crate::socket::movement_flags;
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{assembly, Addr, LoleError, LoleResult, Offset};
-use crate::{chatframe_print, dostring};
 
 use lazy_static::lazy_static;
 use rand::Rng;
@@ -131,12 +133,15 @@ fn handle_walking_angle_interp(player_r: f32, diff_rot: f32) -> LoleResult<()> {
         t,
     }) = ANGLE_INTERP_STATUS.take()
     {
+        let om = ObjectManager::new()?;
+        let player = om.get_player()?;
         if t >= 1.0 {
-            set_facing(diff_rot, movement_flags::FORWARD)?;
+            facing::set_facing(player, diff_rot, movement_flags::FORWARD)?;
             ANGLE_INTERP_STATUS.set(None);
         } else {
             if short_angle_dist(player_r, diff_rot).abs() > 0.01 {
-                set_facing(
+                facing::set_facing(
+                    player,
                     angle_lerp(start_angle, end_angle, t),
                     movement_flags::FORWARD,
                 )?;
@@ -214,7 +219,7 @@ impl CtmQueue {
     fn poll(&mut self) -> LoleResult<()> {
         if let Some((script, n)) = RUN_SCRIPT_AFTER_N_FRAMES.get() {
             if n <= 1 {
-                dostring!(script)?;
+                dostring!(script);
                 RUN_SCRIPT_AFTER_N_FRAMES.set(None);
             } else {
                 RUN_SCRIPT_AFTER_N_FRAMES.set(Some((script, n - 1)));
@@ -282,7 +287,7 @@ impl CtmQueue {
                 self.advance()?;
             } else if current.priority == CtmPriority::Path {
                 if rand::thread_rng().gen::<f32>() < 0.003 {
-                    dostring!("JumpOrAscendStart(); AscendStop()")?;
+                    dostring!("JumpOrAscendStart(); AscendStop()");
                 }
             }
         } else {
@@ -299,7 +304,7 @@ impl CtmQueue {
             self.current = Some((next, Instant::now()));
         } else {
             if prev_current.is_some() {
-                dostring!("MoveForwardStop()")?;
+                dostring!(c"MoveForwardStop()");
             }
         }
         Ok(())
@@ -565,7 +570,7 @@ impl CtmEvent {
         let diff = self.target_pos - ppos;
         let walking_angle = diff.unit().to_rot_value();
         handle_walking_angle_interp(r, walking_angle)?;
-        dostring!("MoveForwardStart()")?;
+        // dostring!("MoveForwardStart()")?;
         Ok(())
     }
 }

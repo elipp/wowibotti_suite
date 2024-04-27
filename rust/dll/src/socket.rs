@@ -4,15 +4,11 @@ use windows::Win32::Networking::WinSock::SOCKET;
 use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS};
 use windows::Win32::System::SystemInformation::GetTickCount;
 
-use crate::addrs::offsets::{self, TAINT_CALLER, TICK_COUNT, UNK_CLOCK_DRIFT};
-use crate::lua::{RUN_SCRIPT_AFTER_N_FRAMES, SETFACING_STATE};
-use crate::objectmanager::ObjectManager;
+use crate::addrs::offsets::{self};
+use crate::assembly;
 use crate::opcodes::{is_movement_opcode, MSG_MOVE_SET_FACING, OPCODE_NAME_MAP};
-use crate::patch::{
-    copy_original_opcodes, read_elems_from_addr, write_addr, InstructionBuffer, Patch, PatchKind,
-};
-use crate::vec3::{Vec3, TWO_PI};
-use crate::{assembly, chatframe_print, dostring, print_as_c_array, Offset};
+use crate::patch::{copy_original_opcodes, write_addr, InstructionBuffer, Patch, PatchKind};
+use crate::vec3::Vec3;
 use crate::{objectmanager::GUID, patch::deref, Addr, LoleError, LoleResult};
 
 #[derive(Debug)]
@@ -101,7 +97,8 @@ impl WowSocket {
     }
 }
 
-pub fn pack_guid(mut guid: GUID) -> Box<[u8]> {
+pub fn pack_guid(guid: GUID) -> Box<[u8]> {
+    let mut guid = guid;
     let mut packed = [0u8; 8 + 1];
     let mut size = 1;
     let mut i: u8 = 0;
@@ -115,24 +112,6 @@ pub fn pack_guid(mut guid: GUID) -> Box<[u8]> {
         i += 1;
     }
     packed[..size].into()
-}
-
-pub fn set_facing_local(angle: f32) -> LoleResult<()> {
-    let om = ObjectManager::new()?;
-    let player = om.get_player()?;
-    let movement_info = player.get_movement_info();
-    unsafe {
-        asm! {
-            "push {angle:e}",
-            "call {func_addr:e}",
-            in("ecx") movement_info,
-            angle = in(reg) angle,
-            func_addr = in(reg) offsets::wow_cfuncs::SetFacing,
-            out("eax") _,
-            out("edx") _,
-        }
-    }
-    Ok(())
 }
 
 // opcode: MSG_MOVE_SET_FACING
@@ -160,6 +139,7 @@ pub mod movement_flags {
     pub const IN_AIR: u8 = 0x10;
 }
 
+#[cfg(feature = "tbc")]
 fn set_facing_remote(pos: Vec3, angle: f32, movement_flags: u8) -> LoleResult<()> {
     let mut packet = vec![0x00, 0x21]; // size "without" header
     packet.extend(MSG_MOVE_SET_FACING.to_le_bytes());
@@ -193,20 +173,148 @@ fn set_facing_remote(pos: Vec3, angle: f32, movement_flags: u8) -> LoleResult<()
     Ok(())
 }
 
-pub fn set_facing(angle: f32, movement_flags: u8) -> LoleResult<()> {
-    let om = ObjectManager::new()?;
-    let player = om.get_player()?;
-    let pos = player.get_pos();
-    let angle = angle.rem_euclid(TWO_PI);
-    chatframe_print!("calling set_facing: {}", angle);
-    // set_facing_remote(pos, angle, movement_flags)?;
-    set_facing_local(angle)?;
-    dostring!("TurnLeftStart()")?; // this is to update does this send the new facing info to the server?
-                                   // offsets::CUpdatePlayer();
+// 0x0, 0x27, 0xDA, 0x0, 0x0, 0x0, 0x87, 0xF2, 0xAD, 0x6D,
+// 0x6, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xA9, 0x6A, 0x11,
+// 0x0, 0xA, 0x76, 0x9A, 0xC5, 0x2D, 0xDC, 0x93, 0xC4, 0x81,
+// 0xDD, 0xFA, 0x43, 0x3C, 0x61, 0xF6, 0x3F, 0x0, 0x0, 0x0,
+// 0x0,
 
-    SETFACING_STATE.set((angle, std::time::Instant::now()));
-    RUN_SCRIPT_AFTER_N_FRAMES.set(Some(("TurnLeftStop()", 2)));
-    Ok(())
+// 0x00, 0x27, 0xDA, 0x00, 0x00, 0x00, 0x87, 0xCF, 0xD2, 0x6D,
+// 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x9D, 0x87, 0x2E,
+// 0x00, 0x08, 0xF7, 0x09, 0xC6, 0x05, 0x64, 0x1D, 0x44, 0xA7,
+// 0x2F, 0xBC, 0x42, 0xC9, 0x85, 0x1D, 0x40, 0x8B, 0x03, 0x00,
+// 0x00,
+
+#[cfg(feature = "wotlk")]
+pub mod facing {
+    use std::{arch::asm, cell::Cell};
+
+    use super::movement_flags::NOT_MOVING;
+    use super::{pack_guid, read_os_tick_count};
+    use crate::addrs::offsets;
+    use crate::ctm;
+    use crate::objectmanager::WowObject;
+    use crate::socket::get_wow_sockobj;
+    use crate::LoleError;
+    use crate::{
+        chatframe_print,
+        objectmanager::{ObjectManager, GUID},
+        opcodes::MSG_MOVE_SET_FACING,
+        vec3::{Vec3, TWO_PI},
+        LoleResult,
+    };
+
+    const SETFACING_DELAY_MILLIS: u64 = 300;
+
+    thread_local! {
+        pub static SETFACING_STATE: Cell<(f32, std::time::Instant)> = Cell::new((0.0, std::time::Instant::now()));
+        pub static FALL_TIME: Cell<u32> = Cell::new(0);
+    }
+
+    pub fn set_facing_local(angle: f32) -> LoleResult<()> {
+        let om = ObjectManager::new()?;
+        let player = om.get_player()?;
+        let movement_info = player.get_movement_info();
+        unsafe {
+            asm! {
+                "push {angle:e}",
+                "call {func_addr:e}",
+                in("ecx") movement_info,
+                angle = in(reg) angle,
+                func_addr = in(reg) offsets::wow_cfuncs::SetFacing,
+                out("eax") _,
+                out("edx") _,
+            }
+        }
+        chatframe_print!("called set_facing_local: {}", angle);
+        Ok(())
+    }
+
+    pub fn create_default_facing_packet() -> LoleResult<Vec<u8>> {
+        let om = ObjectManager::new()?;
+        let player = om.get_player()?;
+        let packet = create_facing_packet(
+            player.get_guid(),
+            player.get_pos(),
+            player.get_rotvec().to_rot_value(),
+            NOT_MOVING,
+        );
+        Ok(packet)
+    }
+
+    pub fn create_facing_packet(
+        player_guid: GUID,
+        pos: Vec3,
+        angle: f32,
+        movement_flags: u8,
+    ) -> Vec<u8> {
+        let mut packet = vec![0x0, 0x0]; // should set size later, since due to guid packing, the size isn't fixed
+        packet.extend(MSG_MOVE_SET_FACING.to_le_bytes());
+        packet.extend([0x0; 2]);
+        let guid_packed = pack_guid(player_guid);
+        packet.extend_from_slice(&guid_packed);
+
+        // NOTE: IN_AIR belongs to the byte after movement flags, if that's ever needed :D
+        packet.extend([movement_flags, 0x0, 0x0, 0x0, 0x0, 0x0]);
+
+        let ticks = read_os_tick_count();
+        packet.extend(ticks.to_le_bytes());
+
+        packet.extend(
+            [pos.x, pos.y, pos.z, angle]
+                .into_iter()
+                .flat_map(|f| f.to_le_bytes()),
+        );
+
+        packet.extend(FALL_TIME.get().to_le_bytes());
+
+        let packet_len = (packet.len() - 2) as u16;
+        packet[..2].copy_from_slice(&packet_len.to_be_bytes());
+        packet
+    }
+
+    pub fn set_facing_remote(
+        player_guid: GUID,
+        pos: Vec3,
+        angle: f32,
+        movement_flags: u8,
+    ) -> LoleResult<()> {
+        let packet = create_facing_packet(player_guid, pos, angle, movement_flags);
+        let wowsocket = get_wow_sockobj()?;
+        wowsocket.send_packet(packet)?;
+        chatframe_print!("called set_facing_remote: {}", angle);
+        Ok(())
+    }
+
+    pub fn set_facing(player: WowObject, angle: f32, movement_flags: u8) -> LoleResult<()> {
+        let angle = angle.rem_euclid(TWO_PI);
+        let (prev_angle, timestamp) = SETFACING_STATE.get();
+        let timeout_passed =
+            timestamp.elapsed() > std::time::Duration::from_millis(SETFACING_DELAY_MILLIS);
+
+        if timeout_passed {
+            if !ctm::event_in_progress()? {
+                set_facing_remote(player.get_guid(), player.get_pos(), angle, movement_flags)?;
+                set_facing_local(angle)?;
+                SETFACING_STATE.set((angle, std::time::Instant::now()));
+            } else {
+                chatframe_print!("ctm event in progress; not setting facing");
+            }
+        }
+        Ok(())
+    }
+
+    pub fn get_facing_angle_to_target() -> LoleResult<Option<f32>> {
+        let om = ObjectManager::new()?;
+        let (player, target) = om.get_player_and_target()?;
+        if let Some(target) = target {
+            let (pp, tp) = (player.get_pos(), target.get_pos());
+            let tpdiff_unit = (tp - pp).zero_z().unit();
+            Ok(Some(tpdiff_unit.to_rot_value()))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 fn read_cast_count() -> LoleResult<u8> {
@@ -253,6 +361,17 @@ unsafe extern "stdcall" fn dump_outbound_packet(edi: Addr) {
             opcode_name, packet_size_total
         );
         if is_movement_opcode(opcode) {
+            if opcode == MSG_MOVE_SET_FACING {
+                // just to get the length
+                let dummy = facing::create_default_facing_packet().unwrap();
+
+                // MSG_MOVE_SET_FACING packets can have length of 57 (with falling spline data, some trigonometric stuff etc)
+                if dummy.len() == packet_bytes.len() {
+                    let mut buf = [0u8; 4];
+                    buf.copy_from_slice(&packet_bytes[(dummy.len() - 4)..]);
+                    facing::FALL_TIME.set(u32::from_le_bytes(buf));
+                }
+            }
             let our_ticks = read_os_tick_count();
             #[cfg(feature = "tbc")]
             let ticks = u32::from_le_bytes([
@@ -263,22 +382,16 @@ unsafe extern "stdcall" fn dump_outbound_packet(edi: Addr) {
             ]);
             #[cfg(feature = "wotlk")]
             let ticks = u32::from_le_bytes([
-                packet_bytes[14],
-                packet_bytes[15],
-                packet_bytes[16],
                 packet_bytes[17],
+                packet_bytes[18],
+                packet_bytes[19],
+                packet_bytes[20],
             ]);
-            println!(
-                "packet ticks: 0x{:08X}, our ticks: 0x{:08X}, diff = {}",
-                ticks,
-                our_ticks,
-                ticks as i64 - our_ticks as i64
-            );
         }
     } else {
         println!("warning: unknown opcode 0x{:X}", opcode);
     }
-    print_as_c_array("outbound packet", packet_bytes);
+    // print_as_c_array("outbound packet", packet_bytes);
 }
 
 #[cfg(feature = "tbc")]

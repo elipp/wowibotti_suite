@@ -2,7 +2,7 @@ use addrs::offsets::LAST_HARDWARE_ACTION;
 use core::cell::Cell;
 use objectmanager::ObjectManager;
 use serde::{Deserialize, Serialize};
-use socket::read_os_tick_count;
+use socket::{facing, movement_flags, read_os_tick_count};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use windows::Win32::System::Threading::ExitProcess;
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
-use lua::Opcode;
+use lua::{lua_dostring, playermode, Opcode};
 use patch::write_addr;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
@@ -59,6 +59,7 @@ thread_local! {
     pub static ORIGINAL_STDOUT: Cell<HANDLE> = Cell::new(HANDLE(0));
     pub static LAST_FRAME_TIME: Cell<std::time::Instant> =
         Cell::new(std::time::Instant::now());
+
     pub static LAST_SPELL_ERR_MSG: Cell<Option<(SpellError, u32)>> = Cell::new(None);
     pub static LAST_FRAME_NUM: Cell<u32> = Cell::new(0);
 
@@ -113,7 +114,7 @@ macro_rules! windows_string {
 fn print_as_c_array(title: &str, bytes: &[u8]) {
     println!("{title}:");
     for (i, b) in bytes.iter().enumerate() {
-        print!("0x{:X}, ", b);
+        print!("0x{:02X}, ", b);
         if i % 10 == 9 {
             println!("");
         }
@@ -161,16 +162,46 @@ fn write_last_hardware_action() -> LoleResult<()> {
     Ok(())
 }
 
+fn set_frame_num() {
+    LAST_FRAME_NUM.set(LAST_FRAME_NUM.get() + 1);
+    LAST_FRAME_TIME.set(Instant::now());
+}
+
+fn refresh_hardware_event_timestamp() -> LoleResult<()> {
+    if LAST_HARDWARE_INTERVAL.get().elapsed() > std::time::Duration::from_secs(20) {
+        LAST_HARDWARE_INTERVAL.set(std::time::Instant::now());
+        write_last_hardware_action()?;
+    }
+    Ok(())
+}
+
 fn main_entrypoint() -> LoleResult<()> {
     ctm::poll()?;
     if let Some(dt) = ROUGHLY_SIXTY_FPS.checked_sub(LAST_FRAME_TIME.get().elapsed()) {
         std::thread::sleep(dt);
     }
 
-    if LAST_HARDWARE_INTERVAL.get().elapsed() > std::time::Duration::from_secs(20) {
-        LAST_HARDWARE_INTERVAL.set(std::time::Instant::now());
-        write_last_hardware_action()?;
+    match (LAST_SPELL_ERR_MSG.get(), LAST_FRAME_NUM.get()) {
+        (Some((SpellError::TargetNeedsToBeInFrontOfYou, frame)), last_frame)
+            if frame == last_frame =>
+        {
+            if let Ok(false) = playermode() {
+                // let om = ObjectManager::new()?;
+                // let player = om.get_player()?;
+                // if let Some(target) = player.get_target() {
+                //     facing::set_facing(
+                //         player,
+                //         (target.get_pos() - player.get_pos()).to_rot_value(),
+                //         movement_flags::NOT_MOVING,
+                //     )?;
+                // }
+            }
+        }
+        _ => {}
     }
+
+    refresh_hardware_event_timestamp()?;
+    set_frame_num();
 
     Ok(())
 }
@@ -369,8 +400,6 @@ pub unsafe extern "stdcall" fn EndScene_hook() {
             }
         }
     }
-    LAST_FRAME_NUM.set(LAST_FRAME_NUM.get() + 1);
-    LAST_FRAME_TIME.set(Instant::now());
 }
 
 #[derive(Debug)]

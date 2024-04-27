@@ -898,7 +898,9 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
 		last_cast_spell.name = message;
 		last_cast_spell.cast_time = GetTime();
 	elseif event == "UI_ERROR_MESSAGE" then
-		register_ui_error_message(prefix)
+		if prefix == "You are facing the wrong way!" then
+			face_mob()
+		end
 	end
 	
 end

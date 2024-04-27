@@ -93,12 +93,14 @@ function rogue_combat()
 
   melee_attack_behind(1.5);
   L_StartAttack();
+  local target_health = UnitHealth("target")
+  
   if #{get_combat_mobs()} > 2 and cast_if_nocd("Blade Flurry") then return
   elseif unit_castorchannel("target") then
     L_CastSpellByName("Kick")
   elseif not has_buff("player", "Slice and Dice") and GetComboPoints("player", "target") >= 2 then
       return L_CastSpellByName("Slice and Dice")
-  elseif GetComboPoints("player", "target") >= 4 or health_percentage("target") < 15 then
+  elseif target_health < 5000 or (UnitHealth("target") > 10000 and GetComboPoints("player", "target") >= 5) then
       return L_CastSpellByName("Eviscerate")
   else
     return L_CastSpellByName("Sinister Strike")
