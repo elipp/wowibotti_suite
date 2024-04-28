@@ -1261,6 +1261,7 @@ local guild_members = {
   Nonankh = 8,
   Flaunor = 9,
   Ocdun = 10,
+  Crititboy = 11,
 }
 
 for name, num in pairs(guild_members) do
@@ -1278,6 +1279,21 @@ function get_guild_members_list()
     table.insert(res, name)
   end
   return res
+end
+
+function filter(predicate, array)
+  local res = {}
+  for _, v in ipairs(array) do
+    if predicate(v) then
+      table.insert(res, v)
+    end
+  end
+  return res
+end
+
+function get_online_guild_members_list()
+  -- NOTE: UnitGUID() returns non-nil when arg is a _character name_ AND if the unit is in the same party
+  return filter(function(n) return UnitGUID(n) ~= nil end, get_guild_members_list())
 end
 
 function tablelength(T)

@@ -2,6 +2,18 @@ local pet_food = "Soft Banana Bread";
 local last_feed_time = 0;
 local FEED_INTERVAL = 60;
 
+function run_out_of_combat()
+    if not UnitAffectingCombat("player") then
+        if not has_buff("player", "Aspect of the Pack") and not has_buff("player", "Aspect of the Viper") then
+            return L_CastSpellByName("Aspect of the Viper")
+        end
+    end
+end
+
+
+local dummy_frame = CreateFrame("frame",nil, UIParent)
+dummy_frame:SetScript("OnUpdate", run_out_of_combat)
+
 local rotation = Rotation(
     {
         Spell("Arcane Shot", function() return true end),
@@ -82,13 +94,17 @@ local function attack()
         if UnitHealth("target") > 7500 and not has_debuff("target", "Hunter's Mark") then
             return L_CastSpellByName("Hunter's Mark");
         end
+
+        if UnitMana("player") < 500 and not has_buff("player", "Aspect of the Viper") then
+            return L_CastSpellByName("Aspect of the Viper")
+        end
         
         local has_viper_sting = has_debuff("target", "Viper Sting")
         if (UnitPowerType("target") == 0) and (UnitHealth("target") > 2000) and (UnitMana("target") > 200) and (not has_viper_sting) then
             return L_CastSpellByName("Viper Sting")
         elseif (not has_viper_sting) and (not has_debuff("target", "Serpent Sting")) then
             return L_CastSpellByName("Serpent Sting")
-        elseif #{get_combat_mobs()} > 2 and cast_if_nocd("Multi-Shot") then
+        elseif feasibility > 1.5 and cast_if_nocd("Multi-Shot") then
             return
         elseif cast_if_nocd("Arcane Shot") then
             return
@@ -111,12 +127,9 @@ local function need_mana()
     return false;
 end
 
+
 function combat_ranged_hunter()
-    if not UnitAffectingCombat("Raimo") and not UnitAffectingCombat("player") then
-        if not has_buff("player", "Aspect of the Viper") then
-            return L_CastSpellByName("Aspect of the Viper")
-        end
-    elseif validate_target() then
+    if validate_target() then
         attack()
     end
 end
