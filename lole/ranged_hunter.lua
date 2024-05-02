@@ -80,7 +80,7 @@ local function attack()
         if UnitChannelInfo("player") == "Volley" then return end
         L_StartAttack();
         
-        if not has_buff("player", "Aspect of the Hawk") then
+        if UnitMana("player") > 1500 and not has_buff("player", "Aspect of the Hawk") then
             L_CastSpellByName("Aspect of the Hawk")
         end
         

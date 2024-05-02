@@ -2011,7 +2011,7 @@ local function get_eligible_player_dispel_spell(spell_type)
 end
 
 function group_dispel()
-  local guildies = get_guild_members_list()
+  local guildies = get_online_guild_members_list()
   local guildie_name = guildies[random(1, #guildies)]
   for i=1,40 do
     local debuff_name, _rank, _icon, count, dispel_type = UnitAura(guildie_name, i, "HARMFUL")
