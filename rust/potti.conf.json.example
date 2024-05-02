@@ -1,0 +1,39 @@
+{
+	"wow_client_path": "C:\\your_folder\\Wow.exe",
+	"accounts": [
+		{
+			"username": "account123",
+			"password": "...",
+			"character": {					
+				"name": "Firstchar",
+				"class": "Warrior"
+			}
+		},
+		{
+			"username": "account234",
+			"password": "...",
+			"character": {					
+				"name": "Secondchar",
+				"class": "Rogue"
+			}
+		},
+	],
+	"available_patches": [
+	{
+		"name":	"ClosePetStables__lop_exec",
+		"enabled_by_default": true
+	},
+	{
+		"name":	"dump_outbound_packet",
+		"enabled_by_default": true
+	},
+		{
+		"name":	"SpellErrMsg",
+		"enabled_by_default": true
+	},
+		{
+		"name":	"CTM_finished",
+		"enabled_by_default": false
+	}
+	]
+}
