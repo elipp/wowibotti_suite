@@ -241,6 +241,11 @@ pub enum CharacterClass {
     Warrior,
 }
 
+impl std::fmt::Display for CharacterClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CharacterInfo {
     pub name: String,

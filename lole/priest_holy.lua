@@ -113,17 +113,19 @@ local function karvalakki_CoH()
         local name1_pos = data[name1].position
         local row_deficit = data[name1].deficit
         local average_deficit = row_deficit
+        local num_targets = 0
         for name2, name2_data in pairs(data) do
             if name1 ~= name2 then
                 if name1_pos:distance(name2_data.position) < 15.0 then
                    row_deficit = row_deficit + name2_data.deficit
                    average_deficit = (average_deficit + name2_data.deficit)/2
+                   num_targets = num_targets + 1
                 end
             end
         end
-        table.insert(heal_amounts, {name=name1, deficit=row_deficit, average_deficit=average_deficit})
+        table.insert(heal_amounts, {name=name1, total_deficit=row_deficit, average_deficit=average_deficit, num_targets=num_targets})
     end
-    table.sort(heal_amounts, function(a,b) return a.deficit > b.deficit end)
+    table.sort(heal_amounts, function(a,b) return a.total_deficit > b.total_deficit end)
     return heal_amounts[1]
 end
 
@@ -299,20 +301,17 @@ function combat_priest_holy()
     local target, urgencies = get_raid_heal_target(true);
     
     local coh_target = karvalakki_CoH();
-    print(coh_target.name, coh_target.average_deficit)
 
-    if target_HPP < 30 then
+    if UnitGUID("target") ~= UnitGUID("player") and health_percentage("player") < 75 then
+        cast_heal("Binding Heal");
+    elseif target_HPP < 30 then
         cast_heal("Flash Heal")
     elseif target_HPP < 85 and not has_renew then
         cast_heal("Renew")
-    elseif coh_target.deficit > 3500 and coh_target.average_deficit > 500 then
-        print(coh_target.name)
+    elseif (GetSpellCooldown("Circle of Healing") == 0) and (coh_target.total_deficit > 3500 and coh_target.num_targets > 2 and coh_target.average_deficit > 500) then
         L_TargetUnit(coh_target.name);
         return cast_heal("Circle of Healing");
     elseif target_HPP < 60 then
         cast_heal("Greater Heal")
     end
-    --     if not targeting_self and health_percentage("player") < 75 then
-    --         cast_heal("Binding Heal");
-    --     end
 end

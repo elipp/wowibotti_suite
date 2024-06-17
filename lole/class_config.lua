@@ -63,7 +63,7 @@ local available_configs = {
 	class_config:create("priest_holy", {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection"}, {"Inner Fire"}, get_class_color("priest"), combat_priest_holy, {"Inner Focus"}, ROLES.healer, "HEALER", survive_priest_holy),
 
 	rogue =
-	class_config:create("rogue", {}, {}, get_class_color("rogue"), rogue_combat, {"Adrenaline Rush", "Blade Flurry"}, ROLES.melee, "MELEE", survive_rogue),
+	class_config:create("rogue", {}, {}, get_class_color("rogue"), rogue_combat, {"Adrenaline Rush", "Blade Flurry", "Killing Spree"}, ROLES.melee, "MELEE", survive_rogue),
 
 	shaman_resto =
 	class_config:create("shaman_resto", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_resto, {"Bloodlust"}, ROLES.healer, "HEALER", survive_shaman_resto),

@@ -309,6 +309,10 @@ impl CtmQueue {
         }
         Ok(())
     }
+    pub fn clear(&mut self) -> LoleResult<()> {
+        self.events.clear();
+        Ok(())
+    }
 }
 
 #[macro_export]
@@ -594,6 +598,11 @@ pub fn event_in_progress() -> LoleResult<bool> {
 pub fn poll() -> LoleResult<()> {
     let mut ctm = QUEUE.lock()?;
     ctm.poll()
+}
+
+pub fn clear() -> LoleResult<()> {
+    let mut ctm = QUEUE.lock()?;
+    ctm.clear()
 }
 
 unsafe extern "C" fn ctm_finished() {

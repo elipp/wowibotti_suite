@@ -1,3 +1,7 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+#![allow(rustdoc::missing_crate_level_docs)]
+use eframe::egui;
+
 use http::{Method, Request, Response, StatusCode};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
@@ -106,7 +110,7 @@ struct PatchConfig {
     enabled_by_default: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct PottiConfig {
     wow_client_path: PathBuf,
     accounts: Vec<WowAccount>,
@@ -326,30 +330,103 @@ fn start_dummy_window() -> std::thread::JoinHandle<Result<(), InjectorError>> {
     })
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    start_dummy_window();
-    let pool = LocalPoolHandle::new(2);
-    let port = 7070;
-    let addr: SocketAddr = ([127, 0, 0, 1], port).into();
-    // Bind to the port and listen for incoming TCP connections
-    let listener = TcpListener::bind(addr).await?;
-    println!("Injector listening for HTTP at {:?}", addr);
-    loop {
-        let (stream, _) = listener.accept().await?;
-        let io = TokioIo::new(stream);
-        pool.spawn_pinned(|| {
-            tokio::task::spawn_local(async move {
-                match http1::Builder::new()
-                    .serve_connection(io, service_fn(handle_request_wrapper))
-                    .await
-                {
-                    Ok(_) => {}
-                    Err(err) => println!("Error serving connection: {:?}", err),
+fn main() -> Result<(), eframe::Error> {
+    // env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([600.0, 480.0]),
+        ..Default::default()
+    };
+
+    let config = read_potti_conf().unwrap();
+    let mut accounts: Vec<_> = config.accounts.iter().map(|a| (a.clone(), false)).collect();
+    let mut patches: Vec<_> = config
+        .available_patches
+        .iter()
+        .map(|a| (a.clone(), a.enabled_by_default))
+        .collect();
+    eframe::run_simple_native("injector :D", options, move |ctx, _frame| {
+        egui_extras::install_image_loaders(ctx);
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("injector :D");
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                egui::Grid::new("character_list").show(ui, |ui| {
+                    for (account, checked) in accounts.iter_mut() {
+                        ui.checkbox(checked, account.character.name.clone());
+                        ui.image(format!(
+                            "file://injector/assets/{}.png",
+                            account.character.class
+                        ));
+                        ui.end_row();
+                    }
+                });
+                egui::Grid::new("enabled_patches").show(ui, |ui| {
+                    for (patch, enabled) in patches.iter_mut() {
+                        ui.checkbox(enabled, patch.name.clone());
+                        ui.end_row();
+                    }
+                });
+            });
+            ui.add_space(50.0);
+            ui.horizontal(|ui| {
+                if ui.button("Inject DLL").clicked() {
+                    dbg!(&accounts);
+                    find_wow_windows_and_inject(
+                        config.clone(),
+                        InjectQuery {
+                            enabled_characters: accounts
+                                .iter()
+                                .filter(|(_, enabled)| *enabled)
+                                .map(|(c, _)| c.character.name.clone())
+                                .collect(),
+                            enabled_patches: patches
+                                .iter()
+                                .filter(|(_, enabled)| *enabled)
+                                .map(|(p, _)| p.name.clone())
+                                .collect(),
+                        },
+                    )
+                    .unwrap();
+                }
+
+                if ui.button("Launch clients").clicked() {
+                    let query = LaunchQuery {
+                        num_clients: accounts
+                            .iter()
+                            .filter(|(_, enabled)| *enabled)
+                            .map(|(c, _)| c.character.name.clone())
+                            .count() as i32,
+                    };
+                    query.launch(config.clone()).unwrap();
                 }
             })
         });
-    }
-
-    Ok(())
+    })
 }
+// #[tokio::main]
+// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//     start_dummy_window();
+//     let pool = LocalPoolHandle::new(2);
+//     let port = 7070;
+//     let addr: SocketAddr = ([127, 0, 0, 1], port).into();
+//     // Bind to the port and listen for incoming TCP connections
+//     let listener = TcpListener::bind(addr).await?;
+//     println!("Injector listening for HTTP at {:?}", addr);
+//     loop {
+//         let (stream, _) = listener.accept().await?;
+//         let io = TokioIo::new(stream);
+//         pool.spawn_pinned(|| {
+//             tokio::task::spawn_local(async move {
+//                 match http1::Builder::new()
+//                     .serve_connection(io, service_fn(handle_request_wrapper))
+//                     .await
+//                 {
+//                     Ok(_) => {}
+//                     Err(err) => println!("Error serving connection: {:?}", err),
+//                 }
+//             })
+//         });
+//     }
+
+//     Ok(())
+// }

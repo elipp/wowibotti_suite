@@ -548,6 +548,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::StopFollow if nargs == 0 => {
             TRYING_TO_FOLLOW.set(None);
             let target_pos = player.yards_in_front_of(0.1);
+            ctm::clear()?;
             ctm::add_to_queue(CtmEvent {
                 target_pos,
                 priority: CtmPriority::NoOverride,
