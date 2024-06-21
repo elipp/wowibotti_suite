@@ -1,7 +1,6 @@
 use lazy_static::lazy_static;
 use serde::Serialize;
 use std::ffi::c_void;
-use std::os::windows::ffi::OsStrExt;
 use std::sync::{Arc, Mutex};
 use windows::Win32::Foundation::WPARAM;
 use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, WM_USER};
@@ -48,6 +47,7 @@ pub enum InjectorError {
     DeserializationError(String),
     InjectionError(String),
     NotFound,
+    #[cfg(feature = "web")]
     HttpError(http::Error),
     CharacterEntryNotFound(String),
     LaunchError(String),
@@ -55,6 +55,7 @@ pub enum InjectorError {
     OtherError(String),
 }
 
+#[cfg(feature = "web")]
 impl From<http::Error> for InjectorError {
     fn from(e: http::Error) -> Self {
         Self::HttpError(e)

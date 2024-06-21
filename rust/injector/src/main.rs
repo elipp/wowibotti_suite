@@ -1,21 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(rustdoc::missing_crate_level_docs)]
+
+#[cfg(feature = "native-ui")]
 use eframe::egui;
 
-use http::{Method, Request, Response, StatusCode};
-use hyper::server::conn::http1;
-use hyper::service::service_fn;
-use inject::{
-    find_wow_windows_and_inject, InjectorError, InjectorResult, INJ_MESSAGE_REGISTER_HOTKEY,
-    INJ_MESSAGE_UNREGISTER_HOTKEY,
-};
 use lazy_static::lazy_static;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::json;
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use std::{ffi::OsString, net::SocketAddr, os::windows::ffi::OsStrExt, path::PathBuf};
-use tokio::net::TcpListener;
-use tokio_util::task::LocalPoolHandle;
+use std::{ffi::OsString, os::windows::ffi::OsStrExt, path::PathBuf};
 use windows::core::w;
 use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey, MOD_ALT};
@@ -40,13 +32,21 @@ use windows::{
     },
 };
 
-use http_body_util::BodyExt;
-
 mod inject;
+
+#[cfg(feature = "web")]
 mod tokio_io;
 
-use crate::inject::CLIENTS;
+#[cfg(feature = "web")]
 use crate::tokio_io::TokioIo;
+
+#[cfg(feature = "web")]
+mod web;
+
+use inject::{
+    find_wow_windows_and_inject, InjectorError, InjectorResult, CLIENTS,
+    INJ_MESSAGE_REGISTER_HOTKEY, INJ_MESSAGE_UNREGISTER_HOTKEY,
+};
 
 use wowibottihookdll::{CharacterInfo, WowAccount};
 
@@ -54,73 +54,23 @@ lazy_static! {
     static ref DUMMY_WINDOW_HWND: Arc<Mutex<HWND>> = Arc::new(Mutex::new(HWND(0)));
 }
 
-fn json_response_builder() -> http::response::Builder {
-    http::Response::builder()
-        .header("Accept", "application/json")
-        .header("Content-Type", "application/json")
-        .header("Access-Control-Allow-Origin", "*")
-}
-
-pub type IHttpResult = http::Result<Response<String>>;
-
-fn not_found() -> IHttpResult {
-    Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .body(String::from("{}"))
-}
-
-fn bad_request<T: Serialize>(msg: T) -> IHttpResult {
-    json_response_builder()
-        .status(StatusCode::BAD_REQUEST)
-        .body(
-            json!({
-                "error": "bad_request",
-                "details": msg
-            })
-            .to_string(),
-        )
-}
-
-fn internal_server_error<T: Serialize>(msg: T) -> IHttpResult {
-    json_response_builder()
-        .status(StatusCode::INTERNAL_SERVER_ERROR)
-        .body(
-            json!({
-                "error": "internal_server_error",
-                "details": msg
-            })
-            .to_string(),
-        )
-}
-
-async fn handle_request_wrapper(req: Request<hyper::body::Incoming>) -> IHttpResult {
-    match handle_request(req).await {
-        Ok(r) => Ok(r),
-        Err(InjectorError::NotFound) => not_found(),
-        Err(InjectorError::DebugPrivilegesFailed(e)) => internal_server_error(format!(
-            "{e:?} (are you running injector as an Administrator?)"
-        )),
-        Err(e) => internal_server_error(format!("{e:?}")),
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct PatchConfig {
-    name: String,
-    enabled_by_default: bool,
+pub struct PatchConfig {
+    pub name: String,
+    pub enabled_by_default: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-struct PottiConfig {
-    wow_client_path: PathBuf,
-    accounts: Vec<WowAccount>,
-    available_patches: Vec<PatchConfig>,
+pub struct PottiConfig {
+    pub wow_client_path: PathBuf,
+    pub accounts: Vec<WowAccount>,
+    pub available_patches: Vec<PatchConfig>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ConfigResult {
-    characters: Vec<CharacterInfo>,
-    available_patches: Vec<PatchConfig>,
+pub struct ConfigResult {
+    pub characters: Vec<CharacterInfo>,
+    pub available_patches: Vec<PatchConfig>,
 }
 
 impl From<PottiConfig> for ConfigResult {
@@ -132,13 +82,16 @@ impl From<PottiConfig> for ConfigResult {
     }
 }
 
+#[cfg(all(not(feature = "native-ui"), not(feature = "web")))]
+compile_error!("one of `--feature=native-ui` or `--feature=web` must be provided");
+
 #[derive(Debug, Deserialize)]
 pub struct InjectQuery {
-    enabled_characters: Vec<String>,
-    enabled_patches: Vec<String>,
+    pub enabled_characters: Vec<String>,
+    pub enabled_patches: Vec<String>,
 }
 
-fn read_potti_conf() -> Result<PottiConfig, InjectorError> {
+pub fn read_potti_conf() -> Result<PottiConfig, InjectorError> {
     // let config_str = std::fs::read_to_string("potti.conf")
     //     .map_err(|_e| InjectorError::OtherError(format!("couldn't read potti.conf")))?;
     let config_str = include_str!("..\\potti.conf.json");
@@ -147,21 +100,9 @@ fn read_potti_conf() -> Result<PottiConfig, InjectorError> {
     Ok(config)
 }
 
-async fn parse_json_body_into<O: DeserializeOwned>(
-    req: Request<hyper::body::Incoming>,
-) -> Result<O, InjectorError> {
-    match req.collect().await {
-        Ok(bytes) => match serde_json::from_slice(&bytes.to_bytes()) {
-            Ok(o) => Ok(o),
-            Err(e) => Err(InjectorError::DeserializationError(format!("{e:?}"))),
-        },
-        Err(e) => Err(InjectorError::DeserializationError(format!("{e:?}"))),
-    }
-}
-
 #[derive(Debug, Deserialize)]
-struct LaunchQuery {
-    num_clients: i32,
+pub struct LaunchQuery {
+    pub num_clients: i32,
 }
 
 pub fn str_into_vec_u16<S: Into<OsString>>(s: S) -> Vec<u16> {
@@ -196,54 +137,6 @@ impl LaunchQuery {
         Ok(())
     }
 }
-async fn handle_request(
-    req: Request<hyper::body::Incoming>,
-) -> Result<Response<String>, InjectorError> {
-    // if content-type is sent, CORS gets complicated
-    // match req
-    //     .headers()
-    //     .get("content-type")
-    //     .as_ref()
-    //     .map(|h| h.as_bytes())
-    // {
-    //     Some(b"application/json") => {}
-    //     _ => {
-    //         return bad_request(json!({"description": "expected content-type: application/json"}));
-    //     }
-    // }
-
-    match (req.method(), req.uri().path()) {
-        (&Method::GET, "/config") => {
-            let config = read_potti_conf()?;
-            Ok(json_response_builder()
-                .status(StatusCode::OK)
-                .body(json!({
-                    "status": "ok",
-                    "result": serde_json::to_value(ConfigResult::from(config)).map_err(|_e|InjectorError::SerializationError(format!("{_e:?}")))?
-                }).to_string())?)
-        }
-
-        (&Method::POST, "/inject") => {
-            let config = read_potti_conf()?;
-            let query: InjectQuery = parse_json_body_into(req).await?;
-            let client_info = find_wow_windows_and_inject(config, query)?;
-            let serialized = serde_json::to_value(&client_info)
-                .map_err(|_e| InjectorError::SerializationError(format!("{_e:?}")))?;
-            Ok(json_response_builder()
-                .status(StatusCode::OK)
-                .body(json!({"status": "ok", "clients": serialized}).to_string())?)
-        }
-
-        (&Method::POST, "/launch") => {
-            let query: LaunchQuery = parse_json_body_into(req).await?;
-            query.launch(read_potti_conf()?)?;
-            Ok(json_response_builder()
-                .status(StatusCode::OK)
-                .body(json!({"status": "ok"}).to_string())?)
-        }
-        _ => Err(InjectorError::NotFound),
-    }
-}
 
 unsafe extern "system" fn dummy_wndproc(
     hwnd: HWND,
@@ -276,7 +169,7 @@ unsafe extern "system" fn dummy_wndproc(
     DefWindowProcW(hwnd, msg, wparam, lparam)
 }
 
-fn start_dummy_window() -> std::thread::JoinHandle<Result<(), InjectorError>> {
+pub fn start_dummy_window() -> std::thread::JoinHandle<Result<(), InjectorError>> {
     std::thread::spawn(|| unsafe {
         let instance = GetModuleHandleW(None).unwrap();
 
@@ -330,39 +223,59 @@ fn start_dummy_window() -> std::thread::JoinHandle<Result<(), InjectorError>> {
     })
 }
 
+struct Togglable<T> {
+    value: T,
+    enabled: bool,
+}
+
+#[cfg(feature = "native-ui")]
 fn main() -> Result<(), eframe::Error> {
     // env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    start_dummy_window();
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([600.0, 480.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([400.0, 300.0]),
         ..Default::default()
     };
 
     let config = read_potti_conf().unwrap();
-    let mut accounts: Vec<_> = config.accounts.iter().map(|a| (a.clone(), false)).collect();
+    let mut accounts: Vec<_> = config
+        .accounts
+        .iter()
+        .map(|a| Togglable {
+            value: a.clone(),
+            enabled: false,
+        })
+        .collect();
     let mut patches: Vec<_> = config
         .available_patches
         .iter()
-        .map(|a| (a.clone(), a.enabled_by_default))
+        .map(|a| Togglable {
+            value: a.clone(),
+            enabled: a.enabled_by_default,
+        })
         .collect();
+
     eframe::run_simple_native("injector :D", options, move |ctx, _frame| {
         egui_extras::install_image_loaders(ctx);
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("injector :D");
-            ui.add_space(10.0);
-            ui.horizontal(|ui| {
-                egui::Grid::new("character_list").show(ui, |ui| {
-                    for (account, checked) in accounts.iter_mut() {
-                        ui.checkbox(checked, account.character.name.clone());
+            ui.heading("Injector :D");
+            ui.add_space(20.0);
+            ui.columns(2, |columns| {
+                columns[0].label("Available characters:");
+                egui::Grid::new("character_list").show(&mut columns[0], |ui| {
+                    for account in accounts.iter_mut() {
+                        ui.checkbox(&mut account.enabled, account.value.character.name.clone());
                         ui.image(format!(
                             "file://injector/assets/{}.png",
-                            account.character.class
+                            account.value.character.class
                         ));
                         ui.end_row();
                     }
                 });
-                egui::Grid::new("enabled_patches").show(ui, |ui| {
-                    for (patch, enabled) in patches.iter_mut() {
-                        ui.checkbox(enabled, patch.name.clone());
+                columns[1].label("Patches to enable:");
+                egui::Grid::new("enabled_patches").show(&mut columns[1], |ui| {
+                    for patch in patches.iter_mut() {
+                        ui.checkbox(&mut patch.enabled, patch.value.name.clone());
                         ui.end_row();
                     }
                 });
@@ -370,19 +283,18 @@ fn main() -> Result<(), eframe::Error> {
             ui.add_space(50.0);
             ui.horizontal(|ui| {
                 if ui.button("Inject DLL").clicked() {
-                    dbg!(&accounts);
                     find_wow_windows_and_inject(
                         config.clone(),
                         InjectQuery {
                             enabled_characters: accounts
                                 .iter()
-                                .filter(|(_, enabled)| *enabled)
-                                .map(|(c, _)| c.character.name.clone())
+                                .filter(|t| t.enabled)
+                                .map(|t| t.value.character.name.clone())
                                 .collect(),
                             enabled_patches: patches
                                 .iter()
-                                .filter(|(_, enabled)| *enabled)
-                                .map(|(p, _)| p.name.clone())
+                                .filter(|t| t.enabled)
+                                .map(|t| t.value.name.clone())
                                 .collect(),
                         },
                     )
@@ -393,8 +305,8 @@ fn main() -> Result<(), eframe::Error> {
                     let query = LaunchQuery {
                         num_clients: accounts
                             .iter()
-                            .filter(|(_, enabled)| *enabled)
-                            .map(|(c, _)| c.character.name.clone())
+                            .filter(|t| t.enabled)
+                            .map(|t| t.value.character.name.clone())
                             .count() as i32,
                     };
                     query.launch(config.clone()).unwrap();
@@ -403,30 +315,9 @@ fn main() -> Result<(), eframe::Error> {
         });
     })
 }
-// #[tokio::main]
-// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//     start_dummy_window();
-//     let pool = LocalPoolHandle::new(2);
-//     let port = 7070;
-//     let addr: SocketAddr = ([127, 0, 0, 1], port).into();
-//     // Bind to the port and listen for incoming TCP connections
-//     let listener = TcpListener::bind(addr).await?;
-//     println!("Injector listening for HTTP at {:?}", addr);
-//     loop {
-//         let (stream, _) = listener.accept().await?;
-//         let io = TokioIo::new(stream);
-//         pool.spawn_pinned(|| {
-//             tokio::task::spawn_local(async move {
-//                 match http1::Builder::new()
-//                     .serve_connection(io, service_fn(handle_request_wrapper))
-//                     .await
-//                 {
-//                     Ok(_) => {}
-//                     Err(err) => println!("Error serving connection: {:?}", err),
-//                 }
-//             })
-//         });
-//     }
 
-//     Ok(())
-// }
+#[cfg(feature = "web")]
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    web::main().await
+}
