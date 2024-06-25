@@ -274,9 +274,9 @@ pub struct ClientConfig {
 
 impl WowAccount {
     fn login(&self) -> LoleResult<()> {
-        std::thread::sleep(std::time::Duration::from_millis(
-            rand::random::<u64>() % 5000,
-        ));
+        let sleep_duration = std::time::Duration::from_millis(rand::random::<u64>() % 5000);
+        println!("Sleeping for {sleep_duration:?}");
+        std::thread::sleep(sleep_duration);
         dostring!(
             "DefaultServerLogin('{}', '{}')",
             self.username,

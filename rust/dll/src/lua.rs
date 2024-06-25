@@ -196,7 +196,7 @@ macro_rules! dostring {
     ($fmt:expr, $($args:expr),*) => {{
         use crate::lua::{lua_dostring, string_to_nul_terminated};
         use std::ffi::c_char;
-        let mut s = string_to_nul_terminated(format!($fmt, $($args),*));
+        let s = string_to_nul_terminated(format!($fmt, $($args),*));
         lua_dostring(s.as_ptr() as *const c_char, s.as_ptr() as *const c_char, 0);
     }};
 
