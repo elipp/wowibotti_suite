@@ -237,6 +237,7 @@ pub enum CharacterClass {
     Priest,
     Rogue,
     Mage,
+    Shaman,
     Warlock,
     Warrior,
 }
