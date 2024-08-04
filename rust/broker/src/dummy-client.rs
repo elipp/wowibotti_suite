@@ -24,15 +24,16 @@ async fn main() -> Result<(), std::io::Error> {
     stream
         .write_all(serialization_buffer.encode(&hello))
         .await
-        .expect("hello");
+        .unwrap();
 
     let (mut read, mut write) = stream.into_split();
     let mut read_buf = vec![0; BUF_SIZE];
     match read.read(&mut read_buf).await {
         Ok(bytes @ 1usize..) => {
+            eprintln!("read {bytes} bytes");
             let msg = serialization_buffer
                 .decode::<MsgWrapper>(&read_buf[..bytes])
-                .expect("valid msg");
+                .unwrap();
             println!("received {msg:?}");
             if connection_id == UNINITIALIZED_CONNECTION_ID
                 && msg.from_connection_id == SERVER_CONNECTION_ID
@@ -65,9 +66,10 @@ async fn main() -> Result<(), std::io::Error> {
     loop {
         match read.read(&mut read_buf).await {
             Ok(bytes @ 1usize..) => {
+                eprintln!("read {bytes} bytes");
                 let msg = serialization_buffer
                     .decode::<MsgWrapper>(&read_buf[..bytes])
-                    .expect("valid msg");
+                    .unwrap();
                 println!("received {msg:?}");
             }
             _ => panic!("lolz"),

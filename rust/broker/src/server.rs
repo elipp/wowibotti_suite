@@ -16,6 +16,11 @@ struct Connection {
     tx: mpsc::Sender<MsgWrapper>,
 }
 
+enum MsgType {
+    RemoveClient(ConnectionId),
+    RelayMsg(MsgWrapper),
+}
+
 impl std::fmt::Display for Connection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Connection {{ id: {} }}", self.id)
@@ -49,6 +54,7 @@ impl std::fmt::Display for MsgWrapper {
 struct Clients {
     connections: Arc<Mutex<Vec<Connection>>>,
     client_id_counter: Arc<Mutex<ConnectionId>>,
+    main_tx: std::sync::mpsc::Sender<MsgType>,
 }
 
 impl Clients {
@@ -66,73 +72,66 @@ impl Clients {
         *client_id += 1;
         *client_id
     }
-    fn spawn_message_forwarder_task(
+    fn spawn_socket_reader_task(
         &self,
         connection_id: ConnectionId,
-        rx: std::sync::mpsc::Receiver<MsgWrapper>,
-        mut write: OwnedWriteHalf,
-    )
-    // - listen to messages from this client's `rx`
-    // - relay message to client's socket
-    {
-        tokio::spawn(async move {
-            let mut buffer = bitcode::Buffer::new();
-            loop {
-                match rx.recv() {
-                    Ok(msg) => {
-                        if msg.from_connection_id != SERVER_CONNECTION_ID
-                            && msg.from_connection_id != connection_id
-                        {
-                            println!("connection {}: received peer {msg}", connection_id);
-                        }
-                        match write.write_all(buffer.encode(&msg)).await {
-                            Ok(_) => {}
-                            Err(e) => panic!("{e:?}"),
-                        }
-                    }
-                    Err(e) => panic!("{e:?}"),
-                }
-            }
-        });
-    }
-
-    fn spawn_socket_reader_task(&self, connection: Connection, mut s_read: OwnedReadHalf) {
+        client_tx: std::sync::mpsc::Sender<MsgWrapper>,
+        mut s_read: OwnedReadHalf,
+    ) {
         // - listen to messages from socket
         // - send message to this client's `rx` for relaying
-        let mut self_cloned = self.clone();
+        let main_tx = self.main_tx.clone();
         tokio::spawn(async move {
-            println!("Client {connection} connected");
-            let connection_id = connection.id;
-            let tx = connection.tx.clone();
-            self_cloned.push(connection);
-
             let mut buffer = bitcode::Buffer::new();
             let mut buf = vec![0; BUF_SIZE];
             loop {
                 match s_read.read(&mut buf).await {
                     Ok(bytes_read @ 1..) => {
-                        let msg = buffer
-                            .decode::<MsgWrapper>(&buf[..bytes_read])
-                            .expect("successful deserialization");
+                        let msg = buffer.decode::<MsgWrapper>(&buf[..bytes_read]).unwrap();
                         println!("got message {msg}");
-                        if msg.from_connection_id == UNINITIALIZED_CONNECTION_ID {
-                            if let Msg::Hello = msg.message {
-                                tx.send(MsgWrapper {
+                        if msg.from_connection_id == UNINITIALIZED_CONNECTION_ID
+                            && matches!(msg.message, Msg::Hello)
+                        {
+                            client_tx
+                                .send(MsgWrapper {
                                     from_connection_id: SERVER_CONNECTION_ID,
                                     message: Msg::Welcome(connection_id),
                                 })
-                                .expect("hello");
+                                .unwrap();
+                        } else {
+                            if let Err(e) = main_tx.send(MsgType::RelayMsg(msg)) {
+                                eprintln!("connection {connection_id}: write: {e:?}");
+                                main_tx.send(MsgType::RemoveClient(connection_id)).unwrap();
+                                break;
                             }
-                        }
-                        if let Err(e) = tx.send(msg) {
-                            eprintln!("connection {connection_id}: write: {e:?}");
-                            self_cloned.remove_by_id(connection_id);
-                            break;
                         }
                     }
                     Ok(0) | Err(_) => {
-                        eprintln!("connection {connection_id}: read of 0 (or error), removing");
-                        self_cloned.remove_by_id(connection_id);
+                        eprintln!("connection {connection_id}: error or read of 0, removing");
+                        main_tx.send(MsgType::RemoveClient(connection_id)).unwrap();
+                        break;
+                    }
+                }
+            }
+        });
+    }
+    fn spawn_message_forwarder_task(
+        &self,
+        connection_id: ConnectionId,
+        rx: std::sync::mpsc::Receiver<MsgWrapper>,
+        mut socket_writer: OwnedWriteHalf,
+    )
+    // - listen to messages from this client's `rx`
+    // - relay message to client's socket
+    {
+        let main_tx = self.main_tx.clone();
+        tokio::spawn(async move {
+            let mut buffer = bitcode::Buffer::new();
+            loop {
+                match rx.recv() {
+                    Ok(msg) => socket_writer.write_all(buffer.encode(&msg)).await.unwrap(),
+                    Err(_e) => {
+                        main_tx.send(MsgType::RemoveClient(connection_id)).unwrap();
                         break;
                     }
                 }
@@ -147,45 +146,54 @@ async fn main() {
     let listener = TcpListener::bind("127.0.0.1:8080").await.unwrap();
     println!("Server listening on port 8080");
 
-    let (tx, rx) = mpsc::channel::<MsgWrapper>(); // Channel for broadcasting messages
+    let (main_tx, main_rx) = mpsc::channel::<MsgType>(); // Channel for broadcasting messages
     let mut clients = Clients {
         connections: Arc::new(Mutex::new(Vec::new())),
         client_id_counter: Arc::new(Mutex::new(1)),
+        main_tx: main_tx.clone(),
     };
 
     let cloned_clients = clients.clone();
     // Spawn a task to handle broadcasting messages to all connected clients
+    let cloned_main_tx = main_tx.clone();
     tokio::spawn(async move {
-        while let Ok(message) = rx.recv() {
-            let mut clients_to_remove = HashSet::new();
-            let mut clients = cloned_clients.connections.lock().unwrap();
-            for client in clients
-                .iter_mut()
-                .filter(|c| c.id != message.from_connection_id)
-            {
-                if let Err(_) = client.tx.send(message.clone()) {
-                    // Failed to send message to client, remove it from the set
-                    println!("send failed: removing {}", message.from_connection_id);
-                    clients_to_remove.insert(client.id);
+        while let Ok(message) = main_rx.recv() {
+            match message {
+                MsgType::RemoveClient(id) => {
+                    eprintln!("Removing client {id}");
+                    let mut clients = cloned_clients.connections.lock().unwrap();
+                    clients.retain(|c| c.id != id);
+                }
+                MsgType::RelayMsg(message) => {
+                    let mut clients = cloned_clients.connections.lock().unwrap();
+                    for client in clients
+                        .iter_mut()
+                        .filter(|c| c.id != message.from_connection_id)
+                    {
+                        if let Err(_) = client.tx.send(message.clone()) {
+                            cloned_main_tx
+                                .send(MsgType::RemoveClient(client.id))
+                                .unwrap();
+                        }
+                    }
                 }
             }
-            clients.retain(|c| !clients_to_remove.contains(&c.id));
         }
     });
 
-    let tx_cloned = tx.clone();
+    let cloned_main_tx = main_tx.clone();
 
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(Duration::from_millis(5000)).await;
-            tx_cloned
-                .send(MsgWrapper {
+            cloned_main_tx
+                .send(MsgType::RelayMsg(MsgWrapper {
                     from_connection_id: SERVER_CONNECTION_ID,
                     message: Msg::String(format!(
                         "The time is now {:?}",
                         std::time::Instant::now()
                     )),
-                })
+                }))
                 .unwrap();
         }
     });
@@ -197,10 +205,13 @@ async fn main() {
 
         let connection = Connection {
             id: connection_id,
-            tx: client_tx,
+            tx: client_tx.clone(),
         };
 
-        clients.spawn_socket_reader_task(connection, s_read);
+        println!("Client {connection} connected");
+        clients.push(connection);
+
+        clients.spawn_socket_reader_task(connection_id, client_tx.clone(), s_read);
         clients.spawn_message_forwarder_task(connection_id, client_rx, s_write);
     }
 }
