@@ -662,16 +662,21 @@ end
 function track_heal_attempts(name)
     if not name then return end
     local msgid, _ = get_last_spell_error()
-    if msgid ~= nil then
-        local fail_msg = SPELL_ERROR_TEXTS[msgid];
-        HEAL_ATTEMPTS = HEAL_ATTEMPTS + 1;
-        if HEAL_ATTEMPTS == MAX_HEAL_ATTEMPTS then
-            HEAL_ATTEMPTS = 0;
-            if UNREACHABLE_TARGETS[name] + 5 < GetTime() then
-                print(string.format("%s to the penalty box for 5 sec: %s", name, fail_msg))
-            end
-            UNREACHABLE_TARGETS[name] = GetTime() + 5;
+    if msgid == nil then
+      return
+    end
+    local fail_msg = SPELL_ERROR_TEXTS[msgid];
+    if fail_msg == nil then
+      return
+    end
+    
+    HEAL_ATTEMPTS = HEAL_ATTEMPTS + 1;
+    if HEAL_ATTEMPTS == MAX_HEAL_ATTEMPTS then
+        HEAL_ATTEMPTS = 0;
+        if UNREACHABLE_TARGETS[name] + 5 < GetTime() then
+            print(string.format("%s to the penalty box for 5 sec: %s", name, fail_msg))
         end
+        UNREACHABLE_TARGETS[name] = GetTime() + 5;
     end
 end
 
