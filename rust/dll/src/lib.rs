@@ -43,6 +43,9 @@ use crate::patch::{Patch, AVAILABLE_PATCHES};
 use crate::spell_error::SpellError;
 use tokio::task;
 
+#[cfg(feature = "broker")]
+use broker::{client::start_addonmessage_client, server::MsgWrapper};
+
 pub const POSTGRES_ADDR: &str = "127.0.0.1:5432";
 pub const POSTGRES_USER: &str = "lole";
 pub const POSTGRES_PASS: &str = "lole";
@@ -66,11 +69,9 @@ thread_local! {
     pub static LAST_HARDWARE_INTERVAL: Cell<std::time::Instant> = Cell::new(std::time::Instant::now());
     pub static DLL_HANDLE: Cell<HINSTANCE> = Cell::new(HINSTANCE(0));
     pub static LOCAL_SET: RefCell<task::LocalSet> = RefCell::new(task::LocalSet::new());
-    pub static TOKIO_RUNTIME: RefCell<tokio::runtime::Runtime> = RefCell::new(
-        tokio::runtime::Builder::new_current_thread()
-        .enable_time()
-        .build()
-        .unwrap());
+
+    #[cfg(feature="broker")]
+    pub static BROKER_TX: RefCell<Option<std::sync::mpsc::Sender<MsgWrapper>>> = RefCell::new(None);
 }
 
 #[macro_export]
@@ -365,6 +366,16 @@ unsafe fn initialize_dll() -> LoleResult<()> {
         Err(e) => {
             println!("warning: reading config failed with {e:?}");
         }
+    }
+
+    #[cfg(feature = "broker")]
+    {
+        let (tx, rx) = std::sync::mpsc::channel::<MsgWrapper>();
+        let _handle = std::thread::spawn(|| {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async { start_addonmessage_client(rx).await });
+        });
+        BROKER_TX.set(Some(tx));
     }
 
     println!("wowibottihookdll_rust: init done! :D enabled patches:");

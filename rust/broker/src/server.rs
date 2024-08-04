@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -32,6 +31,7 @@ pub enum Msg {
     Hello,
     Welcome(ConnectionId),
     String(String),
+    AddonMessage(String, String, String),
 }
 
 #[derive(Debug, Clone, bitcode::Encode, bitcode::Decode)]
@@ -140,11 +140,9 @@ impl Clients {
     }
 }
 
-#[tokio::main]
-async fn main() {
-    // Create a TCP listener bound to localhost on port 8080
-    let listener = TcpListener::bind("127.0.0.1:8080").await.unwrap();
-    println!("Server listening on port 8080");
+pub async fn start_addonmessage_relay() {
+    println!("Broker listening on port 1337");
+    let listener = TcpListener::bind("127.0.0.1:1337").await.unwrap();
 
     let (main_tx, main_rx) = mpsc::channel::<MsgType>(); // Channel for broadcasting messages
     let mut clients = Clients {
@@ -214,4 +212,9 @@ async fn main() {
         clients.spawn_socket_reader_task(connection_id, client_tx.clone(), s_read);
         clients.spawn_message_forwarder_task(connection_id, client_rx, s_write);
     }
+}
+
+#[tokio::main]
+async fn main() {
+    start_addonmessage_relay().await
 }

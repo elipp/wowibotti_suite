@@ -1930,6 +1930,7 @@ name = "injector"
 version = "0.1.0"
 dependencies = [
  "bitcode",
+ "broker",
  "eframe",
  "egui",
  "egui_extras",
@@ -4187,6 +4188,7 @@ name = "wowibottihookdll"
 version = "0.1.0"
 dependencies = [
  "bitcode",
+ "broker",
  "lazy_static",
  "nohash-hasher",
  "rand",

@@ -3,11 +3,19 @@ name = "wowibottihookdll"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["wotlk", "console"]
+broker = ["dep:broker"]
+console = []
+tbc = []
+wotlk = []
+
 [lib]
 crate-type = ["cdylib", "lib"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+broker = {path="../broker", optional=true}
 bitcode = "0"
 lazy_static = "1"
 nohash-hasher = "0"
@@ -18,8 +26,3 @@ serde_json = "1"
 tokio = {version = "1", features=["rt", "time"]}
 windows = { version = "0", features = ["Win32_Foundation", "Win32_System_SystemServices", "Win32_UI_WindowsAndMessaging", "Win32_System_Console", "Win32_System_Memory", "Win32_System_Diagnostics_Debug", "Win32_System_Threading", "Win32_Storage_FileSystem", "Win32_Security", "Win32_Networking_WinSock", "Win32_System_SystemInformation", "Win32_System_LibraryLoader"] }
 
-[features]
-default = ["wotlk", "console"]
-console = []
-tbc = []
-wotlk = []

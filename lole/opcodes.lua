@@ -23,6 +23,7 @@ local LOP = {
 	FaceMob = 19,
 	StorePath = 0x100,
 	PlaybackPath = 0x101,
+  SendAddonMessage = 0x200,
   Debug = 0x400,
   Dump = 0x401,
   DoString = 0x402,
@@ -364,6 +365,10 @@ end
 
 function get_aoe_feasibility(relative_to, range)
 	return LOP:call(LOP.GetAoeFeasibility, relative_to, range)
+end
+
+function L_SendAddonMessage(...)
+	LOP:call(LOP.SendAddonMessage, ...)
 end
 
 function L_ClearTarget()

@@ -48,6 +48,7 @@ use inject::{
     INJ_MESSAGE_REGISTER_HOTKEY, INJ_MESSAGE_UNREGISTER_HOTKEY,
 };
 
+use broker::server::start_addonmessage_relay;
 use wowibottihookdll::{CharacterInfo, WowAccount};
 
 lazy_static! {
@@ -254,6 +255,14 @@ fn main() -> Result<(), eframe::Error> {
             enabled: a.enabled_by_default,
         })
         .collect();
+
+    #[cfg(feature = "broker")]
+    let handle = std::thread::spawn(|| {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            start_addonmessage_relay().await;
+        })
+    });
 
     eframe::run_simple_native("injector :D", options, move |ctx, _frame| {
         egui_extras::install_image_loaders(ctx);

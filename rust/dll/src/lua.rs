@@ -17,6 +17,13 @@ use crate::vec3::{Vec3, TWO_PI};
 use crate::{
     add_repr_and_tryfrom, assembly, LoleError, LoleResult, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
 };
+
+#[cfg(feature = "broker")]
+use {
+    crate::BROKER_TX,
+    broker::server::{Msg, MsgWrapper},
+};
+
 use crate::{define_lua_function, Addr}; // POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
 
 thread_local! {
@@ -303,6 +310,7 @@ add_repr_and_tryfrom! {
         FaceMob = 19,
         StorePath = 0x100,
         PlaybackPath = 0x101,
+        SendAddonMessage = 0x200,
         Debug = 0x400,
         Dump = 0x401,
         DoString = 0x402,
@@ -891,7 +899,21 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             lua_pushboolean(lua, 1);
             return Ok(1);
         }
-
+        #[cfg(feature = "broker")]
+        Opcode::SendAddonMessage => {
+            let header = lua_tostring!(lua, 2)?;
+            let msg = lua_tostring!(lua, 3)?;
+            let to = lua_tostring!(lua, 4)?;
+            let tx = BROKER_TX.with(|tx| {
+                let tx = tx.borrow();
+                if let Some(ref tx) = *tx {
+                    let _res = tx.send(MsgWrapper {
+                        message: Msg::AddonMessage(header.into(), msg.into(), to.into()),
+                        from_connection_id: 1337,
+                    });
+                }
+            });
+        }
         Opcode::DumpWowObject => {
             // when mob is looted, base + 0x2A*4 is set to 0, meanwhile "NpcState" seems to not be very interesting
             let n_bytes = if nargs >= 1 {
