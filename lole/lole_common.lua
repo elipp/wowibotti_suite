@@ -427,6 +427,7 @@ local AOE_spellIDs = {
   ["Flamestrike"] = 42926,
   ["Blizzard"] = 42940,
   ["Volley(Rank 2)"] = 14294,
+  ["Volley(Rank 3)"] = 14295,
   ["Volley"] = 27022,
   ["Hurricane"] = 48467,
   ["DND"] = 49938,

@@ -306,6 +306,8 @@ function combat_priest_holy()
         cast_heal("Binding Heal");
     elseif target_HPP < 30 then
         cast_heal("Flash Heal")
+    elseif target_HPP < 45 then
+        cast_heal("Prayer of Mending")
     elseif target_HPP < 85 and not has_renew then
         cast_heal("Renew")
     elseif (GetSpellCooldown("Circle of Healing") == 0) and (coh_target.total_deficit > 3500 and coh_target.num_targets > 2 and coh_target.average_deficit > 500) then

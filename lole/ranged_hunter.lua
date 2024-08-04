@@ -88,7 +88,7 @@ local function attack()
         
         local feasibility = get_aoe_feasibility("target", 8)
         if lole_subcommands.get("aoemode") == 1 and get_distance_between("player", "target") < 30 and UnitMana("player") > 600 and feasibility > 4.5 then
-            return cast_gtaoe("Volley(Rank 2)", get_unit_position("target"))
+            return cast_gtaoe("Volley(Rank 3)", get_unit_position("target"))
         end
         
         if UnitHealth("target") > 7500 and not has_debuff("target", "Hunter's Mark") then
@@ -100,7 +100,8 @@ local function attack()
         end
         
         local has_viper_sting = has_debuff("target", "Viper Sting")
-        if (UnitPowerType("target") == 0) and (UnitHealth("target") > 2000) and (UnitMana("target") > 200) and (not has_viper_sting) then
+        local mana_pct = UnitMana("player")/UnitManaMax("player")
+        if mana_pct < 0.5 and (UnitPowerType("target") == 0) and (UnitHealth("target") > 2000) and (UnitMana("target") > 200) and (not has_viper_sting) then
             return L_CastSpellByName("Viper Sting")
         elseif (not has_viper_sting) and (not has_debuff("target", "Serpent Sting")) then
             return L_CastSpellByName("Serpent Sting")
