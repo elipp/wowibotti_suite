@@ -9,3 +9,4 @@ potti.conf
 wowibottihookdll/wowibottihookdll.vcxproj.user
 wowibottihookdll_rust/target
 build/
+lolerust.dll
