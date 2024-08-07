@@ -1,18 +1,20 @@
 local framenum = 0
 local reset_framenum = 10
 
-function tmp_paladin_combat()
-    framenum = framenum+1
-    if GetZoneText() == 'Gnomeregan' and framenum % reset_framenum == 0 then
-        framenum = 1
-        for name, _ in pairs(get_guild_members()) do
-            target_unit_with_GUID(UnitGUID(name))
-            if has_debuff("target", "Irradiated") then
-                return L_CastSpellByName("Purify")
-            end
-        end
+function throw_insta_flash_of_lights()
+    local target, urgencies = get_raid_heal_target(true);
+    if has_buff("player", "The Art of War") and health_percentage(target) < 50 then
+        L_TargetUnit(target)
+        L_CastSpellByName("Flash of Light")
+        return true
     end
+end
 
+function tmp_paladin_combat()
+    if throw_insta_flash_of_lights() then
+        return
+    end
+        
     if validate_target() then
         melee_attack_behind(1.5);
         L_StartAttack();

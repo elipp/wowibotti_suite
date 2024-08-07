@@ -270,6 +270,14 @@ end
 function combat_priest_holy()
     if casting_legit_heal() then return end
 
+    if UnitAffectingCombat("player") and mana_percentage("player") < 30 and GetSpellCooldown("Shadowfiend") == 0 then
+        if validate_target() then
+            L_CastSpellByName("Shadowfiend")
+            L_PetAttack()
+            return
+        end
+    end
+
     local target, urgencies = get_raid_heal_target(true);
     
     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
@@ -283,7 +291,7 @@ function combat_priest_holy()
     --     L_ClearTarget()
     --     return
     -- end
-
+    
     if heal_targets[1] == 'raid' then
         local target, urgencies = get_raid_heal_target(true);
         if not target then
@@ -292,7 +300,7 @@ function combat_priest_holy()
             L_TargetUnit(target);
         end
     end
-  
+
     if health_percentage("player") < 50 and cast_if_nocd("Desperate Prayer") then return end
     
     local target_HPP = health_percentage("target")
@@ -302,11 +310,12 @@ function combat_priest_holy()
     
     local coh_target = karvalakki_CoH();
 
+    if group_dispel() then return end
     if UnitGUID("target") ~= UnitGUID("player") and health_percentage("player") < 75 then
         cast_heal("Binding Heal");
     elseif target_HPP < 30 then
         cast_heal("Flash Heal")
-    elseif target_HPP < 45 then
+    elseif target_HPP < 55 and GetSpellCooldown("Prayer of Mending") == 0 then
         cast_heal("Prayer of Mending")
     elseif target_HPP < 85 and not has_renew then
         cast_heal("Renew")

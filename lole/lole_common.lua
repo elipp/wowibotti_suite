@@ -300,9 +300,10 @@ BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 OVERRIDE_COMMAND = nil;
 
-HEALERS = {"Bacc"}; -- for keeping order mostly
+HEALERS = {"Bacc", "Chonkki"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
-  Bacc = {heals={"raid"}, hots={"Raimo"}}
+  Bacc = {heals={"raid"}, hots={"Raimo"}},
+  Chonkki = {heals={"raid"}}
 }
 ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
 HEALS_IN_PROGRESS = {};
@@ -1167,22 +1168,19 @@ function player_is_targeted()
 end
 
 function validate_target()
-
-
 	if BLAST_TARGET_GUID ~= NOTARGET and UnitExists("focus") and BLAST_TARGET_GUID == UnitGUID("focus") then
 		if not UnitIsDead("focus") then
 			if has_debuff("focus", "Polymorph") or has_debuff("focus", "Shackle") then
-			 	return false;
+			 	return false
 			end
-
-			L_TargetUnit("focus");
-			return true;
+			L_TargetUnit("focus")
+			return true
 		else
 			clear_target()
-			return false;
+			return false
 		end
 	else
-		return false;
+		return false
 	end
 
 end
@@ -2027,7 +2025,8 @@ function group_dispel()
     local dispel_spell = get_eligible_player_dispel_spell(dispel_type)
     if dispel_spell ~= nil then
       L_TargetUnit(guildie_name)
-      return L_CastSpellByName(dispel_spell)
+      L_CastSpellByName(dispel_spell)
+      return true
     end
   end
 end

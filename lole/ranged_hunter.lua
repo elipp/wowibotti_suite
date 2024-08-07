@@ -100,8 +100,7 @@ local function attack()
         end
         
         local has_viper_sting = has_debuff("target", "Viper Sting")
-        local mana_pct = UnitMana("player")/UnitManaMax("player")
-        if mana_pct < 0.5 and (UnitPowerType("target") == 0) and (UnitHealth("target") > 2000) and (UnitMana("target") > 200) and (not has_viper_sting) then
+        if mana_percentage("player") < 50 and (UnitPowerType("target") == 0) and (UnitHealth("target") > 2000) and (UnitMana("target") > 200) and (not has_viper_sting) then
             return L_CastSpellByName("Viper Sting")
         elseif (not has_viper_sting) and (not has_debuff("target", "Serpent Sting")) then
             return L_CastSpellByName("Serpent Sting")
