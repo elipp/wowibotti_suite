@@ -48,7 +48,9 @@ use inject::{
     INJ_MESSAGE_REGISTER_HOTKEY, INJ_MESSAGE_UNREGISTER_HOTKEY,
 };
 
+#[cfg(feature = "broker")]
 use broker::server::start_addonmessage_relay;
+
 use wowibottihookdll::{CharacterInfo, WowAccount};
 
 lazy_static! {
