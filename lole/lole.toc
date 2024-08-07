@@ -35,6 +35,9 @@ tmp_leveling\tmp_warlock.lua
 tmp_leveling\tmp_priest.lua
 tmp_leveling\tmp_paladin.lua
 tmp_leveling\tmp_mage.lua
+tmp_leveling\aoe_druid_balance.lua
+tmp_leveling\aoe_warlock_destruction.lua
+tmp_leveling\aoe_mage_frost.lua
 
 class_config.lua
 

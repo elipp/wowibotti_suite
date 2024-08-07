@@ -914,7 +914,7 @@ local function lole_broadcast_getbiscuits()
 end
 
 local function lole_broadcast_reloadui()
-	lole_subcommands.sendscript("GUILD", "ConsoleExec(\"reloadui\")")
+	lole_subcommands.sendscript("RAID", "ConsoleExec(\"reloadui\")")
 end
 
 local function lole_broadcast_eject()
