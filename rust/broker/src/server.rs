@@ -4,11 +4,16 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpListener;
 
-type ConnectionId = u32;
+pub type ConnectionId = u32;
+
+#[derive(Copy, Clone, Debug, bitcode::Encode, bitcode::Decode, PartialEq)]
+pub enum MsgSender {
+    Server,
+    PeerWithoutConnectionId,
+    Peer(ConnectionId),
+}
 
 pub const BUF_SIZE: usize = 4096;
-pub const SERVER_CONNECTION_ID: ConnectionId = 0;
-pub const UNINITIALIZED_CONNECTION_ID: ConnectionId = u32::MAX;
 
 struct Connection {
     id: ConnectionId,
@@ -27,16 +32,24 @@ impl std::fmt::Display for Connection {
 }
 
 #[derive(Debug, Clone, bitcode::Encode, bitcode::Decode)]
+pub struct AddonMessage {
+    pub prefix: String,
+    pub text: String,
+    pub r#type: Option<String>,
+    pub target: Option<String>,
+}
+
+#[derive(Debug, Clone, bitcode::Encode, bitcode::Decode)]
 pub enum Msg {
     Hello,
     Welcome(ConnectionId),
     String(String),
-    AddonMessage(String, String, String),
+    AddonMessage(AddonMessage),
 }
 
 #[derive(Debug, Clone, bitcode::Encode, bitcode::Decode)]
 pub struct MsgWrapper {
-    pub from_connection_id: ConnectionId,
+    pub from: MsgSender,
     pub message: Msg,
 }
 
@@ -44,8 +57,8 @@ impl std::fmt::Display for MsgWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Message {{ from: {}, message: {:?} }}",
-            self.from_connection_id, self.message
+            "Message {{ from: {:?}, message: {:?} }}",
+            self.from, self.message
         )
     }
 }
@@ -88,13 +101,13 @@ impl Clients {
                 match s_read.read(&mut buf).await {
                     Ok(bytes_read @ 1..) => {
                         let msg = buffer.decode::<MsgWrapper>(&buf[..bytes_read]).unwrap();
-                        println!("got message {msg}");
-                        if msg.from_connection_id == UNINITIALIZED_CONNECTION_ID
-                            && matches!(msg.message, Msg::Hello)
+                        println!("message {msg}");
+                        if let (MsgSender::PeerWithoutConnectionId, Msg::Hello) =
+                            (msg.from, &msg.message)
                         {
                             client_tx
                                 .send(MsgWrapper {
-                                    from_connection_id: SERVER_CONNECTION_ID,
+                                    from: MsgSender::Server,
                                     message: Msg::Welcome(connection_id),
                                 })
                                 .unwrap();
@@ -166,7 +179,7 @@ pub async fn start_addonmessage_relay() {
                     let mut clients = cloned_clients.connections.lock().unwrap();
                     for client in clients
                         .iter_mut()
-                        .filter(|c| c.id != message.from_connection_id)
+                        .filter(|c| MsgSender::Peer(c.id) != message.from)
                     {
                         if let Err(_) = client.tx.send(message.clone()) {
                             cloned_main_tx
@@ -186,7 +199,7 @@ pub async fn start_addonmessage_relay() {
             tokio::time::sleep(Duration::from_millis(5000)).await;
             cloned_main_tx
                 .send(MsgType::RelayMsg(MsgWrapper {
-                    from_connection_id: SERVER_CONNECTION_ID,
+                    from: MsgSender::Server,
                     message: Msg::String(format!(
                         "The time is now {:?}",
                         std::time::Instant::now()

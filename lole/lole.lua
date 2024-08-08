@@ -39,8 +39,10 @@ local function handle_subcommand(args)
 		usage();
 		return false;
 	end
+end
 
-
+function addonmessage_received(prefix, text, type, to)
+	print("got addonmessage", prefix, text, type, to)
 end
 
 function lole_main(args)
@@ -180,7 +182,7 @@ local GROUP_LIVING = {
 	"Kuratorn",
 }
 
-local function OnMsgEvent(self, event, prefix, message, channel, sender)
+local function HandleAddonMessage(self, event, prefix, message, channel, sender)
 
 	if (prefix == "lole_opcode") then
 		handle_opcode(message)
@@ -311,7 +313,7 @@ buff_check_frame:SetScript("OnEvent", on_buff_check_event);
 
 local msg_frame = CreateFrame("Frame");
 msg_frame:RegisterEvent("CHAT_MSG_ADDON");
-msg_frame:SetScript("OnEvent", OnMsgEvent);
+msg_frame:SetScript("OnEvent", HandleAddonMessage);
 
 local spell_event_frame = nil;
 if HEALER_TARGETS[UnitName("player")] then

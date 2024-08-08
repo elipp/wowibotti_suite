@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["wotlk", "console"]
 broker = ["dep:broker"]
 console = []
 tbc = []
 wotlk = []
+default = ["wotlk", "console", "broker"]
 
 [lib]
 crate-type = ["cdylib", "lib"]

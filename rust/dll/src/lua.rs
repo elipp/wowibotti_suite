@@ -20,8 +20,9 @@ use crate::{
 
 #[cfg(feature = "broker")]
 use {
+    crate::BROKER_CONNECTION_ID,
     crate::BROKER_TX,
-    broker::server::{Msg, MsgWrapper},
+    broker::server::{AddonMessage, Msg, MsgSender, MsgWrapper},
 };
 
 use crate::{define_lua_function, Addr}; // POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
@@ -900,19 +901,33 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             return Ok(1);
         }
         #[cfg(feature = "broker")]
-        Opcode::SendAddonMessage => {
-            let header = lua_tostring!(lua, 2)?;
-            let msg = lua_tostring!(lua, 3)?;
-            let to = lua_tostring!(lua, 4)?;
-            let tx = BROKER_TX.with(|tx| {
-                let tx = tx.borrow();
-                if let Some(ref tx) = *tx {
-                    let _res = tx.send(MsgWrapper {
-                        message: Msg::AddonMessage(header.into(), msg.into(), to.into()),
-                        from_connection_id: 1337,
-                    });
-                }
-            });
+        Opcode::SendAddonMessage if nargs >= 2 && nargs < 5 => {
+            if let (Some(connection_id), Some(tx)) = (BROKER_CONNECTION_ID.get(), BROKER_TX.get()) {
+                let prefix = lua_tostring!(lua, 2)?.to_owned();
+                let text = lua_tostring!(lua, 3)?.to_owned();
+                let r#type = if nargs > 2 {
+                    Some(lua_tostring!(lua, 4)?.to_owned())
+                } else {
+                    None
+                };
+                let target = if nargs > 3 {
+                    Some(lua_tostring!(lua, 5)?.to_owned())
+                } else {
+                    None
+                };
+
+                let _res = tx.send(MsgWrapper {
+                    from: MsgSender::Peer(*connection_id),
+                    message: Msg::AddonMessage(AddonMessage {
+                        prefix,
+                        text,
+                        r#type,
+                        target,
+                    }),
+                });
+            } else {
+                println!("(warning: failed to send AddonMessage: Connection not initialized)");
+            }
         }
         Opcode::DumpWowObject => {
             // when mob is looted, base + 0x2A*4 is set to 0, meanwhile "NpcState" seems to not be very interesting

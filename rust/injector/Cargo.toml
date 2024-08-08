@@ -7,7 +7,7 @@ edition = "2021"
 native-ui = ["dep:egui", "dep:eframe", "dep:egui_extras", "dep:image"]
 web = [ "dep:tokio", "dep:tokio-util", "dep:http", "dep:http-body-util", "dep:hyper" ]
 broker = [ "dep:broker", "dep:tokio" ]
-default = ["native-ui"]
+default = ["native-ui", "broker"]
 
 [dependencies]
 wowibottihookdll = { path="../dll" }

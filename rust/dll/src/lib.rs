@@ -2,15 +2,16 @@ use addrs::offsets::LAST_HARDWARE_ACTION;
 use core::cell::Cell;
 use objectmanager::ObjectManager;
 use serde::{Deserialize, Serialize};
-use socket::{facing, movement_flags, read_os_tick_count};
+use socket::read_os_tick_count;
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use windows::Win32::System::Threading::ExitProcess;
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
-use lua::{lua_dostring, playermode, Opcode};
+use lua::{playermode, Opcode};
 use patch::write_addr;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
@@ -43,9 +44,6 @@ use crate::patch::{Patch, AVAILABLE_PATCHES};
 use crate::spell_error::SpellError;
 use tokio::task;
 
-#[cfg(feature = "broker")]
-use broker::{client::start_addonmessage_client, server::MsgWrapper};
-
 pub const POSTGRES_ADDR: &str = "127.0.0.1:5432";
 pub const POSTGRES_USER: &str = "lole";
 pub const POSTGRES_PASS: &str = "lole";
@@ -70,8 +68,21 @@ thread_local! {
     pub static DLL_HANDLE: Cell<HINSTANCE> = Cell::new(HINSTANCE(0));
     pub static LOCAL_SET: RefCell<task::LocalSet> = RefCell::new(task::LocalSet::new());
 
-    #[cfg(feature="broker")]
-    pub static BROKER_TX: RefCell<Option<std::sync::mpsc::Sender<MsgWrapper>>> = RefCell::new(None);
+}
+
+#[cfg(feature = "broker")]
+use broker::{
+    client::start_addonmessage_client, server::AddonMessage, server::ConnectionId, server::Msg,
+    server::MsgWrapper,
+};
+#[cfg(feature = "broker")]
+pub static BROKER_CONNECTION_ID: OnceLock<ConnectionId> = OnceLock::new();
+#[cfg(feature = "broker")]
+pub static BROKER_TX: OnceLock<std::sync::mpsc::Sender<MsgWrapper>> = OnceLock::new();
+#[cfg(feature = "broker")]
+lazy_static! {
+    pub static ref BROKER_MESSAGE_QUEUE: Arc<Mutex<VecDeque<AddonMessage>>> =
+        Arc::new(Mutex::new(VecDeque::new()));
 }
 
 #[macro_export]
@@ -176,6 +187,26 @@ fn refresh_hardware_event_timestamp() -> LoleResult<()> {
     Ok(())
 }
 
+#[cfg(feature = "broker")]
+fn process_broker_message_queue() {
+    let mut queue = BROKER_MESSAGE_QUEUE.lock().unwrap();
+    for message in queue.drain(..) {
+        dostring!(format!(
+            r#"addonmessage_received("{}", "{}", {}, {})"#,
+            message.prefix,
+            message.text,
+            message
+                .r#type
+                .map(|s| format!("\"{}\"", s))
+                .unwrap_or_else(|| "nil".to_string()),
+            message
+                .target
+                .map(|s| format!("\"{}\"", s))
+                .unwrap_or_else(|| "nil".to_string())
+        ))
+    }
+}
+
 fn main_entrypoint() -> LoleResult<()> {
     ctm::poll()?;
     if let Some(dt) = ROUGHLY_SIXTY_FPS.checked_sub(LAST_FRAME_TIME.get().elapsed()) {
@@ -203,6 +234,9 @@ fn main_entrypoint() -> LoleResult<()> {
 
     refresh_hardware_event_timestamp()?;
     set_frame_num();
+
+    #[cfg(feature = "broker")]
+    process_broker_message_queue();
 
     Ok(())
 }
@@ -373,9 +407,24 @@ unsafe fn initialize_dll() -> LoleResult<()> {
         let (tx, rx) = std::sync::mpsc::channel::<MsgWrapper>();
         let _handle = std::thread::spawn(|| {
             let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async { start_addonmessage_client(rx).await });
+            rt.block_on(async {
+                start_addonmessage_client(
+                    rx,
+                    |connection_id| {
+                        BROKER_CONNECTION_ID.get_or_init(|| connection_id);
+                    },
+                    |msg| {
+                        let mut queue = BROKER_MESSAGE_QUEUE.lock().unwrap();
+                        if let Msg::AddonMessage(msg) = msg.message {
+                            queue.push_back(msg);
+                        }
+                    },
+                )
+                .await
+                .unwrap();
+            });
         });
-        BROKER_TX.set(Some(tx));
+        BROKER_TX.get_or_init(|| tx);
     }
 
     println!("wowibottihookdll_rust: init done! :D enabled patches:");

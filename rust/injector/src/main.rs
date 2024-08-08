@@ -266,6 +266,8 @@ fn main() -> Result<(), eframe::Error> {
         })
     });
 
+    let mut select_all = false;
+
     eframe::run_simple_native("injector :D", options, move |ctx, _frame| {
         egui_extras::install_image_loaders(ctx);
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -274,8 +276,20 @@ fn main() -> Result<(), eframe::Error> {
             ui.columns(2, |columns| {
                 columns[0].label("Available characters:");
                 egui::Grid::new("character_list").show(&mut columns[0], |ui| {
+                    let toggle = ui.toggle_value(&mut select_all, "Select all");
+                    if toggle.changed() {
+                        for account in accounts.iter_mut() {
+                            account.enabled = select_all;
+                        }
+                    }
+                    ui.end_row();
+
                     for account in accounts.iter_mut() {
-                        ui.checkbox(&mut account.enabled, account.value.character.name.clone());
+                        let checkbox =
+                            ui.checkbox(&mut account.enabled, account.value.character.name.clone());
+                        if checkbox.changed() {
+                            select_all = false;
+                        }
                         ui.image(format!(
                             "file://injector/assets/{}.png",
                             account.value.character.class
