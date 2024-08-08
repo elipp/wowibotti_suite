@@ -41,10 +41,6 @@ local function handle_subcommand(args)
 	end
 end
 
-function addonmessage_received(prefix, text, type, to)
-	print("got addonmessage", prefix, text, type, to)
-end
-
 function lole_main(args)
 	if args and args ~= "" then
 		return handle_subcommand(args)
@@ -131,10 +127,15 @@ PREFIX_LOCKS = {
     UNIT_SPELLCAST_START = false,
     UNIT_SPELLCAST_SUCCEEDED = false,
 }
+
 local function prevent_double_call(prefix)
-    local r = PREFIX_LOCKS[prefix];
-    PREFIX_LOCKS[prefix] = not PREFIX_LOCKS[prefix];
-    return r;
+		return nil
+	
+		-- NOTE: disabled after implementing the AddonMessage broker
+    -- local r = PREFIX_LOCKS[prefix];
+    -- PREFIX_LOCKS[prefix] = not PREFIX_LOCKS[prefix]
+    -- return r
+    
 end
 
 SPELL_TARGET = UnitName("player");
@@ -168,7 +169,7 @@ local function on_spell_event(self, event, caster, spell, rank, target)
                     targets_str = targets_str .. "," .. name;
                 end
             end
-            SendAddonMessage("lole_heal_target", targets_str, "RAID");
+            L_SendAddonMessage("lole_heal_target", targets_str, "RAID");
         else
             local _, _, _, _, _, finish_time = UnitCastingInfo(caster);
             HEAL_FINISH_INFO[UnitName(caster)] = {heal_estimate, finish_time};
@@ -183,7 +184,6 @@ local GROUP_LIVING = {
 }
 
 local function HandleAddonMessage(self, event, prefix, message, channel, sender)
-
 	if (prefix == "lole_opcode") then
 		handle_opcode(message)
 
@@ -211,41 +211,25 @@ local function HandleAddonMessage(self, event, prefix, message, channel, sender)
 		end
 
 	elseif (prefix == "lole_runscript") then
+    if prevent_double_call(prefix) then return end -- not necessary anymore
+		L_RunScript(message)
+
+  elseif (prefix == "lole_override") then
     if prevent_double_call(prefix) then return end
-		--local guildies = get_guild_members()
-		--if guildies[sender] then
-
-		-- if starts_with(message, "RunMacroText(\"/lole target") then
-		-- 	if sender == "Kuratorn" then
-		-- 		if table.contains(GROUP_LIVING, UnitName("player")) then
-		-- 			L_RunScript(message)
-		-- 		end
-		-- 	elseif sender == "Rektorn" then
-		-- 		if not table.contains(GROUP_LIVING, UnitName("player")) then
-		-- 			L_RunScript(message)
-		-- 		end
-		-- 	end
-		--
-		-- else
-			L_RunScript(message);
-		--end
-
-    elseif (prefix == "lole_override") then
-        if prevent_double_call(prefix) then return end
-        local guildies = get_guild_members()
-        if guildies[sender] then
-            if not playermode() then
-                OVERRIDE_COMMAND = message;
-                lole_subcommands.set("playermode", 1);
-                L_SpellStopCasting();
-            end
-        else
-            echo("lole_runscript: " .. sender .. " doesn't appear to be a member of the guild, not running script!");
+    local guildies = get_guild_members()
+    if guildies[sender] then
+        if not playermode() then
+            OVERRIDE_COMMAND = message;
+            lole_subcommands.set("playermode", 1);
+            L_SpellStopCasting();
         end
+    else
+        echo("lole_runscript: " .. sender .. " doesn't appear to be a member of the guild, not running script!");
+    end
 
     elseif (prefix == "lole_healers") then
-        if prevent_double_call(prefix) then return end
-        handle_healer_assignment(message);
+      if prevent_double_call(prefix) then return end
+      handle_healer_assignment(message);
 
     elseif (prefix == "lole_heal_target") then
         if HEAL_FINISH_INFO[sender] then
@@ -302,8 +286,12 @@ local function HandleAddonMessage(self, event, prefix, message, channel, sender)
 					walk_to(final.x, final.y, final.z, 3)
 
 				end
-
 	end
+end
+
+function addonmessage_received(prefix, text, type, to)
+	print(prefix, text, type, to)
+	HandleAddonMessage(nil, nil, prefix, text, type, to)
 end
 
 local buff_check_frame = CreateFrame("Frame");
@@ -312,8 +300,9 @@ buff_check_frame:RegisterEvent("PLAYER_ENTERING_WORLD");
 buff_check_frame:SetScript("OnEvent", on_buff_check_event);
 
 local msg_frame = CreateFrame("Frame");
-msg_frame:RegisterEvent("CHAT_MSG_ADDON");
-msg_frame:SetScript("OnEvent", HandleAddonMessage);
+
+-- msg_frame:RegisterEvent("CHAT_MSG_ADDON");
+-- msg_frame:SetScript("OnEvent", HandleAddonMessage);
 
 local spell_event_frame = nil;
 if HEALER_TARGETS[UnitName("player")] then

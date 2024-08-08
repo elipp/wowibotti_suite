@@ -8,6 +8,7 @@ pub async fn start_addonmessage_client<
     MsgHandler: Fn(MsgWrapper) -> () + Send + 'static,
 >(
     rx: std::sync::mpsc::Receiver<MsgWrapper>,
+    name: String,
     set_connection_id: SetConnectionIdCallback,
     msg_handler: MsgHandler,
 ) -> Result<(), std::io::Error> {
@@ -16,7 +17,7 @@ pub async fn start_addonmessage_client<
 
     let hello = MsgWrapper {
         from: MsgSender::PeerWithoutConnectionId,
-        message: Msg::Hello,
+        message: Msg::Hello(name),
     };
 
     let mut serialization_buffer = bitcode::Buffer::new();
@@ -73,5 +74,5 @@ pub async fn start_addonmessage_client<
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     let (tx, rx) = std::sync::mpsc::channel();
-    start_addonmessage_client(rx, |_| {}, |_| {}).await
+    start_addonmessage_client(rx, String::default(), |_| {}, |_| {}).await
 }

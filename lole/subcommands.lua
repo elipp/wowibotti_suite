@@ -599,17 +599,17 @@ local function lole_sendscript(to, ...)
     	table.remove(atab, 1);
     	script_text = table.concat(atab, " ");
     	for _, recipient in pairs(recipients) do
-    		SendAddonMessage("lole_runscript", script_text, "WHISPER", recipient);
+    		L_SendAddonMessage("lole_runscript", script_text, "WHISPER", recipient);
     	end
     elseif to == "PARTY" or to == "GUILD" then
         script_text = table.concat(atab, " ");
-        SendAddonMessage("lole_runscript", script_text, to);
+        L_SendAddonMessage("lole_runscript", script_text, to);
     else
         if to ~= "RAID" then
             table.insert(atab, 1, to);
         end
         script_text = table.concat(atab, " ");
-        SendAddonMessage("lole_runscript", script_text, "RAID");
+        L_SendAddonMessage("lole_runscript", script_text, "RAID");
     end
 end
 
@@ -628,17 +628,17 @@ local function lole_sendmacro(to, ...)
         table.remove(atab, 1);
         script_text = "RunMacroText(\"" .. table.concat(atab, " ") .. "\")";
         for _, recipient in pairs(recipients) do
-            SendAddonMessage("lole_runscript", script_text, "WHISPER", recipient);
+            L_SendAddonMessage("lole_runscript", script_text, "WHISPER", recipient);
         end
     elseif to == "PARTY" or to == "GUILD" then
         script_text = "RunMacroText(\"" .. table.concat(atab, " ") .. "\")";
-        SendAddonMessage("lole_runscript", script_text, to);
+        L_SendAddonMessage("lole_runscript", script_text, to);
     else
         if to ~= "RAID" then
             table.insert(atab, 1, to);
         end
         script_text = "RunMacroText(\"" .. table.concat(atab, " ") .. "\")";
-        SendAddonMessage("lole_runscript", script_text, "RAID");
+        L_SendAddonMessage("lole_runscript", script_text, "RAID");
     end
 
 end
@@ -657,9 +657,9 @@ local function lole_override(name, ...)
 
     script_text = table.concat(atab, " ");
     if name == "RAID" then
-        SendAddonMessage("lole_override", script_text, "RAID");
+        L_SendAddonMessage("lole_override", script_text, "RAID");
     else
-        SendAddonMessage("lole_override", script_text, "WHISPER", name);
+        L_SendAddonMessage("lole_override", script_text, "WHISPER", name);
     end
 end
 
@@ -715,7 +715,7 @@ end
 
 local function lole_raid_aoe(on_off_str)
     local script_text = "RunMacroText(\"/lole set aoemode " .. on_off_str .. "\")";
-    SendAddonMessage("lole_runscript", script_text, "RAID");
+    L_SendAddonMessage("lole_runscript", script_text, "RAID");
 end
 
 local function change_healer_targets(op, ...)
@@ -754,7 +754,7 @@ local function change_healer_targets(op, ...)
 
     msg = op .. ";" .. msg;
 
-    SendAddonMessage("lole_healers", msg, "RAID");
+    L_SendAddonMessage("lole_healers", msg, "RAID");
 end
 
 local function sync_healer_targets(with)
@@ -762,7 +762,7 @@ local function sync_healer_targets(with)
     if with then
         arg_str = arg_str .. ";" .. with;
     end
-    SendAddonMessage("lole_healers", arg_str, "RAID");
+    L_SendAddonMessage("lole_healers", arg_str, "RAID");
 end
 
 local function restore_healer_targets(with)
@@ -770,15 +770,15 @@ local function restore_healer_targets(with)
     if with then
         arg_str = arg_str .. ";" .. with;
     end
-    SendAddonMessage("lole_healers", arg_str, "RAID");
+    L_SendAddonMessage("lole_healers", arg_str, "RAID");
 end
 
 local function reset_healer_targets()
-    SendAddonMessage("lole_healers", "reset", "RAID");
+    L_SendAddonMessage("lole_healers", "reset", "RAID");
 end
 
 local function wipe_healer_targets()
-    SendAddonMessage("lole_healers", "wipe", "RAID");
+    L_SendAddonMessage("lole_healers", "wipe", "RAID");
 end
 
 local function echo_healer_target_info()
@@ -823,7 +823,7 @@ local function lole_manage_healers(...)
 end
 
 local function lole_echo(msg)
-    SendAddonMessage("lole_echo", msg, "RAID");
+    L_SendAddonMessage("lole_echo", msg, "RAID");
 end
 
 

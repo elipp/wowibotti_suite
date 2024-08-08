@@ -6,7 +6,7 @@ use socket::read_os_tick_count;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 use windows::Win32::System::Threading::ExitProcess;
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
@@ -75,14 +75,37 @@ use broker::{
     client::start_addonmessage_client, server::AddonMessage, server::ConnectionId, server::Msg,
     server::MsgWrapper,
 };
+
+// #[cfg(feature = "broker")]
+// pub static BROKER_CONNECTION_ID: OnceLock<ConnectionId> = OnceLock::new();
+// #[cfg(feature = "broker")]
+// pub static BROKER_TX: OnceLock<std::sync::mpsc::Sender<MsgWrapper>> = OnceLock::new();
+// #[cfg(feature = "broker")]
+// lazy_static! {
+//     pub static ref BROKER_MESSAGE_QUEUE: Arc<Mutex<VecDeque<AddonMessage>>> =
+//         Arc::new(Mutex::new(VecDeque::new()));
+// }
+
 #[cfg(feature = "broker")]
-pub static BROKER_CONNECTION_ID: OnceLock<ConnectionId> = OnceLock::new();
+pub struct BrokerState {
+    pub connection_id: ConnectionId,
+    pub character_name: String,
+    pub tx: std::sync::mpsc::Sender<MsgWrapper>,
+    pub message_queue: Arc<Mutex<VecDeque<AddonMessage>>>,
+}
+
 #[cfg(feature = "broker")]
-pub static BROKER_TX: OnceLock<std::sync::mpsc::Sender<MsgWrapper>> = OnceLock::new();
-#[cfg(feature = "broker")]
-lazy_static! {
-    pub static ref BROKER_MESSAGE_QUEUE: Arc<Mutex<VecDeque<AddonMessage>>> =
-        Arc::new(Mutex::new(VecDeque::new()));
+pub static BROKER_STATE: OnceLock<BrokerState> = OnceLock::new();
+
+pub static CLIENT_CONFIG: OnceLock<ClientConfig> = OnceLock::new();
+
+pub fn get_current_character_name() -> Option<String> {
+    if let Some(config) = CLIENT_CONFIG.get() {
+        if let Some(ref account) = config.account {
+            return Some(account.character.name.clone());
+        }
+    }
+    None
 }
 
 #[macro_export]
@@ -188,22 +211,25 @@ fn refresh_hardware_event_timestamp() -> LoleResult<()> {
 }
 
 #[cfg(feature = "broker")]
-fn process_broker_message_queue() {
-    let mut queue = BROKER_MESSAGE_QUEUE.lock().unwrap();
-    for message in queue.drain(..) {
-        dostring!(format!(
-            r#"addonmessage_received("{}", "{}", {}, {})"#,
-            message.prefix,
-            message.text,
-            message
-                .r#type
-                .map(|s| format!("\"{}\"", s))
-                .unwrap_or_else(|| "nil".to_string()),
-            message
-                .target
-                .map(|s| format!("\"{}\"", s))
-                .unwrap_or_else(|| "nil".to_string())
-        ))
+fn unpack_broker_message_queue() {
+    if let Some(state) = BROKER_STATE.get() {
+        let mut queue = state.message_queue.lock().unwrap();
+        for message in queue.drain(..) {
+            let script = format!(
+                "addonmessage_received([[{}]], [[{}]], {}, {})",
+                message.prefix,
+                message.text,
+                message
+                    .r#type
+                    .map(|s| format!("[[{}]]", s))
+                    .unwrap_or_else(|| "nil".to_string()),
+                message
+                    .target
+                    .map(|s| format!("[[{}]]", s))
+                    .unwrap_or_else(|| "nil".to_string())
+            );
+            dostring!(script);
+        }
     }
 }
 
@@ -236,7 +262,7 @@ fn main_entrypoint() -> LoleResult<()> {
     set_frame_num();
 
     #[cfg(feature = "broker")]
-    process_broker_message_queue();
+    unpack_broker_message_queue();
 
     Ok(())
 }
@@ -310,7 +336,7 @@ pub struct ClientConfig {
 
 impl WowAccount {
     fn login(&self) -> LoleResult<()> {
-        let sleep_duration = std::time::Duration::from_millis(rand::random::<u64>() % 5000);
+        let sleep_duration = std::time::Duration::from_millis(rand::random::<u64>() % 4000);
         println!("Sleeping for {sleep_duration:?}");
         std::thread::sleep(sleep_duration);
         dostring!(
@@ -378,53 +404,62 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     match read_config_from_file(std::process::id()) {
         Ok(config) => {
             if let Err(LoleError::ObjectManagerIsNull) = ObjectManager::new() {
-                if let Some(realm) = config.realm {
+                if let Some(ref realm) = config.realm {
                     realm.set_realm_info()?;
                 }
-                if let Some(creds) = config.account {
+                if let Some(ref creds) = config.account {
                     creds.login()?;
                 }
                 let available_patches = AVAILABLE_PATCHES.lock().unwrap();
                 let mut enabled_patches = global_var!(ENABLED_PATCHES);
-                for p in config.enabled_patches {
+                for p in config.enabled_patches.iter() {
                     if let Some(patch) = available_patches.get(p.as_str()) {
                         let cloned = patch.clone();
                         cloned.enable()?;
                         enabled_patches.push(cloned);
                     } else {
-                        println!("wtf {p}");
+                        eprintln!("unknown patch {p}");
                     }
                 }
             }
+            CLIENT_CONFIG.get_or_init(|| config);
         }
         Err(e) => {
-            println!("warning: reading config failed with {e:?}");
+            panic!("warning: reading config failed with {e:?}");
         }
-    }
+    };
 
     #[cfg(feature = "broker")]
     {
-        let (tx, rx) = std::sync::mpsc::channel::<MsgWrapper>();
-        let _handle = std::thread::spawn(|| {
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async {
-                start_addonmessage_client(
-                    rx,
-                    |connection_id| {
-                        BROKER_CONNECTION_ID.get_or_init(|| connection_id);
-                    },
-                    |msg| {
-                        let mut queue = BROKER_MESSAGE_QUEUE.lock().unwrap();
-                        if let Msg::AddonMessage(msg) = msg.message {
-                            queue.push_back(msg);
-                        }
-                    },
-                )
-                .await
-                .unwrap();
+        if let Some(character_name) = get_current_character_name() {
+            let (tx, rx) = std::sync::mpsc::channel::<MsgWrapper>();
+            let _handle = std::thread::spawn(move || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    start_addonmessage_client(
+                        rx,
+                        character_name.clone(),
+                        |connection_id| {
+                            BROKER_STATE.get_or_init(|| BrokerState {
+                                connection_id,
+                                character_name,
+                                tx,
+                                message_queue: Default::default(),
+                            });
+                        },
+                        |msg| match (msg.message, BROKER_STATE.get()) {
+                            (Msg::AddonMessage(msg), Some(state)) => {
+                                let mut queue = state.message_queue.lock().unwrap();
+                                queue.push_back(msg.clone());
+                            }
+                            _ => {}
+                        },
+                    )
+                    .await
+                    .unwrap();
+                });
             });
-        });
-        BROKER_TX.get_or_init(|| tx);
+        }
     }
 
     println!("wowibottihookdll_rust: init done! :D enabled patches:");

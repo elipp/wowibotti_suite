@@ -15,15 +15,12 @@ use crate::socket::movement_flags::NOT_MOVING;
 use crate::socket::{cast_gtaoe, movement_flags, read_os_tick_count};
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{
-    add_repr_and_tryfrom, assembly, LoleError, LoleResult, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
+    add_repr_and_tryfrom, assembly, get_current_character_name, LoleError, LoleResult,
+    BROKER_STATE, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
 };
 
 #[cfg(feature = "broker")]
-use {
-    crate::BROKER_CONNECTION_ID,
-    crate::BROKER_TX,
-    broker::server::{AddonMessage, Msg, MsgSender, MsgWrapper},
-};
+use broker::server::{AddonMessage, Msg, MsgSender, MsgWrapper};
 
 use crate::{define_lua_function, Addr}; // POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
 
@@ -902,7 +899,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         }
         #[cfg(feature = "broker")]
         Opcode::SendAddonMessage if nargs >= 2 && nargs < 5 => {
-            if let (Some(connection_id), Some(tx)) = (BROKER_CONNECTION_ID.get(), BROKER_TX.get()) {
+            if let Some(state) = BROKER_STATE.get() {
                 let prefix = lua_tostring!(lua, 2)?.to_owned();
                 let text = lua_tostring!(lua, 3)?.to_owned();
                 let r#type = if nargs > 2 {
@@ -916,8 +913,16 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                     None
                 };
 
-                let _res = tx.send(MsgWrapper {
-                    from: MsgSender::Peer(*connection_id),
+                match (r#type.as_deref(), target.as_deref()) {
+                    (Some("WHISPER"), None) => {
+                        eprintln!("(warning: Invalid use of SendAddonMessage(..., WHISPER) with no target)");
+                        return Ok(0);
+                    }
+                    _ => {}
+                }
+
+                let _res = state.tx.send(MsgWrapper {
+                    from: MsgSender::Peer(state.connection_id, state.character_name.clone()),
                     message: Msg::AddonMessage(AddonMessage {
                         prefix,
                         text,
@@ -926,7 +931,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                     }),
                 });
             } else {
-                println!("(warning: failed to send AddonMessage: Connection not initialized)");
+                eprintln!("(warning: failed to send AddonMessage: Connection not initialized)");
             }
         }
         Opcode::DumpWowObject => {

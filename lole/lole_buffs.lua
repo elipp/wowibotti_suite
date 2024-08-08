@@ -131,14 +131,12 @@ function lole_leaderbuffcheck(arg)
     if arg == "clean" then
         msgstr = msgstr .. " " .. arg;
     end
-    SendAddonMessage("lole_buffcheck", msgstr, "RAID");
+    L_SendAddonMessage("lole_buffcheck", msgstr, "RAID");
 
 end
 
 -- verbose: either nil or boolean
 function lole_buffcheck(arg, verbose)
-    -- if true then return nil end -- FIXME FIXME: disabled for now
-    
     if verbose == nil then
         verbose = true;
     end
@@ -215,7 +213,7 @@ function lole_buffcheck(arg, verbose)
 
     local msgstr = table.concat(missing_table, ",");
 
-    SendAddonMessage("lole_buffs", msgstr, "RAID");
+    L_SendAddonMessage("lole_buffs", msgstr, "RAID");
     LAST_BUFF_CHECK = time();
     BUFFS_CHECKED = true;
 

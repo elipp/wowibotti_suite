@@ -284,7 +284,7 @@ REMOVE_THIS_FRAME:SetScript("OnEvent", function(self, event, prefix, message, ch
     local ppos = vec3:create(get_unit_position(UnitName("player")))
     local world_pos = vec3:create(ppos.x + (200 * y), ppos.y + (-200 * x), ppos.z)
 
-    SendAddonMessage("lole_avoid_coords", tostring(world_pos.x) .. "," .. tostring(world_pos.y) .. "," .. tostring(world_pos.z), "RAID")
+    L_SendAddonMessage("lole_avoid_coords", tostring(world_pos.x) .. "," .. tostring(world_pos.y) .. "," .. tostring(world_pos.z), "RAID")
 
   end
 
@@ -1619,7 +1619,7 @@ function sync_healer_targets_with_mine()
         end
     end
 
-    SendAddonMessage("lole_healers", msg, "RAID");
+    L_SendAddonMessage("lole_healers", msg, "RAID");
 
 end
 
