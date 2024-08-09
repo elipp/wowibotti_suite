@@ -181,9 +181,6 @@ local function HandleAddonMessage(self, event, prefix, message, channel, sender)
     if (prefix == "lole_opcode") then
         handle_opcode(message)
     elseif (prefix == "lole_buffs") then
-        if message == "" then
-            return
-        end
         local buffs = { strsplit(",", message) };
         for key, buff in pairs(buffs) do
             if not MISSING_BUFFS[buff] then
@@ -276,7 +273,7 @@ local function HandleAddonMessage(self, event, prefix, message, channel, sender)
 end
 
 function addonmessage_received(...)
-    print(...)
+    -- print(...)
     HandleAddonMessage(nil, nil, ...)
 end
 

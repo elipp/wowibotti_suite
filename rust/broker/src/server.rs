@@ -1,6 +1,6 @@
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpListener;
 
@@ -15,6 +15,7 @@ pub enum MsgSender {
 
 pub const BUF_SIZE: usize = 1024 * 32;
 
+#[derive(Debug)]
 struct BrokerClient {
     id: ConnectionId,
     name: String,
@@ -55,6 +56,42 @@ pub struct MsgWrapper {
     pub message: Msg,
 }
 
+impl MsgWrapper {
+    pub async fn read(
+        read: &mut OwnedReadHalf,
+        serialization_buffer: &mut bitcode::Buffer,
+        read_buffer: &mut [u8],
+    ) -> Result<Self, std::io::Error> {
+        let mut packet_size_buf = [0u8; std::mem::size_of::<usize>()];
+        read.read_exact(&mut packet_size_buf).await?;
+        let packet_size = usize::from_le_bytes(packet_size_buf.try_into().unwrap());
+
+        read.read_exact(&mut read_buffer[..packet_size]).await?;
+        let msg = serialization_buffer
+            .decode::<MsgWrapper>(&read_buffer[..packet_size])
+            .map_err(|_e| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("bitcode::Decode failed: {_e:?}"),
+                )
+            })?;
+
+        println!("received {msg:?}");
+        Ok(msg)
+    }
+
+    pub async fn send(
+        self,
+        write: &mut OwnedWriteHalf,
+        serialization_buffer: &mut bitcode::Buffer,
+    ) -> Result<(), std::io::Error> {
+        let encoded = serialization_buffer.encode(&self);
+        write.write_all(&encoded.len().to_le_bytes()).await?;
+        write.write_all(encoded).await?;
+        Ok(())
+    }
+}
+
 impl std::fmt::Display for MsgWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -89,49 +126,48 @@ impl Clients {
         let main_tx = self.main_tx.clone();
         let connections = self.connections.clone();
         tokio::spawn(async move {
-            let mut buffer = bitcode::Buffer::new();
-            let mut buf = vec![0; BUF_SIZE];
+            let mut serialization_buffer = bitcode::Buffer::new();
+            let mut read_buffer = vec![0u8; BUF_SIZE];
             loop {
-                match s_read.read(&mut buf).await {
-                    Ok(bytes_read @ 1..) => {
-                        let msg = buffer.decode::<MsgWrapper>(&buf[..bytes_read]).unwrap();
-                        if let (MsgSender::PeerWithoutConnectionId, Msg::Hello(name)) =
-                            (&msg.from, &msg.message)
-                        {
-                            client_tx
-                                .send(MsgWrapper {
-                                    from: MsgSender::Server,
-                                    message: Msg::Welcome(connection_id),
-                                })
+                let msg =
+                    MsgWrapper::read(&mut s_read, &mut serialization_buffer, &mut read_buffer)
+                        .await;
+                if let Ok(msg) = msg {
+                    if let (MsgSender::PeerWithoutConnectionId, Msg::Hello(name)) =
+                        (&msg.from, &msg.message)
+                    {
+                        client_tx
+                            .send(MsgWrapper {
+                                from: MsgSender::Server,
+                                message: Msg::Welcome(connection_id),
+                            })
+                            .unwrap();
+                        let mut connections = connections.lock().unwrap();
+                        connections.push(BrokerClient {
+                            id: connection_id,
+                            name: name.to_owned(),
+                            tx: client_tx.clone(),
+                        });
+                    } else {
+                        if let Err(e) = main_tx.send(ServerMsg::RelayMsg(msg.clone())) {
+                            eprintln!("connection {connection_id}: write: {e:?}");
+                            main_tx
+                                .send(ServerMsg::RemoveClient(
+                                    connection_id,
+                                    format!("mpsc::Sender::send failed: {e:?}"),
+                                ))
                                 .unwrap();
-                            let mut connections = connections.lock().unwrap();
-                            connections.push(BrokerClient {
-                                id: connection_id,
-                                name: name.to_owned(),
-                                tx: client_tx.clone(),
-                            });
-                        } else {
-                            if let Err(e) = main_tx.send(ServerMsg::RelayMsg(msg.clone())) {
-                                eprintln!("connection {connection_id}: write: {e:?}");
-                                main_tx
-                                    .send(ServerMsg::RemoveClient(
-                                        connection_id,
-                                        format!("mpsc::Sender::send failed: {e:?}"),
-                                    ))
-                                    .unwrap();
-                                break;
-                            }
+                            break;
                         }
                     }
-                    Ok(0) | Err(_) => {
-                        main_tx
-                            .send(ServerMsg::RemoveClient(
-                                connection_id,
-                                format!("read of 0 or error"),
-                            ))
-                            .unwrap();
-                        break;
-                    }
+                } else {
+                    main_tx
+                        .send(ServerMsg::RemoveClient(
+                            connection_id,
+                            format!("read_one_message failed: {msg:?}"),
+                        ))
+                        .unwrap();
+                    break;
                 }
             }
         });
@@ -140,17 +176,20 @@ impl Clients {
         &self,
         connection_id: ConnectionId,
         rx: std::sync::mpsc::Receiver<MsgWrapper>,
-        mut socket_writer: OwnedWriteHalf,
+        mut write: OwnedWriteHalf,
     )
     // - listen to messages from this client's `rx`
     // - relay message to client's socket
     {
         let main_tx = self.main_tx.clone();
         tokio::spawn(async move {
-            let mut buffer = bitcode::Buffer::new();
+            let mut serialization_buffer = bitcode::Buffer::new();
             loop {
                 match rx.recv() {
-                    Ok(msg) => socket_writer.write_all(buffer.encode(&msg)).await.unwrap(),
+                    Ok(msg) => msg
+                        .send(&mut write, &mut serialization_buffer)
+                        .await
+                        .unwrap(),
                     Err(e) => {
                         main_tx
                             .send(ServerMsg::RemoveClient(

@@ -216,15 +216,11 @@ fn unpack_broker_message_queue() {
         let mut queue = state.message_queue.lock().unwrap();
         for message in queue.drain(..) {
             let script = format!(
-                "addonmessage_received([[{}]], [[{}]], {}, {}, [[{}]])",
+                "addonmessage_received([[{}]], [[{}]], {}, [[{}]])",
                 message.prefix,
                 message.text,
                 message
                     .r#type
-                    .map(|s| format!("[[{}]]", s))
-                    .unwrap_or_else(|| "nil".to_string()),
-                message
-                    .target
                     .map(|s| format!("[[{}]]", s))
                     .unwrap_or_else(|| "nil".to_string()),
                 message.from,

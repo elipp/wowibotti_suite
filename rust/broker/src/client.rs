@@ -1,4 +1,5 @@
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::{TcpListener, TcpStream};
 
 use crate::server::{ConnectionId, Msg, MsgSender, MsgWrapper, BUF_SIZE};
@@ -13,7 +14,7 @@ pub async fn start_addonmessage_client<
     msg_handler: MsgHandler,
 ) -> Result<(), std::io::Error> {
     let addr = "127.0.0.1:1337";
-    let mut stream = TcpStream::connect(addr).await?;
+    let stream = TcpStream::connect(addr).await?;
 
     let hello = MsgWrapper {
         from: MsgSender::PeerWithoutConnectionId,
@@ -22,57 +23,38 @@ pub async fn start_addonmessage_client<
 
     let mut serialization_buffer = bitcode::Buffer::new();
 
-    stream
-        .write_all(serialization_buffer.encode(&hello))
+    let (mut read, mut write) = stream.into_split();
+
+    hello
+        .send(&mut write, &mut serialization_buffer)
         .await
         .unwrap();
 
-    let (mut read, mut write) = stream.into_split();
-    let mut read_buf = vec![0; BUF_SIZE];
-    match read.read(&mut read_buf).await {
-        Ok(bytes @ 1..) => {
-            eprintln!("read {bytes} bytes");
-            let msg = serialization_buffer
-                .decode::<MsgWrapper>(&read_buf[..bytes])
-                .unwrap();
-            println!("received {msg:?}");
-            if let (Msg::Welcome(id), MsgSender::Server) = (msg.message, msg.from) {
-                set_connection_id(id);
-                println!("set connection id to {id}");
-            }
-        }
-        e => {
-            panic!("{e:?}");
-        }
+    let mut read_buffer = vec![0u8; BUF_SIZE];
+
+    let msg = MsgWrapper::read(&mut read, &mut serialization_buffer, &mut read_buffer)
+        .await
+        .unwrap();
+
+    if let (Msg::Welcome(id), MsgSender::Server) = (msg.message, msg.from) {
+        set_connection_id(id);
+        println!("set connection id to {id}");
     }
     tokio::spawn(async move {
         let mut serialization_buffer = bitcode::Buffer::new();
         loop {
-            match read.read(&mut read_buf).await {
-                Ok(bytes @ 1usize..) => {
-                    eprintln!("read {bytes} bytes");
-                    let msg = serialization_buffer
-                        .decode::<MsgWrapper>(&read_buf[..bytes])
-                        .unwrap();
-                    println!("received {msg:?}");
-                    msg_handler(msg);
-                }
-                _ => panic!("socket read error"),
-            }
+            let msg = MsgWrapper::read(&mut read, &mut serialization_buffer, &mut read_buffer)
+                .await
+                .unwrap();
+            msg_handler(msg);
         }
     });
+
     loop {
         let msg = rx.recv().unwrap();
         println!("relaying {msg} to socket");
-        write
-            .write_all(serialization_buffer.encode(&msg))
+        msg.send(&mut write, &mut serialization_buffer)
             .await
             .unwrap();
     }
-}
-
-#[tokio::main]
-async fn main() -> Result<(), std::io::Error> {
-    let (tx, rx) = std::sync::mpsc::channel();
-    start_addonmessage_client(rx, String::default(), |_| {}, |_| {}).await
 }
