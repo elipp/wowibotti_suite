@@ -6,7 +6,7 @@ use socket::read_os_tick_count;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use windows::Win32::System::Threading::ExitProcess;
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
@@ -216,7 +216,7 @@ fn unpack_broker_message_queue() {
         let mut queue = state.message_queue.lock().unwrap();
         for message in queue.drain(..) {
             let script = format!(
-                "addonmessage_received([[{}]], [[{}]], {}, {})",
+                "addonmessage_received([[{}]], [[{}]], {}, {}, [[{}]])",
                 message.prefix,
                 message.text,
                 message
@@ -226,7 +226,8 @@ fn unpack_broker_message_queue() {
                 message
                     .target
                     .map(|s| format!("[[{}]]", s))
-                    .unwrap_or_else(|| "nil".to_string())
+                    .unwrap_or_else(|| "nil".to_string()),
+                message.from,
             );
             dostring!(script);
         }

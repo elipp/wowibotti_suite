@@ -45,9 +45,9 @@ function get_desired_buffs(role)
 
 	local tank_buffs = {
 		"Blessing of Sanctuary",
-        "Blessing of Kings",
-        "Blessing of Might",
-        "Thorns"
+    "Blessing of Kings",
+    "Blessing of Might",
+    "Thorns"
 	}
 
     local mana_tank_buffs = {
@@ -85,7 +85,7 @@ function get_desired_buffs(role)
     elseif role == ROLES.mana_melee then
         desired_buffs = mana_melee_buffs;
     else
-        return {};
+        return {}
     end
 
     paladins = get_chars_of_class("Paladin");

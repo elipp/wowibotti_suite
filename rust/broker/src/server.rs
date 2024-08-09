@@ -38,6 +38,7 @@ pub struct AddonMessage {
     pub text: String,
     pub r#type: Option<String>,
     pub target: Option<String>,
+    pub from: String,
 }
 
 #[derive(Debug, Clone, bitcode::Encode, bitcode::Decode)]
@@ -245,9 +246,4 @@ pub async fn start_addonmessage_relay() {
         clients.spawn_socket_reader_task(connection_id, client_tx.clone(), s_read);
         clients.spawn_message_forwarder_task(connection_id, client_rx, s_write);
     }
-}
-
-#[tokio::main]
-async fn main() {
-    start_addonmessage_relay().await
 }

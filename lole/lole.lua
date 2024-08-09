@@ -289,9 +289,9 @@ local function HandleAddonMessage(self, event, prefix, message, channel, sender)
 	end
 end
 
-function addonmessage_received(prefix, text, type, to)
-	print(prefix, text, type, to)
-	HandleAddonMessage(nil, nil, prefix, text, type, to)
+function addonmessage_received(...)
+	print(...)
+	HandleAddonMessage(nil, nil, ...)
 end
 
 local buff_check_frame = CreateFrame("Frame");

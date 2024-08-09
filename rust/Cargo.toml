@@ -1,4 +1,4 @@
-workspace = { members = ["broker", "dll", "injector"], resolver="2" }
+workspace = { members = ["broker", "broker_standalone", "dll", "injector"], resolver="2" }
 
 [profile.dev]
 panic = "unwind"

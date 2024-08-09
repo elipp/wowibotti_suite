@@ -928,6 +928,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                         text,
                         r#type,
                         target,
+                        from: state.character_name.clone(),
                     }),
                 });
             } else {
