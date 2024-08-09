@@ -3,12 +3,11 @@ function survive_death_knight_uh()
 end
 
 combat_death_knight_uh = function()
-
-  L_TargetUnit("Ghostly Priest")
+    L_TargetUnit("Ghostly Priest")
     if UnitExists("target") then
-      if UnitCastingInfo("target") and string.find(UnitCastingInfo("target"), "Fear") and GetSpellCooldown("Mind Freeze") == 0 then
-        L_CastSpellByName("Mind Freeze")
-      end
+        if UnitCastingInfo("target") and string.find(UnitCastingInfo("target"), "Fear") and GetSpellCooldown("Mind Freeze") == 0 then
+            L_CastSpellByName("Mind Freeze")
+        end
     end
 
     if not validate_target() then return; end
@@ -54,5 +53,4 @@ combat_death_knight_uh = function()
     else
         L_CastSpellByName("Death Coil");
     end
-
 end

@@ -19,7 +19,6 @@ BUFF_ALIASES = {
 };
 
 function get_desired_buffs(role)
-
     local common_buffs = {
         "Power Word: Fortitude",
         "Divine Spirit",
@@ -43,12 +42,12 @@ function get_desired_buffs(role)
         "Arcane Intellect",
     };
 
-	local tank_buffs = {
-		"Blessing of Sanctuary",
-    "Blessing of Kings",
-    "Blessing of Might",
-    "Thorns"
-	}
+    local tank_buffs = {
+        "Blessing of Sanctuary",
+        "Blessing of Kings",
+        "Blessing of Might",
+        "Thorns"
+    }
 
     local mana_tank_buffs = {
         "Blessing of Sanctuary",
@@ -111,12 +110,11 @@ function lole_buffs()
         if not BUFF_TABLE_READY then
             missing_buffs_copy = shallowcopy(MISSING_BUFFS);
         end
-    		lole_subcommands.buffs(missing_buffs_copy);
+        lole_subcommands.buffs(missing_buffs_copy);
     end
 end
 
 function lole_leaderbuffcheck(arg)
-
     if arg and arg ~= "clean" then
         echo("lole_leaderbuffcheck: erroneous argument!");
         return false;
@@ -132,7 +130,6 @@ function lole_leaderbuffcheck(arg)
         msgstr = msgstr .. " " .. arg;
     end
     L_SendAddonMessage("lole_buffcheck", msgstr, "RAID");
-
 end
 
 -- verbose: either nil or boolean
@@ -150,9 +147,10 @@ function lole_buffcheck(arg, verbose)
     -- Wotlk:
     local unit_buff = UnitAura
     -- local unit_buff = UnitBuff
-    
 
-    for i=1,60 do local name, rank, icon, count, debuffType, duration, expirationTime = unit_buff("player", i) -- |HARMFUL|PASSIVE"); -- not needed really
+
+    for i = 1, 60 do
+        local name, rank, icon, count, debuffType, duration, expirationTime = unit_buff("player", i)           -- |HARMFUL|PASSIVE"); -- not needed really
         if name then
             local timeleft = expirationTime - GetTime();
             if duration == 0 then
@@ -174,7 +172,7 @@ function lole_buffcheck(arg, verbose)
             echo("lole_buffcheck: requested missing/expiring buffs");
         end
         local desired_buffs = get_desired_buffs(get_current_config().role);
-        for i,bname in ipairs(desired_buffs) do
+        for i, bname in ipairs(desired_buffs) do
             local bname_alias = BUFF_ALIASES[bname];
 
             if buffname_timeleft_map[bname] ~= nil then
@@ -193,7 +191,7 @@ function lole_buffcheck(arg, verbose)
 
     if get_current_config().self_buffs ~= nil then
         SELF_BUFF_SPAM_TABLE = {};
-        for i,bname in ipairs(get_current_config().self_buffs) do
+        for i, bname in ipairs(get_current_config().self_buffs) do
             if arg == "clean" then
                 if buffname_timeleft_map[bname] == 1000 then
                 else
@@ -216,15 +214,13 @@ function lole_buffcheck(arg, verbose)
     L_SendAddonMessage("lole_buffs", msgstr, "RAID");
     LAST_BUFF_CHECK = time();
     BUFFS_CHECKED = true;
-
 end
 
 function get_num_buff_requests(buffs)
+    -- buffs is a "buffname" -> "table of character names with this particular buff request" map
 
-	-- buffs is a "buffname" -> "table of character names with this particular buff request" map
-
-	local requests = {}
-	local request_amount = 0;
+    local requests = {}
+    local request_amount = 0;
 
     for buff, chars in pairs(buffs) do
         for char in pairs(chars) do
@@ -235,13 +231,11 @@ function get_num_buff_requests(buffs)
         end
     end
 
-	return request_amount;
-
+    return request_amount;
 end
 
 function get_spam_table(buffs, group_buff_map)
-
-    local groups = {[1] = {}};
+    local groups = { [1] = {} };
     if GetNumRaidMembers() == 0 then
         for buff, chars in pairs(buffs) do
             for char in pairs(chars) do
@@ -251,9 +245,9 @@ function get_spam_table(buffs, group_buff_map)
     else
         local i = 1;
         while GetRaidRosterInfo(i) do
-            local raid_info = {GetRaidRosterInfo(i)};
+            local raid_info = { GetRaidRosterInfo(i) };
             if not groups[raid_info[3]] then
-                groups[raid_info[3]] = {[raid_info[1]] = true};
+                groups[raid_info[3]] = { [raid_info[1]] = true };
             else
                 groups[raid_info[3]][raid_info[1]] = true;
             end
@@ -281,21 +275,19 @@ function get_spam_table(buffs, group_buff_map)
     for buff, groups in pairs(grouped_requests) do
         for group, chars in pairs(groups) do
             if #chars > 2 and group_buff_map[buff] then
-                table.insert(spam_table, {[chars[1]] = group_buff_map[buff]});
+                table.insert(spam_table, { [chars[1]] = group_buff_map[buff] });
             else
                 for key in pairs(chars) do
-                    table.insert(spam_table, {[chars[key]] = buff});
+                    table.insert(spam_table, { [chars[key]] = buff });
                 end
             end
         end
     end
 
     return spam_table;
-
 end
 
 function get_paladin_spam_table(buffs, num_requests)
-
     local buff_order = {
         [1] = "Greater Blessing of Sanctuary",
         [2] = "Greater Blessing of Kings",
@@ -318,7 +310,7 @@ function get_paladin_spam_table(buffs, num_requests)
                     elseif buff_given[class] then
                         buffed_characters[character] = true;
                     elseif not buffed_classes[class] then
-                        table.insert(spam_table, {[character] = buff});
+                        table.insert(spam_table, { [character] = buff });
                         buffed_characters[character] = true;
                         buff_given[class] = true;
                         buffed_classes[class] = true;
@@ -331,12 +323,12 @@ function get_paladin_spam_table(buffs, num_requests)
     for key, buff in ipairs(buff_order) do
         local chars = buffs[buff];
         if chars then
-            local temp = {strsplit(" ", buff)};
+            local temp = { strsplit(" ", buff) };
             table.remove(temp, 1);
             local short_buff = table.concat(temp, " ");
             for character in pairs(chars) do
                 if not buffed_characters[character] then
-                    table.insert(spam_table, {[character] = short_buff});
+                    table.insert(spam_table, { [character] = short_buff });
                     buffed_characters[character] = true;
                 end
             end
@@ -344,11 +336,9 @@ function get_paladin_spam_table(buffs, num_requests)
     end
 
     return spam_table;
-
 end
 
 function buff_self()
-
     if (GetTime() - BUFF_TIME) < 1.8 then
         return false;
     else
@@ -356,7 +346,6 @@ function buff_self()
         BUFF_TIME = GetTime();
         table.remove(SELF_BUFF_SPAM_TABLE, 1);
     end
-
 end
 
 function lole_selfbuffs()
@@ -368,7 +357,6 @@ function lole_selfbuffs()
 end
 
 function get_chars_of_class(class)
-
     local chars = {};
 
     if GetNumRaidMembers() == 0 then
@@ -386,7 +374,7 @@ function get_chars_of_class(class)
     else
         local i = 1;
         while GetRaidRosterInfo(i) do
-            local raid_info = {GetRaidRosterInfo(i)};
+            local raid_info = { GetRaidRosterInfo(i) };
             local instance = GetRealZoneText();
             -- Don't account for chars outside groups 1 and 2 when in Kara or ZA.
             if (instance == "Karazhan" or instance == "Zul'Aman") and raid_info[3] > 2 then
@@ -398,11 +386,9 @@ function get_chars_of_class(class)
     end
 
     return chars;
-
 end
 
 function need_to_buff()
-
     local self_name = UnitName("player");
     local self_class = UnitClass("player");
     local colleagues = {};
@@ -410,9 +396,9 @@ function need_to_buff()
     if self_class == "Paladin" or get_current_config().name == "priest_holy_ds" then
         return true;
     elseif self_class == "Druid" then
-        colleagues = {"Printf"};
+        colleagues = { "Printf" };
     elseif self_class == "Mage" then
-        colleagues = {"Eino"};
+        colleagues = { "Eino" };
     elseif self_class == "Priest" then
         colleagues = {}; -- The one with Divine Spirit should be last.
     else
@@ -431,13 +417,12 @@ function need_to_buff()
     end
 
     return true
-
 end
 
 function buff_if_eligible(buffname, targetname, range_limit)
     range_limit = range_limit or false
     if not UnitIsDead(targetname) and
-            not has_buff(targetname, buffname) then
+        not has_buff(targetname, buffname) then
         L_TargetUnit(targetname)
         L_CastSpellByName(buffname)
     end

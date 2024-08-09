@@ -1,15 +1,15 @@
 local petfollow_called = nil
 
 local function petfollow_default()
-  if lole_get("blast") == 0 then
-    if not petfollow_called then
-      L_PetFollow()
-      L_PetPassiveMode()
-      petfollow_called = true
+    if lole_get("blast") == 0 then
+        if not petfollow_called then
+            L_PetFollow()
+            L_PetPassiveMode()
+            petfollow_called = true
+        end
+    else
+        petfollow_called = nil
     end
-  else
-    petfollow_called = nil
-  end
 end
 
 local function tap_if_need_to()
@@ -36,14 +36,13 @@ local function enough_shards()
         return false
     else
         return true
-    end-- 6265 -- soul shard
+    end -- 6265 -- soul shard
 end
 
 local function cast_assigned_curse()
-
     if UnitHealth("target") < 30000 then return end
 
-    for name,curse in pairs(curse_assignments) do
+    for name, curse in pairs(curse_assignments) do
         if name == UnitName("player") and UnitExists("target") then
             if not has_debuff_by_self("target", curse) then
                 if cast_if_nocd(curse) then return true end
@@ -83,80 +82,79 @@ local cast_barrier = 0
 local soc_bans = {}
 
 local function clear_expired_soc_bans()
-  local T = GetTime()
+    local T = GetTime()
 
-  for G, t in pairs(soc_bans) do
-    if (T - t) > 5 then
-      soc_bans[G] = nil
+    for G, t in pairs(soc_bans) do
+        if (T - t) > 5 then
+            soc_bans[G] = nil
+        end
     end
-  end
 end
 
 local function add_soc_ban(GUID)
-  soc_bans[GUID] = GetTime()
+    soc_bans[GUID] = GetTime()
 end
 
 local function soc_banned(GUID)
-  for G,t in pairs(soc_bans) do
-    if G == GUID then return true end
-  end
-  return false
+    for G, t in pairs(soc_bans) do
+        if G == GUID then return true end
+    end
+    return false
 end
 
 local petfollow_called = nil
 
 combat_warlock_demo = function()
     if not petframe_dummy then
-        petframe_dummy = CreateFrame("frame",nil, UIParent)
+        petframe_dummy = CreateFrame("frame", nil, UIParent)
         petframe_dummy:SetScript("OnUpdate", petfollow_default)
     end
     local mana = UnitMana("player");
     local maxmana = UnitManaMax("player");
 
     if not UnitAffectingCombat("player") then
-        if (mana < 0.90*maxmana) then
+        if (mana < 0.90 * maxmana) then
             L_CastSpellByName("Life Tap");
         end
 
         if (GetItemCount(41196) == 0) then
-          L_CastSpellByName("Create Spellstone");
-          return;
+            L_CastSpellByName("Create Spellstone");
+            return;
         end
 
         if not GetWeaponEnchantInfo() then
-          if GetItemCount(41196) > 0 then
-            L_RunMacroText("/use Grand Spellstone")
-            L_RunMacroText("/use 16")
-          end
+            if GetItemCount(41196) > 0 then
+                L_RunMacroText("/use Grand Spellstone")
+                L_RunMacroText("/use 16")
+            end
         end
-
     end
 
     if not has_buff("player", "Fel Armor") then
-      L_CastSpellByName("Fel Armor")
-      return
+        L_CastSpellByName("Fel Armor")
+        return
     end
 
     if not UnitExists("pet") or not PetHasActionBar() then
-      if GetSpellCooldown("Fel Domination") == 0 then
-        L_CastSpellByName("Fel Domination")
-      end
-      L_CastSpellByName("Summon Felguard")
+        if GetSpellCooldown("Fel Domination") == 0 then
+            L_CastSpellByName("Fel Domination")
+        end
+        L_CastSpellByName("Summon Felguard")
     else
-      if UnitCastingInfo("player") == "Summon Felguard" then
-        L_SpellStopCasting()
-      end
+        if UnitCastingInfo("player") == "Summon Felguard" then
+            L_SpellStopCasting()
+        end
     end
 
     if UnitAffectingCombat("player") then
-      L_PetAttack()
+        L_PetAttack()
     end
 
     if not validate_target() then return end
-  --  L_RunMacroText("/lole target 0xF1300027C8000007") -- FOR ONYXIA, REPLACE GUID OFC
+    --  L_RunMacroText("/lole target 0xF1300027C8000007") -- FOR ONYXIA, REPLACE GUID OFC
 
 
-    caster_range_check(0,30);
+    caster_range_check(0, 30);
 
     if tap_if_need_to() then return; end
 
@@ -164,21 +162,21 @@ combat_warlock_demo = function()
 
     clear_expired_soc_bans()
 
--- explanation: cast_barrier is something that should prevent a laggy AURA_UPDATE from fucking us up
--- a second should be enough to
+    -- explanation: cast_barrier is something that should prevent a laggy AURA_UPDATE from fucking us up
+    -- a second should be enough to
     if lole_get("aoemode") == 1 and get_aoe_feasibility("target", 15) > 3 then
         if GetTime() - cast_barrier < 1 or UnitCastingInfo("player") == "Seed of Corruption" then
-          return
+            return
         end
-      	for i,g in pairs({get_combat_targets()}) do
-      			target_unit_with_GUID(g)
-      			if not soc_banned(g) and not has_debuff("target", "Seed of Corruption") then
-      					L_CastSpellByName("Seed of Corruption")
+        for i, g in pairs({ get_combat_targets() }) do
+            target_unit_with_GUID(g)
+            if not soc_banned(g) and not has_debuff("target", "Seed of Corruption") then
+                L_CastSpellByName("Seed of Corruption")
                 add_soc_ban(g)
                 cast_barrier = GetTime()
-        				return;
+                return;
             end
-      		end
+        end
     end
 
     last_seed_target = NOTARGET
@@ -203,7 +201,6 @@ combat_warlock_demo = function()
         L_CastSpellByName("Shadow Bolt");
     end
     immolate_lock = 0
-
 end
 
 function survive_warlock_demo()

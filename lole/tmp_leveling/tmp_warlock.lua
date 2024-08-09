@@ -19,7 +19,7 @@ function tmp_warlock_combat()
             return
         end
         if mana_percentage("player") < 75 and
-                health_percentage("player") > 30 then
+            health_percentage("player") > 30 then
             L_CastSpellByName("Life Tap")
         end
     end
