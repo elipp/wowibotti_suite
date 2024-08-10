@@ -1,3 +1,4 @@
+use addonmessage_broker::SendSyncWrapper;
 use addrs::offsets::LAST_HARDWARE_ACTION;
 use core::cell::Cell;
 use objectmanager::ObjectManager;
@@ -65,10 +66,10 @@ thread_local! {
     pub static LAST_FRAME_NUM: Cell<u32> = Cell::new(0);
 
     pub static LAST_HARDWARE_INTERVAL: Cell<std::time::Instant> = Cell::new(std::time::Instant::now());
-    pub static DLL_HANDLE: Cell<HINSTANCE> = Cell::new(HINSTANCE(std::ptr::null_mut()));
     pub static LOCAL_SET: RefCell<task::LocalSet> = RefCell::new(task::LocalSet::new());
-
 }
+
+static DLL_HANDLE: OnceLock<SendSyncWrapper<HINSTANCE>> = OnceLock::new();
 
 #[cfg(feature = "addonmessage_broker")]
 use addonmessage_broker::{
@@ -183,9 +184,11 @@ unsafe fn eject_dll() -> LoleResult<()> {
     restore_original_stdout()?;
     CloseHandle(CONSOLE_CONOUT.get())?;
     FreeConsole()?;
-    std::thread::spawn(|| {
-        FreeLibraryAndExitThread(DLL_HANDLE.get(), 0);
-    });
+    if let Some(dll_handle) = DLL_HANDLE.get() {
+        std::thread::spawn(|| {
+            FreeLibraryAndExitThread(dll_handle.0, 0);
+        });
+    }
     Ok(())
 }
 
@@ -571,7 +574,7 @@ unsafe extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *m
                 fatal_error_exit(e);
             }
             global_var!(ENABLED_PATCHES).push(tramp.clone());
-            DLL_HANDLE.set(dll_module);
+            DLL_HANDLE.get_or_init(|| SendSyncWrapper(dll_module));
         }
         // DLL_PROCESS_DETACH => {},
         _ => (),

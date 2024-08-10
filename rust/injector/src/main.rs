@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(rustdoc::missing_crate_level_docs)]
 
+use addonmessage_broker::SendSyncWrapper;
 #[cfg(feature = "native-ui")]
 use eframe::egui;
 
@@ -53,13 +54,7 @@ use addonmessage_broker::server::start_addonmessage_relay;
 
 use wowibottihookdll::{CharacterInfo, WowAccount};
 
-pub struct SendSyncWrapper<T>(T);
-unsafe impl<T> Send for SendSyncWrapper<T> {}
-unsafe impl<T> Sync for SendSyncWrapper<T> {}
-
-lazy_static! {
-    pub static ref DUMMY_WINDOW_HWND: OnceLock<SendSyncWrapper<HWND>> = OnceLock::new();
-}
+pub static DUMMY_WINDOW_HWND: OnceLock<SendSyncWrapper<HWND>> = OnceLock::new();
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PatchConfig {

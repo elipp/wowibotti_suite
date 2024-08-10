@@ -1,3 +1,4 @@
+use addonmessage_broker::SendSyncWrapper;
 use lazy_static::lazy_static;
 use serde::Serialize;
 use std::ffi::c_void;
@@ -29,9 +30,7 @@ use windows::{
     },
 };
 
-use crate::{
-    str_into_vec_u16, InjectQuery, PottiConfig, SendSyncWrapper, WowAccount, DUMMY_WINDOW_HWND,
-};
+use crate::{str_into_vec_u16, InjectQuery, PottiConfig, WowAccount, DUMMY_WINDOW_HWND};
 
 pub const INJ_MESSAGE_REGISTER_HOTKEY: u32 = WM_USER;
 pub const INJ_MESSAGE_UNREGISTER_HOTKEY: u32 = WM_USER + 1;
