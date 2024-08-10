@@ -3,7 +3,7 @@ local reset_framenum = 10
 
 function throw_insta_flash_of_lights()
     local target, urgencies = get_raid_heal_target(true);
-    if has_buff("player", "The Art of War") and health_percentage(target) < 50 then
+    if target ~= nil and has_buff("player", "The Art of War") and health_percentage(target) < 50 then
         L_TargetUnit(target)
         L_CastSpellByName("Flash of Light")
         return true

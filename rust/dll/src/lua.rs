@@ -19,8 +19,8 @@ use crate::{
     BROKER_STATE, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
 };
 
-#[cfg(feature = "broker")]
-use broker::server::{AddonMessage, Msg, MsgSender, MsgWrapper};
+#[cfg(feature = "addonmessage_broker")]
+use addonmessage_broker::server::{AddonMessage, Msg, MsgSender, MsgWrapper};
 
 use crate::{define_lua_function, Addr}; // POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
 
@@ -897,7 +897,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             lua_pushboolean(lua, 1);
             return Ok(1);
         }
-        #[cfg(feature = "broker")]
+        #[cfg(feature = "addonmessage_broker")]
         Opcode::SendAddonMessage if nargs >= 2 && nargs < 5 => {
             if let Some(state) = BROKER_STATE.get() {
                 let prefix = lua_tostring!(lua, 2)?.to_owned();

@@ -56,8 +56,8 @@ lazy_static! {
 thread_local! {
     pub static NEED_INIT: Cell<bool> = Cell::new(true);
     pub static SHOULD_EJECT: Cell<bool> = Cell::new(false);
-    pub static CONSOLE_CONOUT: Cell<HANDLE> = Cell::new(HANDLE(0));
-    pub static ORIGINAL_STDOUT: Cell<HANDLE> = Cell::new(HANDLE(0));
+    pub static CONSOLE_CONOUT: Cell<HANDLE> = Cell::new(HANDLE(std::ptr::null_mut()));
+    pub static ORIGINAL_STDOUT: Cell<HANDLE> = Cell::new(HANDLE(std::ptr::null_mut()));
     pub static LAST_FRAME_TIME: Cell<std::time::Instant> =
         Cell::new(std::time::Instant::now());
 
@@ -65,28 +65,28 @@ thread_local! {
     pub static LAST_FRAME_NUM: Cell<u32> = Cell::new(0);
 
     pub static LAST_HARDWARE_INTERVAL: Cell<std::time::Instant> = Cell::new(std::time::Instant::now());
-    pub static DLL_HANDLE: Cell<HINSTANCE> = Cell::new(HINSTANCE(0));
+    pub static DLL_HANDLE: Cell<HINSTANCE> = Cell::new(HINSTANCE(std::ptr::null_mut()));
     pub static LOCAL_SET: RefCell<task::LocalSet> = RefCell::new(task::LocalSet::new());
 
 }
 
-#[cfg(feature = "broker")]
-use broker::{
+#[cfg(feature = "addonmessage_broker")]
+use addonmessage_broker::{
     client::start_addonmessage_client, server::AddonMessage, server::ConnectionId, server::Msg,
     server::MsgWrapper,
 };
 
-// #[cfg(feature = "broker")]
+// #[cfg(feature = "addonmessage_broker")]
 // pub static BROKER_CONNECTION_ID: OnceLock<ConnectionId> = OnceLock::new();
-// #[cfg(feature = "broker")]
+// #[cfg(feature = "addonmessage_broker")]
 // pub static BROKER_TX: OnceLock<std::sync::mpsc::Sender<MsgWrapper>> = OnceLock::new();
-// #[cfg(feature = "broker")]
+// #[cfg(feature = "addonmessage_broker")]
 // lazy_static! {
 //     pub static ref BROKER_MESSAGE_QUEUE: Arc<Mutex<VecDeque<AddonMessage>>> =
 //         Arc::new(Mutex::new(VecDeque::new()));
 // }
 
-#[cfg(feature = "broker")]
+#[cfg(feature = "addonmessage_broker")]
 pub struct BrokerState {
     pub connection_id: ConnectionId,
     pub character_name: String,
@@ -94,7 +94,7 @@ pub struct BrokerState {
     pub message_queue: Arc<Mutex<VecDeque<AddonMessage>>>,
 }
 
-#[cfg(feature = "broker")]
+#[cfg(feature = "addonmessage_broker")]
 pub static BROKER_STATE: OnceLock<BrokerState> = OnceLock::new();
 
 pub static CLIENT_CONFIG: OnceLock<ClientConfig> = OnceLock::new();
@@ -210,7 +210,7 @@ fn refresh_hardware_event_timestamp() -> LoleResult<()> {
     Ok(())
 }
 
-#[cfg(feature = "broker")]
+#[cfg(feature = "addonmessage_broker")]
 fn unpack_broker_message_queue() {
     if let Some(state) = BROKER_STATE.get() {
         let mut queue = state.message_queue.lock().unwrap();
@@ -258,7 +258,7 @@ fn main_entrypoint() -> LoleResult<()> {
     refresh_hardware_event_timestamp()?;
     set_frame_num();
 
-    #[cfg(feature = "broker")]
+    #[cfg(feature = "addonmessage_broker")]
     unpack_broker_message_queue();
 
     Ok(())
@@ -426,7 +426,7 @@ unsafe fn initialize_dll() -> LoleResult<()> {
         }
     };
 
-    #[cfg(feature = "broker")]
+    #[cfg(feature = "addonmessage_broker")]
     {
         if let Some(character_name) = get_current_character_name() {
             let (tx, rx) = std::sync::mpsc::channel::<MsgWrapper>();
@@ -470,7 +470,7 @@ unsafe fn initialize_dll() -> LoleResult<()> {
 
 unsafe fn fatal_error_exit(err: LoleError) -> ! {
     MessageBoxW(
-        HWND(0),
+        HWND(std::ptr::null_mut()),
         windows_string!(&format!("{err:?}")),
         windows_string!("wowibottihookdll_rust error :("),
         MB_OK | MB_ICONERROR, // MB_OK apparently waits for the user to click OK

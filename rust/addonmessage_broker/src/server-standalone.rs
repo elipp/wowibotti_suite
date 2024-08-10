@@ -1,4 +1,4 @@
-use broker::server::start_addonmessage_relay;
+use addonmessage_broker::server::start_addonmessage_relay;
 
 #[tokio::main]
 async fn main() {

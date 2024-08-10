@@ -1346,7 +1346,7 @@ function get_item_bag_position(itemLink)
 end
 
 function in_party()
-    if GetNumPartMembers() > 0 and GetNumRaidMembers() == 0 then
+    if GetNumPartyMembers() > 0 and GetNumRaidMembers() == 0 then
         return true;
     end
     return false;

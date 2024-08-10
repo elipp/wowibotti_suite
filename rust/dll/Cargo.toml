@@ -4,18 +4,18 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-broker = ["dep:broker"]
+addonmessage_broker = ["dep:addonmessage_broker"]
 console = []
 tbc = []
 wotlk = []
-default = ["wotlk", "console", "broker"]
+default = ["wotlk", "console", "addonmessage_broker"]
 
 [lib]
 crate-type = ["cdylib", "lib"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-broker = {path="../broker", optional=true}
+addonmessage_broker = {path="../addonmessage_broker", optional=true}
 bitcode = "0"
 lazy_static = "1"
 nohash-hasher = "0"

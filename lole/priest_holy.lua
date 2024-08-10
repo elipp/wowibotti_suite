@@ -273,6 +273,10 @@ function combat_priest_holy()
         end
     end
 
+    if GetSpellCooldown("Shadowfiend") > (5*60 - 15) then
+        L_RunMacroText("/petaggressive")
+    end
+
     local target, urgencies = get_raid_heal_target(true);
 
     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));

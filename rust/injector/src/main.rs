@@ -6,7 +6,7 @@ use eframe::egui;
 
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::OnceLock;
 use std::{ffi::OsString, os::windows::ffi::OsStrExt, path::PathBuf};
 use windows::core::w;
 use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
@@ -48,13 +48,17 @@ use inject::{
     INJ_MESSAGE_REGISTER_HOTKEY, INJ_MESSAGE_UNREGISTER_HOTKEY,
 };
 
-#[cfg(feature = "broker")]
-use broker::server::start_addonmessage_relay;
+#[cfg(feature = "addonmessage_broker")]
+use addonmessage_broker::server::start_addonmessage_relay;
 
 use wowibottihookdll::{CharacterInfo, WowAccount};
 
+pub struct SendSyncWrapper<T>(T);
+unsafe impl<T> Send for SendSyncWrapper<T> {}
+unsafe impl<T> Sync for SendSyncWrapper<T> {}
+
 lazy_static! {
-    static ref DUMMY_WINDOW_HWND: Arc<Mutex<HWND>> = Arc::new(Mutex::new(HWND(0)));
+    pub static ref DUMMY_WINDOW_HWND: OnceLock<SendSyncWrapper<HWND>> = OnceLock::new();
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -192,7 +196,7 @@ pub fn start_dummy_window() -> std::thread::JoinHandle<Result<(), InjectorError>
 
         RegisterClassW(&window_class);
 
-        let hwnd = CreateWindowExW(
+        match CreateWindowExW(
             WINDOW_EX_STYLE(0),
             class_name,
             w!("injector"),
@@ -205,13 +209,14 @@ pub fn start_dummy_window() -> std::thread::JoinHandle<Result<(), InjectorError>
             None,
             instance,
             None,
-        );
-
-        if hwnd == HWND(0) {
-            return Err(InjectorError::OtherError(format!("CreateWindowExW failed")));
+        ) {
+            Ok(hwnd) => {
+                DUMMY_WINDOW_HWND.get_or_init(|| SendSyncWrapper(hwnd));
+            }
+            Err(_e) => {
+                return Err(InjectorError::OtherError(format!("CreateWindowExW failed")));
+            }
         }
-
-        *DUMMY_WINDOW_HWND.lock().unwrap() = hwnd;
 
         // Normally you would show the window with ShowWindow, but we'll keep it hidden.
         // ShowWindow(hwnd, SW_SHOW);
@@ -258,7 +263,7 @@ fn main() -> Result<(), eframe::Error> {
         })
         .collect();
 
-    #[cfg(feature = "broker")]
+    #[cfg(feature = "addonmessage_broker")]
     let handle = std::thread::spawn(|| {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {

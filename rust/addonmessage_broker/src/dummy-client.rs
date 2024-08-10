@@ -1,6 +1,6 @@
 use std::{sync::OnceLock, time::Duration};
 
-use broker::{
+use addonmessage_broker::{
     client::start_addonmessage_client,
     server::{AddonMessage, ConnectionId, Msg, MsgSender, MsgWrapper},
 };
