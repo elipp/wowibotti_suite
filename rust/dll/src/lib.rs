@@ -235,6 +235,9 @@ fn unpack_broker_message_queue() {
 
 fn main_entrypoint() -> LoleResult<()> {
     ctm::poll()?;
+
+    #[cfg(feature = "tbc")]
+    // tbc client isn't doing any frame limiting for clients in the background
     if let Some(dt) = ROUGHLY_SIXTY_FPS.checked_sub(LAST_FRAME_TIME.get().elapsed()) {
         std::thread::sleep(dt);
     }

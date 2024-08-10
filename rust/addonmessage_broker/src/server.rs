@@ -205,7 +205,7 @@ impl Clients {
 }
 
 pub async fn start_addonmessage_relay() {
-    println!("Broker listening on port 1337");
+    println!("addonmessage_broker: listening on port 1337");
     let listener = TcpListener::bind("127.0.0.1:1337").await.unwrap();
 
     let (main_tx, main_rx) = mpsc::channel::<ServerMsg>(); // Channel for broadcasting messages

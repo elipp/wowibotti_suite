@@ -38,7 +38,7 @@ pub async fn start_addonmessage_client<
 
     if let (Msg::Welcome(id), MsgSender::Server) = (msg.message, msg.from) {
         set_connection_id(id);
-        println!("set connection id to {id}");
+        println!("addonmessage_broker: set connection id to {id}");
     }
     tokio::spawn(async move {
         let mut serialization_buffer = bitcode::Buffer::new();
