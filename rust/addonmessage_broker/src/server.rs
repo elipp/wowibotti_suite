@@ -76,7 +76,6 @@ impl MsgWrapper {
                 )
             })?;
 
-        println!("received {msg:?}");
         Ok(msg)
     }
 
