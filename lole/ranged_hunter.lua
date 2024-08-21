@@ -3,7 +3,7 @@ local last_feed_time = 0;
 local FEED_INTERVAL = 60;
 
 function run_out_of_combat()
-    if not UnitAffectingCombat("player") then
+    if UnitClass("player") == 'Hunter' and not UnitAffectingCombat("player") then
         if not has_buff("player", "Aspect of the Pack") and not has_buff("player", "Aspect of the Viper") then
             return L_CastSpellByName("Aspect of the Viper")
         end

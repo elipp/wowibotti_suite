@@ -88,7 +88,7 @@ unsafe extern "stdcall" fn spell_err_msg(msg_ptr: *const SpellErrMsgArgs) {
                 }
                 SpellError::TargetNeedsToBeInFrontOfYou => {
                     // for some reason, checking for playermode() here causes a crash, "Fatal condition"/error #134
-                    dostring!(c"face_mob()");
+                    dostring!("face_mob()");
                 }
                 _ => {}
             }

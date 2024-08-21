@@ -280,6 +280,7 @@ pub mod offsets {
         pub const lua_gettable: Addr = 0x84E560;
         pub const lua_setfield: Addr = 0x84E900;
         pub const lua_getfield: Addr = 0x84E590;
+        pub const lua_getfield2: Addr = 0x59AAE0;
         pub const lua_getfield_wow_weird: Addr = 0x84F3B0;
         pub const lua_replace: Addr = UNKNOWN_ADDRESS;
         pub const lua_next: Addr = 0x854690;

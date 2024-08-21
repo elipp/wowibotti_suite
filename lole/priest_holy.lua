@@ -262,6 +262,10 @@ end
 
 -- end
 
+function combat_likely_to_last_long_enough()
+    local combat_mobs = get_combat_mobs()
+end
+
 function combat_priest_holy()
     if casting_legit_heal() then return end
 
@@ -275,6 +279,9 @@ function combat_priest_holy()
 
     if GetSpellCooldown("Shadowfiend") > (5*60 - 15) then
         L_RunMacroText("/petaggressive")
+        if validate_target() then
+            L_PetAttack()
+        end
     end
 
     local target, urgencies = get_raid_heal_target(true);
@@ -308,6 +315,7 @@ function combat_priest_holy()
     local target, urgencies = get_raid_heal_target(true);
 
     local coh_target = karvalakki_CoH();
+
 
     if group_dispel() then return end
     if UnitGUID("target") ~= UnitGUID("player") and health_percentage("player") < 75 then

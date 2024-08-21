@@ -190,61 +190,50 @@ define_lua_function!(
     lua_dostring,
     (script: *const c_char, _s: *const c_char, taint: u32) -> ());
 
-pub fn string_to_nul_terminated(s: String) -> Vec<u8> {
-    let mut b = s.into_bytes();
-    b.push(0x0);
-    b
-}
-
 #[macro_export]
 macro_rules! dostring {
     ($fmt:expr, $($args:expr),*) => {{
-        use crate::lua::{lua_dostring, string_to_nul_terminated};
-        use std::ffi::c_char;
-        let s = string_to_nul_terminated(format!($fmt, $($args),*));
-        lua_dostring(s.as_ptr() as *const c_char, s.as_ptr() as *const c_char, 0);
-    }};
-
-    ($s:literal) => {{
-        use crate::lua::{lua_dostring};
-        use std::ffi::c_char;
-        lua_dostring($s.as_ptr() as *const c_char, $s.as_ptr() as *const c_char, 0);
+        let formatted = format!($fmt, $($args),*);
+        crate::dostring!(formatted)
     }};
 
     ($script:expr) => {{
-        use crate::lua::{lua_dostring, string_to_nul_terminated};
-        use std::ffi::c_char;
-        let s = string_to_nul_terminated($script.to_string());
-        lua_dostring(s.as_ptr() as *const c_char, s.as_ptr() as *const c_char, 0);
+        use crate::lua::{lua_dostring};
+        use std::ffi::{c_char, CString};
+        if let Ok(s) = CString::new($script).map_err(|_e|LoleError::StringConvError(format!("{_e:?}"))) {
+            lua_dostring(s.as_ptr() as *const c_char, s.as_ptr() as *const c_char, 0);
+        }
+        else {
+            eprintln!("(warning: dostring: CString::new failed)");
+        }
     }};
+
 }
 
-macro_rules! lua_setglobal {
-    ($lua:expr, $key:literal) => {
-        lua_setfield_($lua, LUA_GLOBALSINDEX, $key)
-    };
+pub fn lua_setglobal(lua: lua_State, key: &'static CStr) {
+    lua_setfield_(lua, LUA_GLOBALSINDEX, key)
 }
 
 macro_rules! lua_register {
     ($lua:expr, $name:literal, $closure:expr) => {
         lua_pushcclosure($lua, $closure, 0);
-        lua_setglobal!($lua, $name)
+        lua_setglobal($lua, $name)
     };
     ($lua:expr, $name:expr, $closure:expr) => {
         lua_pushcclosure($lua, $closure, 0);
-        lua_setglobal!($lua, $name)
+        lua_setglobal($lua, $name)
     };
 }
 
 macro_rules! lua_unregister {
     ($lua:expr, $name:literal) => {
         lua_pushnil($lua);
-        lua_setglobal!($lua, $name);
+        lua_setglobal($lua, $name);
     };
 
     ($lua:expr, $name:expr) => {
         lua_pushnil($lua);
-        lua_setglobal!($lua, $name);
+        lua_setglobal($lua, $name);
     };
 }
 
@@ -306,6 +295,7 @@ add_repr_and_tryfrom! {
         GetAoeFeasibility = 17,
         CastGtAoe = 18,
         FaceMob = 19,
+        GetTotalCombatMobHealth = 20,
         StorePath = 0x100,
         PlaybackPath = 0x101,
         SendAddonMessage = 0x200,
@@ -495,6 +485,8 @@ impl Drop for TaintReseter {
 }
 
 pub fn lua_debug_func(lua: lua_State) -> LoleResult<i32> {
+    let res = playermode()?;
+    dbg!(res);
     Ok(LUA_NO_RETVALS)
 }
 
@@ -816,7 +808,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                     ctm::add_to_queue(action)?;
                 } else {
                     offsets::CSelectUnit(closest.get_guid());
-                    dostring!(c"InteractUnit('target')");
+                    dostring!("InteractUnit('target')");
                 }
             }
         }
@@ -835,6 +827,21 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::FaceMob if nargs == 0 => {
             face_target(player, target)?;
             return Ok(LUA_NO_RETVALS);
+        }
+
+        Opcode::GetTotalCombatMobHealth if nargs == 0 => {
+            let mut total_health = 0u32;
+            for c in om.iter_mobs().filter(|o| {
+                if let (Ok(true), Ok(false)) = (o.in_combat(), o.is_dead()) {
+                    true
+                } else {
+                    false
+                }
+            }) {
+                total_health += c.health()?;
+            }
+            lua_pushnumber(lua, total_health.into());
+            return Ok(1);
         }
 
         Opcode::StorePath if nargs == 3 => {
@@ -981,7 +988,7 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
         Ok(num_retvals) => num_retvals,
         Err(error) => {
             println!("lop_exec: error: {:?}", error);
-            chatframe_print!("lop_exec: error: {:?}", error);
+            let x = chatframe_print!("lop_exec: error: {:?}", error);
             LUA_NO_RETVALS
         }
     }

@@ -304,7 +304,7 @@ impl CtmQueue {
             self.current = Some((next, Instant::now()));
         } else {
             if prev_current.is_some() {
-                dostring!(c"MoveForwardStop()");
+                dostring!("MoveForwardStop()");
             }
         }
         Ok(())
