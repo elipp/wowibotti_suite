@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 use windows::Win32::System::Threading::ExitProcess;
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
-use lua::{playermode, Opcode};
+use lua::{get_wow_lua_state, lua_debug_func, playermode, Opcode};
 use patch::write_addr;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
@@ -404,6 +404,7 @@ fn read_config_from_file(pid: u32) -> Result<ClientConfig, String> {
 
 unsafe fn initialize_dll() -> LoleResult<()> {
     open_console()?;
+
     match read_config_from_file(std::process::id()) {
         Ok(config) => {
             if let Err(LoleError::ObjectManagerIsNull) = ObjectManager::new() {
@@ -470,7 +471,6 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     for p in global_var!(ENABLED_PATCHES).iter() {
         println!("* {} @ 0x{:08X}", p.name, p.patch_addr);
     }
-
     Ok(())
 }
 

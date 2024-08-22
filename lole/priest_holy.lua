@@ -262,14 +262,19 @@ end
 
 -- end
 
-function combat_likely_to_last_long_enough()
+function total_combat_mob_health()
     local combat_mobs = get_combat_mobs()
+    local total_health = 0
+    for _,mob in ipairs(combat_mobs) do
+        total_health = total_health + mob.hp
+    end
+    return total_health
 end
 
 function combat_priest_holy()
     if casting_legit_heal() then return end
 
-    if UnitAffectingCombat("player") and mana_percentage("player") < 30 and GetSpellCooldown("Shadowfiend") == 0 then
+    if UnitAffectingCombat("player") and total_combat_mob_health() > 30000 and mana_percentage("player") < 30 and GetSpellCooldown("Shadowfiend") == 0 then
         if validate_target() then
             L_CastSpellByName("Shadowfiend")
             L_PetAttack()

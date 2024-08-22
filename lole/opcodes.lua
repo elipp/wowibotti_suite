@@ -21,7 +21,6 @@ local LOP = {
     GetAoeFeasibility = 17,
     CastGtAoe = 18,
     FaceMob = 19,
-    GetTotalCombatMobHealth = 20,
     StorePath = 0x100,
     PlaybackPath = 0x101,
     SendAddonMessage = 0x200,

@@ -44,6 +44,9 @@ const LUA_TRUE: lua_Boolean = 1;
 #[allow(non_camel_case_types)]
 type lua_Number = f64;
 
+#[allow(non_camel_case_types)]
+type lua_Integer = i32;
+
 const LUA_GLOBALSINDEX: i32 = -10002;
 const LUA_NO_RETVALS: i32 = 0;
 
@@ -126,6 +129,14 @@ define_lua_function!(
     (state: lua_State, idx: i32, k: *const c_char) -> ());
 
 define_lua_function!(
+    lua_settable,
+    (state: lua_State, idx: i32) -> ());
+
+define_lua_function!(
+    lua_rawseti,
+    (state: lua_State, idx: i32, n: i32) -> ());
+
+define_lua_function!(
     lua_tointeger,
     (state: lua_State, idx: i32) -> i32);
 
@@ -140,6 +151,10 @@ define_lua_function!(
 define_lua_function!(
     lua_next,
     (state: lua_State, idx: i32) -> i32);
+
+define_lua_function!(
+    lua_createtable,
+    (state: lua_State, narr: i32, nrec: i32) -> ());
 
 macro_rules! lua_tostring {
     ($lua:expr, $idx:literal) => {{
@@ -172,9 +187,17 @@ define_lua_function!(
     lua_pushstring,
     (state: lua_State, str: *const c_char) -> ());
 
+pub fn lua_pushstring_(lua: lua_State, str: &CStr) {
+    lua_pushstring(lua, str.as_ptr())
+}
+
 define_lua_function!(
     lua_pushlstring,
     (state: lua_State, str: *const c_char, len: usize) -> ());
+
+define_lua_function!(
+    lua_pushinteger,
+    (state: lua_State, i: lua_Integer) -> ());
 
 define_lua_function!(
     lua_toboolean,
@@ -210,7 +233,7 @@ macro_rules! dostring {
 
 }
 
-pub fn lua_setglobal(lua: lua_State, key: &'static CStr) {
+pub fn lua_setglobal(lua: lua_State, key: &CStr) {
     lua_setfield_(lua, LUA_GLOBALSINDEX, key)
 }
 
@@ -237,11 +260,11 @@ macro_rules! lua_unregister {
     };
 }
 
-pub fn lua_getfield_(lua: lua_State, index: i32, name: &'static CStr) -> i32 {
+pub fn lua_getfield_(lua: lua_State, index: i32, name: &CStr) -> i32 {
     lua_getfield(lua, index, name.as_ptr() as *const c_char) //$s.len()) // the last argument is some weird wow internal
 }
 
-pub fn lua_setfield_(lua: lua_State, index: i32, name: &'static CStr) {
+pub fn lua_setfield_(lua: lua_State, index: i32, name: &CStr) {
     lua_setfield(lua, index, name.as_ptr() as *const c_char)
 }
 
@@ -295,7 +318,6 @@ add_repr_and_tryfrom! {
         GetAoeFeasibility = 17,
         CastGtAoe = 18,
         FaceMob = 19,
-        GetTotalCombatMobHealth = 20,
         StorePath = 0x100,
         PlaybackPath = 0x101,
         SendAddonMessage = 0x200,
@@ -485,9 +507,26 @@ impl Drop for TaintReseter {
 }
 
 pub fn lua_debug_func(lua: lua_State) -> LoleResult<i32> {
-    let res = playermode()?;
-    dbg!(res);
-    Ok(LUA_NO_RETVALS)
+    lua_createtable(lua, 0, 0);
+    for i in 1i32..=2 {
+        lua_createtable(lua, 0, 0);
+        // lua_pushstring_(lua, c"0xXDDD");
+        // lua_setfield_(lua, -2, c"guid");
+        // lua_pushnumber(lua, i as f64 * 0.531);
+        // lua_setfield_(lua, -2, c"hp");
+
+        lua_pushstring_(lua, c"guid");
+        lua_pushstring_(lua, c"0xXDDD");
+        lua_settable(lua, -3);
+
+        lua_pushstring_(lua, c"hp");
+        lua_pushnumber(lua, i as f64 * 0.531);
+        lua_settable(lua, -3);
+
+        lua_rawseti(lua, -2, i);
+    }
+
+    Ok(1)
 }
 
 unsafe fn mem_as_slice<'a, T>(addr: Addr, n_bytes: usize) -> &'a [T] {
@@ -507,6 +546,66 @@ fn face_target(player: WowObject, target: Option<WowObject>) -> LoleResult<()> {
         facing::set_facing(player, rot, NOT_MOVING)?;
     }
     Ok(())
+}
+
+pub trait PushToTable {
+    fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()>;
+}
+
+impl PushToTable for &str {
+    fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
+        // another style:
+        // lua_pushstring_(lua, c"0xXDDD");
+        // lua_setfield_(lua, -2, c"guid");
+        // lua_pushnumber(lua, i as f64 * 0.531);
+        // lua_setfield_(lua, -2, c"hp");
+
+        let c = CString::new(*self).map_err(|_e| LoleError::StringConvError(format!("{_e:?}")))?;
+
+        lua_pushstring_(lua, key);
+        lua_pushstring_(lua, c.as_c_str());
+        lua_settable(lua, -3);
+        Ok(())
+    }
+}
+
+impl PushToTable for String {
+    fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
+        self.as_str().push_to_table_with_key(lua, key)
+    }
+}
+
+impl PushToTable for &CStr {
+    fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
+        lua_pushstring_(lua, key);
+        lua_pushstring_(lua, self);
+        lua_settable(lua, -3);
+        Ok(())
+    }
+}
+
+impl PushToTable for CString {
+    fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
+        self.as_c_str().push_to_table_with_key(lua, key)
+    }
+}
+
+impl PushToTable for lua_Integer {
+    fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
+        lua_pushstring_(lua, key);
+        lua_pushinteger(lua, *self);
+        lua_settable(lua, -3);
+        Ok(())
+    }
+}
+
+impl PushToTable for lua_Number {
+    fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
+        lua_pushstring_(lua, key);
+        lua_pushnumber(lua, *self);
+        lua_settable(lua, -3);
+        Ok(())
+    }
 }
 
 fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
@@ -775,15 +874,22 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             return Ok(1);
         }
         Opcode::GetCombatMobs => {
-            let mut num = 0i32;
+            let mut num = 1i32;
+            lua_createtable(lua, 0, 0);
+
             for c in om.iter_mobs().filter(|o| {
                 o.in_combat().is_ok_and(|combat| combat) && o.is_dead().is_ok_and(|dead| !dead)
             }) {
                 let guid = CString::new(format!("{}", GUIDFmt(c.get_guid())))?;
-                lua_pushstring(lua, guid.as_c_str().as_ptr());
+                lua_createtable(lua, 0, 0);
+
+                guid.push_to_table_with_key(lua, c"guid")?;
+                (c.health()? as lua_Integer).push_to_table_with_key(lua, c"hp")?;
+                lua_rawseti(lua, -2, num);
+
                 num += 1;
             }
-            return Ok(num);
+            return Ok(1);
         }
 
         Opcode::LootMob => {
@@ -827,21 +933,6 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::FaceMob if nargs == 0 => {
             face_target(player, target)?;
             return Ok(LUA_NO_RETVALS);
-        }
-
-        Opcode::GetTotalCombatMobHealth if nargs == 0 => {
-            let mut total_health = 0u32;
-            for c in om.iter_mobs().filter(|o| {
-                if let (Ok(true), Ok(false)) = (o.in_combat(), o.is_dead()) {
-                    true
-                } else {
-                    false
-                }
-            }) {
-                total_health += c.health()?;
-            }
-            lua_pushnumber(lua, total_health.into());
-            return Ok(1);
         }
 
         Opcode::StorePath if nargs == 3 => {
