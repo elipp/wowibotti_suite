@@ -382,7 +382,6 @@ local mode_attrib_checkboxes = {
 
 local function update_mode_attrib_checkbox_states()
     for attrib, checkbutton in pairs(mode_attrib_checkboxes) do
-        echo(attrib, lole_subcommands.get(attrib))
         if lole_subcommands.get(attrib) == 1 then
             checkbutton:SetChecked(true)
         else
