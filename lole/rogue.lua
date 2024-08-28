@@ -81,7 +81,7 @@ function rogue_combat_before()
     end
 end
 
-function rogue_combat()
+function rogue_combat_leveling_70()
     reapply_poisons()
     if not validate_target() then return end
 
@@ -91,7 +91,7 @@ function rogue_combat()
     local target_health = UnitHealth("target")
     local combo_points = GetComboPoints("player", "target")
 
-    if get_aoe_feasibility("player", 8) > 2.5 and cast_if_nocd("Blade Flurry") then
+    if get_aoe_feasibility("player", 8) > 2.5 and total_combat_mob_health() > 30000 and cast_if_nocd("Blade Flurry") then
         return
     elseif unit_castorchannel("target") then
         L_CastSpellByName("Kick")
@@ -102,4 +102,33 @@ function rogue_combat()
     else
         return L_CastSpellByName("Sinister Strike")
     end
+end
+
+
+function rogue_combat()
+    if not validate_target() then return end
+
+    melee_attack_behind(1.5);
+    L_StartAttack();
+
+    local target_health = UnitHealth("target")
+    local combo_points = GetComboPoints("player", "target")
+
+    if GetSpellCooldown("Vanish") == 0 and not has_buff("player", "Overkill") then
+        L_CastSpellByName("Vanish")
+    end
+
+    if combo_points < 4 then
+        if combo_points > 1 and UnitHealth("target") < 10000 then
+            L_CastSpellByName("Envenom")
+        else
+            L_CastSpellByName("Mutilate")
+        end
+    else
+        if GetComboPoints("player", "target") == 5 then
+            L_CastSpellByName("Cold Blood")
+        end
+        L_CastSpellByName("Envenom")
+    end
+
 end

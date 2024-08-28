@@ -549,6 +549,7 @@ fn face_target(player: WowObject, target: Option<WowObject>) -> LoleResult<()> {
 }
 
 pub trait PushToTable {
+    // NOTE: this expects that `lua_createtable` has already been called
     fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()>;
 }
 

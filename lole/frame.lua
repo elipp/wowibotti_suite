@@ -353,8 +353,7 @@ mode_attrib_title_fontstr:SetText("Mode attribs:")
 --mattrib_font:SetFont("Fonts\\FRIZQT__.TTF", 9);
 
 local function create_mode_attrib_checkbox(attrib_name, title, tooltip, relative_to, position_x, position_y)
-    local checkbutton = CreateFrame("CheckButton", attrib_name .. "checkbutton", lole_frame,
-        "ChatConfigCheckButtonTemplate");
+    local checkbutton = CreateFrame("CheckButton", attrib_name .. "checkbutton", lole_frame, "ChatConfigCheckButtonTemplate");
     checkbutton:SetPoint(relative_to, position_x, position_y);
     checkbutton.tooltip = tooltip
     --aoemode_checkbutton:SetScale(0.8)
@@ -368,24 +367,22 @@ local function create_mode_attrib_checkbox(attrib_name, title, tooltip, relative
             lole_subcommands.set(attrib_name, arg);
         end
     );
+    return checkbutton
 end
 
 -- COLOR CODE FOR E.G. GameFontNormalSmall TEMPLATE: |cFFFFD100
 
-create_mode_attrib_checkbox("playermode", "Player mode", "Set to enabled if you're playing this character.",
-    "BOTTOMRIGHT", -67, 55)
-create_mode_attrib_checkbox("aoemode", "AOE mode", "Cast AOE spells (if applicable).", "BOTTOMRIGHT", -67, 35)
-create_mode_attrib_checkbox("strict_targeting", "Strict targeting", "Never auto-update target", "BOTTOMRIGHT", -67, 15)
-
 local mode_attrib_checkboxes = {
-    ["playermode"] = playermode_checkbutton,
-    ["aoemode"] = aoemode_checkbutton,
     ["blast"] = blast_checkbutton,
-    ["heal_blast"] = heal_blast_checkbutton
+    ["heal_blast"] = heal_blast_checkbutton,
+    ["playermode"] = create_mode_attrib_checkbox("playermode", "Player mode", "Set to enabled if you're playing this character.", "BOTTOMRIGHT", -67, 55),
+    ["aoemode"] = create_mode_attrib_checkbox("aoemode", "AOE mode", "Cast AOE spells (if applicable).", "BOTTOMRIGHT", -67, 35),
+    ["strict_targeting"] = create_mode_attrib_checkbox("strict_targeting", "Strict targeting", "Never auto-update target", "BOTTOMRIGHT", -67, 15),
 }
 
-function update_mode_attrib_checkbox_states()
+local function update_mode_attrib_checkbox_states()
     for attrib, checkbutton in pairs(mode_attrib_checkboxes) do
+        echo(attrib, lole_subcommands.get(attrib))
         if lole_subcommands.get(attrib) == 1 then
             checkbutton:SetChecked(true)
         else

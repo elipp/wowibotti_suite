@@ -2030,3 +2030,13 @@ function group_dispel()
     end
   end
 end
+
+function total_combat_mob_health()
+    local combat_mobs = get_combat_mobs()
+    local total_health = 0
+    for _,mob in ipairs(combat_mobs) do
+        total_health = total_health + mob.hp
+    end
+    return total_health
+end
+

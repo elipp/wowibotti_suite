@@ -262,15 +262,6 @@ end
 
 -- end
 
-function total_combat_mob_health()
-    local combat_mobs = get_combat_mobs()
-    local total_health = 0
-    for _,mob in ipairs(combat_mobs) do
-        total_health = total_health + mob.hp
-    end
-    return total_health
-end
-
 function combat_priest_holy()
     if casting_legit_heal() then return end
 
