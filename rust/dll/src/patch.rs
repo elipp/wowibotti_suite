@@ -2,9 +2,8 @@ use std::collections::HashMap;
 use std::ffi::c_void;
 use std::mem::size_of;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
-use lazy_static::lazy_static;
 use windows::Win32::System::{
     Diagnostics::Debug::WriteProcessMemory,
     Memory::{VirtualProtect, PAGE_PROTECTION_FLAGS},
@@ -17,22 +16,21 @@ use crate::socket::prepare_dump_outbound_packet_patch;
 use crate::spell_error::prepare_spell_err_msg_trampoline;
 use crate::{assembly, Addr, EndScene_hook, LoleError, LoleResult};
 
-lazy_static! {
-    pub static ref AVAILABLE_PATCHES: Arc<Mutex<HashMap<&'static str, Arc<Patch>>>> =
-        Arc::new(Mutex::new(HashMap::from_iter([
-            ("EndScene", prepare_endscene_trampoline().into()),
-            (
-                "ClosePetStables__lop_exec",
-                prepare_ClosePetStables_patch().into()
-            ),
-            ("CTM_finished", prepare_ctm_finished_patch().into()),
-            (
-                "dump_outbound_packet",
-                prepare_dump_outbound_packet_patch().into()
-            ),
-            ("SpellErrMsg", prepare_spell_err_msg_trampoline().into()),
-        ])));
-}
+pub static AVAILABLE_PATCHES: LazyLock<HashMap<&'static str, Patch>> = LazyLock::new(|| {
+    HashMap::from_iter([
+        ("EndScene", prepare_endscene_trampoline().into()),
+        (
+            "ClosePetStables__lop_exec",
+            prepare_ClosePetStables_patch().into(),
+        ),
+        ("CTM_finished", prepare_ctm_finished_patch().into()),
+        (
+            "dump_outbound_packet",
+            prepare_dump_outbound_packet_patch().into(),
+        ),
+        ("SpellErrMsg", prepare_spell_err_msg_trampoline().into()),
+    ])
+});
 
 use crate::addrs::offsets;
 
@@ -139,16 +137,16 @@ impl Patch {
                 )
                 .map_err(|e| LoleError::PatchError(format!("{:?}", e)))?;
 
-                let mut patch = InstructionBuffer::new();
-                patch.push(assembly::JMP);
+                let mut tmp_patch = InstructionBuffer::new();
+                tmp_patch.push(assembly::JMP);
                 let jmp_target =
                     self.patch_opcodes.get_address() as i32 - self.patch_addr as i32 - 5;
-                patch.push_slice(&jmp_target.to_le_bytes());
-                patch.push_slice(&vec![
+                tmp_patch.push_slice(&jmp_target.to_le_bytes());
+                tmp_patch.push_slice(&vec![
                     assembly::NOP;
-                    self.original_opcodes.len() - patch.len()
+                    self.original_opcodes.len() - tmp_patch.len()
                 ]);
-                self.commit(&patch)?;
+                self.commit(&tmp_patch)?;
             }
             PatchKind::OverWrite => unsafe {
                 self.commit(&self.patch_opcodes)?;

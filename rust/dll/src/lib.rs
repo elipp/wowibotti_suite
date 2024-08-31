@@ -5,14 +5,14 @@ use objectmanager::ObjectManager;
 use serde::{Deserialize, Serialize};
 use socket::read_os_tick_count;
 use std::cell::RefCell;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use windows::Win32::System::Threading::ExitProcess;
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
-use lua::{get_wow_lua_state, lua_debug_func, playermode, Opcode};
+use lua::{get_wow_lua_state, lua_Integer, lua_debug_func, playermode, Opcode};
 use patch::write_addr;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
@@ -51,7 +51,7 @@ pub const POSTGRES_PASS: &str = "lole";
 pub const POSTGRES_DB: &str = "lole";
 
 lazy_static! {
-    pub static ref ENABLED_PATCHES: Arc<Mutex<Vec<Arc<Patch>>>> = Arc::new(Mutex::new(vec![]));
+    pub static ref ENABLED_PATCHES: Arc<Mutex<Vec<&'static Patch>>> = Arc::new(Mutex::new(vec![]));
 }
 
 thread_local! {
@@ -62,8 +62,8 @@ thread_local! {
     pub static LAST_FRAME_TIME: Cell<std::time::Instant> =
         Cell::new(std::time::Instant::now());
 
-    pub static LAST_SPELL_ERR_MSG: Cell<Option<(SpellError, u32)>> = Cell::new(None);
-    pub static LAST_FRAME_NUM: Cell<u32> = Cell::new(0);
+    pub static LAST_SPELL_ERR_MSG: RefCell<HashMap<SpellError, lua_Integer>> = RefCell::new(Default::default());
+    pub static LAST_FRAME_NUM: Cell<lua_Integer> = Cell::new(0);
 
     pub static LAST_HARDWARE_INTERVAL: Cell<std::time::Instant> = Cell::new(std::time::Instant::now());
     pub static LOCAL_SET: RefCell<task::LocalSet> = RefCell::new(task::LocalSet::new());
@@ -177,8 +177,7 @@ unsafe fn restore_original_stdout() -> windows::core::Result<()> {
 }
 
 unsafe fn eject_dll() -> LoleResult<()> {
-    let mut patches = global_var!(ENABLED_PATCHES);
-    for patch in patches.drain(..) {
+    for patch in global_var!(ENABLED_PATCHES).drain(..) {
         patch.disable()?;
     }
     restore_original_stdout()?;
@@ -240,25 +239,6 @@ fn main_entrypoint() -> LoleResult<()> {
     // tbc client isn't doing any frame limiting for clients in the background
     if let Some(dt) = ROUGHLY_SIXTY_FPS.checked_sub(LAST_FRAME_TIME.get().elapsed()) {
         std::thread::sleep(dt);
-    }
-
-    match (LAST_SPELL_ERR_MSG.get(), LAST_FRAME_NUM.get()) {
-        (Some((SpellError::TargetNeedsToBeInFrontOfYou, frame)), last_frame)
-            if frame == last_frame =>
-        {
-            if let Ok(false) = playermode() {
-                // let om = ObjectManager::new()?;
-                // let player = om.get_player()?;
-                // if let Some(target) = player.get_target() {
-                //     facing::set_facing(
-                //         player,
-                //         (target.get_pos() - player.get_pos()).to_rot_value(),
-                //         movement_flags::NOT_MOVING,
-                //     )?;
-                // }
-            }
-        }
-        _ => {}
     }
 
     refresh_hardware_event_timestamp()?;
@@ -405,8 +385,9 @@ fn read_config_from_file(pid: u32) -> Result<ClientConfig, String> {
 unsafe fn initialize_dll() -> LoleResult<()> {
     open_console()?;
 
-    match read_config_from_file(std::process::id()) {
+    let config = match read_config_from_file(std::process::id()) {
         Ok(config) => {
+            // NOTE: this means "we're still in the login/character selection screen"
             if let Err(LoleError::ObjectManagerIsNull) = ObjectManager::new() {
                 if let Some(ref realm) = config.realm {
                     realm.set_realm_info()?;
@@ -414,24 +395,23 @@ unsafe fn initialize_dll() -> LoleResult<()> {
                 if let Some(ref creds) = config.account {
                     creds.login()?;
                 }
-                let available_patches = AVAILABLE_PATCHES.lock().unwrap();
-                let mut enabled_patches = global_var!(ENABLED_PATCHES);
-                for p in config.enabled_patches.iter() {
-                    if let Some(patch) = available_patches.get(p.as_str()) {
-                        let cloned = patch.clone();
-                        cloned.enable()?;
-                        enabled_patches.push(cloned);
-                    } else {
-                        eprintln!("unknown patch {p}");
-                    }
-                }
             }
-            CLIENT_CONFIG.get_or_init(|| config);
+            config
         }
         Err(e) => {
             panic!("warning: reading config failed with {e:?}");
         }
     };
+
+    for p in CLIENT_CONFIG.get_or_init(|| config).enabled_patches.iter() {
+        if let Some(patch) = AVAILABLE_PATCHES.get(p.as_str()) {
+            patch.enable()?;
+            eprintln!("enabled patch {p}");
+            global_var!(ENABLED_PATCHES).push(patch);
+        } else {
+            panic!("unknown patch {p}");
+        }
+    }
 
     #[cfg(feature = "addonmessage_broker")]
     {
@@ -571,12 +551,11 @@ impl From<std::ffi::NulError> for LoleError {
 unsafe extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) -> bool {
     match call_reason {
         DLL_PROCESS_ATTACH => {
-            let patches = AVAILABLE_PATCHES.lock().unwrap();
-            let tramp = patches.get("EndScene").expect("EndScene");
+            let tramp = AVAILABLE_PATCHES.get("EndScene").expect("EndScene");
             if let Err(e) = tramp.enable() {
                 fatal_error_exit(e);
             }
-            global_var!(ENABLED_PATCHES).push(tramp.clone());
+            global_var!(ENABLED_PATCHES).push(tramp);
             DLL_HANDLE.get_or_init(|| SendSyncWrapper(dll_module));
         }
         // DLL_PROCESS_DETACH => {},

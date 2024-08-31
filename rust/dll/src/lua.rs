@@ -33,19 +33,19 @@ thread_local! {
 pub type lua_State = *mut c_void;
 
 #[allow(non_camel_case_types)]
-type lua_CFunction = unsafe extern "C" fn(lua_State) -> i32;
+pub type lua_CFunction = unsafe extern "C" fn(lua_State) -> i32;
 
 #[allow(non_camel_case_types)]
-type lua_Boolean = i32;
+pub type lua_Boolean = i32;
 
-const LUA_FALSE: lua_Boolean = 0;
-const LUA_TRUE: lua_Boolean = 1;
-
-#[allow(non_camel_case_types)]
-type lua_Number = f64;
+pub const LUA_FALSE: lua_Boolean = 0;
+pub const LUA_TRUE: lua_Boolean = 1;
 
 #[allow(non_camel_case_types)]
-type lua_Integer = i32;
+pub type lua_Number = f64;
+
+#[allow(non_camel_case_types)]
+pub type lua_Integer = isize; // apparently == core::ffi::c_ptrdiff_t
 
 const LUA_GLOBALSINDEX: i32 = -10002;
 const LUA_NO_RETVALS: i32 = 0;
@@ -808,13 +808,17 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
         }
         Opcode::GetLastSpellErrMsg if nargs == 0 => {
-            if let Some((msg, frame_num)) = LAST_SPELL_ERR_MSG.get() {
-                lua_pushnumber(lua, (msg as i32).into());
-                lua_pushnumber(lua, frame_num.into());
-                return Ok(2);
-            } else {
-                return Ok(LUA_NO_RETVALS);
-            }
+            return LAST_SPELL_ERR_MSG.with(|l| {
+                let mut values: Vec<(_, _)> = l.borrow().iter().map(|(k, v)| (*k, *v)).collect();
+                values.sort_unstable_by_key(|(_, v)| *v);
+                if let Some((msg, framenum)) = values.into_iter().last() {
+                    lua_pushinteger(lua, msg as isize);
+                    lua_pushinteger(lua, framenum);
+                    return Ok(2);
+                } else {
+                    return Ok(LUA_NO_RETVALS);
+                }
+            })
         }
         Opcode::RefreshHwEventTimestamp if nargs == 0 => {
             write_hwevent_timestamp()?;

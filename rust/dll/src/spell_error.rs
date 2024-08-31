@@ -25,7 +25,7 @@ add_repr_and_tryfrom! {
 #[cfg(feature = "wotlk")]
 add_repr_and_tryfrom! {
     u32,
-    #[derive(Debug, Copy, Clone)]
+    #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
     pub enum SpellError {
         YouHaveNoTarget = 0xB,
         InvalidTarget = 0xC,
@@ -74,24 +74,29 @@ struct SpellErrMsgArgs {
     u4: u32,
 }
 
+fn is_aligned_to<const A: usize, T>(ptr: *const T) -> bool {
+    (ptr as usize) % A == 0
+}
+
 unsafe extern "stdcall" fn spell_err_msg(msg_ptr: *const SpellErrMsgArgs) {
-    if msg_ptr.is_null() {
+    if msg_ptr.is_null() || !is_aligned_to::<4, _>(msg_ptr) {
         return;
     }
     let msg = (*msg_ptr).msg;
     match msg.try_into() {
         Ok(m) => {
             println!("{m:?} ({msg:X})");
-            match m {
-                SpellError::NotInLineOfSight | SpellError::OutOfRange => {
-                    LAST_SPELL_ERR_MSG.set(Some((m, LAST_FRAME_NUM.get())));
+            LAST_SPELL_ERR_MSG.with(|l| {
+                let mut l = l.borrow_mut();
+                l.insert(m, LAST_FRAME_NUM.get());
+                match m {
+                    SpellError::TargetNeedsToBeInFrontOfYou => {
+                        // for some reason, checking for playermode() here causes a crash, "Fatal condition"/error #134
+                        dostring!("face_mob()");
+                    }
+                    _ => {}
                 }
-                SpellError::TargetNeedsToBeInFrontOfYou => {
-                    // for some reason, checking for playermode() here causes a crash, "Fatal condition"/error #134
-                    dostring!("face_mob()");
-                }
-                _ => {}
-            }
+            });
         }
         e => println!("(warning: {e:?})"),
     }
