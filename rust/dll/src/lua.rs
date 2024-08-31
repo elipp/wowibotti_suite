@@ -47,8 +47,10 @@ pub type lua_Number = f64;
 #[allow(non_camel_case_types)]
 pub type lua_Integer = isize; // apparently == core::ffi::c_ptrdiff_t
 
-const LUA_GLOBALSINDEX: i32 = -10002;
+pub const LUA_GLOBALSINDEX: i32 = -10002;
 const LUA_NO_RETVALS: i32 = 0;
+
+pub const LUA_OK: i32 = 0;
 
 #[macro_export]
 macro_rules! chatframe_print {
@@ -127,6 +129,14 @@ define_lua_function!(
 define_lua_function!(
     lua_setfield,
     (state: lua_State, idx: i32, k: *const c_char) -> ());
+
+define_lua_function!(
+    lua_call,
+    (state: lua_State, nargs: i32, nresults: i32) -> ());
+
+define_lua_function!(
+    lua_pcall,
+    (state: lua_State, nargs: i32, nresults: i32, errfunc: i32) -> i32);
 
 define_lua_function!(
     lua_settable,
@@ -268,6 +278,7 @@ pub fn lua_setfield_(lua: lua_State, index: i32, name: &CStr) {
     lua_setfield(lua, index, name.as_ptr() as *const c_char)
 }
 
+#[macro_export]
 macro_rules! lua_getglobal {
     ($lua:expr, $s:literal) => {
         lua_getfield_($lua, LUA_GLOBALSINDEX, $s)
@@ -507,25 +518,8 @@ impl Drop for TaintReseter {
 }
 
 pub fn lua_debug_func(lua: lua_State) -> LoleResult<i32> {
-    lua_createtable(lua, 0, 0);
-    for i in 1i32..=2 {
-        lua_createtable(lua, 0, 0);
-        // lua_pushstring_(lua, c"0xXDDD");
-        // lua_setfield_(lua, -2, c"guid");
-        // lua_pushnumber(lua, i as f64 * 0.531);
-        // lua_setfield_(lua, -2, c"hp");
-
-        lua_pushstring_(lua, c"guid");
-        lua_pushstring_(lua, c"0xXDDD");
-        lua_settable(lua, -3);
-
-        lua_pushstring_(lua, c"hp");
-        lua_pushnumber(lua, i as f64 * 0.531);
-        lua_settable(lua, -3);
-
-        lua_rawseti(lua, -2, i);
-    }
-
+    let time = lua_GetTime()?;
+    dbg!(time);
     Ok(1)
 }
 
@@ -1140,6 +1134,11 @@ pub fn prepare_lua_prot_patch() -> Patch {
     }
 }
 
+// pub fn set_movement_flags(f: u32) {
+//     let m = deref::<_ ,1>(0xB499A4);
+//     SetMovementFlags(, )
+// }
+
 extern "stdcall" fn closepetstables_lop_exec(lua: lua_State) -> i32 {
     match handle_lop_exec(lua) {
         Ok(res) => res,
@@ -1148,6 +1147,17 @@ extern "stdcall" fn closepetstables_lop_exec(lua: lua_State) -> i32 {
             0
         }
     }
+}
+
+#[allow(non_snake_case)]
+pub fn lua_GetTime() -> LoleResult<lua_Number> {
+    let lua = get_wow_lua_state()?;
+
+    lua_getglobal!(lua, c"GetTime");
+    pcall(lua, 0, 1)?;
+    let number = lua_tonumber(lua, -1);
+    lua_pop!(lua, 1);
+    Ok(number)
 }
 
 #[cfg(feature = "wotlk")]
@@ -1164,4 +1174,22 @@ pub fn prepare_ClosePetStables_patch() -> Patch {
         patch_opcodes,
         kind: PatchKind::JmpToTrampoline,
     }
+}
+
+fn pcall(lua: lua_State, nargs: i32, nresults: i32) -> LoleResult<()> {
+    if lua_pcall(lua, nargs, nresults, 0) != LUA_OK {
+        let error = lua_tostring!(lua, -1)?;
+        return Err(LoleError::LuaError(error.to_owned()));
+    }
+
+    Ok(())
+}
+
+pub fn spell_errmsg_received(msg: u32) -> LoleResult<()> {
+    let _taint = TaintReseter::new();
+    let lua = get_wow_lua_state()?;
+    lua_getglobal!(lua, c"spell_errmsg_received");
+    lua_pushinteger(lua, msg as isize);
+    pcall(lua, 1, 0)?;
+    Ok(())
 }

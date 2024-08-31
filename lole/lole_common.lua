@@ -2040,3 +2040,46 @@ function total_combat_mob_health()
     return total_health
 end
 
+SpellError = {
+    ThereIsNothingToAttack = 0xB,
+    InvalidTarget = 0xC,
+    Interrupted = 0x28,
+    NotInLineOfSight = 0x2F,
+    CantDoThatWhileMoving = 0x33,
+    OutOfAmmo = 0x34,
+    SpellIsNotReadyYet = 0x43,
+    CantAttackWhileMounted = 0x40,
+    NotEnoughMana = 0x55,
+    OutOfRange = 0x61,
+    TargetTooClose = 0x80,
+    TargetNeedsToBeInFrontOfYou = 0x86,
+
+    YouAreFacingTheWrongWay = 0x1000,
+}
+
+SpellErrorReverse = {
+    [SpellError.ThereIsNothingToAttack] = "ThereIsNothingToAttack",
+    [SpellError.InvalidTarget] = "InvalidTarget",
+    [SpellError.Interrupted] = "Interrupted",
+    [SpellError.NotInLineOfSight] = "NotInLineOfSight",
+    [SpellError.CantDoThatWhileMoving] = "CantDoThatWhileMoving",
+    [SpellError.OutOfAmmo] = "OutOfAmmo",
+    [SpellError.SpellIsNotReadyYet] = "SpellIsNotReadyYet",
+    [SpellError.CantAttackWhileMounted] = "CantAttackWhileMounted",
+    [SpellError.NotEnoughMana] = "NotEnoughMana",
+    [SpellError.OutOfRange] = "OutOfRange",
+    [SpellError.TargetTooClose] = "TargetTooClose",
+    [SpellError.TargetNeedsToBeInFrontOfYou] = "TargetNeedsToBeInFrontOfYou",
+
+    [SpellError.YouAreFacingTheWrongWay] = "YouAreFacingTheWrongWay", -- this is not an actual SpellError
+}
+
+function spell_errmsg_received(msg)
+  print('got spellerrmsg', string.format("%X", msg), 'at', GetTime(), 'aka', SpellErrorReverse[msg])
+  local c = get_current_config()
+  local handler = c and c.spellerror_handlers[msg]
+  if handler then
+    handler()
+  end
+end
+

@@ -1,5 +1,4 @@
-use std::ffi::c_char;
-
+use crate::lua::spell_errmsg_received;
 use crate::patch::{copy_original_opcodes, InstructionBuffer, Patch, PatchKind};
 use crate::{add_repr_and_tryfrom, assembly, dostring, Addr};
 use crate::{LoleError, LAST_FRAME_NUM, LAST_SPELL_ERR_MSG};
@@ -27,7 +26,7 @@ add_repr_and_tryfrom! {
     u32,
     #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
     pub enum SpellError {
-        YouHaveNoTarget = 0xB,
+        ThereIsNothingToAttack = 0xB,
         InvalidTarget = 0xC,
         Interrupted = 0x28,
         NotInLineOfSight = 0x2F,
@@ -39,6 +38,8 @@ add_repr_and_tryfrom! {
         OutOfRange = 0x61,
         TargetTooClose = 0x80,
         TargetNeedsToBeInFrontOfYou = 0x86,
+
+        YouAreFacingTheWrongWay = 0x1000, // this is not an actual SpellError
     }
 
 
@@ -83,20 +84,22 @@ unsafe extern "stdcall" fn spell_err_msg(msg_ptr: *const SpellErrMsgArgs) {
         return;
     }
     let msg = (*msg_ptr).msg;
-    match msg.try_into() {
+    let as_spellerrmsg: Result<SpellError, _> = msg.try_into();
+    match as_spellerrmsg {
         Ok(m) => {
             println!("{m:?} ({msg:X})");
-            LAST_SPELL_ERR_MSG.with(|l| {
-                let mut l = l.borrow_mut();
-                l.insert(m, LAST_FRAME_NUM.get());
-                match m {
-                    SpellError::TargetNeedsToBeInFrontOfYou => {
-                        // for some reason, checking for playermode() here causes a crash, "Fatal condition"/error #134
-                        dostring!("face_mob()");
-                    }
-                    _ => {}
-                }
-            });
+            let _res = spell_errmsg_received(msg);
+            // LAST_SPELL_ERR_MSG.with(|l| {
+            //     let mut l = l.borrow_mut();
+            //     l.insert(m, LAST_FRAME_NUM.get());
+            //     match m {
+            //         SpellError::TargetNeedsToBeInFrontOfYou => {
+            //             // for some reason, checking for playermode() here causes a crash, "Fatal condition"/error #134
+            //             dostring!("face_mob()");
+            //         }
+            //         _ => {}
+            //     }
+            // });
         }
         e => println!("(warning: {e:?})"),
     }

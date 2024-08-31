@@ -1,21 +1,22 @@
 class_config = {}
 class_config.__index = class_config
 
-function class_config:create(name, buffs, self_buffs, color, combatfunc, cooldown_spells, role, general_role, survivefunc)
+function class_config:create(name, buffs, self_buffs, color, combatfunc, cooldown_spells, role, general_role, survivefunc, spellerror_handlers)
     local c = {}
     setmetatable(c, class_config)
 
-    c.name = name;
-    c.buffs = buffs;
-    c.self_buffs = self_buffs;
-    c.color = color;
-    c.combat = combatfunc;
-    c.cooldowns = cooldown_spells;
-    c.role = role;
-    c.general_role = general_role;
-    c.survive = survivefunc;
+    c.name = name
+    c.buffs = buffs or {}
+    c.self_buffs = self_buffs or {}
+    c.color = color
+    c.combat = combatfunc
+    c.cooldowns = cooldown_spells or {}
+    c.role = role
+    c.general_role = general_role
+    c.survive = survivefunc
+    c.spellerror_handlers = spellerror_handlers or {}
 
-    return c;
+    return c
 end
 
 survive_template = function() end
@@ -47,6 +48,11 @@ survive_warlock_sb = survive_warlock_affli;
 
 local LOLE_CLASS_CONFIG = "default";
 
+local AUTO_FACING_HANDLERS = {
+    [SpellError.YouAreFacingTheWrongWay] = function() face_mob() end,
+    [SpellError.TargetNeedsToBeInFrontOfYou] = function() face_mob() end,
+}
+
 local available_configs = {
     default =
         class_config:create("default", {}, {}, "FFFFFF", function() end, {}, 0, "NONE", function() end),
@@ -66,7 +72,7 @@ local available_configs = {
 
     rogue =
         class_config:create("rogue", {}, {}, get_class_color("rogue"), rogue_combat,
-            { "Adrenaline Rush", "Blade Flurry", "Killing Spree" }, ROLES.melee, "MELEE", survive_rogue),
+            { "Adrenaline Rush", "Blade Flurry", "Killing Spree" }, ROLES.melee, "MELEE", survive_rogue, AUTO_FACING_HANDLERS),
 
     shaman_resto =
         class_config:create("shaman_resto", {}, { "Water Shield" }, get_class_color("shaman"), combat_shaman_resto,
@@ -77,7 +83,7 @@ local available_configs = {
             {}, ROLES.tank, "TANK", survive_warrior_prot),
 
     ranged_hunter = class_config:create("ranged_hunter", {}, {}, get_class_color("hunter"), combat_ranged_hunter,
-        { "Bestial Wrath" }, ROLES.caster, "RANGED", survive_template),
+        { "Bestial Wrath" }, ROLES.caster, "RANGED", survive_template, AUTO_FACING_HANDLERS),
 
     enchantement_shaman = class_config:create("shaman_encha", {}, {}, get_class_color("shaman"), combat_shaman_encha, {},
         ROLES.mana_melee, "MELEE", hunter_survive),
@@ -90,7 +96,7 @@ local available_configs = {
         "RANGED", survive_template),
     -- tmp_paladin = class_config:create("tmp_paladin", {"Blessing of Wisdom"}, {}, get_class_color("paladin"), tmp_paladin_combat, {}, ROLES.healer, "HEALER", survive_template),
     tmp_paladin = class_config:create("tmp_paladin", {}, {}, get_class_color("paladin"), tmp_paladin_combat, { "Avenging Wrath" },
-        ROLES.mana_melee, "MELEE", survive_template),
+        ROLES.mana_melee, "MELEE", survive_template, AUTO_FACING_HANDLERS),
 
     aoe_druid_balance =
         class_config:create("aoe_druid_balance", {}, {}, get_class_color("druid"), aoe_combat_druid, {}, ROLES.caster,
@@ -106,7 +112,7 @@ local available_configs = {
 };
 
 function get_available_configs()
-    return available_configs;
+    return available_configs
 end
 
 function get_current_config()
@@ -119,7 +125,6 @@ end
 
 function set_config(configname)
     local c = available_configs[configname]
-    echo(c.combat);
     if c then
         LOLE_CLASS_CONFIG = configname
     end

@@ -49,9 +49,7 @@ frame.lua
 unitselectionframe.lua
 event_handler.lua
 
-
 lole.xml
 lole.lua
-
 
 ##SavedVariablesPerCharacter: LOLE_CLASS_CONFIG_NAME_SAVED LOLE_CLASS_CONFIG_ATTRIBS_SAVED LOLE_HEALER_TARGETS_SAVED

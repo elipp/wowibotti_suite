@@ -12,7 +12,9 @@ use std::time::{Duration, Instant};
 use windows::Win32::System::Threading::ExitProcess;
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
-use lua::{get_wow_lua_state, lua_Integer, lua_debug_func, playermode, Opcode};
+use lua::{
+    get_wow_lua_state, lua_GetTime, lua_Integer, lua_Number, lua_debug_func, playermode, Opcode,
+};
 use patch::write_addr;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
@@ -59,8 +61,7 @@ thread_local! {
     pub static SHOULD_EJECT: Cell<bool> = Cell::new(false);
     pub static CONSOLE_CONOUT: Cell<HANDLE> = Cell::new(HANDLE(std::ptr::null_mut()));
     pub static ORIGINAL_STDOUT: Cell<HANDLE> = Cell::new(HANDLE(std::ptr::null_mut()));
-    pub static LAST_FRAME_TIME: Cell<std::time::Instant> =
-        Cell::new(std::time::Instant::now());
+    pub static LAST_FRAME_TIME: Cell<lua_Number> = Cell::new(0.0);
 
     pub static LAST_SPELL_ERR_MSG: RefCell<HashMap<SpellError, lua_Integer>> = RefCell::new(Default::default());
     pub static LAST_FRAME_NUM: Cell<lua_Integer> = Cell::new(0);
@@ -199,9 +200,10 @@ fn write_last_hardware_action() -> LoleResult<()> {
     Ok(())
 }
 
-fn set_frame_num() {
+fn set_frame_num() -> LoleResult<()> {
     LAST_FRAME_NUM.set(LAST_FRAME_NUM.get() + 1);
-    LAST_FRAME_TIME.set(Instant::now());
+    LAST_FRAME_TIME.set(lua_GetTime()?);
+    Ok(())
 }
 
 fn refresh_hardware_event_timestamp() -> LoleResult<()> {
@@ -242,7 +244,7 @@ fn main_entrypoint() -> LoleResult<()> {
     }
 
     refresh_hardware_event_timestamp()?;
-    set_frame_num();
+    set_frame_num()?;
 
     #[cfg(feature = "addonmessage_broker")]
     unpack_broker_message_queue();
