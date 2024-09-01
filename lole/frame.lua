@@ -884,7 +884,6 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
     elseif event == "UI_ERROR_MESSAGE" then
         -- NOTE: for melee / ranged attacks, the SpellErrMsg callback isn't triggered,
         -- so this is the only way to catch some error scenarios
-        print(prefix)
         if prefix == "You are facing the wrong way!" then
             spell_errmsg_received(SpellError.YouAreFacingTheWrongWay)
         elseif prefix == "There's nothing to attack" then

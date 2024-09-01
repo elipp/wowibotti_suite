@@ -2042,7 +2042,7 @@ end
 
 
 function spell_errmsg_received(msg)
-  print('got spellerrmsg', string.format("%X", msg), 'at', GetTime(), 'aka', SpellErrorReverse[msg])
+  -- print('got spellerrmsg', string.format("%X", msg), 'at', GetTime(), 'aka', SpellErrorReverse[msg])
   local c = get_current_config()
   local handler = c and c.spellerror_handlers[msg]
   if handler then
