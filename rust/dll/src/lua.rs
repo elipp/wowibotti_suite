@@ -2,6 +2,7 @@ use std::cell::Cell;
 use std::f32::consts::PI;
 use std::ffi::{c_char, c_void, CStr, CString};
 
+use lole_macros::generate_lua_enum;
 use rand::Rng;
 
 use crate::addrs::offsets::{self, TAINT_CALLER};
@@ -305,41 +306,39 @@ pub fn unregister_lop_exec() -> LoleResult<()> {
     Ok(())
 }
 
-add_repr_and_tryfrom! {
-    i32,
-    #[derive(Debug)]
-    pub enum Opcode {
-        Nop = 0,
-        TargetGuid = 1,
-        CasterRangeCheck = 2,
-        Follow = 3,
-        StopFollow = 4,
-        ClickToMove = 5,
-        TargetMarker = 6,
-        MeleeBehind = 7,
-        GetUnitPosition = 8,
-        GetLastSpellErrMsg = 9,
-        HealerRangeCheck = 10,
-        RefreshHwEventTimestamp = 11,
-        StopFollowSpread = 12,
-        GetCombatParticipants = 13,
-        GetCombatMobs = 14,
-        SetTaint = 15,
-        LootMob = 16,
-        GetAoeFeasibility = 17,
-        CastGtAoe = 18,
-        FaceMob = 19,
-        StorePath = 0x100,
-        PlaybackPath = 0x101,
-        SendAddonMessage = 0x200,
-        Debug = 0x400,
-        Dump = 0x401,
-        DoString = 0x402,
-        EjectDll = 0x403,
-        QueryInjected = 0x404,
-        DumpWowObject = 0x405,
-        RegisterUiErrorMessage = 0x406,
-    }
+#[derive(Debug)]
+#[generate_lua_enum(repr = i32, lua_path="../lole/generated/opcode.lua")]
+pub enum Opcode {
+    Nop = 0,
+    TargetGuid = 1,
+    CasterRangeCheck = 2,
+    Follow = 3,
+    StopFollow = 4,
+    ClickToMove = 5,
+    TargetMarker = 6,
+    MeleeBehind = 7,
+    GetUnitPosition = 8,
+    GetLastSpellErrMsg = 9,
+    HealerRangeCheck = 10,
+    RefreshHwEventTimestamp = 11,
+    StopFollowSpread = 12,
+    GetCombatParticipants = 13,
+    GetCombatMobs = 14,
+    SetTaint = 15,
+    LootMob = 16,
+    GetAoeFeasibility = 17,
+    CastGtAoe = 18,
+    FaceMob = 19,
+    StorePath = 0x100,
+    PlaybackPath = 0x101,
+    SendAddonMessage = 0x200,
+    Debug = 0x400,
+    Dump = 0x401,
+    DoString = 0x402,
+    EjectDll = 0x403,
+    QueryInjected = 0x404,
+    DumpWowObject = 0x405,
+    RegisterUiErrorMessage = 0x406,
 }
 
 #[macro_export]

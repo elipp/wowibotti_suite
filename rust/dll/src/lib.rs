@@ -36,11 +36,11 @@ pub mod assembly;
 pub mod ctm;
 pub mod lua;
 pub mod objectmanager;
-pub mod opcodes;
 pub mod patch;
 pub mod socket;
 pub mod spell_error;
 pub mod vec3;
+pub mod wowproto_opcodes;
 
 use crate::lua::LuaType;
 use crate::patch::{Patch, AVAILABLE_PATCHES};

@@ -16,6 +16,7 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 addonmessage_broker = {path="../addonmessage_broker", optional=true}
+lole_macros = {path="../macros"}
 bitcode = "0"
 lazy_static = "1"
 nohash-hasher = "0"
@@ -25,4 +26,8 @@ serde = {version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = {version = "1", features=["rt", "time"]}
 windows = { version = "0", features = ["Win32_Foundation", "Win32_System_SystemServices", "Win32_UI_WindowsAndMessaging", "Win32_System_Console", "Win32_System_Memory", "Win32_System_Diagnostics_Debug", "Win32_System_Threading", "Win32_Storage_FileSystem", "Win32_Security", "Win32_Networking_WinSock", "Win32_System_SystemInformation", "Win32_System_LibraryLoader"] }
+
+[build-dependencies]
+syn = "2"
+quote = "1"
 
