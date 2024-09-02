@@ -887,7 +887,7 @@ lole_frame:SetScript("OnEvent", function(self, event, prefix, message, channel, 
         if prefix == "You are facing the wrong way!" then
             spell_errmsg_received(SpellError.YouAreFacingTheWrongWay)
         elseif prefix == "There's nothing to attack" then
-            spell_errmsg_received(SpellError.YouHaveNoTarget)
+            spell_errmsg_received(SpellError.ThereIsNothingToAttack)
         end
     end
 end
