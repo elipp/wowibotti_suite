@@ -16,8 +16,8 @@ use crate::socket::movement_flags::NOT_MOVING;
 use crate::socket::{cast_gtaoe, movement_flags, read_os_tick_count};
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{
-    add_repr_and_tryfrom, assembly, get_current_character_name, LoleError, LoleResult,
-    BROKER_STATE, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
+    add_repr_and_tryfrom, assembly, get_current_character_name, write_last_hardware_action,
+    LoleError, LoleResult, BROKER_STATE, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
 };
 
 #[cfg(feature = "addonmessage_broker")]
@@ -32,6 +32,30 @@ thread_local! {
 
 #[allow(non_camel_case_types)]
 pub type lua_State = *mut c_void;
+
+pub struct LuaState(pub lua_State);
+
+// pub trait LuaCall {
+//     type Input;
+//     type Output;
+//     fn call(&self, func_name: &CStr, input: Self::Input) -> LoleResult<Self::Output>;
+// }
+
+// TODO: continue with this :D
+impl LuaState {
+    pub fn gettop(&self) -> i32 {
+        lua_gettop(self.0)
+    }
+}
+
+// impl<I, O> LuaCall for LuaState {
+//     type Input = I;
+//     type Output = O;
+
+//     fn call(&self, func_name: &CStr, input: Self::Input) -> LoleResult<Self::Output> {
+//         todo!()
+//     }
+// }
 
 #[allow(non_camel_case_types)]
 pub type lua_CFunction = unsafe extern "C" fn(lua_State) -> i32;
@@ -82,6 +106,21 @@ add_repr_and_tryfrom! {
         Proto = 9,
         Upval = 10,
     }
+}
+
+pub enum LuaValue {
+    Nil,
+    Boolean(lua_Boolean),
+    UserData(*const ()),
+    Number(lua_Number),
+    Integer(lua_Integer),
+    String(String),
+    Table,
+    Function,
+    UserData2(*const ()),
+    Thread,
+    Proto,
+    Upvalue,
 }
 
 define_lua_function!(
@@ -198,8 +237,23 @@ define_lua_function!(
     lua_pushstring,
     (state: lua_State, str: *const c_char) -> ());
 
-pub fn lua_pushstring_(lua: lua_State, str: &CStr) {
-    lua_pushstring(lua, str.as_ptr())
+trait LuaPushString {
+    fn pushstring(&self, lua: lua_State) -> LoleResult<()>;
+}
+
+impl LuaPushString for &CStr {
+    fn pushstring(&self, lua: lua_State) -> LoleResult<()> {
+        lua_pushstring(lua, self.as_ptr());
+        Ok(())
+    }
+}
+
+impl LuaPushString for &str {
+    fn pushstring(&self, lua: lua_State) -> LoleResult<()> {
+        let c = CString::new(*self).map_err(|_e| LoleError::StringConvError(format!("{_e:?}")))?;
+        lua_pushstring(lua, c.as_ptr());
+        Ok(())
+    }
 }
 
 define_lua_function!(
@@ -556,8 +610,8 @@ impl PushToTable for &str {
 
         let c = CString::new(*self).map_err(|_e| LoleError::StringConvError(format!("{_e:?}")))?;
 
-        lua_pushstring_(lua, key);
-        lua_pushstring_(lua, c.as_c_str());
+        key.pushstring(lua);
+        c.as_ref().pushstring(lua);
         lua_settable(lua, -3);
         Ok(())
     }
@@ -571,8 +625,8 @@ impl PushToTable for String {
 
 impl PushToTable for &CStr {
     fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
-        lua_pushstring_(lua, key);
-        lua_pushstring_(lua, self);
+        key.pushstring(lua);
+        self.pushstring(lua);
         lua_settable(lua, -3);
         Ok(())
     }
@@ -586,7 +640,7 @@ impl PushToTable for CString {
 
 impl PushToTable for lua_Integer {
     fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
-        lua_pushstring_(lua, key);
+        key.pushstring(lua);
         lua_pushinteger(lua, *self);
         lua_settable(lua, -3);
         Ok(())
@@ -595,7 +649,7 @@ impl PushToTable for lua_Integer {
 
 impl PushToTable for lua_Number {
     fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
-        lua_pushstring_(lua, key);
+        key.pushstring(lua);
         lua_pushnumber(lua, *self);
         lua_settable(lua, -3);
         Ok(())
@@ -1190,5 +1244,137 @@ pub fn spell_errmsg_received(msg: u32) -> LoleResult<()> {
     lua_getglobal!(lua, c"spell_errmsg_received");
     lua_pushinteger(lua, msg as isize);
     pcall(lua, 1, 0)?;
+    Ok(())
+}
+
+pub fn move_forward_start() -> LoleResult<()> {
+    write_last_hardware_action(0)?;
+    let lua = get_wow_lua_state()?;
+    lua_getglobal!(lua, c"MoveForwardStart");
+    pcall(lua, 0, 0)?;
+    Ok(())
+}
+
+pub fn move_forward_stop() -> LoleResult<()> {
+    write_last_hardware_action(0)?;
+    let lua = get_wow_lua_state()?;
+    lua_getglobal!(lua, c"MoveForwardStop");
+    pcall(lua, 0, 0)?;
+    Ok(())
+}
+
+pub trait FromLua: Sized {
+    fn from_lua(lua: lua_State) -> LoleResult<Self>;
+}
+
+impl FromLua for lua_Number {
+    fn from_lua(lua: lua_State) -> LoleResult<Self> {
+        let t = lua_gettype(lua, -1);
+        if let Ok(LuaType::Number) = t.try_into() {
+            let res = lua_tonumber(lua, -1);
+            lua_pop!(lua, 1);
+            Ok(res)
+        } else {
+            return Err(LoleError::LuaError(format!(
+                "FromLua for lua_Number failed, got type `{t}`"
+            )));
+        }
+    }
+}
+
+impl FromLua for lua_Integer {
+    fn from_lua(lua: lua_State) -> LoleResult<Self> {
+        let t = lua_gettype(lua, -1);
+        if let Ok(LuaType::Number) = t.try_into() {
+            let res = lua_tonumber(lua, -1);
+            lua_pop!(lua, 1);
+            Ok(res as lua_Integer)
+        } else {
+            return Err(LoleError::LuaError(format!(
+                "FromLua for lua_Number failed, got type `{t}`"
+            )));
+        }
+    }
+}
+
+// fn call<A: LuaPush, R: FromLua, const NR: i32>(
+//     lua: lua_State,
+//     func_name: &CStr,
+//     args: &[A],
+// ) -> LoleResult<Vec<Box<dyn FromLua>>> {
+//     lua_getglobal!(lua, func_name);
+//     for arg in args {
+//         arg.push(lua)?;
+//     }
+//     pcall(lua, args.len() as i32, NR)?;
+//     let mut res = vec![];
+//     Ok(res)
+// }
+
+pub trait LuaCall {
+    type Output;
+    fn call(&self, lua: lua_State) -> LoleResult<Self::Output>;
+}
+
+impl FromLua for () {
+    fn from_lua(lua: lua_State) -> LoleResult<Self> {
+        Ok(())
+    }
+}
+
+struct LuaMultiValue(Vec<LuaValue>);
+
+pub trait LuaPushMulti {
+    fn push_multi(&self, lua: lua_State) -> LoleResult<()>;
+}
+
+impl LuaValue {
+    fn push(&self, lua: lua_State) -> LoleResult<()> {
+        match self {
+            LuaValue::Nil => lua_pushnil(lua),
+            LuaValue::Boolean(v) => lua_pushboolean(lua, *v),
+            LuaValue::UserData(_) => todo!(),
+            LuaValue::Number(v) => lua_pushnumber(lua, *v),
+            LuaValue::Integer(v) => lua_pushinteger(lua, *v),
+            LuaValue::String(v) => v.as_str().pushstring(lua)?,
+            LuaValue::Table => todo!(),
+            LuaValue::Function => todo!(),
+            LuaValue::UserData2(_) => todo!(),
+            LuaValue::Thread => todo!(),
+            LuaValue::Proto => todo!(),
+            LuaValue::Upvalue => todo!(),
+        };
+        Ok(())
+    }
+}
+
+impl LuaPushMulti for LuaMultiValue {
+    fn push_multi(&self, lua: lua_State) -> LoleResult<()> {
+        for v in self.0.iter() {
+            v.push(lua)?;
+        }
+        Ok(())
+    }
+}
+
+struct LuaFunction(&'static CStr);
+
+impl LuaFunction {
+    pub fn call(lua: lua_State, A: LuaPushMulti, R: FromLuaMulti) -> LoleResult<R> {}
+}
+
+impl LuaCall for LuaFunction0_0 {
+    type Output = ();
+
+    fn call(&self, lua: lua_State) -> LoleResult<Self::Output> {
+        lua_getglobal!(lua, self.0);
+        pcall(lua, 0, 0)?;
+        Ok(())
+    }
+}
+
+fn xd() -> LoleResult<()> {
+    let lua = LuaState(get_wow_lua_state()?);
+    let res: () = LuaFunction0_0(c"Palli").call(lua.0)?;
     Ok(())
 }

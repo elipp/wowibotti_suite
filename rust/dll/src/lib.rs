@@ -194,9 +194,14 @@ unsafe fn eject_dll() -> LoleResult<()> {
 
 const ROUGHLY_SIXTY_FPS: Duration = Duration::from_micros((950000.0 / 60.0) as u64);
 
-fn write_last_hardware_action() -> LoleResult<()> {
-    let ticks = read_os_tick_count();
-    write_addr(LAST_HARDWARE_ACTION, &[ticks - 1000])?;
+fn write_last_hardware_action(offset_by: i64) -> LoleResult<()> {
+    let ticks = read_os_tick_count() as i64;
+    write_addr::<u32>(
+        LAST_HARDWARE_ACTION,
+        &[(ticks + offset_by)
+            .try_into()
+            .map_err(|_e| LoleError::InvalidParam(format!("ticks + {offset_by}")))?],
+    )?;
     Ok(())
 }
 
@@ -209,7 +214,7 @@ fn set_frame_num() -> LoleResult<()> {
 fn refresh_hardware_event_timestamp() -> LoleResult<()> {
     if LAST_HARDWARE_INTERVAL.get().elapsed() > std::time::Duration::from_secs(20) {
         LAST_HARDWARE_INTERVAL.set(std::time::Instant::now());
-        write_last_hardware_action()?;
+        write_last_hardware_action(-1000)?;
     }
     Ok(())
 }
