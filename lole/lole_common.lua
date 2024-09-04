@@ -2050,3 +2050,37 @@ function spell_errmsg_received(msg)
   end
 end
 
+
+local TIMERS = {}
+
+local Timer = { callback = function() end, delay = 0, start_time = 0, end_time = 0 }
+
+function Timer:new(callback, delay)
+  local res = {} 
+  setmetatable(res, self)
+  self.__index = self
+  res.callback = callback
+  res.delay = delay
+  res.start_time = GetTime()
+  res.end_time = res.start_time + delay/1000.0
+  return res
+end
+
+local function run_timers()
+    -- Iterate over all timers
+    for i = #TIMERS, 1, -1 do
+        local timer = TIMERS[i]
+        -- When the timer exceeds or reaches the delay, execute the callback
+        if GetTime() >= timer.end_time then
+            timer.callback()
+            table.remove(TIMERS, i) -- Remove the timer after the callback is executed
+        end
+    end
+end
+
+function setTimeout(callback, delay)
+    table.insert(TIMERS, Timer:new(callback, delay))
+end
+
+local timeout_frame = CreateFrame("Frame", "TimeoutFrame")
+timeout_frame:SetScript("OnUpdate", run_timers)

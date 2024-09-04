@@ -35,16 +35,19 @@ pub type lua_State = *mut c_void;
 
 pub struct LuaState(pub lua_State);
 
-// pub trait LuaCall {
-//     type Input;
-//     type Output;
-//     fn call(&self, func_name: &CStr, input: Self::Input) -> LoleResult<Self::Output>;
-// }
-
 // TODO: continue with this :D
 impl LuaState {
     pub fn gettop(&self) -> i32 {
         lua_gettop(self.0)
+    }
+    pub fn pushstring<S: LuaPushString>(&self, s: S) -> LoleResult<()> {
+        s.pushstring(self.0)
+    }
+}
+
+impl From<lua_State> for LuaState {
+    fn from(value: lua_State) -> Self {
+        Self(value)
     }
 }
 
@@ -237,13 +240,13 @@ define_lua_function!(
     lua_pushstring,
     (state: lua_State, str: *const c_char) -> ());
 
-trait LuaPushString {
+pub trait LuaPushString {
     fn pushstring(&self, lua: lua_State) -> LoleResult<()>;
 }
 
 impl LuaPushString for &CStr {
     fn pushstring(&self, lua: lua_State) -> LoleResult<()> {
-        lua_pushstring(lua, self.as_ptr());
+        lua_pushstring(lua, self.as_ref().as_ptr());
         Ok(())
     }
 }
@@ -471,11 +474,6 @@ pub fn playermode() -> LoleResult<bool> {
     res
 }
 
-fn write_hwevent_timestamp() -> LoleResult<()> {
-    let ticks = read_os_tick_count();
-    write_addr(offsets::LAST_HARDWARE_ACTION, &[ticks])
-}
-
 fn random_01() -> f32 {
     let mut rng = rand::thread_rng();
     rng.gen()
@@ -610,8 +608,8 @@ impl PushToTable for &str {
 
         let c = CString::new(*self).map_err(|_e| LoleError::StringConvError(format!("{_e:?}")))?;
 
-        key.pushstring(lua);
-        c.as_ref().pushstring(lua);
+        key.pushstring(lua)?;
+        c.as_ref().pushstring(lua)?;
         lua_settable(lua, -3);
         Ok(())
     }
@@ -625,8 +623,8 @@ impl PushToTable for String {
 
 impl PushToTable for &CStr {
     fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
-        key.pushstring(lua);
-        self.pushstring(lua);
+        key.pushstring(lua)?;
+        self.pushstring(lua)?;
         lua_settable(lua, -3);
         Ok(())
     }
@@ -640,7 +638,7 @@ impl PushToTable for CString {
 
 impl PushToTable for lua_Integer {
     fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
-        key.pushstring(lua);
+        key.pushstring(lua)?;
         lua_pushinteger(lua, *self);
         lua_settable(lua, -3);
         Ok(())
@@ -649,7 +647,7 @@ impl PushToTable for lua_Integer {
 
 impl PushToTable for lua_Number {
     fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
-        key.pushstring(lua);
+        key.pushstring(lua)?;
         lua_pushnumber(lua, *self);
         lua_settable(lua, -3);
         Ok(())
@@ -868,7 +866,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             })
         }
         Opcode::RefreshHwEventTimestamp if nargs == 0 => {
-            write_hwevent_timestamp()?;
+            write_last_hardware_action(0)?;
         }
         Opcode::StopFollowSpread if nargs == 0 => {
             TRYING_TO_FOLLOW.set(None);
@@ -1359,22 +1357,22 @@ impl LuaPushMulti for LuaMultiValue {
 
 struct LuaFunction(&'static CStr);
 
-impl LuaFunction {
-    pub fn call(lua: lua_State, A: LuaPushMulti, R: FromLuaMulti) -> LoleResult<R> {}
-}
+// impl LuaFunction {
+//     pub fn call(lua: lua_State, A: LuaPushMulti, R: FromLuaMulti) -> LoleResult<R> {}
+// }
 
-impl LuaCall for LuaFunction0_0 {
-    type Output = ();
+// impl LuaCall for LuaFunction0_0 {
+//     type Output = ();
 
-    fn call(&self, lua: lua_State) -> LoleResult<Self::Output> {
-        lua_getglobal!(lua, self.0);
-        pcall(lua, 0, 0)?;
-        Ok(())
-    }
-}
+//     fn call(&self, lua: lua_State) -> LoleResult<Self::Output> {
+//         lua_getglobal!(lua, self.0);
+//         pcall(lua, 0, 0)?;
+//         Ok(())
+//     }
+// }
 
-fn xd() -> LoleResult<()> {
-    let lua = LuaState(get_wow_lua_state()?);
-    let res: () = LuaFunction0_0(c"Palli").call(lua.0)?;
-    Ok(())
-}
+// fn xd() -> LoleResult<()> {
+//     let lua = LuaState(get_wow_lua_state()?);
+//     let res: () = LuaFunction0_0(c"Palli").call(lua.0)?;
+//     Ok(())
+// }

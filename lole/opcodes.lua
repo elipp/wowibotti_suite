@@ -488,3 +488,13 @@ function face_mob()
         return LOP:call(LOP.FaceMob)
     end
 end
+
+function L_MoveBackwardStart()
+    refresh_hwevent_timestamp()
+    execute_script("MoveBackwardStart()")
+end
+
+function L_MoveBackwardStop()
+    refresh_hwevent_timestamp()
+    execute_script("MoveBackwardStop()")
+end

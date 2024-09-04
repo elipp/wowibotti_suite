@@ -53,6 +53,17 @@ local AUTO_FACING_HANDLERS = {
     [SpellError.TargetNeedsToBeInFrontOfYou] = function() face_mob() end,
 }
 
+function table_concat(t1, t2)
+    local res = {}
+    for k,v in pairs(t1) do
+        res[k] = v
+    end
+    for k, v in pairs(t2) do
+        res[k] = v
+    end
+    return res
+end
+
 local available_configs = {
     default =
         class_config:create("default", {}, {}, "FFFFFF", function() end, {}, 0, "NONE", function() end),
@@ -83,7 +94,14 @@ local available_configs = {
             {}, ROLES.tank, "TANK", survive_warrior_prot),
 
     ranged_hunter = class_config:create("ranged_hunter", {}, {}, get_class_color("hunter"), combat_ranged_hunter,
-        { "Bestial Wrath" }, ROLES.caster, "RANGED", survive_template, AUTO_FACING_HANDLERS),
+        { "Bestial Wrath" }, ROLES.caster, "RANGED", survive_template,
+        table_concat(AUTO_FACING_HANDLERS, {
+            [SpellError.TargetTooClose] = function()
+                L_MoveBackwardStart()
+                setTimeout(function() L_MoveBackwardStop() end, 1000)
+            end
+        })
+    ),
 
     enchantement_shaman = class_config:create("shaman_encha", {}, {}, get_class_color("shaman"), combat_shaman_encha, {},
         ROLES.mana_melee, "MELEE", hunter_survive),

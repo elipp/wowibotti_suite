@@ -211,7 +211,7 @@ fn set_frame_num() -> LoleResult<()> {
     Ok(())
 }
 
-fn refresh_hardware_event_timestamp() -> LoleResult<()> {
+fn afk_refresh_hardware_event_timestamp() -> LoleResult<()> {
     if LAST_HARDWARE_INTERVAL.get().elapsed() > std::time::Duration::from_secs(20) {
         LAST_HARDWARE_INTERVAL.set(std::time::Instant::now());
         write_last_hardware_action(-1000)?;
@@ -248,7 +248,7 @@ fn main_entrypoint() -> LoleResult<()> {
         std::thread::sleep(dt);
     }
 
-    refresh_hardware_event_timestamp()?;
+    afk_refresh_hardware_event_timestamp()?;
     set_frame_num()?;
 
     #[cfg(feature = "addonmessage_broker")]
