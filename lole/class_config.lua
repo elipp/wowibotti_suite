@@ -89,6 +89,9 @@ local available_configs = {
 
     aoe_mage_frost =
     class_config:create("aoe_mage_frost", {}, {}, get_class_color("mage"), aoe_combat_mage, {}, ROLES.caster, "RANGED", survive_template),
+
+    shaman_resto_leveling =
+    class_config:create("shaman_resto_leveling", {}, {"Water Shield"}, get_class_color("shaman"), combat_shaman_resto_leveling, {}, ROLES.healer, "HEALER", survive_shaman_resto),
 };
 
 function get_available_configs()

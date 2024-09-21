@@ -822,7 +822,7 @@ local function lole_manage_healers(...)
 	end
 end
 
-local function lole_echo(msg)
+function lole_echo(msg)
     SendAddonMessage("lole_echo", msg, "RAID");
 end
 

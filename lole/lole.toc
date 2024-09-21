@@ -38,6 +38,7 @@ tmp_leveling\tmp_mage.lua
 tmp_leveling\aoe_druid_balance.lua
 tmp_leveling\aoe_warlock_destruction.lua
 tmp_leveling\aoe_mage_frost.lua
+tmp_leveling\shaman_resto_leveling.lua
 
 class_config.lua
 
