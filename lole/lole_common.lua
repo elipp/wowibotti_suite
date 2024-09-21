@@ -284,7 +284,7 @@ REMOVE_THIS_FRAME:SetScript("OnEvent", function(self, event, prefix, message, ch
     local ppos = vec3:create(get_unit_position(UnitName("player")))
     local world_pos = vec3:create(ppos.x + (200 * y), ppos.y + (-200 * x), ppos.z)
 
-    SendAddonMessage("lole_avoid_coords", tostring(world_pos.x) .. "," .. tostring(world_pos.y) .. "," .. tostring(world_pos.z), "RAID")
+    L_SendAddonMessage("lole_avoid_coords", tostring(world_pos.x) .. "," .. tostring(world_pos.y) .. "," .. tostring(world_pos.z), "RAID")
 
   end
 
@@ -300,9 +300,10 @@ BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 OVERRIDE_COMMAND = nil;
 
-HEALERS = {"Bacc", "Hepens"}; -- for keeping order mostly
+HEALERS = {"Bacc", "Chonkki", "Hepens"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
   Bacc = {heals={"raid"}, hots={"Raimo"}},
+  Chonkki = {heals={"raid"}},
   Hepens = {heals={"Muskeln", "raid"}}
 }
 ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
@@ -353,7 +354,7 @@ INSTANT_HEALS = {
     ["Wild Growth"] = true,
 }
 
-ROLES = { healer = 1, caster = 2, tank = 3, mana_tank = 4, melee = 5, mana_melee = 6 }
+ROLES = { none = 0, healer = 1, caster = 2, tank = 3, mana_tank = 4, melee = 5, mana_melee = 6 }
 
 -- http://wowwiki.wikia.com/wiki/Class_colors
 
@@ -431,7 +432,7 @@ local AOE_spellIDs = {
   ["Blizzard(Rank 3)"] = 8427,
   ["Volley(Rank 2)"] = 14294,
   ["Volley(Rank 3)"] = 14295,
-  ["Volley"] = 27022,
+  ["Volley(Rank 4)"] = 27022,
   ["Hurricane"] = 16914,
   ["Rain of Fire(Rank 2)"] = 6219,
   ["DND"] = 49938,
@@ -1173,22 +1174,19 @@ function player_is_targeted()
 end
 
 function validate_target()
-
-
 	if BLAST_TARGET_GUID ~= NOTARGET and UnitExists("focus") and BLAST_TARGET_GUID == UnitGUID("focus") then
 		if not UnitIsDead("focus") then
 			if has_debuff("focus", "Polymorph") or has_debuff("focus", "Shackle") then
-			 	return false;
+			 	return false
 			end
-
-			L_TargetUnit("focus");
-			return true;
+			L_TargetUnit("focus")
+			return true
 		else
 			clear_target()
-			return false;
+			return false
 		end
 	else
-		return false;
+		return false
 	end
 
 end
@@ -1359,7 +1357,7 @@ function get_item_bag_position(itemLink)
 end
 
 function in_party()
-    if GetNumPartMembers() > 0 and GetNumRaidMembers() == 0 then
+    if GetNumPartyMembers() > 0 and GetNumRaidMembers() == 0 then
         return true;
     end
     return false;
@@ -1632,7 +1630,7 @@ function sync_healer_targets_with_mine()
         end
     end
 
-    SendAddonMessage("lole_healers", msg, "RAID");
+    L_SendAddonMessage("lole_healers", msg, "RAID");
 
 end
 
@@ -2038,7 +2036,62 @@ function group_dispel()
     local dispel_spell = get_eligible_player_dispel_spell(dispel_type)
     if dispel_spell ~= nil then
       L_TargetUnit(guildie_name)
-      return L_CastSpellByName(dispel_spell)
+      L_CastSpellByName(dispel_spell)
+      return true
     end
   end
 end
+
+function total_combat_mob_health()
+    local combat_mobs = get_combat_mobs()
+    local total_health = 0
+    for _,mob in ipairs(combat_mobs) do
+        total_health = total_health + mob.hp
+    end
+    return total_health
+end
+
+
+function spell_errmsg_received(msg)
+  -- print('got spellerrmsg', string.format("%X", msg), 'at', GetTime(), 'aka', SpellErrorReverse[msg])
+  local c = get_current_config()
+  local handler = c and c.spellerror_handlers[msg]
+  if handler then
+    handler()
+  end
+end
+
+
+local TIMERS = {}
+
+local Timer = { callback = function() end, delay = 0, start_time = 0, end_time = 0 }
+
+function Timer:new(callback, delay)
+  local res = {} 
+  setmetatable(res, self)
+  self.__index = self
+  res.callback = callback
+  res.delay = delay
+  res.start_time = GetTime()
+  res.end_time = res.start_time + delay/1000.0
+  return res
+end
+
+local function run_timers()
+    -- Iterate over all timers
+    for i = #TIMERS, 1, -1 do
+        local timer = TIMERS[i]
+        -- When the timer exceeds or reaches the delay, execute the callback
+        if GetTime() >= timer.end_time then
+            timer.callback()
+            table.remove(TIMERS, i) -- Remove the timer after the callback is executed
+        end
+    end
+end
+
+function setTimeout(callback, delay)
+    table.insert(TIMERS, Timer:new(callback, delay))
+end
+
+local timeout_frame = CreateFrame("Frame", "TimeoutFrame")
+timeout_frame:SetScript("OnUpdate", run_timers)

@@ -1,12 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(rustdoc::missing_crate_level_docs)]
 
+use addonmessage_broker::SendSyncWrapper;
 #[cfg(feature = "native-ui")]
 use eframe::egui;
 
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::OnceLock;
 use std::{ffi::OsString, os::windows::ffi::OsStrExt, path::PathBuf};
 use windows::core::w;
 use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
@@ -48,12 +49,12 @@ use inject::{
     INJ_MESSAGE_REGISTER_HOTKEY, INJ_MESSAGE_UNREGISTER_HOTKEY,
 };
 
-use broker::server::start_addonmessage_relay;
+#[cfg(feature = "addonmessage_broker")]
+use addonmessage_broker::server::start_addonmessage_relay;
+
 use wowibottihookdll::{CharacterInfo, WowAccount};
 
-lazy_static! {
-    static ref DUMMY_WINDOW_HWND: Arc<Mutex<HWND>> = Arc::new(Mutex::new(HWND(0)));
-}
+pub static DUMMY_WINDOW_HWND: OnceLock<SendSyncWrapper<HWND>> = OnceLock::new();
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PatchConfig {
@@ -190,7 +191,7 @@ pub fn start_dummy_window() -> std::thread::JoinHandle<Result<(), InjectorError>
 
         RegisterClassW(&window_class);
 
-        let hwnd = CreateWindowExW(
+        match CreateWindowExW(
             WINDOW_EX_STYLE(0),
             class_name,
             w!("injector"),
@@ -203,13 +204,14 @@ pub fn start_dummy_window() -> std::thread::JoinHandle<Result<(), InjectorError>
             None,
             instance,
             None,
-        );
-
-        if hwnd == HWND(0) {
-            return Err(InjectorError::OtherError(format!("CreateWindowExW failed")));
+        ) {
+            Ok(hwnd) => {
+                DUMMY_WINDOW_HWND.get_or_init(|| SendSyncWrapper(hwnd));
+            }
+            Err(_e) => {
+                return Err(InjectorError::OtherError(format!("CreateWindowExW failed")));
+            }
         }
-
-        *DUMMY_WINDOW_HWND.lock().unwrap() = hwnd;
 
         // Normally you would show the window with ShowWindow, but we'll keep it hidden.
         // ShowWindow(hwnd, SW_SHOW);
@@ -256,13 +258,15 @@ fn main() -> Result<(), eframe::Error> {
         })
         .collect();
 
-    #[cfg(feature = "broker")]
+    #[cfg(feature = "addonmessage_broker")]
     let handle = std::thread::spawn(|| {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             start_addonmessage_relay().await;
         })
     });
+
+    let mut select_all = false;
 
     eframe::run_simple_native("injector :D", options, move |ctx, _frame| {
         egui_extras::install_image_loaders(ctx);
@@ -272,8 +276,20 @@ fn main() -> Result<(), eframe::Error> {
             ui.columns(2, |columns| {
                 columns[0].label("Available characters:");
                 egui::Grid::new("character_list").show(&mut columns[0], |ui| {
+                    let toggle = ui.toggle_value(&mut select_all, "Select all");
+                    if toggle.changed() {
+                        for account in accounts.iter_mut() {
+                            account.enabled = select_all;
+                        }
+                    }
+                    ui.end_row();
+
                     for account in accounts.iter_mut() {
-                        ui.checkbox(&mut account.enabled, account.value.character.name.clone());
+                        let checkbox =
+                            ui.checkbox(&mut account.enabled, account.value.character.name.clone());
+                        if checkbox.changed() {
+                            select_all = false;
+                        }
                         ui.image(format!(
                             "file://injector/assets/{}.png",
                             account.value.character.class

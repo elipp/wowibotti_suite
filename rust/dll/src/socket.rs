@@ -6,9 +6,9 @@ use windows::Win32::System::SystemInformation::GetTickCount;
 
 use crate::addrs::offsets::{self};
 use crate::assembly;
-use crate::opcodes::{is_movement_opcode, MSG_MOVE_SET_FACING, OPCODE_NAME_MAP};
 use crate::patch::{copy_original_opcodes, write_addr, InstructionBuffer, Patch, PatchKind};
 use crate::vec3::Vec3;
+use crate::wowproto_opcodes::{is_movement_opcode, MSG_MOVE_SET_FACING, OPCODE_NAME_MAP};
 use crate::{objectmanager::GUID, patch::deref, Addr, LoleError, LoleResult};
 
 #[derive(Debug)]
@@ -199,8 +199,8 @@ pub mod facing {
     use crate::{
         chatframe_print,
         objectmanager::{ObjectManager, GUID},
-        opcodes::MSG_MOVE_SET_FACING,
         vec3::{Vec3, TWO_PI},
+        wowproto_opcodes::MSG_MOVE_SET_FACING,
         LoleResult,
     };
 

@@ -2,6 +2,7 @@ use std::cell::Cell;
 use std::f32::consts::PI;
 use std::ffi::{c_char, c_void, CStr, CString};
 
+use lole_macros::generate_lua_enum;
 use rand::Rng;
 
 use crate::addrs::offsets::{self, TAINT_CALLER};
@@ -15,14 +16,12 @@ use crate::socket::movement_flags::NOT_MOVING;
 use crate::socket::{cast_gtaoe, movement_flags, read_os_tick_count};
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{
-    add_repr_and_tryfrom, assembly, LoleError, LoleResult, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
+    add_repr_and_tryfrom, assembly, get_current_character_name, write_last_hardware_action,
+    LoleError, LoleResult, BROKER_STATE, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
 };
 
-#[cfg(feature = "broker")]
-use {
-    crate::BROKER_TX,
-    broker::server::{Msg, MsgWrapper},
-};
+#[cfg(feature = "addonmessage_broker")]
+use addonmessage_broker::server::{AddonMessage, Msg, MsgSender, MsgWrapper};
 
 use crate::{define_lua_function, Addr}; // POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
 
@@ -34,20 +33,52 @@ thread_local! {
 #[allow(non_camel_case_types)]
 pub type lua_State = *mut c_void;
 
-#[allow(non_camel_case_types)]
-type lua_CFunction = unsafe extern "C" fn(lua_State) -> i32;
+pub struct LuaState(pub lua_State);
+
+// TODO: continue with this :D
+impl LuaState {
+    pub fn gettop(&self) -> i32 {
+        lua_gettop(self.0)
+    }
+    pub fn pushstring<S: LuaPushString>(&self, s: S) -> LoleResult<()> {
+        s.pushstring(self.0)
+    }
+}
+
+impl From<lua_State> for LuaState {
+    fn from(value: lua_State) -> Self {
+        Self(value)
+    }
+}
+
+// impl<I, O> LuaCall for LuaState {
+//     type Input = I;
+//     type Output = O;
+
+//     fn call(&self, func_name: &CStr, input: Self::Input) -> LoleResult<Self::Output> {
+//         todo!()
+//     }
+// }
 
 #[allow(non_camel_case_types)]
-type lua_Boolean = i32;
-
-const LUA_FALSE: lua_Boolean = 0;
-const LUA_TRUE: lua_Boolean = 1;
+pub type lua_CFunction = unsafe extern "C" fn(lua_State) -> i32;
 
 #[allow(non_camel_case_types)]
-type lua_Number = f64;
+pub type lua_Boolean = i32;
 
-const LUA_GLOBALSINDEX: i32 = -10002;
+pub const LUA_FALSE: lua_Boolean = 0;
+pub const LUA_TRUE: lua_Boolean = 1;
+
+#[allow(non_camel_case_types)]
+pub type lua_Number = f64;
+
+#[allow(non_camel_case_types)]
+pub type lua_Integer = isize; // apparently == core::ffi::c_ptrdiff_t
+
+pub const LUA_GLOBALSINDEX: i32 = -10002;
 const LUA_NO_RETVALS: i32 = 0;
+
+pub const LUA_OK: i32 = 0;
 
 #[macro_export]
 macro_rules! chatframe_print {
@@ -78,6 +109,21 @@ add_repr_and_tryfrom! {
         Proto = 9,
         Upval = 10,
     }
+}
+
+pub enum LuaValue {
+    Nil,
+    Boolean(lua_Boolean),
+    UserData(*const ()),
+    Number(lua_Number),
+    Integer(lua_Integer),
+    String(String),
+    Table,
+    Function,
+    UserData2(*const ()),
+    Thread,
+    Proto,
+    Upvalue,
 }
 
 define_lua_function!(
@@ -128,6 +174,22 @@ define_lua_function!(
     (state: lua_State, idx: i32, k: *const c_char) -> ());
 
 define_lua_function!(
+    lua_call,
+    (state: lua_State, nargs: i32, nresults: i32) -> ());
+
+define_lua_function!(
+    lua_pcall,
+    (state: lua_State, nargs: i32, nresults: i32, errfunc: i32) -> i32);
+
+define_lua_function!(
+    lua_settable,
+    (state: lua_State, idx: i32) -> ());
+
+define_lua_function!(
+    lua_rawseti,
+    (state: lua_State, idx: i32, n: i32) -> ());
+
+define_lua_function!(
     lua_tointeger,
     (state: lua_State, idx: i32) -> i32);
 
@@ -142,6 +204,10 @@ define_lua_function!(
 define_lua_function!(
     lua_next,
     (state: lua_State, idx: i32) -> i32);
+
+define_lua_function!(
+    lua_createtable,
+    (state: lua_State, narr: i32, nrec: i32) -> ());
 
 macro_rules! lua_tostring {
     ($lua:expr, $idx:literal) => {{
@@ -174,9 +240,32 @@ define_lua_function!(
     lua_pushstring,
     (state: lua_State, str: *const c_char) -> ());
 
+pub trait LuaPushString {
+    fn pushstring(&self, lua: lua_State) -> LoleResult<()>;
+}
+
+impl LuaPushString for &CStr {
+    fn pushstring(&self, lua: lua_State) -> LoleResult<()> {
+        lua_pushstring(lua, self.as_ref().as_ptr());
+        Ok(())
+    }
+}
+
+impl LuaPushString for &str {
+    fn pushstring(&self, lua: lua_State) -> LoleResult<()> {
+        let c = CString::new(*self).map_err(|_e| LoleError::StringConvError(format!("{_e:?}")))?;
+        lua_pushstring(lua, c.as_ptr());
+        Ok(())
+    }
+}
+
 define_lua_function!(
     lua_pushlstring,
     (state: lua_State, str: *const c_char, len: usize) -> ());
+
+define_lua_function!(
+    lua_pushinteger,
+    (state: lua_State, i: lua_Integer) -> ());
 
 define_lua_function!(
     lua_toboolean,
@@ -192,72 +281,62 @@ define_lua_function!(
     lua_dostring,
     (script: *const c_char, _s: *const c_char, taint: u32) -> ());
 
-pub fn string_to_nul_terminated(s: String) -> Vec<u8> {
-    let mut b = s.into_bytes();
-    b.push(0x0);
-    b
-}
-
 #[macro_export]
 macro_rules! dostring {
     ($fmt:expr, $($args:expr),*) => {{
-        use crate::lua::{lua_dostring, string_to_nul_terminated};
-        use std::ffi::c_char;
-        let s = string_to_nul_terminated(format!($fmt, $($args),*));
-        lua_dostring(s.as_ptr() as *const c_char, s.as_ptr() as *const c_char, 0);
-    }};
-
-    ($s:literal) => {{
-        use crate::lua::{lua_dostring};
-        use std::ffi::c_char;
-        lua_dostring($s.as_ptr() as *const c_char, $s.as_ptr() as *const c_char, 0);
+        let formatted = format!($fmt, $($args),*);
+        crate::dostring!(formatted)
     }};
 
     ($script:expr) => {{
-        use crate::lua::{lua_dostring, string_to_nul_terminated};
-        use std::ffi::c_char;
-        let s = string_to_nul_terminated($script.to_string());
-        lua_dostring(s.as_ptr() as *const c_char, s.as_ptr() as *const c_char, 0);
+        use crate::lua::{lua_dostring};
+        use std::ffi::{c_char, CString};
+        if let Ok(s) = CString::new($script).map_err(|_e|LoleError::StringConvError(format!("{_e:?}"))) {
+            lua_dostring(s.as_ptr() as *const c_char, s.as_ptr() as *const c_char, 0);
+        }
+        else {
+            eprintln!("(warning: dostring: CString::new failed)");
+        }
     }};
+
 }
 
-macro_rules! lua_setglobal {
-    ($lua:expr, $key:literal) => {
-        lua_setfield_($lua, LUA_GLOBALSINDEX, $key)
-    };
+pub fn lua_setglobal(lua: lua_State, key: &CStr) {
+    lua_setfield_(lua, LUA_GLOBALSINDEX, key)
 }
 
 macro_rules! lua_register {
     ($lua:expr, $name:literal, $closure:expr) => {
         lua_pushcclosure($lua, $closure, 0);
-        lua_setglobal!($lua, $name)
+        lua_setglobal($lua, $name)
     };
     ($lua:expr, $name:expr, $closure:expr) => {
         lua_pushcclosure($lua, $closure, 0);
-        lua_setglobal!($lua, $name)
+        lua_setglobal($lua, $name)
     };
 }
 
 macro_rules! lua_unregister {
     ($lua:expr, $name:literal) => {
         lua_pushnil($lua);
-        lua_setglobal!($lua, $name);
+        lua_setglobal($lua, $name);
     };
 
     ($lua:expr, $name:expr) => {
         lua_pushnil($lua);
-        lua_setglobal!($lua, $name);
+        lua_setglobal($lua, $name);
     };
 }
 
-pub fn lua_getfield_(lua: lua_State, index: i32, name: &'static CStr) -> i32 {
+pub fn lua_getfield_(lua: lua_State, index: i32, name: &CStr) -> i32 {
     lua_getfield(lua, index, name.as_ptr() as *const c_char) //$s.len()) // the last argument is some weird wow internal
 }
 
-pub fn lua_setfield_(lua: lua_State, index: i32, name: &'static CStr) {
+pub fn lua_setfield_(lua: lua_State, index: i32, name: &CStr) {
     lua_setfield(lua, index, name.as_ptr() as *const c_char)
 }
 
+#[macro_export]
 macro_rules! lua_getglobal {
     ($lua:expr, $s:literal) => {
         lua_getfield_($lua, LUA_GLOBALSINDEX, $s)
@@ -284,41 +363,39 @@ pub fn unregister_lop_exec() -> LoleResult<()> {
     Ok(())
 }
 
-add_repr_and_tryfrom! {
-    i32,
-    #[derive(Debug)]
-    pub enum Opcode {
-        Nop = 0,
-        TargetGuid = 1,
-        CasterRangeCheck = 2,
-        Follow = 3,
-        StopFollow = 4,
-        ClickToMove = 5,
-        TargetMarker = 6,
-        MeleeBehind = 7,
-        GetUnitPosition = 8,
-        GetLastSpellErrMsg = 9,
-        HealerRangeCheck = 10,
-        RefreshHwEventTimestamp = 11,
-        StopFollowSpread = 12,
-        GetCombatParticipants = 13,
-        GetCombatMobs = 14,
-        SetTaint = 15,
-        LootMob = 16,
-        GetAoeFeasibility = 17,
-        CastGtAoe = 18,
-        FaceMob = 19,
-        StorePath = 0x100,
-        PlaybackPath = 0x101,
-        SendAddonMessage = 0x200,
-        Debug = 0x400,
-        Dump = 0x401,
-        DoString = 0x402,
-        EjectDll = 0x403,
-        QueryInjected = 0x404,
-        DumpWowObject = 0x405,
-        RegisterUiErrorMessage = 0x406,
-    }
+#[derive(Debug)]
+#[generate_lua_enum(repr = i32, lua_path="../lole/generated/opcode.lua")]
+pub enum Opcode {
+    Nop = 0,
+    TargetGuid = 1,
+    CasterRangeCheck = 2,
+    Follow = 3,
+    StopFollow = 4,
+    ClickToMove = 5,
+    TargetMarker = 6,
+    MeleeBehind = 7,
+    GetUnitPosition = 8,
+    GetLastSpellErrMsg = 9,
+    HealerRangeCheck = 10,
+    RefreshHwEventTimestamp = 11,
+    StopFollowSpread = 12,
+    GetCombatParticipants = 13,
+    GetCombatMobs = 14,
+    SetTaint = 15,
+    LootMob = 16,
+    GetAoeFeasibility = 17,
+    CastGtAoe = 18,
+    FaceMob = 19,
+    StorePath = 0x100,
+    PlaybackPath = 0x101,
+    SendAddonMessage = 0x200,
+    Debug = 0x400,
+    Dump = 0x401,
+    DoString = 0x402,
+    EjectDll = 0x403,
+    QueryInjected = 0x404,
+    DumpWowObject = 0x405,
+    RegisterUiErrorMessage = 0x406,
 }
 
 #[macro_export]
@@ -395,11 +472,6 @@ pub fn playermode() -> LoleResult<bool> {
 
     lua_pop!(lua, 1);
     res
-}
-
-fn write_hwevent_timestamp() -> LoleResult<()> {
-    let ticks = read_os_tick_count();
-    write_addr(offsets::LAST_HARDWARE_ACTION, &[ticks])
 }
 
 fn random_01() -> f32 {
@@ -497,7 +569,9 @@ impl Drop for TaintReseter {
 }
 
 pub fn lua_debug_func(lua: lua_State) -> LoleResult<i32> {
-    Ok(LUA_NO_RETVALS)
+    let time = lua_GetTime()?;
+    dbg!(time);
+    Ok(1)
 }
 
 unsafe fn mem_as_slice<'a, T>(addr: Addr, n_bytes: usize) -> &'a [T] {
@@ -517,6 +591,67 @@ fn face_target(player: WowObject, target: Option<WowObject>) -> LoleResult<()> {
         facing::set_facing(player, rot, NOT_MOVING)?;
     }
     Ok(())
+}
+
+pub trait PushToTable {
+    // NOTE: this expects that `lua_createtable` has already been called
+    fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()>;
+}
+
+impl PushToTable for &str {
+    fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
+        // another style:
+        // lua_pushstring_(lua, c"0xXDDD");
+        // lua_setfield_(lua, -2, c"guid");
+        // lua_pushnumber(lua, i as f64 * 0.531);
+        // lua_setfield_(lua, -2, c"hp");
+
+        let c = CString::new(*self).map_err(|_e| LoleError::StringConvError(format!("{_e:?}")))?;
+
+        key.pushstring(lua)?;
+        c.as_ref().pushstring(lua)?;
+        lua_settable(lua, -3);
+        Ok(())
+    }
+}
+
+impl PushToTable for String {
+    fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
+        self.as_str().push_to_table_with_key(lua, key)
+    }
+}
+
+impl PushToTable for &CStr {
+    fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
+        key.pushstring(lua)?;
+        self.pushstring(lua)?;
+        lua_settable(lua, -3);
+        Ok(())
+    }
+}
+
+impl PushToTable for CString {
+    fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
+        self.as_c_str().push_to_table_with_key(lua, key)
+    }
+}
+
+impl PushToTable for lua_Integer {
+    fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
+        key.pushstring(lua)?;
+        lua_pushinteger(lua, *self);
+        lua_settable(lua, -3);
+        Ok(())
+    }
+}
+
+impl PushToTable for lua_Number {
+    fn push_to_table_with_key(&self, lua: lua_State, key: &CStr) -> LoleResult<()> {
+        key.pushstring(lua)?;
+        lua_pushnumber(lua, *self);
+        lua_settable(lua, -3);
+        Ok(())
+    }
 }
 
 fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
@@ -718,16 +853,20 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
         }
         Opcode::GetLastSpellErrMsg if nargs == 0 => {
-            if let Some((msg, frame_num)) = LAST_SPELL_ERR_MSG.get() {
-                lua_pushnumber(lua, (msg as i32).into());
-                lua_pushnumber(lua, frame_num.into());
-                return Ok(2);
-            } else {
-                return Ok(LUA_NO_RETVALS);
-            }
+            return LAST_SPELL_ERR_MSG.with(|l| {
+                let mut values: Vec<(_, _)> = l.borrow().iter().map(|(k, v)| (*k, *v)).collect();
+                values.sort_unstable_by_key(|(_, v)| *v);
+                if let Some((msg, framenum)) = values.into_iter().last() {
+                    lua_pushinteger(lua, msg as isize);
+                    lua_pushinteger(lua, framenum);
+                    return Ok(2);
+                } else {
+                    return Ok(LUA_NO_RETVALS);
+                }
+            })
         }
         Opcode::RefreshHwEventTimestamp if nargs == 0 => {
-            write_hwevent_timestamp()?;
+            write_last_hardware_action(0)?;
         }
         Opcode::StopFollowSpread if nargs == 0 => {
             TRYING_TO_FOLLOW.set(None);
@@ -785,15 +924,22 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             return Ok(1);
         }
         Opcode::GetCombatMobs => {
-            let mut num = 0i32;
+            let mut num = 1i32;
+            lua_createtable(lua, 0, 0);
+
             for c in om.iter_mobs().filter(|o| {
                 o.in_combat().is_ok_and(|combat| combat) && o.is_dead().is_ok_and(|dead| !dead)
             }) {
                 let guid = CString::new(format!("{}", GUIDFmt(c.get_guid())))?;
-                lua_pushstring(lua, guid.as_c_str().as_ptr());
+                lua_createtable(lua, 0, 0);
+
+                guid.push_to_table_with_key(lua, c"guid")?;
+                (c.health()? as lua_Integer).push_to_table_with_key(lua, c"hp")?;
+                lua_rawseti(lua, -2, num);
+
                 num += 1;
             }
-            return Ok(num);
+            return Ok(1);
         }
 
         Opcode::LootMob => {
@@ -818,7 +964,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                     ctm::add_to_queue(action)?;
                 } else {
                     offsets::CSelectUnit(closest.get_guid());
-                    dostring!(c"InteractUnit('target')");
+                    dostring!("InteractUnit('target')");
                 }
             }
         }
@@ -899,20 +1045,43 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             lua_pushboolean(lua, 1);
             return Ok(1);
         }
-        #[cfg(feature = "broker")]
-        Opcode::SendAddonMessage => {
-            let header = lua_tostring!(lua, 2)?;
-            let msg = lua_tostring!(lua, 3)?;
-            let to = lua_tostring!(lua, 4)?;
-            let tx = BROKER_TX.with(|tx| {
-                let tx = tx.borrow();
-                if let Some(ref tx) = *tx {
-                    let _res = tx.send(MsgWrapper {
-                        message: Msg::AddonMessage(header.into(), msg.into(), to.into()),
-                        from_connection_id: 1337,
-                    });
+        #[cfg(feature = "addonmessage_broker")]
+        Opcode::SendAddonMessage if nargs >= 2 && nargs < 5 => {
+            if let Some(state) = BROKER_STATE.get() {
+                let prefix = lua_tostring!(lua, 2)?.to_owned();
+                let text = lua_tostring!(lua, 3)?.to_owned();
+                let r#type = if nargs > 2 {
+                    Some(lua_tostring!(lua, 4)?.to_owned())
+                } else {
+                    None
+                };
+                let target = if nargs > 3 {
+                    Some(lua_tostring!(lua, 5)?.to_owned())
+                } else {
+                    None
+                };
+
+                match (r#type.as_deref(), target.as_deref()) {
+                    (Some("WHISPER"), None) => {
+                        eprintln!("(warning: Invalid use of SendAddonMessage(..., WHISPER) with no target)");
+                        return Ok(0);
+                    }
+                    _ => {}
                 }
-            });
+
+                let _res = state.tx.send(MsgWrapper {
+                    from: MsgSender::Peer(state.connection_id, state.character_name.clone()),
+                    message: Msg::AddonMessage(AddonMessage {
+                        prefix,
+                        text,
+                        r#type,
+                        target,
+                        from: state.character_name.clone(),
+                    }),
+                });
+            } else {
+                eprintln!("(warning: failed to send AddonMessage: Connection not initialized)");
+            }
         }
         Opcode::DumpWowObject => {
             // when mob is looted, base + 0x2A*4 is set to 0, meanwhile "NpcState" seems to not be very interesting
@@ -960,7 +1129,7 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
         Ok(num_retvals) => num_retvals,
         Err(error) => {
             println!("lop_exec: error: {:?}", error);
-            chatframe_print!("lop_exec: error: {:?}", error);
+            let x = chatframe_print!("lop_exec: error: {:?}", error);
             LUA_NO_RETVALS
         }
     }
@@ -1016,6 +1185,11 @@ pub fn prepare_lua_prot_patch() -> Patch {
     }
 }
 
+// pub fn set_movement_flags(f: u32) {
+//     let m = deref::<_ ,1>(0xB499A4);
+//     SetMovementFlags(, )
+// }
+
 extern "stdcall" fn closepetstables_lop_exec(lua: lua_State) -> i32 {
     match handle_lop_exec(lua) {
         Ok(res) => res,
@@ -1024,6 +1198,17 @@ extern "stdcall" fn closepetstables_lop_exec(lua: lua_State) -> i32 {
             0
         }
     }
+}
+
+#[allow(non_snake_case)]
+pub fn lua_GetTime() -> LoleResult<lua_Number> {
+    let lua = get_wow_lua_state()?;
+
+    lua_getglobal!(lua, c"GetTime");
+    pcall(lua, 0, 1)?;
+    let number = lua_tonumber(lua, -1);
+    lua_pop!(lua, 1);
+    Ok(number)
 }
 
 #[cfg(feature = "wotlk")]
@@ -1041,3 +1226,153 @@ pub fn prepare_ClosePetStables_patch() -> Patch {
         kind: PatchKind::JmpToTrampoline,
     }
 }
+
+fn pcall(lua: lua_State, nargs: i32, nresults: i32) -> LoleResult<()> {
+    if lua_pcall(lua, nargs, nresults, 0) != LUA_OK {
+        let error = lua_tostring!(lua, -1)?;
+        return Err(LoleError::LuaError(error.to_owned()));
+    }
+
+    Ok(())
+}
+
+pub fn spell_errmsg_received(msg: u32) -> LoleResult<()> {
+    let _taint = TaintReseter::new();
+    let lua = get_wow_lua_state()?;
+    lua_getglobal!(lua, c"spell_errmsg_received");
+    lua_pushinteger(lua, msg as isize);
+    pcall(lua, 1, 0)?;
+    Ok(())
+}
+
+pub fn move_forward_start() -> LoleResult<()> {
+    write_last_hardware_action(0)?;
+    let lua = get_wow_lua_state()?;
+    lua_getglobal!(lua, c"MoveForwardStart");
+    pcall(lua, 0, 0)?;
+    Ok(())
+}
+
+pub fn move_forward_stop() -> LoleResult<()> {
+    write_last_hardware_action(0)?;
+    let lua = get_wow_lua_state()?;
+    lua_getglobal!(lua, c"MoveForwardStop");
+    pcall(lua, 0, 0)?;
+    Ok(())
+}
+
+pub trait FromLua: Sized {
+    fn from_lua(lua: lua_State) -> LoleResult<Self>;
+}
+
+impl FromLua for lua_Number {
+    fn from_lua(lua: lua_State) -> LoleResult<Self> {
+        let t = lua_gettype(lua, -1);
+        if let Ok(LuaType::Number) = t.try_into() {
+            let res = lua_tonumber(lua, -1);
+            lua_pop!(lua, 1);
+            Ok(res)
+        } else {
+            return Err(LoleError::LuaError(format!(
+                "FromLua for lua_Number failed, got type `{t}`"
+            )));
+        }
+    }
+}
+
+impl FromLua for lua_Integer {
+    fn from_lua(lua: lua_State) -> LoleResult<Self> {
+        let t = lua_gettype(lua, -1);
+        if let Ok(LuaType::Number) = t.try_into() {
+            let res = lua_tonumber(lua, -1);
+            lua_pop!(lua, 1);
+            Ok(res as lua_Integer)
+        } else {
+            return Err(LoleError::LuaError(format!(
+                "FromLua for lua_Number failed, got type `{t}`"
+            )));
+        }
+    }
+}
+
+// fn call<A: LuaPush, R: FromLua, const NR: i32>(
+//     lua: lua_State,
+//     func_name: &CStr,
+//     args: &[A],
+// ) -> LoleResult<Vec<Box<dyn FromLua>>> {
+//     lua_getglobal!(lua, func_name);
+//     for arg in args {
+//         arg.push(lua)?;
+//     }
+//     pcall(lua, args.len() as i32, NR)?;
+//     let mut res = vec![];
+//     Ok(res)
+// }
+
+pub trait LuaCall {
+    type Output;
+    fn call(&self, lua: lua_State) -> LoleResult<Self::Output>;
+}
+
+impl FromLua for () {
+    fn from_lua(lua: lua_State) -> LoleResult<Self> {
+        Ok(())
+    }
+}
+
+struct LuaMultiValue(Vec<LuaValue>);
+
+pub trait LuaPushMulti {
+    fn push_multi(&self, lua: lua_State) -> LoleResult<()>;
+}
+
+impl LuaValue {
+    fn push(&self, lua: lua_State) -> LoleResult<()> {
+        match self {
+            LuaValue::Nil => lua_pushnil(lua),
+            LuaValue::Boolean(v) => lua_pushboolean(lua, *v),
+            LuaValue::UserData(_) => todo!(),
+            LuaValue::Number(v) => lua_pushnumber(lua, *v),
+            LuaValue::Integer(v) => lua_pushinteger(lua, *v),
+            LuaValue::String(v) => v.as_str().pushstring(lua)?,
+            LuaValue::Table => todo!(),
+            LuaValue::Function => todo!(),
+            LuaValue::UserData2(_) => todo!(),
+            LuaValue::Thread => todo!(),
+            LuaValue::Proto => todo!(),
+            LuaValue::Upvalue => todo!(),
+        };
+        Ok(())
+    }
+}
+
+impl LuaPushMulti for LuaMultiValue {
+    fn push_multi(&self, lua: lua_State) -> LoleResult<()> {
+        for v in self.0.iter() {
+            v.push(lua)?;
+        }
+        Ok(())
+    }
+}
+
+struct LuaFunction(&'static CStr);
+
+// impl LuaFunction {
+//     pub fn call(lua: lua_State, A: LuaPushMulti, R: FromLuaMulti) -> LoleResult<R> {}
+// }
+
+// impl LuaCall for LuaFunction0_0 {
+//     type Output = ();
+
+//     fn call(&self, lua: lua_State) -> LoleResult<Self::Output> {
+//         lua_getglobal!(lua, self.0);
+//         pcall(lua, 0, 0)?;
+//         Ok(())
+//     }
+// }
+
+// fn xd() -> LoleResult<()> {
+//     let lua = LuaState(get_wow_lua_state()?);
+//     let res: () = LuaFunction0_0(c"Palli").call(lua.0)?;
+//     Ok(())
+// }

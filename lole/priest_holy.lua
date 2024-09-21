@@ -1,7 +1,6 @@
 local pom_time = 0;
 
 local function refresh_healbuffs(hottargets)
-
     if not hottargets or not hottargets[1] then return false; end
 
     local pom_checked = false;
@@ -26,29 +25,28 @@ local function refresh_healbuffs(hottargets)
     end
 
     return false
-
 end
 
 local function should_cast_PoH(min_deficit, min_healable_chars)
     if min_deficit == nil then min_deficit = 3000; end
     if min_healable_chars == nil then min_healable_chars = 4; end
 
-	local HP_deficits = get_HP_deficits(true, true);
+    local HP_deficits = get_HP_deficits(true, true);
 
     local eligible_targets = {};
-	for unit, deficit in pairs(HP_deficits) do
+    for unit, deficit in pairs(HP_deficits) do
         local distance_to_unit = get_distance_between("player", UnitName(unit));
         if distance_to_unit and distance_to_unit <= 36 and deficit > min_deficit then
             table.insert(eligible_targets, unit);
-		end
-	end
+        end
+    end
 
     if #eligible_targets >= min_healable_chars then
         POH_TARGETS = shallowcopy(eligible_targets);
         return true;
     end
 
-	return false;
+    return false;
 end
 
 function get_CoH_target(urgencies, min_deficit, max_ineligible_chars)
@@ -78,11 +76,9 @@ function get_CoH_target(urgencies, min_deficit, max_ineligible_chars)
     end
 
     return coh_target;
-
 end
 
 local function cast_PoM_here(has_single_targets, from_raid_heal)
-
     local hottargets = get_assigned_hottargets(UnitName("player"));
     for i, targetname in ipairs(hottargets) do
         if not UnitExists(targetname) or not UnitIsConnected(targetname) or UnitIsDead(targetname) or has_buff(targetname, "Spirit of Redemption") or UNREACHABLE_TARGETS[targetname] > GetTime() then
@@ -96,7 +92,6 @@ local function cast_PoM_here(has_single_targets, from_raid_heal)
     end
 
     return true;
-
 end
 
 local function karvalakki_CoH()
@@ -106,7 +101,7 @@ local function karvalakki_CoH()
     end
     local data = {}
     for _, name in ipairs(members) do
-        data[name] = { position=vec3:create(get_unit_position(name)), deficit=(UnitHealthMax(name) - UnitHealth(name)) }
+        data[name] = { position = vec3:create(get_unit_position(name)), deficit = (UnitHealthMax(name) - UnitHealth(name)) }
     end
     local heal_amounts = {}
     for _, name1 in ipairs(members) do
@@ -117,21 +112,21 @@ local function karvalakki_CoH()
         for name2, name2_data in pairs(data) do
             if name1 ~= name2 then
                 if name1_pos:distance(name2_data.position) < 15.0 then
-                   row_deficit = row_deficit + name2_data.deficit
-                   average_deficit = (average_deficit + name2_data.deficit)/2
-                   num_targets = num_targets + 1
+                    row_deficit = row_deficit + name2_data.deficit
+                    average_deficit = (average_deficit + name2_data.deficit) / 2
+                    num_targets = num_targets + 1
                 end
             end
         end
-        table.insert(heal_amounts, {name=name1, total_deficit=row_deficit, average_deficit=average_deficit, num_targets=num_targets})
+        table.insert(heal_amounts,
+            { name = name1, total_deficit = row_deficit, average_deficit = average_deficit, num_targets = num_targets })
     end
-    table.sort(heal_amounts, function(a,b) return a.total_deficit > b.total_deficit end)
+    table.sort(heal_amounts, function(a, b) return a.total_deficit > b.total_deficit end)
     return heal_amounts[1]
 end
 
 
 local function raid_heal(has_single_targets)
-    
     local target, urgencies = get_raid_heal_target(true);
 
     if target then
@@ -185,10 +180,10 @@ local function raid_heal(has_single_targets)
         --         pom_time = time();
         --     end
         -- else
-            local found, timeleft = has_buff("target", "Renew");
-            if not found or not timeleft then
-                cast_heal("Renew");
-            end
+        local found, timeleft = has_buff("target", "Renew");
+        if not found or not timeleft then
+            cast_heal("Renew");
+        end
         -- end
     else
         return false;
@@ -270,8 +265,23 @@ end
 function combat_priest_holy()
     if casting_legit_heal() then return end
 
+    if UnitAffectingCombat("player") and total_combat_mob_health() > 30000 and mana_percentage("player") < 30 and GetSpellCooldown("Shadowfiend") == 0 then
+        if validate_target() then
+            L_CastSpellByName("Shadowfiend")
+            L_PetAttack()
+            return
+        end
+    end
+
+    if GetSpellCooldown("Shadowfiend") > (5*60 - 15) then
+        L_RunMacroText("/petaggressive")
+        if validate_target() then
+            L_PetAttack()
+        end
+    end
+
     local target, urgencies = get_raid_heal_target(true);
-    
+
     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
 
     -- if heal_targets[1] == nil or heal_targets[1] == "raid" then
@@ -292,21 +302,23 @@ function combat_priest_holy()
             L_TargetUnit(target);
         end
     end
-  
+
     if health_percentage("player") < 50 and cast_if_nocd("Desperate Prayer") then return end
-    
+
     local target_HPP = health_percentage("target")
     local has_renew, renew_timeleft = has_buff("target", "Renew");
 
     local target, urgencies = get_raid_heal_target(true);
-    
+
     local coh_target = karvalakki_CoH();
 
+
+    if group_dispel() then return end
     if UnitGUID("target") ~= UnitGUID("player") and health_percentage("player") < 75 then
         cast_heal("Binding Heal");
     elseif target_HPP < 30 then
         cast_heal("Flash Heal")
-    elseif target_HPP < 45 then
+    elseif target_HPP < 55 and GetSpellCooldown("Prayer of Mending") == 0 then
         cast_heal("Prayer of Mending")
     elseif target_HPP < 85 and not has_renew then
         cast_heal("Renew")

@@ -38,44 +38,44 @@ local DK_DELETE_FRAME = nil
 local FROZEN_ORB_TARGET = nil
 
 local function TORAVON_STUFF()
-  if FROZEN_ORB_TARGET then
-    target_unit_with_GUID(FROZEN_ORB_TARGET)
-  else
-    L_ClearTarget()
-  end
-
-  if not UnitExists("target") then
-    FROZEN_ORB_TARGET = nil
-  end
-
-  if not FROZEN_ORB_TARGET then
-    for i, g in pairs({get_combat_targets()}) do
-      target_unit_with_GUID(g)
-      if UnitName("target") == "Frozen Orb" and not UnitIsDead("target") then
-        FROZEN_ORB_TARGET = g
-        echo("setting target to " .. g)
-        lole_subcommands.broadcast("target", g)
-        break
-      end
+    if FROZEN_ORB_TARGET then
+        target_unit_with_GUID(FROZEN_ORB_TARGET)
+    else
+        L_ClearTarget()
     end
-  end
+
+    if not UnitExists("target") then
+        FROZEN_ORB_TARGET = nil
+    end
+
+    if not FROZEN_ORB_TARGET then
+        for i, g in pairs({ get_combat_targets() }) do
+            target_unit_with_GUID(g)
+            if UnitName("target") == "Frozen Orb" and not UnitIsDead("target") then
+                FROZEN_ORB_TARGET = g
+                echo("setting target to " .. g)
+                lole_subcommands.broadcast("target", g)
+                break
+            end
+        end
+    end
 end
 
 combat_death_knight_blood = function()
-  --
-  -- if not MARROWGAR then
-  --   MARROWGAR = CreateFrame("frame", nil, UIParent)
-  --   MARROWGAR:SetScript("OnUpdate", MARROWGAR_STUFF)
-  -- end
+    --
+    -- if not MARROWGAR then
+    --   MARROWGAR = CreateFrame("frame", nil, UIParent)
+    --   MARROWGAR:SetScript("OnUpdate", MARROWGAR_STUFF)
+    -- end
 
---  avoid_npc_with_name("Fire Bomb")
+    --  avoid_npc_with_name("Fire Bomb")
 
---  L_TargetUnit("Ghostly Priest")
---     if UnitExists("target") then
---       if UnitCastingInfo("target") and string.find(UnitCastingInfo("target"), "Fear") and GetSpellCooldown("Mind Freeze") == 0 then
---         L_CastSpellByName("Mind Freeze")
---       end
---     end
+    --  L_TargetUnit("Ghostly Priest")
+    --     if UnitExists("target") then
+    --       if UnitCastingInfo("target") and string.find(UnitCastingInfo("target"), "Fear") and GetSpellCooldown("Mind Freeze") == 0 then
+    --         L_CastSpellByName("Mind Freeze")
+    --       end
+    --     end
     --
     -- if not DK_DELETE_FRAME then
     --   DK_DELETE_FRAME = CreateFrame("frame", nil, UIParent)
@@ -109,7 +109,7 @@ combat_death_knight_blood = function()
     local frost_fever_timeleft = get_self_debuff_expiration("target", "Frost Fever");
 
     if IsUsableSpell("Rune Strike") then
-      L_CastSpellByName("Rune Strike")
+        L_CastSpellByName("Rune Strike")
     end
 
     if blood_rdy == true and frost_fever_expires and frost_fever_timeleft < 8 and has_debuff_by_self("target", "Blood Plague") then
@@ -125,5 +125,4 @@ combat_death_knight_blood = function()
     else
         L_CastSpellByName("Death Coil");
     end
-
 end

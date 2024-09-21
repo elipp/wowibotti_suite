@@ -1,7 +1,6 @@
 local do_tranquility = false;
 
 local function refresh_rejuvenation(hottargets)
-
     if not hottargets or not hottargets[1] then return false; end
 
     for i, targetname in ipairs(hottargets) do
@@ -13,7 +12,6 @@ local function refresh_rejuvenation(hottargets)
     end
 
     return false
-
 end
 
 local function should_cast_tranquility(min_deficit, min_healable_chars)
@@ -44,7 +42,6 @@ end
 
 -- Wild Growth
 local function get_WG_target(urgencies, min_deficit, max_ineligible_chars)
-
     local highest_total_urgency = 0;
     local wg_target;
 
@@ -67,16 +64,14 @@ local function get_WG_target(urgencies, min_deficit, max_ineligible_chars)
     end
 
     return wg_target;
-
 end
 
 local function raid_heal()
-
     if should_cast_tranquility() then
         L_CastSpellByName("Barkskin");
         do_tranquility = true;
         return true;
-    elseif UnitHealth("player") < UnitHealthMax("player")*0.30 then
+    elseif UnitHealth("player") < UnitHealthMax("player") * 0.30 then
         L_CastSpellByName("Barkskin");
         L_TargetUnit("player");
         cast_heal("Swiftmend")
@@ -150,36 +145,31 @@ local function raid_heal()
     end
 
     return false;
-
 end
 
 local function cleanse_druid()
+    local poisons = get_raid_debuffs_by_type("Poison")
+    if cast_dispel(poisons, "Abolish Poison") then return true end
 
-  local poisons = get_raid_debuffs_by_type("Poison")
-  if cast_dispel(poisons, "Abolish Poison") then return true end
+    local curses = get_raid_debuffs_by_type("Curse")
+    if cast_dispel(curses, "Remove Curse") then return true end
 
-  local curses = get_raid_debuffs_by_type("Curse")
-  if cast_dispel(curses, "Remove Curse") then return true end
-
-  return nil
-
+    return nil
 end
 
 local function faeriefire()
-
-      if not validate_target() then return end
-      if not has_debuff("target", "Faerie Fire") then
+    if not validate_target() then return end
+    if not has_debuff("target", "Faerie Fire") then
         caster_range_check(0, 30)
         L_CastSpellByName("Faerie Fire")
         return true
-      end
+    end
 
-      return nil
+    return nil
 end
 
 combat_druid_resto = function()
-
-  if player_casting() then return end
+    if player_casting() then return end
 
     if do_tranquility then
         if cast_if_nocd("Tranquility") then do_tranquility = false end
@@ -192,13 +182,13 @@ combat_druid_resto = function()
         return
     end
 
-	local mana_left = UnitMana("player");
+    local mana_left = UnitMana("player");
 
-	if mana_left < 3000 and GetSpellCooldown("Innervate") == 0 then
+    if mana_left < 3000 and GetSpellCooldown("Innervate") == 0 then
         L_TargetUnit("player");
-		L_CastSpellByName("Innervate");
-		return;
-	end
+        L_CastSpellByName("Innervate");
+        return;
+    end
 
     --if cleanse_raid("Curse of the Plaguebringer") then return end
     local debuffed_player = get_player_with_debuff("Incinerate Flesh")
@@ -256,11 +246,11 @@ combat_druid_resto = function()
     local unit_with_least_stacks = nil;
     for i, name in ipairs(heal_targets) do
         local has_lb, timeleft_lb, stacks_lb = has_buff(name, "Lifebloom");
-    	if has_lb then
+        if has_lb then
             if not lb_candidate then
-                lb_candidate = {name=name, timeleft=timeleft_lb};
+                lb_candidate = { name = name, timeleft = timeleft_lb };
             elseif timeleft_lb < lb_candidate["timeleft"] then
-                lb_candidate = {name=name, timeleft=timeleft_lb};
+                lb_candidate = { name = name, timeleft = timeleft_lb };
             end
             if stacks_lb < least_stacks then
                 least_stacks = stacks_lb;
@@ -307,11 +297,8 @@ combat_druid_resto = function()
     end
 
     if lole_get("dispelmode") == 1 then
-      if cleanse_druid() then return end
+        if cleanse_druid() then return end
     end
 
     faeriefire()
-
-
-
 end

@@ -16,13 +16,13 @@ local function imbue_weapons()
 end
 
 local TOTEMS = {
-    fire=nil,
-    earth={name="Strength of Earth Totem", range=30},
+    fire = nil,
+    earth = { name = "Strength of Earth Totem", range = 30 },
     -- earth={name="Stoneskin Totem", range=30},
     -- earth={name="Tremor Totem", range=20},
-    water={name="Mana Spring Totem", range=30},
+    water = { name = "Mana Spring Totem", range = 30 },
     -- water={name="Poison Cleansing Totem", range=20},
-    air={name="Windfury Totem", range=20},
+    air = { name = "Windfury Totem", range = 20 },
 }
 
 local function set_totems()
@@ -43,7 +43,7 @@ function combat_shaman_encha()
         set_totems()
         L_StartAttack();
         if melee_attack_behind(1.5) then end
-        
+
         -- rotation:run();
 
         if cast_if_nocd("Stormstrike") then return end
@@ -52,10 +52,9 @@ function combat_shaman_encha()
         if has and stacks > 4 then
             return L_CastSpellByName("Lightning Bolt")
         end
-        
-        if (mana_percentage("player") < 20) and (#{get_combat_mobs()} > 2) and cast_if_nocd("Shamanistic Rage") then return end
+
+        if (mana_percentage("player") < 20) and (#{ get_combat_mobs() } > 2) and cast_if_nocd("Shamanistic Rage") then return end
         if cast_if_nocd("Lava Lash") then return end
         L_CastSpellByName("Purge")
     end
-    
 end

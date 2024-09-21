@@ -1,3 +1,4 @@
+use addonmessage_broker::SendSyncWrapper;
 use lazy_static::lazy_static;
 use serde::Serialize;
 use std::ffi::c_void;
@@ -73,6 +74,9 @@ pub struct WowClient {
     library_handle: Option<HANDLE>,
 }
 
+unsafe impl Sync for WowClient {}
+unsafe impl Send for WowClient {}
+
 impl Drop for WowClient {
     fn drop(&mut self) {
         self.unregister_hotkey().unwrap();
@@ -104,27 +108,39 @@ impl WowClient {
                 "Hotkey vkeycode conversion failed"
             )));
         }
-        unsafe {
-            SendMessageW(
-                *DUMMY_WINDOW_HWND.lock().unwrap(),
-                INJ_MESSAGE_REGISTER_HOTKEY,
-                WPARAM(self.index as usize),
-                LPARAM(index_str[0] as isize),
-            );
+        if let Some(SendSyncWrapper(hwnd)) = DUMMY_WINDOW_HWND.get() {
+            unsafe {
+                SendMessageW(
+                    *hwnd,
+                    INJ_MESSAGE_REGISTER_HOTKEY,
+                    WPARAM(self.index as usize),
+                    LPARAM(index_str[0] as isize),
+                );
+            }
+            Ok(())
+        } else {
+            Err(InjectorError::HotkeyError(format!(
+                "register_hotkey: DUMMY_WINDOW not set"
+            )))
         }
-        Ok(())
     }
 
     fn unregister_hotkey(&self) -> InjectorResult<()> {
-        unsafe {
-            SendMessageW(
-                *DUMMY_WINDOW_HWND.lock().unwrap(),
-                INJ_MESSAGE_UNREGISTER_HOTKEY,
-                WPARAM(self.index as usize),
-                LPARAM(0),
-            )
-        };
-        Ok(())
+        if let Some(SendSyncWrapper(hwnd)) = DUMMY_WINDOW_HWND.get() {
+            unsafe {
+                SendMessageW(
+                    *hwnd,
+                    INJ_MESSAGE_UNREGISTER_HOTKEY,
+                    WPARAM(self.index as usize),
+                    LPARAM(0),
+                )
+            };
+            Ok(())
+        } else {
+            Err(InjectorError::HotkeyError(format!(
+                "unregister_hotkey: DUMMY_WINDOW not set"
+            )))
+        }
     }
 
     fn inject(

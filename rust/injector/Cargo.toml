@@ -6,12 +6,12 @@ edition = "2021"
 [features]
 native-ui = ["dep:egui", "dep:eframe", "dep:egui_extras", "dep:image"]
 web = [ "dep:tokio", "dep:tokio-util", "dep:http", "dep:http-body-util", "dep:hyper" ]
-broker = [ "dep:broker", "dep:tokio" ]
-default = ["native-ui"]
+addonmessage_broker = [ "dep:addonmessage_broker", "dep:tokio" ]
+default = ["native-ui", "addonmessage_broker"]
 
 [dependencies]
 wowibottihookdll = { path="../dll" }
-broker = { path="../broker", optional=true }
+addonmessage_broker = { path="../addonmessage_broker", optional=true }
 windows = { version = "0", features = ["Win32_Foundation", "Win32_System_SystemServices", "Win32_UI_WindowsAndMessaging", "Win32_System_Console", "Win32_System_Memory", "Win32_System_Diagnostics_Debug", "Win32_System_Threading", "Win32_Storage_FileSystem", "Win32_Security", "Win32_Networking_WinSock", "Win32_System_SystemInformation", "Win32_System_LibraryLoader", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }
 lazy_static = "1"
 nohash-hasher = "0"

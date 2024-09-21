@@ -3,15 +3,14 @@ local last_feed_time = 0;
 local FEED_INTERVAL = 60;
 
 function run_out_of_combat()
-    if not UnitAffectingCombat("player") then
+    if UnitClass("player") == 'Hunter' and not UnitAffectingCombat("player") then
         if not has_buff("player", "Aspect of the Pack") and not has_buff("player", "Aspect of the Viper") then
             return L_CastSpellByName("Aspect of the Viper")
         end
     end
 end
 
-
-local dummy_frame = CreateFrame("frame",nil, UIParent)
+local dummy_frame = CreateFrame("frame", nil, UIParent)
 dummy_frame:SetScript("OnUpdate", run_out_of_combat)
 
 local rotation = Rotation(
@@ -47,8 +46,8 @@ local function set_pet_state()
         L_PetPassiveMode();
         local pet_happiness, _, _ = GetPetHappiness();
         if (pet_happiness ~= nil and pet_happiness < 3 and
-            not has_buff("pet", "Feed Pet Effect") and
-            GetTime() - last_feed_time > FEED_INTERVAL) then
+                not has_buff("pet", "Feed Pet Effect") and
+                GetTime() - last_feed_time > FEED_INTERVAL) then
             if GetItemCount(pet_food) == 0 then
                 echo("Out of pet food!");
             else
@@ -75,22 +74,26 @@ local function attack()
         return melee_rotation:run()
     else
         set_pet_state();
-        
+
         L_PetAttack()
         if UnitChannelInfo("player") == "Volley" then return end
         L_StartAttack();
-        
+
         if UnitMana("player") > 1500 and not has_buff("player", "Aspect of the Hawk") then
             L_CastSpellByName("Aspect of the Hawk")
         end
-        
+
         caster_range_check(6, 30)
-        
+
+        if cast_if_nocd("Kill Command") then
+            return
+        end
+
         local feasibility = get_aoe_feasibility("target", 8)
         if lole_subcommands.get("aoemode") == 1 and get_distance_between("player", "target") < 30 and UnitMana("player") > 600 and feasibility > 4.5 then
-            return cast_gtaoe("Volley(Rank 3)", get_unit_position("target"))
+            return cast_gtaoe("Volley(Rank 4)", get_unit_position("target"))
         end
-        
+
         if UnitHealth("target") > 7500 and not has_debuff("target", "Hunter's Mark") then
             return L_CastSpellByName("Hunter's Mark");
         end
@@ -98,10 +101,9 @@ local function attack()
         if UnitMana("player") < 500 and not has_buff("player", "Aspect of the Viper") then
             return L_CastSpellByName("Aspect of the Viper")
         end
-        
+
         local has_viper_sting = has_debuff("target", "Viper Sting")
-        local mana_pct = UnitMana("player")/UnitManaMax("player")
-        if mana_pct < 0.5 and (UnitPowerType("target") == 0) and (UnitHealth("target") > 2000) and (UnitMana("target") > 200) and (not has_viper_sting) then
+        if mana_percentage("player") < 50 and (UnitPowerType("target") == 0) and (UnitHealth("target") > 2000) and (UnitMana("target") > 200) and (not has_viper_sting) then
             return L_CastSpellByName("Viper Sting")
         elseif (not has_viper_sting) and (not has_debuff("target", "Serpent Sting")) then
             return L_CastSpellByName("Serpent Sting")

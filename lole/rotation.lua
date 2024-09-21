@@ -20,7 +20,7 @@ function Rotation(spells, reset_interval)
 
         check_rotation_reset = function(self)
             if GetTime() - self.last_cast_time > self.reset_interval or
-                    UnitGUID("target") ~= self.target then
+                UnitGUID("target") ~= self.target then
                 self.spell_index = 1;
                 self.target = UnitGUID("target");
             end

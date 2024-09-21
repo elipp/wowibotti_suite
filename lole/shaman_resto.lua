@@ -1,6 +1,4 @@
-
 local function refresh_ES(hottargets)
-
     if not hottargets or not hottargets[1] then return false; end
 
     local es_target = nil
@@ -22,7 +20,6 @@ local function refresh_ES(hottargets)
     end
 
     return false
-
 end
 
 
@@ -34,7 +31,6 @@ local function get_total_deficit(hp_deficits)
     end
 
     return total;
-
 end
 
 
@@ -43,8 +39,7 @@ local function NS_heal_on_tank()
 end
 
 local function raid_heal()
-
-    if (UnitHealth("player") < UnitHealthMax("player")*0.30) then
+    if (UnitHealth("player") < UnitHealthMax("player") * 0.30) then
         L_TargetUnit("player");
         cast_heal("Riptide");
         cast_heal("Lesser Healing Wave");
@@ -91,7 +86,6 @@ local function raid_heal()
     end
 
     return true;
-
 end
 
 function check_EL()
@@ -101,26 +95,23 @@ function check_EL()
     if not has_mh then
         L_CastSpellByName("Earthliving Weapon")
     end
-
 end
 
 local function use_sliver_trinket()
-  if UnitManaMax("player") - UnitMana("player") >= 1625 then
-    local a, c = GetItemCooldown(50339)
-    if a == 0 then
-      L_UseInventoryItem(14) -- use the mana trinket :DDD
+    if UnitManaMax("player") - UnitMana("player") >= 1625 then
+        local a, c = GetItemCooldown(50339)
+        if a == 0 then
+            L_UseInventoryItem(14) -- use the mana trinket :DDD
+        end
     end
-  end
 end
 
 local function cleanse_shaman()
-  local debuffs = get_raid_debuffs_by_type("Poison,Disease,Curse")
-  return cast_dispel(debuffs, "Cleanse Spirit")
+    local debuffs = get_raid_debuffs_by_type("Poison,Disease,Curse")
+    return cast_dispel(debuffs, "Cleanse Spirit")
 end
 
 combat_shaman_resto = function()
-
-
     if player_casting() then return end
 
     check_EL()
@@ -166,24 +157,19 @@ combat_shaman_resto = function()
         cast_heal("Riptide");
         cast_heal("Lesser Healing Wave");
         return
-
     elseif health_percentage("player") < 30 then
         L_TargetUnit("player");
         cast_heal("Riptide");
         cast_heal("Lesser Healing Wave");
         return
-
     elseif target_HPP < 70 then
         cast_heal("Healing Wave");
         return
-
     elseif health_percentage("player") < 50 then
         L_TargetUnit("player");
         cast_heal("Healing Wave");
         return
-
     elseif table.contains(heal_targets, "raid") then
         raid_heal();
     end
-
 end

@@ -1,10 +1,10 @@
-use std::ffi::c_char;
-
+use crate::lua::spell_errmsg_received;
 use crate::patch::{copy_original_opcodes, InstructionBuffer, Patch, PatchKind};
 use crate::{add_repr_and_tryfrom, assembly, dostring, Addr};
 use crate::{LoleError, LAST_FRAME_NUM, LAST_SPELL_ERR_MSG};
 
 use crate::addrs::offsets;
+use lole_macros::generate_lua_enum;
 
 #[cfg(feature = "tbc")]
 add_repr_and_tryfrom! {
@@ -23,45 +23,27 @@ add_repr_and_tryfrom! {
 }
 
 #[cfg(feature = "wotlk")]
-add_repr_and_tryfrom! {
-    u32,
-    #[derive(Debug, Copy, Clone)]
-    pub enum SpellError {
-        YouHaveNoTarget = 0xB,
-        InvalidTarget = 0xC,
-        Interrupted = 0x28,
-        NotInLineOfSight = 0x2F,
-        CantDoThatWhileMoving = 0x33,
-        OutOfAmmo = 0x34,
-        SpellIsNotReadyYet = 0x43,
-        CantAttackWhileMounted = 0x40,
-        NotEnoughMana = 0x55,
-        OutOfRange = 0x61,
-        TargetTooClose = 0x80,
-        TargetNeedsToBeInFrontOfYou = 0x86,
-    }
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[generate_lua_enum(repr = u32, lua_path = "../lole/generated/spell_error.lua")]
+pub enum SpellError {
+    YouHaveNoTarget = 0xB,
+    InvalidTarget = 0xC,
+    Interrupted = 0x28,
+    NotInLineOfSight = 0x2F,
+    CantDoThatWhileMoving = 0x33,
+    OutOfAmmo = 0x34,
+    CantAttackWhileMounted = 0x40,
+    SpellIsNotReadyYet = 0x43,
+    NotEnoughMana = 0x55,
+    OutOfRange = 0x61,
+    TargetTooClose = 0x80,
+    TargetNeedsToBeInFrontOfYou = 0x86,
 
-
-    // static const ERRMSG_t errmsgs[]{
-    // 	{0xB, "You have no target"},
-    // 	{0xC, "Invalid target"},
-    // 	{0x28, "Interrupted"},
-    // 	{0x2F, "Target not in line of sight"},
-    // 	{0x33, "Can't do that while moving"},
-    // 	{0x34, "Padit loppu"},
-    // 	{0x40, "Can't attack while mounted"},
-
-    // 	// just disable the following two because of spam :D
-
-    // 	//{0x43, "Spell is not ready yet"},
-    // 	//{0x55, "Not enough mana"}, // energy, runic power etc
-
-
-    // 	{0x61, "Out of range"},
-    // 	{0x86, "Target needs to be in front of you"},
-    // 	{0x93, "Can't do that while silenced/stunned/incapacitated etc."}, // silenced/stunned, and probably the rest of them too
-    // };
-
+    // the ones with the 0x1000 bitmask originate from the UI_ERROR_MESSAGE event handler
+    YouAreFacingTheWrongWay = 0x1000,
+    ThereIsNothingToAttack = 0x1001,
+    YouAreTooFarAway = 0x1002,
+    YouCantDoThatYet = 0x1003,
 }
 
 #[repr(C)]
@@ -74,24 +56,31 @@ struct SpellErrMsgArgs {
     u4: u32,
 }
 
+fn is_aligned_to<const A: usize, T>(ptr: *const T) -> bool {
+    (ptr as usize) % A == 0
+}
+
 unsafe extern "stdcall" fn spell_err_msg(msg_ptr: *const SpellErrMsgArgs) {
-    if msg_ptr.is_null() {
+    if msg_ptr.is_null() || !is_aligned_to::<4, _>(msg_ptr) {
         return;
     }
     let msg = (*msg_ptr).msg;
-    match msg.try_into() {
+    let as_spellerrmsg: Result<SpellError, _> = msg.try_into();
+    match as_spellerrmsg {
         Ok(m) => {
             println!("{m:?} ({msg:X})");
-            match m {
-                SpellError::NotInLineOfSight | SpellError::OutOfRange => {
-                    LAST_SPELL_ERR_MSG.set(Some((m, LAST_FRAME_NUM.get())));
-                }
-                SpellError::TargetNeedsToBeInFrontOfYou => {
-                    // for some reason, checking for playermode() here causes a crash, "Fatal condition"/error #134
-                    dostring!(c"face_mob()");
-                }
-                _ => {}
-            }
+            let _res = spell_errmsg_received(msg);
+            // LAST_SPELL_ERR_MSG.with(|l| {
+            //     let mut l = l.borrow_mut();
+            //     l.insert(m, LAST_FRAME_NUM.get());
+            //     match m {
+            //         SpellError::TargetNeedsToBeInFrontOfYou => {
+            //             // for some reason, checking for playermode() here causes a crash, "Fatal condition"/error #134
+            //             dostring!("face_mob()");
+            //         }
+            //         _ => {}
+            //     }
+            // });
         }
         e => println!("(warning: {e:?})"),
     }

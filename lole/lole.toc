@@ -7,6 +7,9 @@ json.lua
 global_vars.lua
 rotation.lua
 
+generated\opcode.lua
+generated\spell_error.lua
+
 lole_common.lua
 lole_buffs.lua
 
@@ -50,9 +53,7 @@ frame.lua
 unitselectionframe.lua
 event_handler.lua
 
-
 lole.xml
 lole.lua
-
 
 ##SavedVariablesPerCharacter: LOLE_CLASS_CONFIG_NAME_SAVED LOLE_CLASS_CONFIG_ATTRIBS_SAVED LOLE_HEALER_TARGETS_SAVED
