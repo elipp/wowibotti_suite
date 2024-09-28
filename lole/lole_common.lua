@@ -427,70 +427,19 @@ local CC_spellnames = { -- in a L_CastSpellByName-able format
 }
 
 local AOE_spellIDs = {
-    ["Blizzard(Rank 1)"] = 10,
-    ["Blizzard(Rank 2)"] = 6141,
-    ["Blizzard(Rank 3)"] = 8427,
-    ["Blizzard(Rank 4)"] = 10185,
-    ["Blizzard(Rank 5)"] = 10186,
-    ["Blizzard(Rank 6)"] = 10187,
-    ["Blizzard(Rank 7)"] = 27085,
-    ["Blizzard(Rank 8)"] = 42939,
-    ["Blizzard(Rank 9)"] = 42940,
-    ["Rain of Fire(Rank 1)"] = 5740,
-    ["Rain of Fire(Rank 2)"] = 6219,
-    ["Rain of Fire(Rank 3)"] = 11677,
-    ["Rain of Fire(Rank 4)"] = 11678,
-    ["Rain of Fire(Rank 5)"] = 27212,
-    ["Rain of Fire(Rank 6)"] = 47819,
-    ["Rain of Fire(Rank 7)"] = 47820,
-    ["Hurricane(Rank 1)"] = 16914,
-    ["Hurricane(Rank 2)"] = 17401,
-    ["Hurricane(Rank 3)"] = 17402,
-    ["Hurricane(Rank 4)"] = 27012,
-    ["Hurricane(Rank 5)"] = 48467,
-    ["Volley(Rank 2)"] = 14294,
-    ["Volley(Rank 3)"] = 14295,
-    ["Volley(Rank 4)"] = 27022,
-    ["DND"] = 49938
-}
-
-local AOE_spell_levels = {
-    ["Blizzard"] = {
-        [20] = "Blizzard(Rank 1)",
-        [28] = "Blizzard(Rank 2)",
-        [36] = "Blizzard(Rank 3)",
-        [44] = "Blizzard(Rank 4)",
-        [52] = "Blizzard(Rank 5)",
-        [60] = "Blizzard(Rank 6)",
-        [68] = "Blizzard(Rank 7)",
-        [74] = "Blizzard(Rank 8)",
-        [80] = "Blizzard(Rank 9)"
-    },
-    ["Rain of Fire"] = {
-        [20] = "Rain of Fire(Rank 1)",
-        [34] = "Rain of Fire(Rank 2)",
-        [46] = "Rain of Fire(Rank 3)",
-        [58] = "Rain of Fire(Rank 4)",
-        [69] = "Rain of Fire(Rank 5)",
-        [72] = "Rain of Fire(Rank 6)",
-        [79] = "Rain of Fire(Rank 7)"
-    },
-    ["Hurricane"] = {
-        [40] = "Hurricane(Rank 1)",
-        [50] = "Hurricane(Rank 2)",
-        [60] = "Hurricane(Rank 3)",
-        [70] = "Hurricane(Rank 4)",
-        [80] = "Hurricane(Rank 5)"
-    }
+  ["Flamestrike"] = 42926,
+  ["Blizzard"] = 42940,
+  ["Blizzard(Rank 3)"] = 8427,
+  ["Volley(Rank 2)"] = 14294,
+  ["Volley(Rank 3)"] = 14295,
+  ["Volley(Rank 4)"] = 27022,
+  ["Hurricane"] = 16914,
+  ["Rain of Fire(Rank 2)"] = 6219,
+  ["DND"] = 49938,
 }
 
 function get_AOE_spellID(name)
   return AOE_spellIDs[name]
-end
-
-function get_max_rank_AOE_spell(name)
-    local levels =  get_table_keys(AOE_spell_levels[name])
-    return AOE_spell_levels[name][get_highest_equal_or_less_than(UnitLevel("player"), levels)]
 end
 
 function get_CC_spellID(name)
@@ -1300,28 +1249,6 @@ function get_list_of_keys(dict)
 
 	return table.concat(key_tab, ", "); -- alphabetical sort.
 
-end
-
-function get_table_keys(dict)
-    local keyset={}
-    local n=0
-
-    for k,v in pairs(dict) do
-      n=n+1
-      keyset[n]=k
-    end
-
-    return keyset
-end
-
-function get_highest_equal_or_less_than(input_num, num_list)
-    local highest = nil
-    for _, number in ipairs(num_list) do
-        if number <= input_num and (highest == nil or number > highest) then
-            highest = number
-        end
-    end
-    return highest
 end
 
 function tokenize_string(str, sep)
