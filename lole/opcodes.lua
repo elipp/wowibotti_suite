@@ -227,7 +227,7 @@ end
 local last_gtaoe_timestamp = GetTime()
 
 function cast_gtaoe(spell_name, x, y, z)
-    local spellID = get_AOE_spellID(spell_name)
+    local spellID = get_spellID(spell_name)
     if spellID ~= nil and IsSpellKnown(spellID) then
         if GetTime() - last_gtaoe_timestamp > 1.5 then
             LOP:call(LOP.CastGtAoe, spellID, x, y, z);

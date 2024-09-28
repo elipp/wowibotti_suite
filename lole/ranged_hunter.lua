@@ -91,7 +91,7 @@ local function attack()
 
         local feasibility = get_aoe_feasibility("target", 8)
         if lole_subcommands.get("aoemode") == 1 and get_distance_between("player", "target") < 30 and UnitMana("player") > 600 and feasibility > 4.5 then
-            return cast_gtaoe("Volley(Rank 4)", get_unit_position("target"))
+            return cast_gtaoe("Volley", get_unit_position("target"))
         end
 
         if UnitHealth("target") > 7500 and not has_debuff("target", "Hunter's Mark") then

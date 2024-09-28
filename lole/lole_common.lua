@@ -414,7 +414,6 @@ local CC_spells = {
 
 }
 
-
 local CC_spellnames = { -- in a L_CastSpellByName-able format
 	[118] = "Polymorph",
 	[33786] = "Cyclone",
@@ -426,28 +425,16 @@ local CC_spellnames = { -- in a L_CastSpellByName-able format
   [18658] = "Hibernate"
 }
 
-local AOE_spellIDs = {
-  ["Flamestrike"] = 42926,
-  ["Blizzard"] = 42940,
-  ["Blizzard(Rank 3)"] = 8427,
-  ["Volley(Rank 2)"] = 14294,
-  ["Volley(Rank 3)"] = 14295,
-  ["Volley(Rank 4)"] = 27022,
-  ["Hurricane"] = 16914,
-  ["Rain of Fire(Rank 2)"] = 6219,
-  ["DND"] = 49938,
-}
-
-function get_AOE_spellID(name)
-  return AOE_spellIDs[name]
-end
-
 function get_CC_spellID(name)
 	return CC_spells[string.lower(name)];
 end
 
 function get_CC_spellname(spellID)
 	return CC_spellnames[tonumber(spellID)];
+end
+
+function get_spellID(name)
+    return string.match(GetSpellLink(name), "spell:(%d+)")
 end
 
 function echo_noprefix(...)
