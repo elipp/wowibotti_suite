@@ -1,17 +1,16 @@
 local function raid_heal()
 
     if (UnitHealth("player") < UnitHealthMax("player")*0.30) then
-        L_TargetUnit("player");
-        cast_heal("Lesser Healing Wave");
+        cast_heal("Lesser Healing Wave", "player");
         return true;
     else
         local target, urgencies = get_raid_heal_target(true)
-        local heal_targets = get_raid_heal_targets(urgencies, 4);
-
+        
         if not target then return false end
 
-        L_TargetUnit(target);
-        local target_HPP = health_percentage("target")
+        local heal_targets = get_raid_heal_targets(urgencies, 4);
+
+        local target_HPP = health_percentage(target)
 
         if target_HPP < 20 then
             cast_heal("Lesser Healing Wave");
@@ -19,12 +18,12 @@ local function raid_heal()
         end
 
         if heal_targets[2] ~= nil and health_percentage(heal_targets[2]) < 80 then
-            cast_heal("Chain Heal");
+            cast_heal("Chain Heal", target);
         else
             if target_HPP < 30 then
-                cast_heal("Lesser Healing Wave");
+                cast_heal("Lesser Healing Wave", target);
             elseif target_HPP < 70 then
-                cast_heal("Healing Wave");
+                cast_heal("Healing Wave", target);
             end
         end
     end
@@ -75,26 +74,24 @@ combat_shaman_resto_leveling = function()
         return;
     end
 
-    L_TargetUnit(heal_targets[1]);
+    local target = heal_targets[1]
 
-    local target_HPP = health_percentage("target")
+    local target_HPP = health_percentage(target)
 
     if target_HPP < 30 then
-        cast_heal("Lesser Healing Wave");
+        cast_heal("Lesser Healing Wave", target);
         return
 
     elseif health_percentage("player") < 30 then
-        L_TargetUnit("player");
-        cast_heal("Lesser Healing Wave");
+        cast_heal("Lesser Healing Wave", "player");
         return
 
     elseif target_HPP < 50 then
-        cast_heal("Healing Wave");
+        cast_heal("Healing Wave", target);
         return
 
     elseif health_percentage("player") < 50 then
-        L_TargetUnit("player");
-        cast_heal("Healing Wave");
+        cast_heal("Healing Wave", "player");
         return
 
     elseif table.contains(heal_targets, "raid") then
