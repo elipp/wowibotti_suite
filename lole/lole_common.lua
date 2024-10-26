@@ -304,7 +304,7 @@ HEALERS = {"Bacc", "Chonkki", "Hepens"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
   Bacc = {heals={"raid"}, hots={"Raimo"}},
   Chonkki = {heals={"raid"}},
-  Hepens = {heals={"Muskeln", "raid"}}
+  Hepens = {heals={"Muskeln", "raid"}, hots={"Muskeln"}}
 }
 ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
 HEALS_IN_PROGRESS = {};

@@ -1,3 +1,26 @@
+local function refresh_ES(hottargets)
+    if not hottargets or not hottargets[1] then return false; end
+
+    local es_target = nil
+    for i, targetname in ipairs(hottargets) do
+        if not UnitExists(targetname) or not UnitIsConnected(targetname) or UnitIsDead(targetname) or has_buff(targetname, "Spirit of Redemption") or UNREACHABLE_TARGETS[targetname] > GetTime() then
+            -- pass
+        else
+            es_target = targetname
+            break
+        end
+    end
+
+    if not es_target then return false end
+
+    if not has_buff(es_target, "Earth Shield") then
+        cast_heal("Earth Shield", es_target);
+        return true;
+    end
+
+    return false
+end
+
 local function raid_heal()
 
     if (UnitHealth("player") < UnitHealthMax("player")*0.30) then
@@ -13,7 +36,7 @@ local function raid_heal()
         local target_HPP = health_percentage(target)
 
         if target_HPP < 20 then
-            cast_heal("Lesser Healing Wave");
+            cast_heal("Lesser Healing Wave", target);
             return true
         end
 
@@ -63,6 +86,8 @@ combat_shaman_resto_leveling = function()
     --local totems = get_active_multicast_totems()
     --local summonspell = get_active_multicast_summonspell()
     --if refresh_totems(totems, summonspell) then return; end
+
+    if refresh_ES(get_assigned_hottargets(UnitName("player"))) then return end
 
     if UnitMana("player") < 1000 then
         if cast_if_nocd("Mana Tide Totem") then return end
