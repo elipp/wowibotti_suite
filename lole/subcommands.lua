@@ -795,10 +795,9 @@ local function lole_manage_healers(...)
     end
 end
 
-local function lole_echo(msg)
+function lole_echo(msg)
     L_SendAddonMessage("lole_echo", msg, "RAID");
 end
-
 
 local function lole_invite_guild()
     GuildRoster()

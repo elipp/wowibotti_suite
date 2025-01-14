@@ -300,10 +300,11 @@ BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 OVERRIDE_COMMAND = nil;
 
-HEALERS = {"Bacc", "Chonkki"}; -- for keeping order mostly
+HEALERS = {"Bacc", "Chonkki", "Hepens"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
   Bacc = {heals={"raid"}, hots={"Raimo"}},
-  Chonkki = {heals={"raid"}}
+  Chonkki = {heals={"raid"}},
+  Hepens = {heals={"Muskeln", "raid"}, hots={"Muskeln"}}
 }
 ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
 HEALS_IN_PROGRESS = {};
@@ -311,6 +312,7 @@ HEAL_FINISH_INFO = {};
 HEAL_ATTEMPTS = 0;
 MAX_HEAL_ATTEMPTS = 5;
 UNREACHABLE_TARGETS = {};
+SECONDS_UNREACHABLES_IGNORED = 5;
 CH_BOUNCE_1 = nil;
 CH_BOUNCE_2 = nil;
 POH_TARGETS = {};
@@ -412,7 +414,6 @@ local CC_spells = {
 
 }
 
-
 local CC_spellnames = { -- in a L_CastSpellByName-able format
 	[118] = "Polymorph",
 	[33786] = "Cyclone",
@@ -424,28 +425,16 @@ local CC_spellnames = { -- in a L_CastSpellByName-able format
   [18658] = "Hibernate"
 }
 
-local AOE_spellIDs = {
-  ["Flamestrike"] = 42926,
-  ["Blizzard"] = 42940,
-  ["Blizzard(Rank 3)"] = 8427,
-  ["Volley(Rank 2)"] = 14294,
-  ["Volley(Rank 3)"] = 14295,
-  ["Volley(Rank 4)"] = 27022,
-  ["Hurricane"] = 16914,
-  ["Rain of Fire(Rank 2)"] = 6219,
-  ["DND"] = 49938,
-}
-
-function get_AOE_spellID(name)
-  return AOE_spellIDs[name]
-end
-
 function get_CC_spellID(name)
 	return CC_spells[string.lower(name)];
 end
 
 function get_CC_spellname(spellID)
 	return CC_spellnames[tonumber(spellID)];
+end
+
+function get_spellID(name)
+    return string.match(GetSpellLink(name), "spell:(%d+)")
 end
 
 function echo_noprefix(...)
@@ -670,17 +659,17 @@ function track_heal_attempts(name)
       return
     end
     local fail_msg = SPELL_ERROR_TEXTS[msgid];
-    if fail_msg == nil then
+    if fail_msg == nil or fail_msg == "Another action is in progress" then
       return
     end
     
     HEAL_ATTEMPTS = HEAL_ATTEMPTS + 1;
     if HEAL_ATTEMPTS == MAX_HEAL_ATTEMPTS then
         HEAL_ATTEMPTS = 0;
-        if UNREACHABLE_TARGETS[name] + 5 < GetTime() then
-            print(string.format("%s to the penalty box for 5 sec: %s", name, fail_msg))
+        if UNREACHABLE_TARGETS[name] + SECONDS_UNREACHABLES_IGNORED < GetTime() then
+            lole_echo(string.format("UNREACHABLE HEAL TARGET: %s is now ignored for %s sec by %s. Fail msg: %s", name, SECONDS_UNREACHABLES_IGNORED, UnitName("player"), fail_msg))
         end
-        UNREACHABLE_TARGETS[name] = GetTime() + 5;
+        UNREACHABLE_TARGETS[name] = GetTime() + SECONDS_UNREACHABLES_IGNORED;
     end
 end
 
@@ -707,6 +696,10 @@ function cast_spell(spellname)
 end
 
 function cast_heal(spellname, target, range)
+
+    if UnitName("player") == "Hepens" and player_casting() == "Lightning Bolt" then
+        L_SpellStopCasting();
+    end
 
     if range == nil then range = 35; end
     if target then L_TargetUnit(target); end
@@ -1269,6 +1262,10 @@ local guild_members = {
   Ocdun = 10,
   Crititboy = 11,
   Muskeln = 12,
+  Hepens = 13,
+  Friid = 14,
+  Noggins = 15,
+  Boppins = 16,
 }
 
 for name, num in pairs(guild_members) do
