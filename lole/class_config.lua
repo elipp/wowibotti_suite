@@ -1,9 +1,13 @@
-class_config = {}
-class_config.__index = class_config
+ClassConfig = {}
+ClassConfig.__index = ClassConfig
 
-function class_config:create(name, buffs, self_buffs, color, combatfunc, cooldown_spells, role, general_role, survivefunc, spellerror_handlers)
+function ClassConfig:GlobalCooldown() 
+    return self.gcd_spell and GetSpellCooldown(self.gcd_spell) == 0
+end
+
+function ClassConfig:create(name, buffs, self_buffs, color, combatfunc, cooldown_spells, role, general_role, survivefunc, spellerror_handlers, gcd_spell)
     local c = {}
-    setmetatable(c, class_config)
+    setmetatable(c, ClassConfig)
 
     c.name = name
     c.buffs = buffs or {}
@@ -15,6 +19,7 @@ function class_config:create(name, buffs, self_buffs, color, combatfunc, cooldow
     c.general_role = general_role
     c.survive = survivefunc
     c.spellerror_handlers = spellerror_handlers or {}
+    c.gcd_spell = gcd_spell
 
     return c
 end
@@ -66,67 +71,70 @@ end
 
 local available_configs = {
     default =
-        class_config:create("default", {}, {}, "FFFFFF", function() end, {}, 0, "NONE", function() end),
+        ClassConfig:create("default", {}, {}, "FFFFFF", function() end, {}, 0, "NONE", function() end),
 
     hunter =
-        class_config:create("hunter", {}, {}, get_class_color("hunter"), combat_hunter,
-            { "Bestial Wrath", "Rapid Fire", "Call of the Wild" }, ROLES.mana_melee, "RANGED", survive_hunter),
+        ClassConfig:create("hunter", {}, {}, get_class_color("hunter"), combat_hunter,
+            { "Bestial Wrath", "Rapid Fire", "Call of the Wild" }, ROLES.mana_melee, "RANGED", survive_hunter, "Hunter's Mark"),
 
     paladin_prot =
-        class_config:create("paladin_prot", {}, { "Devotion Aura", "Righteous Fury", "Seal of Command" },
-            get_class_color("paladin"), combat_paladin_prot, {}, ROLES.mana_tank, "TANK", survive_paladin_prot),
+        ClassConfig:create("paladin_prot", {}, { "Devotion Aura", "Righteous Fury", "Seal of Command" },
+            get_class_color("paladin"), combat_paladin_prot, {}, ROLES.mana_tank, "TANK", survive_paladin_prot, "Devotion Aura"),
 
     priest_holy =
-        class_config:create("priest_holy", { "Power Word: Fortitude", "Divine Spirit", "Shadow Protection" },
+        ClassConfig:create("priest_holy", { "Power Word: Fortitude", "Divine Spirit", "Shadow Protection" },
             { "Inner Fire" }, get_class_color("priest"), combat_priest_holy, { "Inner Focus" }, ROLES.healer, "HEALER",
-            survive_priest_holy),
+            survive_priest_holy, "Flash Heal"),
 
     rogue =
-        class_config:create("rogue", {}, {}, get_class_color("rogue"), rogue_combat,
-            { "Adrenaline Rush", "Blade Flurry", "Killing Spree" }, ROLES.melee, "MELEE", survive_rogue, AUTO_FACING_HANDLERS),
+        ClassConfig:create("rogue", {}, {}, get_class_color("rogue"), rogue_combat,
+            { "Adrenaline Rush", "Blade Flurry", "Killing Spree" }, ROLES.melee, "MELEE", survive_rogue, AUTO_FACING_HANDLERS, "Sinister Strike"),
 
     shaman_resto =
-        class_config:create("shaman_resto", {}, { "Water Shield" }, get_class_color("shaman"), combat_shaman_resto,
-            { "Bloodlust" }, ROLES.healer, "HEALER", survive_shaman_resto),
+        ClassConfig:create("shaman_resto", {}, { "Water Shield" }, get_class_color("shaman"), combat_shaman_resto,
+            { "Bloodlust" }, ROLES.healer, "HEALER", survive_shaman_resto, "Healing Wave"),
 
     warrior_prot =
-        class_config:create("warrior_prot", {}, { "Commanding Shout" }, get_class_color("warrior"), combat_warrior_prot,
-            {}, ROLES.tank, "TANK", survive_warrior_prot),
+        ClassConfig:create("warrior_prot", {}, { "Commanding Shout" }, get_class_color("warrior"), combat_warrior_prot,
+            {}, ROLES.tank, "TANK", survive_warrior_prot, "Battle Shout"),
 
-    ranged_hunter = class_config:create("ranged_hunter", {}, {}, get_class_color("hunter"), combat_ranged_hunter,
+    ranged_hunter = ClassConfig:create("ranged_hunter", {}, {}, get_class_color("hunter"), combat_ranged_hunter,
         { "Bestial Wrath" }, ROLES.caster, "RANGED", survive_template,
         table_concat(AUTO_FACING_HANDLERS, {
             [SpellError.TargetTooClose] = function()
-                L_MoveBackwardStart()
-                setTimeout(function() L_MoveBackwardStop() end, 1000)
+                -- -- this gets confused with ranged_check...
+                -- face_mob()
+                -- L_MoveBackwardStart()
+                -- setTimeout(function() L_MoveBackwardStop() end, 1000)
             end
-        })
+        }),
+        "Hunter's Mark"
     ),
 
-    enchantement_shaman = class_config:create("shaman_encha", {}, {}, get_class_color("shaman"), combat_shaman_encha, {},
-        ROLES.mana_melee, "MELEE", hunter_survive),
+    enchantement_shaman = ClassConfig:create("shaman_encha", {}, {}, get_class_color("shaman"), combat_shaman_encha, {},
+        ROLES.mana_melee, "MELEE", hunter_survive, "Healing Wave"),
 
-    tmp_warlock = class_config:create("tmp_warlock", {}, {}, get_class_color("warlock"), tmp_warlock_combat, {},
-        ROLES.caster, "RANGED", survive_template),
-    tmp_priest = class_config:create("tmp_priest", { "Power Word: Fortitude" }, {}, get_class_color("priest"),
-        tmp_priest_combat, {}, ROLES.caster, "RANGED", survive_template),
-    tmp_mage = class_config:create("tmp_mage", {}, {}, get_class_color("mage"), tmp_mage_combat, {}, ROLES.caster,
-        "RANGED", survive_template),
+    tmp_warlock = ClassConfig:create("tmp_warlock", {}, {}, get_class_color("warlock"), tmp_warlock_combat, {},
+        ROLES.caster, "RANGED", survive_template, "Shadow Bolt"),
+    tmp_priest = ClassConfig:create("tmp_priest", { "Power Word: Fortitude" }, {}, get_class_color("priest"),
+        tmp_priest_combat, {}, ROLES.caster, "RANGED", survive_template, "Flash Heal"),
+    tmp_mage = ClassConfig:create("tmp_mage", {}, {}, get_class_color("mage"), tmp_mage_combat, {}, ROLES.caster,
+        "RANGED", survive_template, "Frostbolt"),
     -- tmp_paladin = class_config:create("tmp_paladin", {"Blessing of Wisdom"}, {}, get_class_color("paladin"), tmp_paladin_combat, {}, ROLES.healer, "HEALER", survive_template),
-    tmp_paladin = class_config:create("tmp_paladin", {}, {}, get_class_color("paladin"), tmp_paladin_combat, { "Avenging Wrath" },
-        ROLES.mana_melee, "MELEE", survive_template, AUTO_FACING_HANDLERS),
+    tmp_paladin = ClassConfig:create("tmp_paladin", {}, {}, get_class_color("paladin"), tmp_paladin_combat, { "Avenging Wrath" },
+        ROLES.mana_melee, "MELEE", survive_template, AUTO_FACING_HANDLERS, "Devotion Aura"),
 
     aoe_druid_balance =
-        class_config:create("aoe_druid_balance", {}, {}, get_class_color("druid"), aoe_combat_druid, {}, ROLES.caster,
-            "RANGED", survive_template),
+        ClassConfig:create("aoe_druid_balance", {}, {}, get_class_color("druid"), aoe_combat_druid, {}, ROLES.caster,
+            "RANGED", survive_template, "Wrath"),
 
     aoe_warlock_destruction =
-        class_config:create("aoe_warlock_destruction", {}, {}, get_class_color("warlock"), aoe_combat_warlock, {},
-            ROLES.caster, "RANGED", survive_template),
+        ClassConfig:create("aoe_warlock_destruction", {}, {}, get_class_color("warlock"), aoe_combat_warlock, {},
+            ROLES.caster, "RANGED", survive_template, "Shadow Bolt"),
 
     aoe_mage_frost =
-        class_config:create("aoe_mage_frost", {}, {}, get_class_color("mage"), aoe_combat_mage, {}, ROLES.caster,
-            "RANGED", survive_template),
+        ClassConfig:create("aoe_mage_frost", {}, {}, get_class_color("mage"), aoe_combat_mage, {}, ROLES.caster,
+            "RANGED", survive_template, "Frostbolt"),
 };
 
 function get_available_configs()

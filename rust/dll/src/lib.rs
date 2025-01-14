@@ -345,8 +345,9 @@ impl WowAccount {
 
         let client_config = ClientConfig {
             realm: Some(RealmInfo {
-                login_server: String::from("logon.warmane.com"),
-                name: String::from("Lordaeron"),
+                login_server: std::env::var("REALMLIST")
+                    .unwrap_or_else(|_| "LOGON.CHROMIECRAFT.COM".to_owned()),
+                name: std::env::var("REALM_NAME").unwrap_or_else(|_| "ChromieCraft".to_owned()),
             }),
             account: Some(self.clone()),
             enabled_patches,

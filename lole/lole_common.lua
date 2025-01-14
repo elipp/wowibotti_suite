@@ -1268,6 +1268,7 @@ local guild_members = {
   Flaunor = 9,
   Ocdun = 10,
   Crititboy = 11,
+  Muskeln = 12,
 }
 
 for name, num in pairs(guild_members) do
@@ -2017,6 +2018,9 @@ local function get_eligible_player_dispel_spell(spell_type)
 end
 
 function group_dispel()
+  if get_current_config():GlobalCooldown() then
+    return
+  end
   local guildies = get_online_guild_members_list()
   local guildie_name = guildies[random(1, #guildies)]
   for i=1,40 do
@@ -2079,7 +2083,18 @@ local function run_timers()
 end
 
 function setTimeout(callback, delay)
-    table.insert(TIMERS, Timer:new(callback, delay))
+    local timer = Timer:new(callback, delay)
+    table.insert(TIMERS, timer)
+    return timer
+end
+
+function clearTimeout(timer)
+  for i,v in ipairs(TIMERS) do
+    if (v == timer) then
+      table.remove(TIMERS, i)
+      return
+    end
+  end
 end
 
 local timeout_frame = CreateFrame("Frame", "TimeoutFrame")

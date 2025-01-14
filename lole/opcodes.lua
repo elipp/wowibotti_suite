@@ -489,6 +489,16 @@ function face_mob()
     end
 end
 
+function L_MoveForwardStart()
+    refresh_hwevent_timestamp()
+    execute_script("MoveForwardStart()")
+end
+
+function L_MoveForwardStop()
+    refresh_hwevent_timestamp()
+    execute_script("MoveForwardStop()")
+end
+
 function L_MoveBackwardStart()
     refresh_hwevent_timestamp()
     execute_script("MoveBackwardStart()")
@@ -497,4 +507,64 @@ end
 function L_MoveBackwardStop()
     refresh_hwevent_timestamp()
     execute_script("MoveBackwardStop()")
+end
+
+function L_MoveForwardStart()
+    refresh_hwevent_timestamp()
+    execute_script("MoveForwardStart()")
+end
+
+function L_MoveForwardStop()
+    refresh_hwevent_timestamp()
+    execute_script("MoveForwardStop()")
+end
+
+function L_JumpOrAscendStart()
+    refresh_hwevent_timestamp()
+    execute_script("JumpOrAscendStart()")
+end
+
+function L_AscendStop()
+    refresh_hwevent_timestamp()
+    execute_script("AscendStop()")
+end
+
+function L_StrafeLeftStart()
+    refresh_hwevent_timestamp()
+    execute_script("StrafeLeftStart()")
+end
+
+function L_StrafeLeftStop()
+    refresh_hwevent_timestamp()
+    execute_script("StrafeLeftStop()")
+end
+
+function L_StrafeRightStart()
+    refresh_hwevent_timestamp()
+    execute_script("StrafeRightStart()")
+end
+
+function L_StrafeRightStop()
+    refresh_hwevent_timestamp()
+    execute_script("StrafeRightStop()")
+end
+
+function L_TurnRightStart()
+    refresh_hwevent_timestamp()
+    execute_script("TurnRightStart()")
+end
+
+function L_TurnRightStop()
+    refresh_hwevent_timestamp()
+    execute_script("TurnRightStop()")
+end
+
+function L_TurnLeftStart()
+    refresh_hwevent_timestamp()
+    execute_script("TurnLeftStart()")
+end
+
+function L_TurnLeftStop()
+    refresh_hwevent_timestamp()
+    execute_script("TurnLeftStop()")
 end
