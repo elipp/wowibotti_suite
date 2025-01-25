@@ -2,7 +2,7 @@ use std::arch::asm;
 use std::cell::Cell;
 use std::collections::VecDeque;
 use std::f32::consts::PI;
-use std::ffi::c_char;
+use std::ffi::c_void;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -11,13 +11,13 @@ use crate::dostring;
 use crate::lua::{lua_dostring, RUN_SCRIPT_AFTER_N_FRAMES};
 use crate::objectmanager::{GUIDFmt, ObjectManager, GUID, NO_TARGET};
 use crate::patch::{
-    copy_original_opcodes, deref, read_elems_from_addr, write_addr, InstructionBuffer, Patch,
+    copy_original_opcodes, deref_t, read_elems_from_addr, write_addr, InstructionBuffer, Patch,
     PatchKind,
 };
 use crate::socket::facing::{self, SETFACING_STATE};
 use crate::socket::movement_flags;
 use crate::vec3::{Vec3, TWO_PI};
-use crate::{assembly, Addr, LoleError, LoleResult, Offset};
+use crate::{assembly, Addr, LoleError, LoleResult};
 
 use lazy_static::lazy_static;
 use rand::Rng;
@@ -43,10 +43,10 @@ struct InterpStatus {
 }
 
 thread_local! {
-    pub static TRYING_TO_FOLLOW: Cell<Option<GUID>> = Cell::new(None);
-    pub static CTM_EVENT_ID: Cell<u64> = Cell::new(0);
+    pub static TRYING_TO_FOLLOW: Cell<Option<GUID>> = const { Cell::new(None) };
+    pub static CTM_EVENT_ID: Cell<u64> = const { Cell::new(0) };
 
-    static ANGLE_INTERP_STATUS: Cell<Option<InterpStatus>> = Cell::new(None);
+    static ANGLE_INTERP_STATUS: Cell<Option<InterpStatus>> = const { Cell::new(None) };
 }
 
 #[derive(Debug, Default)]
@@ -105,7 +105,7 @@ impl PartialOrd for CtmPriority {
 }
 
 pub fn get_wow_ctm_target_pos() -> Vec3 {
-    let [x, y, z] = read_elems_from_addr::<3, f32>(offsets::ctm::TARGET_POS_X);
+    let [x, y, z] = read_elems_from_addr::<3, f32>(offsets::ctm::TARGET_POS_X as _);
     Vec3 { x, y, z }
 }
 
@@ -208,7 +208,7 @@ impl CtmQueue {
 
         let om = ObjectManager::new()?;
         let player = om.get_player()?;
-        let target_pos = player.yards_in_front_of(0.1);
+        let target_pos = player.yards_in_front_of(0.1)?;
         self.replace_current(CtmEvent {
             target_pos,
             priority: CtmPriority::NoOverride,
@@ -230,7 +230,7 @@ impl CtmQueue {
 
         let om = ObjectManager::new()?;
         let player = om.get_player()?;
-        let pp = player.get_pos();
+        let pp = player.get_pos()?;
 
         let dt = prev_frame_time.elapsed().as_secs_f32().max(0.001);
         self.yards_moved
@@ -239,8 +239,8 @@ impl CtmQueue {
         self.prev_pos = pp;
 
         if let Some(guid) = TRYING_TO_FOLLOW.get() {
-            if let Some(t) = om.get_object_by_guid(guid) {
-                let tp = t.get_pos();
+            if let Some(t) = om.get_object_by_guid(guid)? {
+                let tp = t.get_pos()?;
                 if (pp - tp).length() < 10.0 {
                     TRYING_TO_FOLLOW.set(None);
                     // doing FollowUnit() here causes a ctm_finished, causing a deadlock on the QUEUE mutex.
@@ -257,7 +257,7 @@ impl CtmQueue {
                     })?;
                 }
             } else {
-                println!(
+                tracing::warn!(
                     "follow: object with guid {} doesn't exist, stopping trying to follow",
                     GUIDFmt(guid)
                 );
@@ -267,7 +267,7 @@ impl CtmQueue {
         } else if let Some((current, start_time)) = self.current.as_mut() {
             let diff = current.target_pos - pp;
             let diff_rot = diff.unit().to_rot_value();
-            let [_, _, _, r] = player.get_xyzr();
+            let [_, _, _, r] = player.get_xyzr()?;
 
             if let CtmBackend::Playback = current.backend {
                 handle_walking_angle_interp(r, diff_rot)?;
@@ -279,7 +279,7 @@ impl CtmQueue {
 
             if probably_stuck || ((pp - current.target_pos).zero_z().length() < 0.9) {
                 if probably_stuck {
-                    println!(
+                    tracing::debug!(
                         "we're probably stuck, skipping to next CtmEvent ({})",
                         current.id
                     );
@@ -442,11 +442,11 @@ impl CtmEvent {
 
     unsafe fn get_unk_ctm_state() -> u32 {
         let func: extern "cdecl" fn(a: u32, b: u32, c: u32, d: u32, e: u32) -> u32 =
-            std::mem::transmute(0x4D4DB0 as *const ());
+            std::mem::transmute(0x4D4DB0 as *const c_void);
 
         let ecx = func(
-            deref::<u32, 1>(0xCA1238),
-            deref::<u32, 1>(0xCA123C),
+            deref_t::<_, 1>(0xCA1238),
+            deref_t::<_, 1>(0xCA123C),
             8,
             0xA34B10,
             0x3CC4,
@@ -511,7 +511,7 @@ impl CtmEvent {
     fn commit_to_memory(&self) -> LoleResult<()> {
         let om = ObjectManager::new()?;
         let p = om.get_player()?;
-        let ppos = p.get_pos();
+        let ppos = p.get_pos()?;
         let diff = ppos - self.target_pos;
         let walking_angle =
             (diff.y.atan2(diff.x) - ppos.y.atan2(ppos.x) - 0.5 * PI).rem_euclid(TWO_PI);
@@ -569,8 +569,8 @@ impl CtmEvent {
     fn start_walking_towards(&self) -> LoleResult<()> {
         let om = ObjectManager::new()?;
         let p = om.get_player()?;
-        let ppos = p.get_pos();
-        let [_, _, _, r] = p.get_xyzr();
+        let ppos = p.get_pos()?;
+        let [_, _, _, r] = p.get_xyzr()?;
         let diff = self.target_pos - ppos;
         let walking_angle = diff.unit().to_rot_value();
         handle_walking_angle_interp(r, walking_angle)?;
@@ -610,11 +610,11 @@ unsafe extern "C" fn ctm_finished() {
     //     if let Some((_current, _)) = ctm_queue.current.take() {
     //         if !ctm_queue.events.is_empty() {
     //             if let Err(_) = dostring!("MoveForwardStart()") {
-    //                 println!("dostring(MoveForwardStart()) failed");
+    //                 tracing::error!("dostring(MoveForwardStart()) failed");
     //             }
     //         } else {
     //             if let Err(_) = dostring!("MoveForwardStop()") {
-    //                 println!("dostring(MoveForwardStop()) failed");
+    //                 tracing::error!("dostring(MoveForwardStop()) failed");
     //             }
     //         }
     //         // this shit is broken
@@ -625,16 +625,16 @@ unsafe extern "C" fn ctm_finished() {
     //         //         _ => Ok(()),
     //         //     };
     //         //     if res.is_err() {
-    //         //         println!("warning: {res:?}");
+    //         //         tracing::warn!("warning: {res:?}");
     //         //     }
     //         // }
     //     } else {
     //         if let Err(_) = dostring!("MoveForwardStop()") {
-    //             println!("dostring(MoveForwardStop()) failed");
+    //             tracing::warn!("dostring(MoveForwardStop()) failed");
     //         }
     //     }
     // } else {
-    //     println!("warning: couldn't lock ctm::QUEUE mutex");
+    //     tracing::error!("warning: couldn't lock ctm::QUEUE mutex");
     // }
 }
 
@@ -649,7 +649,7 @@ pub fn prepare_ctm_finished_patch() -> Patch {
     patch_opcodes.push(assembly::POPAD);
     patch_opcodes.push_slice(&original_opcodes);
     patch_opcodes.push(assembly::PUSH_IMM);
-    patch_opcodes.push_slice(&(patch_addr + original_opcodes.len() as Offset).to_le_bytes());
+    patch_opcodes.push_slice(&(patch_addr + original_opcodes.len()).to_le_bytes());
     patch_opcodes.push(assembly::RET);
 
     Patch {

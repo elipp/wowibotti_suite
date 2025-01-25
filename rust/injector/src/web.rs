@@ -130,13 +130,21 @@ async fn parse_json_body_into<O: DeserializeOwned>(
 }
 
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .with(tracing_subscriber::fmt::layer().with_ansi(true))
+        .init();
+
     start_dummy_window();
     let pool = LocalPoolHandle::new(2);
     let port = 7070;
     let addr: SocketAddr = ([127, 0, 0, 1], port).into();
     // Bind to the port and listen for incoming TCP connections
     let listener = TcpListener::bind(addr).await?;
-    println!("Injector listening for HTTP at {:?}", addr);
+    tracing::info!("Listening for HTTP at {:?}", addr);
     loop {
         let (stream, _) = listener.accept().await?;
         let io = TokioIo::new(stream);
@@ -147,7 +155,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .await
                 {
                     Ok(_) => {}
-                    Err(err) => println!("Error serving connection: {:?}", err),
+                    Err(err) => tracing::error!("Error serving connection: {:?}", err),
                 }
             })
         });

@@ -6,16 +6,14 @@ const UNKNOWN_ADDRESS: Addr = 0xFFFFFFFF;
 macro_rules! define_lua_function {
     ($name:ident, ($($param:ident : $param_ty:ty),*) -> $ret_ty:ty) => {
         pub fn $name ($($param : $param_ty),*) -> $ret_ty {
-            let ptr = offsets::lua::$name as *const ();
-            let func: extern "C" fn($($param_ty),*) -> $ret_ty = unsafe { std::mem::transmute(ptr) };
+            let func: extern "C" fn($($param_ty),*) -> $ret_ty = unsafe { std::mem::transmute(offsets::lua::$name as *const ()) };
             func($($param),*)
         }
     };
 
     ($name:ident, $addr:expr, ($($param:ident : $param_ty:ty),*) -> $ret_ty:ty) => {
         pub fn $name ($($param : $param_ty),*) -> $ret_ty {
-            let ptr = $addr as *const ();
-            let func: extern "C" fn($($param_ty),*) -> $ret_ty = unsafe { std::mem::transmute(ptr) };
+            let func: extern "C" fn($($param_ty),*) -> $ret_ty = unsafe { std::mem::transmute($addr as *const ()) };
             func($($param),*)
         }
     };

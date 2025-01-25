@@ -122,26 +122,26 @@ end
 
 TIMER = nil
 
+-- random movement lolz... :D
+-- local palli = CreateFrame("frame", nil, UIParent)
+-- palli:SetScript("OnUpdate", function()
+--     if playermode() then return end
 
-local palli = CreateFrame("frame", nil, UIParent)
-palli:SetScript("OnUpdate", function()
-    if playermode() then return end
+--     local function run_and_cancel(callback, cancel)
+--         if math.random() < 0.01 then
+--             callback()
+--             setTimeout(function() cancel() end, (50+math.random()*300))
+--         end
+--     end
 
-    local function run_and_cancel(callback, cancel)
-        if math.random() < 0.01 then
-            callback()
-            setTimeout(function() cancel() end, (50+math.random()*300))
-        end
-    end
+--     run_and_cancel(L_StrafeLeftStart, L_StrafeLeftStop)
+--     run_and_cancel(L_StrafeRightStart, L_StrafeRightStop)
+--     run_and_cancel(L_MoveForwardStart, L_MoveForwardStop)
+--     run_and_cancel(L_TurnLeftStart, L_TurnLeftStop)
+--     run_and_cancel(L_TurnRightStart, L_TurnRightStop)
+--     run_and_cancel(L_JumpOrAscendStart, L_AscendStop)
 
-    run_and_cancel(L_StrafeLeftStart, L_StrafeLeftStop)
-    run_and_cancel(L_StrafeRightStart, L_StrafeRightStop)
-    run_and_cancel(L_MoveForwardStart, L_MoveForwardStop)
-    run_and_cancel(L_TurnLeftStart, L_TurnLeftStop)
-    run_and_cancel(L_TurnRightStart, L_TurnRightStop)
-    run_and_cancel(L_JumpOrAscendStart, L_AscendStop)
-
-end)
+-- end)
 
 function rogue_combat()
     if not validate_target() then

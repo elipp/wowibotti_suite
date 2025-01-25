@@ -78,7 +78,7 @@ combat_shaman_resto_leveling = function()
 
     check_EL()
 
-    if not has_buff("player", "Water Shield") and not has_buff("player", "Earth Shield") then
+    if not has_buff("player", "Water Shield") then -- and not has_buff("player", "Earth Shield") then
         L_CastSpellByName("Water Shield");
         return;
     end
@@ -87,11 +87,11 @@ combat_shaman_resto_leveling = function()
     --local summonspell = get_active_multicast_summonspell()
     --if refresh_totems(totems, summonspell) then return; end
 
-    if refresh_ES(get_assigned_hottargets(UnitName("player"))) then return end
+    -- if refresh_ES(get_assigned_hottargets(UnitName("player"))) then return end
 
-    if UnitMana("player") < 1000 then
-        if cast_if_nocd("Mana Tide Totem") then return end
-    end
+    -- if UnitMana("player") < 1000 then
+    --     if cast_if_nocd("Mana Tide Totem") then return end
+    -- end
 
     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
     if heal_targets[1] == nil or heal_targets[1] == "raid" then

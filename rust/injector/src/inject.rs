@@ -113,8 +113,8 @@ impl WowClient {
                 SendMessageW(
                     *hwnd,
                     INJ_MESSAGE_REGISTER_HOTKEY,
-                    WPARAM(self.index as usize),
-                    LPARAM(index_str[0] as isize),
+                    Some(WPARAM(self.index as usize)),
+                    Some(LPARAM(index_str[0] as isize)),
                 );
             }
             Ok(())
@@ -131,8 +131,8 @@ impl WowClient {
                 SendMessageW(
                     *hwnd,
                     INJ_MESSAGE_UNREGISTER_HOTKEY,
-                    WPARAM(self.index as usize),
-                    LPARAM(0),
+                    Some(WPARAM(self.index as usize)),
+                    None, // used to be LPARAM(0)
                 )
             };
             Ok(())
@@ -160,7 +160,7 @@ impl WowClient {
                     .map_err(|s| InjectorError::OtherError(s))?;
             }
 
-            let process = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid).unwrap();
+            let process = OpenProcess(PROCESS_ALL_ACCESS, false, pid).unwrap();
 
             let load_library_addr = GetProcAddress(
                 GetModuleHandleW(w!("kernel32.dll")).map_err(|_e| {

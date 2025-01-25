@@ -4,6 +4,7 @@ use addonmessage_broker::{
     client::start_addonmessage_client,
     server::{AddonMessage, ConnectionId, Msg, MsgSender, MsgWrapper},
 };
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 static CONNECTION_ID: OnceLock<ConnectionId> = OnceLock::new();
 
@@ -12,6 +13,15 @@ const LIPSUM: &str =
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .with(tracing_subscriber::fmt::layer().with_ansi(true))
+        .init();
+
+
     let character_name = String::from("Pylly");
     let (tx, rx) = std::sync::mpsc::channel();
     start_addonmessage_client(
@@ -40,7 +50,7 @@ async fn main() -> Result<(), std::io::Error> {
                 }
             });
         },
-        |m| eprintln!("{m:?}"),
+        |m| tracing::info!("message {m:?}"),
     )
     .await
     .unwrap();

@@ -137,7 +137,7 @@ local available_configs = {
             "RANGED", survive_template, "Frostbolt"),
 
     shaman_resto_leveling =
-        class_config:create("shaman_resto_leveling", {}, {"Water Shield"}, get_class_color("shaman"), 
+        ClassConfig:create("shaman_resto_leveling", {}, {"Water Shield"}, get_class_color("shaman"), 
             combat_shaman_resto_leveling, {}, ROLES.healer, "HEALER", survive_shaman_resto),
 };
 

@@ -9,12 +9,12 @@ use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 use windows::Win32::System::Threading::ExitProcess;
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
-use lua::{
-    get_wow_lua_state, lua_GetTime, lua_Integer, lua_Number, lua_debug_func, playermode, Opcode,
-};
+use lua::{lua_GetTime, lua_Integer, lua_Number, lua_debug_func, playermode, Opcode};
 use patch::write_addr;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
@@ -29,7 +29,7 @@ use windows::{Win32::Foundation::*, Win32::System::SystemServices::*};
 use lazy_static::lazy_static;
 
 type Addr = usize;
-type Offset = usize;
+type Offset = isize;
 
 pub mod addrs;
 pub mod assembly;
@@ -57,20 +57,20 @@ lazy_static! {
 }
 
 thread_local! {
-    pub static NEED_INIT: Cell<bool> = Cell::new(true);
-    pub static SHOULD_EJECT: Cell<bool> = Cell::new(false);
-    pub static CONSOLE_CONOUT: Cell<HANDLE> = Cell::new(HANDLE(std::ptr::null_mut()));
-    pub static ORIGINAL_STDOUT: Cell<HANDLE> = Cell::new(HANDLE(std::ptr::null_mut()));
-    pub static LAST_FRAME_TIME: Cell<lua_Number> = Cell::new(0.0);
+    pub static NEED_INIT: Cell<bool> = const { Cell::new(true) };
+    pub static SHOULD_EJECT: Cell<bool> = const { Cell::new(false) };
+    pub static CONSOLE_CONOUT: Cell<HANDLE> = const { Cell::new(HANDLE(std::ptr::null_mut())) };
+    pub static ORIGINAL_STDOUT: Cell<HANDLE> = const { Cell::new(HANDLE(std::ptr::null_mut())) };
+    pub static LAST_FRAME_TIME: Cell<lua_Number> = const { Cell::new(0.0) };
 
     pub static LAST_SPELL_ERR_MSG: RefCell<HashMap<SpellError, lua_Integer>> = RefCell::new(Default::default());
-    pub static LAST_FRAME_NUM: Cell<lua_Integer> = Cell::new(0);
+    pub static LAST_FRAME_NUM: Cell<lua_Integer> = const { Cell::new(0) };
 
     pub static LAST_HARDWARE_INTERVAL: Cell<std::time::Instant> = Cell::new(std::time::Instant::now());
     pub static LOCAL_SET: RefCell<task::LocalSet> = RefCell::new(task::LocalSet::new());
 }
 
-static DLL_HANDLE: OnceLock<SendSyncWrapper<HINSTANCE>> = OnceLock::new();
+static DLL_HANDLE: OnceLock<SendSyncWrapper<HMODULE>> = OnceLock::new();
 
 #[cfg(feature = "addonmessage_broker")]
 use addonmessage_broker::{
@@ -153,10 +153,10 @@ fn print_as_c_array(title: &str, bytes: &[u8]) {
     for (i, b) in bytes.iter().enumerate() {
         print!("0x{:02X}, ", b);
         if i % 10 == 9 {
-            println!("");
+            print!("\n");
         }
     }
-    println!("");
+    print!("\n");
 }
 
 fn reopen_stdout() -> windows::core::Result<HANDLE> {
@@ -259,13 +259,21 @@ fn main_entrypoint() -> LoleResult<()> {
 
 #[cfg(feature = "console")]
 unsafe fn open_console() -> LoleResult<()> {
-    AllocConsole()?;
+    use windows::Win32::System::Console::{
+        GetConsoleMode, SetConsoleMode, CONSOLE_MODE, ENABLE_VIRTUAL_TERMINAL_PROCESSING,
+    };
 
+    AllocConsole()?;
     let original_stdout = GetStdHandle(STD_OUTPUT_HANDLE)?;
     ORIGINAL_STDOUT.set(original_stdout);
 
     let conout = reopen_stdout()?;
     CONSOLE_CONOUT.set(conout);
+
+    let mut mode = CONSOLE_MODE(0);
+    GetConsoleMode(conout, &mut mode)?;
+    // allow ANSI color (etc.) codes
+    SetConsoleMode(conout, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING)?;
 
     SetStdHandle(STD_OUTPUT_HANDLE, conout)?;
     Ok(())
@@ -327,7 +335,7 @@ pub struct ClientConfig {
 impl WowAccount {
     fn login(&self) -> LoleResult<()> {
         let sleep_duration = std::time::Duration::from_millis(rand::random::<u64>() % 4000);
-        println!("Sleeping for {sleep_duration:?}");
+        tracing::info!("Sleeping for {sleep_duration:?}");
         std::thread::sleep(sleep_duration);
         dostring!(
             "DefaultServerLogin('{}', '{}')",
@@ -393,6 +401,14 @@ fn read_config_from_file(pid: u32) -> Result<ClientConfig, String> {
 unsafe fn initialize_dll() -> LoleResult<()> {
     open_console()?;
 
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .with(tracing_subscriber::fmt::layer().with_ansi(true))
+        .init();
+
     let config = match read_config_from_file(std::process::id()) {
         Ok(config) => {
             // NOTE: this means "we're still in the login/character selection screen"
@@ -414,7 +430,7 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     for p in CLIENT_CONFIG.get_or_init(|| config).enabled_patches.iter() {
         if let Some(patch) = AVAILABLE_PATCHES.get(p.as_str()) {
             patch.enable()?;
-            eprintln!("enabled patch {p}");
+            tracing::info!("enabled patch {p}");
             global_var!(ENABLED_PATCHES).push(patch);
         } else {
             panic!("unknown patch {p}");
@@ -454,17 +470,17 @@ unsafe fn initialize_dll() -> LoleResult<()> {
         }
     }
 
-    println!("wowibottihookdll_rust: init done! :D enabled patches:");
+    tracing::info!("wowibottihookdll_rust: init done! :D enabled patches:");
 
     for p in global_var!(ENABLED_PATCHES).iter() {
-        println!("* {} @ 0x{:08X}", p.name, p.patch_addr);
+        tracing::info!("* {} @ 0x{:08X}", p.name, p.patch_addr);
     }
     Ok(())
 }
 
 unsafe fn fatal_error_exit(err: LoleError) -> ! {
     MessageBoxW(
-        HWND(std::ptr::null_mut()),
+        None,
         windows_string!(&format!("{err:?}")),
         windows_string!("wowibottihookdll_rust error :("),
         MB_OK | MB_ICONERROR, // MB_OK apparently waits for the user to click OK
@@ -488,7 +504,7 @@ pub unsafe extern "stdcall" fn EndScene_hook() {
             Ok(_) => {}
             Err(LoleError::ObjectManagerIsNull) => {}
             Err(e) => {
-                println!("main_entrypoint: error: {e:?}");
+                tracing::error!("main_entrypoint: error: {e:?}");
             }
         }
     }
@@ -556,7 +572,7 @@ impl From<std::ffi::NulError> for LoleError {
 
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]
-unsafe extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) -> bool {
+unsafe extern "system" fn DllMain(dll_module: HMODULE, call_reason: u32, _: *mut ()) -> bool {
     match call_reason {
         DLL_PROCESS_ATTACH => {
             let tramp = AVAILABLE_PATCHES.get("EndScene").expect("EndScene");

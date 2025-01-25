@@ -53,10 +53,45 @@ local function FROST_TARGET_STUFF()
     end
 end
 
-function combat_hunter()
-    melee_attack_behind(1.5)
-    if true then return end
 
+    -------------- THIS STUFF IS FOR ANUB ARAK ------------------------
+    -- MUTUALLY EXCLUSIVE WITH DEFAULT VALIDATE TARGET
+    --   if (UnitExists("focus") and UnitName("focus") == "Anub'arak") then
+    --       if health_percentage("focus") < 30 then
+    --         if not validate_target() then return end
+    --       else
+    --         FROST_TARGET_STUFF()
+    --       end
+    --   elseif not validate_target() then return end
+
+    ----------------------------------------------------------------
+
+
+local function cast_if_nocd_pet(spell, rank)
+    return cast_if_nocd(spell, rank, "pet")
+end
+
+
+function pet_combat()
+    L_PetAttack()
+
+    if UnitExists("pettarget") then
+        if get_distance_between("pet", "pettarget") > 10 and cast_if_nocd_pet("Charge") then
+            return
+        end
+
+        if get_aoe_feasibility("pet", 8) > 1.5 and cast_if_nocd_pet("Thunderstomp") then
+            return
+        end
+    end
+
+    if cast_if_nocd_pet("Growl") then return end
+    if cast_if_nocd_pet("Gore") then return end
+    if cast_if_nocd_pet("Bite") then return end
+end
+
+
+function combat_hunter()
     if not petframe_dummy then
         petframe_dummy = CreateFrame("frame", nil, UIParent)
         petframe_dummy:SetScript("OnUpdate", petfollow_default)
@@ -65,8 +100,7 @@ function combat_hunter()
     if UnitExists("pet") and UnitIsDead("pet") then
         L_CastSpellByName("Revive Pet")
     elseif not UnitExists("pet") or not PetHasActionBar() then
-        L_CastSpellByName("Call Pet")
-        return
+        return L_CastSpellByName("Call Pet")
     end
 
     if not UnitAffectingCombat("player") then
@@ -78,29 +112,22 @@ function combat_hunter()
         end
     end
 
+    local pet_pct = health_percentage("pet")
+    if pet_pct < 80 and not has_buff("pet", "Mend Pet") then
+        return L_CastSpellByName("Mend Pet")
+    end
 
 
-    -------------- THIS STUFF IS FOR ANUB ARAK ------------------------
-    -- -- MUTUALLY EXCLUSIVE WITH DEFAULT VALIDATE TARGET
-    --   if (UnitExists("focus") and UnitName("focus") == "Anub'arak") then
-    --       if health_percentage("focus") < 30 then
-    --         if not validate_target() then return end
-    --       else
-    --         FROST_TARGET_STUFF()
-    --       end
-    --   elseif not validate_target() then return end
-
-    ----------------------------------------------------------------
-
-    -- if not validate_target() then return end -- DEFAULT
-
-    caster_range_check(11, 35)
-
+    if not validate_target() then return end -- DEFAULT
+    -- caster_range_check(11, 35)
 
     --local BEST_ASPECT = "Aspect of the Dragonhawk"
-    local BEST_ASPECT = "Aspect of the Wild"
+    -- local BEST_ASPECT = "Aspect of the Wild"
+    local BEST_ASPECT = "Aspect of the Hawk"
 
-    if UnitMana("player") > 4000 and (not has_buff("player", BEST_ASPECT)) then
+    local mana_pct = mana_percentage("player")
+
+    if mana_pct > 50 and (not has_buff("player", BEST_ASPECT)) then
         if change_aspect(BEST_ASPECT) then return end
     elseif UnitMana("player") < 500 and (not has_buff("player", "Aspect of the Viper")) then
         if change_aspect("Aspect of the Viper") then return end
@@ -108,48 +135,29 @@ function combat_hunter()
     end
 
     L_StartAttack()
-    L_PetAttack()
 
-    if GetSpellCooldown("Kill Command") == 0 then
-        L_CastSpellByName("Kill Command")
-        return;
-    end
+    -- if GetSpellCooldown("Kill Command") == 0 then
+    --     L_CastSpellByName("Kill Command")
+    --     return;
+    -- end
 
-    local hppercentage = UnitHealth('target') / UnitHealthMax('target')
-    if hppercentage < 0.20 then
-        L_CastSpellByName("Kill Shot")
-        -- no return, will not be cast if incooldown
-    end
+    local target_health_pct = health_percentage("target")
+    -- if target_health_pct < 20 then
+    --     L_CastSpellByName("Kill Shot")
+    --     -- no return, will not be cast if incooldown
+    -- end
 
     if not has_debuff("target", "Hunter's Mark") then
         L_CastSpellByName("Hunter's Mark")
     end
 
-    if GetSpellCooldown("Rabid") == 0 then
-        L_CastSpellByName("Rabid")
-        return;
-    end
-
-    if GetSpellCooldown("Rake(Rank 6)") == 0 then
-        L_CastSpellByName("Rake(Rank 6)")
-    else
-        L_CastSpellByName("Claw(Rank 11)")
-    end
+    pet_combat()
 
     if not has_debuff("target", "Serpent Sting") then
-        L_CastSpellByName("Serpent Sting")
-        return;
+        return L_CastSpellByName("Serpent Sting")
     end
 
-    if GetSpellCooldown("Arcane Shot") == 0 then
-        L_CastSpellByName("Arcane Shot")
-        return
-    end
-
-    if GetSpellCooldown("Multi-Shot") == 0 then
-        L_CastSpellByName("Multi-Shot")
-        return;
-    end
-
-    L_CastSpellByName("Steady Shot")
+    if cast_if_nocd("Arcane Shot") then return end
+    if cast_if_nocd("Multi-Shot") then return end
+    -- L_CastSpellByName("Steady Shot")
 end

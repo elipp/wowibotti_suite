@@ -38,7 +38,7 @@ pub async fn start_addonmessage_client<
 
     if let (Msg::Welcome(id), MsgSender::Server) = (msg.message, msg.from) {
         set_connection_id(id);
-        println!("addonmessage_broker: set connection id to {id}");
+        tracing::info!("set connection id to {id}");
     }
     tokio::spawn(async move {
         let mut serialization_buffer = bitcode::Buffer::new();
@@ -52,7 +52,7 @@ pub async fn start_addonmessage_client<
 
     loop {
         let msg = rx.recv().unwrap();
-        println!("relaying {msg} to socket");
+        tracing::debug!("relaying {msg} to socket");
         msg.send(&mut write, &mut serialization_buffer)
             .await
             .unwrap();

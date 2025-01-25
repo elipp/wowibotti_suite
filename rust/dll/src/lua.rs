@@ -7,17 +7,18 @@ use rand::Rng;
 
 use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
-use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager, WowObject};
+use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager, WowObject, WowObjectType};
 use crate::patch::{
-    copy_original_opcodes, deref, read_addr, write_addr, InstructionBuffer, Patch, PatchKind,
+    copy_original_opcodes, deref_opt_ptr, deref_opt_t, deref_res_ptr, read_addr, write_addr,
+    InstructionBuffer, Patch, PatchKind,
 };
-use crate::socket::facing::{self, set_facing};
+use crate::socket::cast_gtaoe;
+use crate::socket::facing::{self};
 use crate::socket::movement_flags::NOT_MOVING;
-use crate::socket::{cast_gtaoe, movement_flags, read_os_tick_count};
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{
-    add_repr_and_tryfrom, assembly, get_current_character_name, write_last_hardware_action,
-    LoleError, LoleResult, BROKER_STATE, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
+    add_repr_and_tryfrom, assembly, write_last_hardware_action, LoleError, LoleResult,
+    BROKER_STATE, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
 };
 
 #[cfg(feature = "addonmessage_broker")]
@@ -295,7 +296,7 @@ macro_rules! dostring {
             lua_dostring(s.as_ptr() as *const c_char, s.as_ptr() as *const c_char, 0);
         }
         else {
-            eprintln!("(warning: dostring: CString::new failed)");
+            tracing::error!("(warning: dostring: CString::new failed)");
         }
     }};
 
@@ -350,7 +351,7 @@ pub fn register_lop_exec() -> LoleResult<()> {
     write_addr(offsets::lua::vfp_max, &[0xEFFFFFFFu32])?;
     let lua = get_wow_lua_state()?;
     lua_register!(lua, c"lop_exec", lop_exec);
-    println!("lop_exec registered!");
+    tracing::info!("lop_exec registered!");
     // write_addr(offsets::lua::vfp_max, &[offsets::lua::vfp_original])?;
     Ok(())
 }
@@ -359,7 +360,7 @@ pub fn unregister_lop_exec() -> LoleResult<()> {
     write_addr(offsets::lua::vfp_max, &[offsets::lua::vfp_original])?; // TODO: probably should look up what the original value was...
     let lua = get_wow_lua_state()?;
     lua_unregister!(lua, c"lop_exec");
-    println!("lop_exec un-registered!");
+    tracing::info!("lop_exec un-registered!");
     Ok(())
 }
 
@@ -569,9 +570,19 @@ impl Drop for TaintReseter {
 }
 
 pub fn lua_debug_func(lua: lua_State) -> LoleResult<i32> {
+    let om = ObjectManager::new()?;
     let time = lua_GetTime()?;
-    dbg!(time);
-    Ok(1)
+    println!(
+        "{:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+        om.get_unit_by_nameref_internal("player"),
+        om.get_unit_by_nameref_internal("target"),
+        om.get_unit_by_nameref_internal("pet"),
+        om.get_unit_by_nameref_internal("pettarget"),
+        om.get_unit_by_nameref_internal("targettarget"),
+        om.get_unit_by_nameref_internal("raid1"),
+        om.get_unit_by_nameref_internal("pylly"),
+    );
+    Ok(0)
 }
 
 unsafe fn mem_as_slice<'a, T>(addr: Addr, n_bytes: usize) -> &'a [T] {
@@ -585,7 +596,7 @@ unsafe fn mem_as_slice<'a, T>(addr: Addr, n_bytes: usize) -> &'a [T] {
 
 fn face_target(player: WowObject, target: Option<WowObject>) -> LoleResult<()> {
     if let Some(target) = target {
-        let rot = (target.get_pos() - player.get_pos())
+        let rot = (target.get_pos()? - player.get_pos()?)
             .zero_z()
             .to_rot_value();
         facing::set_facing(player, rot, NOT_MOVING)?;
@@ -659,7 +670,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
 
     let nargs = lua_gettop(lua);
     if nargs == 0 {
-        println!("lop_exec: no opcode provided");
+        tracing::warn!("lop_exec: no opcode provided");
         return Err(LoleError::MissingOpcode);
     }
     let nargs = nargs - 1;
@@ -678,7 +689,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::Follow if nargs == 1 => {
             let name = lua_tostring!(lua, 2)?;
             if let Some(t) = om.get_unit_by_name(name) {
-                let (pp, tp) = (player.get_pos(), t.get_pos());
+                let (pp, tp) = (player.get_pos()?, t.get_pos()?);
                 let tpdiff = tp - pp;
                 let distance = tpdiff.length();
                 if distance < 10.0 {
@@ -690,7 +701,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         }
         Opcode::StopFollow if nargs == 0 => {
             TRYING_TO_FOLLOW.set(None);
-            let target_pos = player.yards_in_front_of(0.1);
+            let target_pos = player.yards_in_front_of(0.1)?;
             ctm::clear()?;
             ctm::add_to_queue(CtmEvent {
                 target_pos,
@@ -708,8 +719,8 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             if let Some(target) = target {
                 let range_min = lua_tonumber_f32!(lua, 2);
                 let range_max = lua_tonumber_f32!(lua, 3);
-                let (pp, prot) = player.get_pos_and_rotvec();
-                let tp = target.get_pos();
+                let (pp, prot) = player.get_pos_and_rotvec()?;
+                let tp = target.get_pos()?;
                 let tpdiff = (tp - pp).zero_z();
                 let tpdiff_unit = tpdiff.unit();
                 match get_caster_position_status(range_min, range_max, tpdiff, prot) {
@@ -743,20 +754,19 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
 
         Opcode::MeleeBehind if nargs == 1 => {
             if let Some(target) = target {
-                let (pp, prot) = player.get_pos_and_rotvec();
-                let tp = target.get_pos();
-                let trot = if let Some(tot) = target.get_target() {
+                let (pp, prot) = player.get_pos_and_rotvec()?;
+                let tp = target.get_pos()?;
+                let trot = match target.get_target()? {
                     // the `rot` value isn't updated very often for Npc:s,
                     // even the wow client itself probably calculates it like this:
-                    (tot.get_pos() - tp).unit()
-                } else {
-                    target.get_rotvec()
+                    Some(tot) => (tot.get_pos()? - tp).unit(),
+                    _ => target.get_rotvec()?,
                 };
 
                 let tpdiff = (tp - pp).zero_z();
                 let tpdiff_unit = tpdiff.unit();
 
-                if target.get_target_guid() == Some(player.get_guid()) {
+                if target.get_target_guid()? == Some(player.get_guid()) {
                     facing::set_facing(player, tpdiff_unit.to_rot_value(), NOT_MOVING)?;
                     return Ok(LUA_NO_RETVALS);
                 }
@@ -795,8 +805,8 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::HealerRangeCheck if nargs == 1 => {
             if let Some(target) = target {
                 let range_max = lua_tonumber_f32!(lua, 2);
-                let pp = player.get_pos();
-                let tp = target.get_pos();
+                let pp = player.get_pos()?;
+                let tp = target.get_pos()?;
                 let tpdiff = (tp - pp).zero_z();
                 if tpdiff.length() < range_max {
                     return Ok(LUA_NO_RETVALS);
@@ -833,20 +843,13 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             let arg = lua_tostring!(lua, 2)?.trim();
             let object = if arg.starts_with("0x") {
                 let guid = guid_from_str(arg)?;
-                om.get_object_by_guid(guid)
-            } else if arg == "player" {
-                Some(player)
-            } else if arg == "target" {
-                target
-            } else if arg == "focus" {
-                let focus_guid = om.get_focus_guid();
-                om.get_object_by_guid(focus_guid)
+                om.get_object_by_guid(guid)?
             } else {
-                om.get_unit_by_name(arg)
+                om.get_unit_by_nameref_internal(arg)
             };
 
             if let Some(object) = object {
-                for elem in object.get_xyzr().into_iter() {
+                for elem in object.get_xyzr()?.into_iter() {
                     lua_pushnumber(lua, elem as lua_Number);
                 }
                 return Ok(4);
@@ -872,7 +875,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             TRYING_TO_FOLLOW.set(None);
             // add randomness (for multibox masking)
             let target_pos =
-                player.get_pos() + random_01() * Vec3::from_rot_value(random_01() * TWO_PI);
+                player.get_pos()? + random_01() * Vec3::from_rot_value(random_01() * TWO_PI);
             ctm::add_to_queue(CtmEvent {
                 target_pos,
                 priority: CtmPriority::NoOverride,
@@ -896,19 +899,14 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             let relative_to = lua_tostring!(lua, 2)?;
             let radius = lua_tonumber_f32!(lua, 3);
             let mut feasibility = 0.0;
-            let query_pos = match &relative_to[..] {
-                "target" => {
-                    if let Some(target) = target {
-                        target.get_pos()
-                    } else {
-                        return Ok(LUA_NO_RETVALS);
-                    }
+            let query_pos = match om.get_unit_by_nameref_internal(relative_to) {
+                Some(o) if matches!(o.get_type(), WowObjectType::Unit | WowObjectType::Npc) => {
+                    o.get_pos()?
                 }
-                "player" => player.get_pos(),
                 other => {
                     return Err(LoleError::LuaError(format!(
-                        "Unimplemented AoeFeasibility target {other}"
-                    )));
+                        "invalid target for AoeFeasibility: {other:?}"
+                    )))
                 }
             };
 
@@ -917,7 +915,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                     && o.is_dead().is_ok_and(|dead| !dead)
                     && o.health().is_ok_and(|health| health > 0)
             }) {
-                let dist = (query_pos - mob.get_pos()).length();
+                let dist = (query_pos - mob.get_pos()?).length();
                 feasibility += (-(1.0 / radius.powi(3)) * dist.powi(3) + 1.0).clamp(0.0, 1.0);
             }
             lua_pushnumber(lua, feasibility as lua_Number);
@@ -943,18 +941,28 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         }
 
         Opcode::LootMob => {
-            let ppos = player.get_pos();
-            let mut lootable: Vec<_> = om
+            fn is_loot_candidate(o: WowObject, ppos: Vec3) -> LoleResult<(bool, f32)> {
+                let distance_from_player = (o.get_pos()? - ppos).length();
+                Ok((
+                    o.npc_has_loot_table()? && distance_from_player < 30.0,
+                    distance_from_player,
+                ))
+            }
+            let ppos = player.get_pos()?;
+            let lootable: Result<Vec<_>, LoleError> = om
                 .iter()
-                .filter(|o| {
-                    o.npc_has_loot_table().unwrap_or(false) && (o.get_pos() - ppos).length() < 30.0
+                .filter_map(|o| match is_loot_candidate(o, ppos) {
+                    Ok((true, distance)) => Some(Ok((o, distance))),
+                    Ok((false, _)) => None,
+                    Err(e) => Some(Err(e)),
                 })
                 .collect();
-            lootable.sort_unstable_by_key(|l| ((l.get_pos() - ppos).length() * 1024.0) as u32);
-            if let Some(closest) = lootable.iter().next() {
-                if (closest.get_pos() - ppos).length() > ctm::constants::LOOT_MINDISTANCE {
+            let mut lootable = lootable?;
+            lootable.sort_unstable_by_key(|l| (l.1 * 1024.0) as u32);
+            if let Some((closest, distance_from_player)) = lootable.into_iter().next() {
+                if distance_from_player > ctm::constants::LOOT_MINDISTANCE {
                     let action = CtmEvent {
-                        target_pos: closest.get_pos(),
+                        target_pos: closest.get_pos()?,
                         priority: CtmPriority::Replace,
                         action: CtmAction::Loot,
                         interact_guid: Some(closest.get_guid()),
@@ -1063,7 +1071,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
 
                 match (r#type.as_deref(), target.as_deref()) {
                     (Some("WHISPER"), None) => {
-                        eprintln!("(warning: Invalid use of SendAddonMessage(..., WHISPER) with no target)");
+                        tracing::error!("(warning: Invalid use of SendAddonMessage(..., WHISPER) with no target)");
                         return Ok(0);
                     }
                     _ => {}
@@ -1080,7 +1088,9 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                     }),
                 });
             } else {
-                eprintln!("(warning: failed to send AddonMessage: Connection not initialized)");
+                tracing::error!(
+                    "(warning: failed to send AddonMessage: Connection not initialized)"
+                );
             }
         }
         Opcode::DumpWowObject => {
@@ -1091,7 +1101,12 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 1024
             };
             if let (_, Some(o)) = om.get_player_and_target()? {
-                chatframe_print!("{}, {}, {}", o, o.base, deref::<u32, 1>(o.base + 0x2a * 4));
+                chatframe_print!(
+                    "{}, {}, {:?}",
+                    o,
+                    o.base as usize,
+                    deref_opt_t::<u32, 1>(o.base.wrapping_byte_offset(0x2a * 4))
+                );
                 // let slice: &[u8] = unsafe { mem_as_slice(base, n_bytes as usize) };
                 // println!(
                 //     "dumping {}*{} bytes from wowobject@{:#010X}",
@@ -1128,7 +1143,7 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
     match handle_lop_exec(lua) {
         Ok(num_retvals) => num_retvals,
         Err(error) => {
-            println!("lop_exec: error: {:?}", error);
+            tracing::error!("lop_exec: error: {:?}", error);
             let x = chatframe_print!("lop_exec: error: {:?}", error);
             LUA_NO_RETVALS
         }
@@ -1136,12 +1151,8 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
 }
 
 pub fn get_wow_lua_state() -> LoleResult<lua_State> {
-    let res = deref::<lua_State, 1>(offsets::lua::wow_lua_State);
-    if !res.is_null() {
-        Ok(res)
-    } else {
-        Err(LoleError::LuaStateIsNull)
-    }
+    Ok(deref_opt_ptr::<1>(offsets::lua::wow_lua_State as _)
+        .ok_or_else(|| LoleError::LuaStateIsNull)? as lua_State)
 }
 
 pub fn register_lop_exec_if_not_registered() -> LoleResult<()> {
@@ -1194,7 +1205,7 @@ extern "stdcall" fn closepetstables_lop_exec(lua: lua_State) -> i32 {
     match handle_lop_exec(lua) {
         Ok(res) => res,
         Err(e) => {
-            println!("lop_exec error: {:?}", e);
+            tracing::error!("lop_exec error: {:?}", e);
             0
         }
     }

@@ -155,30 +155,76 @@ impl Patch {
         Ok(())
     }
     pub fn disable(&self) -> LoleResult<()> {
-        println!("disabling {}", self.name);
+        tracing::info!("disabling {}", self.name);
         write_addr(self.patch_addr, &self.original_opcodes)
     }
 }
 
-pub fn deref<T: Copy, const N: u8>(addr: Addr) -> T {
-    let mut t = addr;
-    for _ in 1..N {
-        t = unsafe { *(t as *const Addr) };
+pub fn deref_t<T: Copy, const N: u8>(addr: Addr) -> T {
+    deref_opt_t::<T, N>(addr as *const c_void).unwrap()
+}
+
+pub fn deref_opt_t<T: Copy, const N: u8>(ptr: *const c_void) -> Option<T> {
+    unsafe {
+        let mut t = ptr;
+        for _ in 1..N {
+            if t.is_null() || t.align_offset(std::mem::align_of::<*const *const c_void>()) != 0 {
+                tracing::warn!("invalid t: {t:p}");
+                return None;
+            }
+            t = std::ptr::read_unaligned(t as *const *const c_void);
+        }
+        if t.is_null() {
+            //|| t.align_offset(std::mem::align_of::<T>()) != 0 {
+            return None;
+            //     tracing::warn!(
+            //         "invalid t: {t:p} ({}/{})",
+            //         std::mem::align_of::<T>(),
+            //         t.align_offset(std::mem::align_of::<T>())
+            //     );
+            //     return None;
+            // }
+        }
+        let final_deref = std::ptr::read_unaligned(t as *const T);
+        Some(final_deref)
     }
-    unsafe { *(t as *const T) }
+}
+
+pub fn deref_res_t<T: Copy, const N: u8>(ptr: *const c_void) -> LoleResult<T> {
+    Ok(deref_opt_t::<T, N>(ptr).ok_or_else(|| LoleError::NullPtrError)?)
+}
+
+pub fn deref_ptr<const N: u8>(ptr: *const c_void) -> *const c_void {
+    match deref_opt_t::<*const c_void, N>(ptr) {
+        Some(ptr) => ptr,
+        None => std::ptr::null(),
+    }
+}
+
+pub fn deref_opt_ptr<const N: u8>(ptr: *const c_void) -> Option<*const c_void> {
+    match deref_opt_t::<*const c_void, N>(ptr) {
+        Some(ptr) if !ptr.is_null() => Some(ptr),
+        _ => None,
+    }
+}
+
+pub fn deref_res_ptr<const N: u8>(ptr: *const c_void) -> LoleResult<*const c_void> {
+    match deref_opt_ptr::<N>(ptr) {
+        Some(ptr) => Ok(ptr),
+        _ => Err(LoleError::NullPtrError),
+    }
 }
 
 pub fn read_addr<T: Default + Sized + Copy + std::fmt::Debug>(addr: Addr) -> T {
-    let mut res = T::default();
-    unsafe { std::ptr::copy(addr as *const _, &mut res, 1) };
-    res
+    unsafe { std::ptr::read_volatile(addr as _) }
 }
 
 pub fn read_elems_from_addr<const N: usize, T: Default + Sized + Copy + std::fmt::Debug>(
-    addr: Addr,
+    addr: *const T,
 ) -> [T; N] {
+    // 2025: can't use MaybeUninit here because [T; N] apparently is not a "fixed-size type"
     let mut res = [T::default(); N];
-    unsafe { std::ptr::copy(addr as *const _, res.as_mut_ptr(), N) };
+    unsafe { std::ptr::copy(addr, res.as_mut_ptr(), N) };
     res
 }
 
@@ -187,8 +233,8 @@ pub fn write_addr<T: Sized + Copy + std::fmt::Debug>(addr: Addr, data: &[T]) -> 
         let mut bytes_written = 0;
         WriteProcessMemory(
             GetCurrentProcess(),
-            addr as *const _,
-            data.as_ptr() as *const _,
+            addr as _,
+            data.as_ptr() as _,
             std::mem::size_of_val(data),
             Some(&mut bytes_written),
         )
@@ -234,7 +280,11 @@ pub fn prepare_endscene_trampoline() -> Patch {
 
 #[allow(non_snake_case)]
 fn find_EndScene() -> Addr {
-    let wowd3d9 = deref::<Addr, 1>(offsets::D3D9_DEVICE);
-    let d3d9 = deref::<Addr, 2>(wowd3d9 + offsets::D3D9_DEVICE_OFFSET);
-    deref::<Addr, 1>(d3d9 + 0x2A * 4)
+    unsafe {
+        let wowd3d9 =
+            deref_opt_t::<*const c_void, 1>(offsets::D3D9_DEVICE as *const c_void).unwrap();
+        let d3d9 =
+            deref_opt_t::<*const c_void, 2>(wowd3d9.offset(offsets::D3D9_DEVICE_OFFSET)).unwrap();
+        deref_opt_t::<Addr, 1>(d3d9.offset(0x2A * 4)).unwrap()
+    }
 }

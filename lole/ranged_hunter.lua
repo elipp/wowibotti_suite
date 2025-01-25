@@ -4,14 +4,16 @@ local FEED_INTERVAL = 60;
 
 function run_out_of_combat()
     if UnitClass("player") == 'Hunter' and not UnitAffectingCombat("player") then
-        if not has_buff("player", "Aspect of the Pack") and not has_buff("player", "Aspect of the Viper") then
+        if not has_buff("player", "Aspect of the Pack") and not has_buff("player", "Aspect of the Cheetah") and not has_buff("player", "Aspect of the Viper") then
             return L_CastSpellByName("Aspect of the Viper")
         end
     end
 end
 
-local dummy_frame = CreateFrame("frame", nil, UIParent)
-dummy_frame:SetScript("OnUpdate", run_out_of_combat)
+if UnitClass("player") == "Hunter" then
+    local dummy_frame = CreateFrame("frame", nil, UIParent)
+    dummy_frame:SetScript("OnUpdate", run_out_of_combat)
+end
 
 local rotation = Rotation(
     {

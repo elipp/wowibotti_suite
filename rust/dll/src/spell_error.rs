@@ -68,7 +68,7 @@ unsafe extern "stdcall" fn spell_err_msg(msg_ptr: *const SpellErrMsgArgs) {
     let as_spellerrmsg: Result<SpellError, _> = msg.try_into();
     match as_spellerrmsg {
         Ok(m) => {
-            println!("{m:?} ({msg:X})");
+            tracing::error!("{m:?} ({msg:X})");
             let _res = spell_errmsg_received(msg);
             // LAST_SPELL_ERR_MSG.with(|l| {
             //     let mut l = l.borrow_mut();
@@ -82,7 +82,7 @@ unsafe extern "stdcall" fn spell_err_msg(msg_ptr: *const SpellErrMsgArgs) {
             //     }
             // });
         }
-        e => println!("(warning: {e:?})"),
+        e => tracing::warn!("spell_err_msg: {e:?}"),
     }
 }
 

@@ -2,7 +2,7 @@ workspace = { members = ["addonmessage_broker", "dll", "injector", "macros"], re
 
 [profile.dev]
 panic = "unwind"
-
+ 
 [profile.release]
 panic = "unwind"
 

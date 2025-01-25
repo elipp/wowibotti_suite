@@ -3,6 +3,8 @@ use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpListener;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 pub type ConnectionId = u32;
 
@@ -149,7 +151,7 @@ impl Clients {
                         });
                     } else {
                         if let Err(e) = main_tx.send(ServerMsg::RelayMsg(msg.clone())) {
-                            eprintln!("connection {connection_id}: write: {e:?}");
+                            tracing::error!("connection {connection_id}: write: {e:?}");
                             main_tx
                                 .send(ServerMsg::RemoveClient(
                                     connection_id,
@@ -205,7 +207,7 @@ impl Clients {
 }
 
 pub async fn start_addonmessage_relay() {
-    println!("addonmessage_broker: listening on port 1337");
+    tracing::info!("listening on port 1337");
     let listener = TcpListener::bind("127.0.0.1:1337").await.unwrap();
 
     let (main_tx, main_rx) = mpsc::channel::<ServerMsg>(); // Channel for broadcasting messages
@@ -229,7 +231,7 @@ pub async fn start_addonmessage_relay() {
                                 if let Some(client) = clients.iter().find(|c| c.name == name) {
                                     client.tx.send(message.clone()).unwrap();
                                 } else {
-                                    eprintln!("warning: not forwarding message {message:?}: client '{name}' not found");
+                                    tracing::warn!("warning: not forwarding message {message:?}: client '{name}' not found");
                                 }
                             }
                             (Some("RAID"), _) | (Some("PARTY"), _) | (None, _) => {
@@ -246,12 +248,12 @@ pub async fn start_addonmessage_relay() {
                                     }
                                 }
                             }
-                            _ => eprintln!("(warning: not forwarding message {message:?})"),
+                            _ => tracing::warn!("(warning: not forwarding message {message:?})"),
                         }
                     }
                 }
                 ServerMsg::RemoveClient(id, reason) => {
-                    eprintln!("Removing client {id} for reason: {reason}");
+                    tracing::warn!("Removing client {id} for reason: {reason}");
                     let mut clients = cloned_clients.connections.lock().unwrap();
                     clients.retain(|c| c.id != id);
                 }

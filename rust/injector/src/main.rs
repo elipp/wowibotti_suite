@@ -5,7 +5,8 @@ use addonmessage_broker::SendSyncWrapper;
 #[cfg(feature = "native-ui")]
 use eframe::egui;
 
-use lazy_static::lazy_static;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 use std::{ffi::OsString, os::windows::ffi::OsStrExt, path::PathBuf};
@@ -122,7 +123,7 @@ impl LaunchQuery {
                 let mut process_information = PROCESS_INFORMATION::default();
                 CreateProcessW(
                     PCWSTR::from_raw(as_u16.as_ptr()),
-                    PWSTR::null(),
+                    None,
                     None,
                     None,
                     false,
@@ -151,19 +152,19 @@ unsafe extern "system" fn dummy_wndproc(
             let clients = CLIENTS.lock().unwrap();
             if let Some(client) = clients.get(wparam.0) {
                 if SetForegroundWindow(client.window_handle) == FALSE {
-                    println!("warning: `SetForegroundWindow` failed");
+                    tracing::error!("warning: `SetForegroundWindow` failed");
                 }
             }
         }
         INJ_MESSAGE_REGISTER_HOTKEY => {
-            if let Err(e) = RegisterHotKey(hwnd, wparam.0 as i32, MOD_ALT, lparam.0 as u32) {
-                println!("Warning: RegisterHotKey failed: {e:?}");
+            if let Err(e) = RegisterHotKey(Some(hwnd), wparam.0 as i32, MOD_ALT, lparam.0 as u32) {
+                tracing::error!("Warning: RegisterHotKey failed: {e:?}");
             }
         }
 
         INJ_MESSAGE_UNREGISTER_HOTKEY => {
-            if let Err(e) = UnregisterHotKey(hwnd, wparam.0 as i32) {
-                println!("Warning: UnregisterHotKey failed: {e:?}");
+            if let Err(e) = UnregisterHotKey(Some(hwnd), wparam.0 as i32) {
+                tracing::error!("Warning: UnregisterHotKey failed: {e:?}");
             }
         }
         _ => {}
@@ -202,7 +203,7 @@ pub fn start_dummy_window() -> std::thread::JoinHandle<Result<(), InjectorError>
             CW_USEDEFAULT,
             None,
             None,
-            instance,
+            None, // used to be instance
             None,
         ) {
             Ok(hwnd) => {
@@ -221,7 +222,7 @@ pub fn start_dummy_window() -> std::thread::JoinHandle<Result<(), InjectorError>
             let _ = TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
-        println!("exiting");
+        tracing::info!("exiting");
         Ok(())
     })
 }
@@ -233,7 +234,14 @@ struct Togglable<T> {
 
 #[cfg(feature = "native-ui")]
 fn main() -> Result<(), eframe::Error> {
-    // env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .with(tracing_subscriber::fmt::layer().with_ansi(true))
+        .init();
+
     start_dummy_window();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([400.0, 300.0]),

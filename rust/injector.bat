@@ -1,1 +1,1 @@
-cargo build --profile=dev && COPY /Y target\i686-pc-windows-msvc\debug\wowibottihookdll.dll lolerust.dll && cargo run --profile=dev --bin=injector
+cargo build --profile=dev && COPY /Y target\i686-pc-windows-msvc\debug\wowibottihookdll.dll lolerust.dll && SET RUST_LOG="eframe=info,debug" && SET RUST_BACKTRACE="full" && cargo run --profile=dev --bin=injector

@@ -300,11 +300,12 @@ BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 OVERRIDE_COMMAND = nil;
 
-HEALERS = {"Bacc", "Chonkki", "Hepens"}; -- for keeping order mostly
+HEALERS = {"Bacc", "Chonkki", "Hepens", "Inspiration"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
   Bacc = {heals={"raid"}, hots={"Raimo"}},
   Chonkki = {heals={"raid"}},
-  Hepens = {heals={"Muskeln", "raid"}, hots={"Muskeln"}}
+  Hepens = {heals={"Muskeln", "raid"}, hots={"Muskeln"}},
+  Inspiration = {heals={"Rhotaa", "raid"}}
 }
 ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
 HEALS_IN_PROGRESS = {};
@@ -673,16 +674,15 @@ function track_heal_attempts(name)
     end
 end
 
-function cast_if_nocd(spellname, rank)
-	if GetSpellCooldown(spellname) == 0 then
-		L_CastSpellByName(spellname);
-        if INSTANT_HEALS[spellname] or HEAL_ESTIMATES[spellname] or (rank and HEAL_ESTIMATES[spellname.."("..rank..")"]) then
-            track_heal_attempts(UnitName("target"));
-        end
-		return true;
+-- GetSpellCooldown also accepts "spell" (BOOKTYPE_SPELL) or "pet" (BOOKTYPE_PET)
+function cast_if_nocd(spellname, rank, ...)
+	if GetSpellCooldown(spellname, ...) == 0 then
+		L_CastSpellByName(spellname)
+    if INSTANT_HEALS[spellname] or HEAL_ESTIMATES[spellname] or (rank and HEAL_ESTIMATES[spellname.."("..rank..")"]) then
+        track_heal_attempts(UnitName("target"))
+    end
+		return true
 	end
-
-	return false;
 end
 
 function off_cd(spellname)
@@ -1266,6 +1266,9 @@ local guild_members = {
   Friid = 14,
   Noggins = 15,
   Boppins = 16,
+  Poet = 17,
+  Inspiration = 18,
+  Rhotaa = 19,
 }
 
 for name, num in pairs(guild_members) do
