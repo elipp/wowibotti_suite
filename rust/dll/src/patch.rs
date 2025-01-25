@@ -215,10 +215,6 @@ pub fn deref_res_ptr<const N: u8>(ptr: *const c_void) -> LoleResult<*const c_voi
     }
 }
 
-pub fn read_addr<T: Default + Sized + Copy + std::fmt::Debug>(addr: Addr) -> T {
-    unsafe { std::ptr::read_volatile(addr as _) }
-}
-
 pub fn read_elems_from_addr<const N: usize, T: Default + Sized + Copy + std::fmt::Debug>(
     addr: *const T,
 ) -> [T; N] {
