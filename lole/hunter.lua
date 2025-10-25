@@ -68,6 +68,7 @@ end
 
 
 local function cast_if_nocd_pet(spell, rank)
+    -- local name, rank = GetSpellInfo(1-whatever, "pet") could be used to find newest rank
     return cast_if_nocd(spell, rank, "pet")
 end
 
@@ -75,19 +76,26 @@ end
 function pet_combat()
     L_PetAttack()
 
-    if UnitExists("pettarget") then
-        if get_distance_between("pet", "pettarget") > 10 and cast_if_nocd_pet("Charge") then
-            return
-        end
+    if not UnitExists("pettarget") then return end
+    if UnitPower("pet") <= 15 then return end
 
-        if get_aoe_feasibility("pet", 8) > 1.5 and cast_if_nocd_pet("Thunderstomp") then
-            return
-        end
+    if get_distance_between("pet", "pettarget") > 10 and cast_if_nocd_pet("Charge") then
+        return
     end
 
-    if cast_if_nocd_pet("Growl") then return end
-    if cast_if_nocd_pet("Gore") then return end
-    if cast_if_nocd_pet("Bite") then return end
+    if get_aoe_feasibility("pet", 8) > 1.0 and cast_if_nocd_pet("Thunderstomp") then
+        return
+    end
+
+    if cast_if_nocd_pet("Growl", 7) then
+        return
+    end
+    if cast_if_nocd_pet("Gore", 4) then
+        return
+    end
+    if cast_if_nocd_pet("Bite", 8) then
+        return
+    end
 end
 
 
@@ -134,6 +142,7 @@ function combat_hunter()
         return
     end
 
+    pet_combat()
     L_StartAttack()
 
     -- if GetSpellCooldown("Kill Command") == 0 then
@@ -151,7 +160,6 @@ function combat_hunter()
         L_CastSpellByName("Hunter's Mark")
     end
 
-    pet_combat()
 
     if not has_debuff("target", "Serpent Sting") then
         return L_CastSpellByName("Serpent Sting")
@@ -159,5 +167,6 @@ function combat_hunter()
 
     if cast_if_nocd("Arcane Shot") then return end
     if cast_if_nocd("Multi-Shot") then return end
-    -- L_CastSpellByName("Steady Shot")
+
+    L_CastSpellByName("Steady Shot")
 end

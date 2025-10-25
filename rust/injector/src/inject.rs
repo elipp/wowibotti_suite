@@ -3,13 +3,14 @@ use lazy_static::lazy_static;
 use serde::Serialize;
 use std::ffi::c_void;
 use std::sync::{Arc, Mutex};
+use windows::core::BOOL;
 use windows::Win32::Foundation::WPARAM;
 use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, WM_USER};
 
 use windows::{
     core::{s, w, PCWSTR},
     Win32::{
-        Foundation::{CloseHandle, BOOL, FALSE, HANDLE, HWND, LPARAM, LUID},
+        Foundation::{CloseHandle, HANDLE, HWND, LPARAM, LUID},
         Security::{
             AdjustTokenPrivileges, ImpersonateSelf, LookupPrivilegeValueW, SecurityImpersonation,
             SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED, TOKEN_ADJUST_PRIVILEGES, TOKEN_PRIVILEGES,
