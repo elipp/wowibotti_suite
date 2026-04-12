@@ -1,3 +1,4 @@
+use rand::RngExt;
 use std::arch::asm;
 use std::cell::Cell;
 use std::collections::VecDeque;
@@ -20,7 +21,6 @@ use crate::vec3::{Vec3, TWO_PI};
 use crate::{assembly, Addr, LoleError, LoleResult};
 
 use lazy_static::lazy_static;
-use rand::Rng;
 
 lazy_static! {
     // turns out that thread_local! { RefCell }, while possible, is kinda tedious
@@ -285,10 +285,9 @@ impl CtmQueue {
                     );
                 }
                 self.advance()?;
-            } else if current.priority == CtmPriority::Path
-                && rand::thread_rng().gen::<f32>() < 0.003 {
-                    dostring!("JumpOrAscendStart(); AscendStop()");
-                }
+            } else if current.priority == CtmPriority::Path && rand::rng().random::<f32>() < 0.003 {
+                dostring!("JumpOrAscendStart(); AscendStop()");
+            }
         } else {
             self.advance()?;
         }
@@ -443,7 +442,6 @@ impl CtmEvent {
         let func: extern "cdecl" fn(a: u32, b: u32, c: u32, d: u32, e: u32) -> u32 =
             std::mem::transmute(0x4D4DB0 as *const c_void);
 
-        
         func(
             deref_t::<_, 1>(0xCA1238),
             deref_t::<_, 1>(0xCA123C),

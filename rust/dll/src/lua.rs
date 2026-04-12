@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use std::ffi::{c_char, c_void, CStr, CString};
 
 use lole_macros::generate_lua_enum;
-use rand::Rng;
+use rand::RngExt;
 
 use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
@@ -402,8 +402,8 @@ pub enum Opcode {
 #[macro_export]
 macro_rules! cstr_to_str {
     ($e:expr) => {{
-        use $crate::LoleError;
         use std::ffi::CStr;
+        use $crate::LoleError;
         if $e.is_null() {
             Err(LoleError::NullPtrError)
         } else {
@@ -476,8 +476,8 @@ pub fn playermode() -> LoleResult<bool> {
 }
 
 fn random_01() -> f32 {
-    let mut rng = rand::thread_rng();
-    rng.gen()
+    let mut rng = rand::rng();
+    rng.random()
 }
 
 // impl From<postgres::Error> for LoleError {
@@ -1070,7 +1070,9 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 };
 
                 if let (Some("WHISPER"), None) = (r#type.as_deref(), target.as_deref()) {
-                    tracing::error!("(warning: Invalid use of SendAddonMessage(..., WHISPER) with no target)");
+                    tracing::error!(
+                        "(warning: Invalid use of SendAddonMessage(..., WHISPER) with no target)"
+                    );
                     return Ok(0);
                 }
 

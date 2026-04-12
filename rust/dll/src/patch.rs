@@ -270,7 +270,12 @@ pub fn prepare_endscene_trampoline() -> Patch {
         }
     };
 
+    #[cfg(feature = "host-linux")]
     const LEN_TRAMP: usize = 5;
+
+    // has a different signature :D
+    #[cfg(feature = "host-windows")]
+    const LEN_TRAMP: usize = 7;
 
     let original_opcodes = copy_original_opcodes(endscene_addr, LEN_TRAMP);
 

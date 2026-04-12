@@ -15,11 +15,10 @@ use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey, MOD_ALT};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, RegisterClassW, SetForegroundWindow, CS_HREDRAW, CS_VREDRAW,
-    CW_USEDEFAULT, WINDOW_EX_STYLE, WM_USER, WNDCLASSW, WS_OVERLAPPEDWINDOW, WS_VISIBLE,
+    CW_USEDEFAULT, WINDOW_EX_STYLE, WNDCLASSW, WS_OVERLAPPEDWINDOW,
 };
 use windows::{
     core::PCWSTR,
-    core::PWSTR,
     Win32::{
         Foundation::{FALSE, HWND},
         System::{
@@ -267,7 +266,7 @@ fn main() -> Result<(), eframe::Error> {
         .collect();
 
     #[cfg(feature = "addonmessage_broker")]
-    let handle = std::thread::spawn(|| {
+    let _ = std::thread::spawn(|| {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             start_addonmessage_relay().await;
@@ -276,9 +275,9 @@ fn main() -> Result<(), eframe::Error> {
 
     let mut select_all = false;
 
-    eframe::run_simple_native("injector :D", options, move |ctx, _frame| {
+    eframe::run_ui_native("injector :D", options, move |ctx, _frame| {
         egui_extras::install_image_loaders(ctx);
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show_inside(ctx, |ui| {
             ui.heading("Injector :D");
             ui.add_space(20.0);
             ui.columns(2, |columns| {

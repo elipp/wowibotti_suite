@@ -203,6 +203,7 @@ pub mod offsets {
 }
 
 #[cfg(feature = "wotlk")]
+#[allow(non_snake_case)]
 pub mod offsets {
     use std::ffi::c_void;
 

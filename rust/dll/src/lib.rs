@@ -25,16 +25,11 @@ use windows::core::{PCSTR, PCWSTR};
 use windows::Win32::Foundation::*;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
 use windows::Win32::Storage::FileSystem::{
-    CreateFileW, WriteFile, FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_WRITE, OPEN_EXISTING,
+    CreateFileW, FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
 
-use std::io::{self, Write};
-use tracing_subscriber::fmt::MakeWriter;
 use windows::Win32::Foundation::HANDLE;
-use windows::Win32::System::Console::{CONSOLE_MODE, STD_ERROR_HANDLE};
-
 use windows::Win32::System::Console::AllocConsole;
-
 use windows::Win32::System::Console::{FreeConsole, STD_OUTPUT_HANDLE};
 use windows::Win32::System::Console::{GetStdHandle, SetStdHandle};
 use windows::Win32::System::LibraryLoader::FreeLibraryAndExitThread;
