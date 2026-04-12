@@ -1,6 +1,6 @@
-use addonmessage_broker::SendSyncWrapper;
 use lazy_static::lazy_static;
 use serde::Serialize;
+use shared::SendSyncWrapper;
 use std::ffi::c_void;
 use std::sync::{Arc, Mutex};
 use windows::Win32::Foundation::WPARAM;

@@ -114,12 +114,13 @@ dependencies = [
 name = "addonmessage_broker"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bitcode",
  "rand",
+ "shared",
  "tokio",
  "tracing",
  "tracing-subscriber",
- "windows 0.59.0",
 ]
 
 [[package]]
@@ -203,9 +204,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.95"
+version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34ac096ce696dc2fcabef30516bb13c0a68a11d30131d3df6f04711467681b04"
+checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "arbitrary"
@@ -1913,6 +1914,7 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
+ "shared",
  "tokio",
  "tokio-util",
  "tracing",
@@ -3193,6 +3195,10 @@ checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
 dependencies = [
  "lazy_static",
 ]
+
+[[package]]
+name = "shared"
+version = "0.1.0"
 
 [[package]]
 name = "shlex"
@@ -4561,6 +4567,7 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
+ "shared",
  "tokio",
  "tracing",
  "tracing-subscriber",

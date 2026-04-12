@@ -1,0 +1,7 @@
+LIBRARY DivxDecoder.dll
+EXPORTS
+DivxDecode
+InitializeDivxDecoder
+SetOutputFormat
+UnInitializeDivxDecoder
+DllMain

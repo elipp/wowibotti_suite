@@ -1,11 +1,15 @@
-use addonmessage_broker::SendSyncWrapper;
 use addrs::offsets::LAST_HARDWARE_ACTION;
 use core::cell::Cell;
+use shared::SendSyncWrapper;
+#[cfg(feature = "addonmessage_broker")]
+use std::collections::VecDeque;
+use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
+
 use objectmanager::ObjectManager;
 use serde::{Deserialize, Serialize};
 use socket::read_os_tick_count;
 use std::cell::RefCell;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -17,15 +21,23 @@ use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
 use lua::{lua_GetTime, lua_Integer, lua_Number, Opcode};
 use patch::write_addr;
-use windows::core::PCWSTR;
+use windows::core::{PCSTR, PCWSTR};
+use windows::Win32::Foundation::*;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
 use windows::Win32::Storage::FileSystem::{
-    CreateFileW, FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_WRITE, OPEN_EXISTING,
+    CreateFileW, WriteFile, FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
-use windows::Win32::System::Console::{AllocConsole, FreeConsole, STD_OUTPUT_HANDLE};
+
+use std::io::{self, Write};
+use tracing_subscriber::fmt::MakeWriter;
+use windows::Win32::Foundation::HANDLE;
+use windows::Win32::System::Console::{CONSOLE_MODE, STD_ERROR_HANDLE};
+
+use windows::Win32::System::Console::AllocConsole;
+
+use windows::Win32::System::Console::{FreeConsole, STD_OUTPUT_HANDLE};
 use windows::Win32::System::Console::{GetStdHandle, SetStdHandle};
 use windows::Win32::System::LibraryLoader::FreeLibraryAndExitThread;
-use windows::{Win32::Foundation::*, Win32::System::SystemServices::*};
 
 use lazy_static::lazy_static;
 
@@ -182,9 +194,11 @@ unsafe fn eject_dll() -> LoleResult<()> {
     for patch in global_var!(ENABLED_PATCHES).drain(..) {
         patch.disable()?;
     }
+
     restore_original_stdout()?;
     CloseHandle(CONSOLE_CONOUT.get())?;
     FreeConsole()?;
+
     if let Some(dll_handle) = DLL_HANDLE.get() {
         std::thread::spawn(|| {
             FreeLibraryAndExitThread(dll_handle.0, 0);
@@ -258,7 +272,6 @@ fn main_entrypoint() -> LoleResult<()> {
     Ok(())
 }
 
-#[cfg(feature = "console")]
 unsafe fn open_console() -> LoleResult<()> {
     use windows::Win32::System::Console::{
         GetConsoleMode, SetConsoleMode, CONSOLE_MODE, ENABLE_VIRTUAL_TERMINAL_PROCESSING,
@@ -277,11 +290,6 @@ unsafe fn open_console() -> LoleResult<()> {
     SetConsoleMode(conout, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING)?;
 
     SetStdHandle(STD_OUTPUT_HANDLE, conout)?;
-    Ok(())
-}
-
-#[cfg(not(feature = "console"))]
-unsafe fn open_console() -> LoleResult<()> {
     Ok(())
 }
 
@@ -395,7 +403,7 @@ fn read_config_from_file(pid: u32) -> Result<ClientConfig, String> {
             Ok(config) => Ok(config),
             Err(err) => Err(format!("InvalidDllConfig: {err:?}")),
         },
-        Err(err) => Err(format!("DllConfigReadErr: {err:?}")),
+        Err(err) => Err(format!("DllConfigReadErr: ({config_path:?}) {err:?}")),
     }
 }
 
@@ -407,10 +415,13 @@ unsafe fn initialize_dll() -> LoleResult<()> {
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
-        .with(tracing_subscriber::fmt::layer().with_ansi(true))
+        .with(tracing_subscriber::fmt::layer().with_ansi(cfg!(feature = "host-windows")))
         .init();
 
-    let config = match read_config_from_file(std::process::id()) {
+    // let pid = std::process::id();
+    let pid = 1337;
+
+    let config = match read_config_from_file(pid) {
         Ok(config) => {
             // NOTE: this means "we're still in the login/character selection screen"
             if let Err(LoleError::ObjectManagerIsNull) = ObjectManager::new() {
@@ -521,7 +532,7 @@ pub enum LoleError {
     PlayerNotFound,
     InvalidParam(String),
     InvalidWowObjectType,
-    MemoryWriteError,
+    MemoryWriteError(String),
     PartialMemoryWriteError,
     LuaStateIsNull,
     MissingOpcode,
@@ -588,24 +599,22 @@ impl From<std::ffi::NulError> for LoleError {
 //         _ => (),
 //     }
 
-//     true
-// }
+//     true2// }
 
 #[no_mangle]
-pub extern "system" fn DllMain(_hinst: *mut c_void, reason: u32, _reserved: *mut c_void) -> i32 {
+pub extern "system" fn DllMain(_hinst: HMODULE, reason: u32, _reserved: *mut c_void) -> i32 {
     if reason == 1 {
         // DLL_PROCESS_ATTACH
-        eprintln!("Moi");
         unsafe {
-            windows::Win32::System::Threading::CreateThread(
+            DLL_HANDLE.get_or_init(|| SendSyncWrapper(_hinst));
+            _ = windows::Win32::System::Threading::CreateThread(
                 None,
                 0,
                 Some(main_thread),
                 None,
                 THREAD_CREATE_RUN_IMMEDIATELY,
                 None,
-            )
-            .unwrap();
+            );
         }
     }
     1
@@ -613,14 +622,73 @@ pub extern "system" fn DllMain(_hinst: *mut c_void, reason: u32, _reserved: *mut
 
 unsafe extern "system" fn main_thread(_: *mut c_void) -> u32 {
     // all your actual code goes here
+    unsafe { windows::Win32::System::Threading::Sleep(1500) };
+    let tramp = AVAILABLE_PATCHES.get("EndScene").expect("EndScene");
+
+    std::fs::write(
+        "C:\\proof.txt",
+        format!("Patched EndScene at {:X}", tramp.patch_addr),
+    )
+    .ok();
+
+    if let Err(e) = tramp.enable() {
+        fatal_error_exit(e);
+    }
+    global_var!(ENABLED_PATCHES).push(tramp);
     0
 }
 
+struct DivxReal {
+    divx_decode: unsafe extern "system" fn(i32, i32, i32) -> i32,
+    initialize: unsafe extern "system" fn(i32) -> i32,
+    set_output_format: unsafe extern "system" fn(i32, i32, i32, i32) -> i32,
+    uninitialize: unsafe extern "system" fn(i32) -> i32,
+}
+
+static REAL: OnceLock<DivxReal> = OnceLock::new();
+
+fn real() -> &'static DivxReal {
+    REAL.get_or_init(|| unsafe {
+        let lib = LoadLibraryA(PCSTR(b"DivxDecoder.dll.real\0".as_ptr())).unwrap();
+        macro_rules! proc {
+            ($name:literal, $type:ty) => {
+                std::mem::transmute::<_, $type>(GetProcAddress(lib, PCSTR($name.as_ptr())))
+            };
+        }
+        DivxReal {
+            divx_decode: proc!(
+                b"DivxDecode\0",
+                unsafe extern "system" fn(i32, i32, i32) -> i32
+            ),
+            initialize: proc!(
+                b"InitializeDivxDecoder\0",
+                unsafe extern "system" fn(i32) -> i32
+            ),
+            set_output_format: proc!(
+                b"SetOutputFormat\0",
+                unsafe extern "system" fn(i32, i32, i32, i32) -> i32
+            ),
+            uninitialize: proc!(
+                b"UnInitializeDivxDecoder\0",
+                unsafe extern "system" fn(i32) -> i32
+            ),
+        }
+    })
+}
+
 #[no_mangle]
-pub extern "system" fn DivxDecode() {}
+pub unsafe extern "system" fn DivxDecode(a: i32, b: i32, c: i32) -> i32 {
+    (real().divx_decode)(a, b, c)
+}
 #[no_mangle]
-pub extern "system" fn InitializeDivxDecoder() {}
+pub unsafe extern "system" fn InitializeDivxDecoder(a: i32) -> i32 {
+    (real().initialize)(a)
+}
 #[no_mangle]
-pub extern "system" fn SetOutputFormat() {}
+pub unsafe extern "system" fn SetOutputFormat(a: i32, b: i32, c: i32, d: i32) -> i32 {
+    (real().set_output_format)(a, b, c, d)
+}
 #[no_mangle]
-pub extern "system" fn UnInitializeDivxDecoder() {}
+pub unsafe extern "system" fn UnInitializeDivxDecoder(a: i32) -> i32 {
+    (real().uninitialize)(a)
+}
