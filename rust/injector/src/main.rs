@@ -95,9 +95,9 @@ pub struct InjectQuery {
 }
 
 pub fn read_potti_conf() -> Result<PottiConfig, InjectorError> {
-    // let config_str = std::fs::read_to_string("potti.conf")
-    //     .map_err(|_e| InjectorError::OtherError(format!("couldn't read potti.conf")))?;
-    let config_str = include_str!("..\\potti.conf.json");
+    let config_str = std::fs::read_to_string("..\\potti.conf.json")
+        .map_err(|_e| InjectorError::OtherError(format!("couldn't read potti.conf")))?;
+    // let config_str = include_str!("..\\potti.conf.json");
     let config: PottiConfig = serde_json::from_str(&config_str)
         .map_err(|_e| InjectorError::DeserializationError(format! {"{_e:?}"}))?;
     Ok(config)

@@ -6,12 +6,13 @@ use serde::{Deserialize, Serialize};
 use socket::read_os_tick_count;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
+use std::ffi::c_void;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use windows::Win32::System::Threading::ExitProcess;
+use windows::Win32::System::Threading::{ExitProcess, THREAD_CREATE_RUN_IMMEDIATELY};
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
 use lua::{lua_GetTime, lua_Integer, lua_Number, Opcode};
@@ -455,9 +456,13 @@ unsafe fn initialize_dll() -> LoleResult<()> {
                                 message_queue: Default::default(),
                             });
                         },
-                        |msg| if let (Msg::AddonMessage(msg), Some(state)) = (msg.message, BROKER_STATE.get()) {
-                            let mut queue = state.message_queue.lock().unwrap();
-                            queue.push_back(msg.clone());
+                        |msg| {
+                            if let (Msg::AddonMessage(msg), Some(state)) =
+                                (msg.message, BROKER_STATE.get())
+                            {
+                                let mut queue = state.message_queue.lock().unwrap();
+                                queue.push_back(msg.clone());
+                            }
                         },
                     )
                     .await
@@ -567,21 +572,55 @@ impl From<std::ffi::NulError> for LoleError {
     }
 }
 
-#[no_mangle]
-#[allow(non_snake_case, unused_variables)]
-unsafe extern "system" fn DllMain(dll_module: HMODULE, call_reason: u32, _: *mut ()) -> bool {
-    match call_reason {
-        DLL_PROCESS_ATTACH => {
-            let tramp = AVAILABLE_PATCHES.get("EndScene").expect("EndScene");
-            if let Err(e) = tramp.enable() {
-                fatal_error_exit(e);
-            }
-            global_var!(ENABLED_PATCHES).push(tramp);
-            DLL_HANDLE.get_or_init(|| SendSyncWrapper(dll_module));
-        }
-        // DLL_PROCESS_DETACH => {},
-        _ => (),
-    }
+// #[no_mangle]
+// #[allow(non_snake_case, unused_variables)]
+// unsafe extern "system" fn DllMain(dll_module: HMODULE, call_reason: u32, _: *mut ()) -> bool {
+//     match call_reason {
+//         DLL_PROCESS_ATTACH => {
+//             let tramp = AVAILABLE_PATCHES.get("EndScene").expect("EndScene");
+//             if let Err(e) = tramp.enable() {
+//                 fatal_error_exit(e);
+//             }
+//             global_var!(ENABLED_PATCHES).push(tramp);
+//             DLL_HANDLE.get_or_init(|| SendSyncWrapper(dll_module));
+//         }
+//         // DLL_PROCESS_DETACH => {},
+//         _ => (),
+//     }
 
-    true
+//     true
+// }
+
+#[no_mangle]
+pub extern "system" fn DllMain(_hinst: *mut c_void, reason: u32, _reserved: *mut c_void) -> i32 {
+    if reason == 1 {
+        // DLL_PROCESS_ATTACH
+        eprintln!("Moi");
+        unsafe {
+            windows::Win32::System::Threading::CreateThread(
+                None,
+                0,
+                Some(main_thread),
+                None,
+                THREAD_CREATE_RUN_IMMEDIATELY,
+                None,
+            )
+            .unwrap();
+        }
+    }
+    1
 }
+
+unsafe extern "system" fn main_thread(_: *mut c_void) -> u32 {
+    // all your actual code goes here
+    0
+}
+
+#[no_mangle]
+pub extern "system" fn DivxDecode() {}
+#[no_mangle]
+pub extern "system" fn InitializeDivxDecoder() {}
+#[no_mangle]
+pub extern "system" fn SetOutputFormat() {}
+#[no_mangle]
+pub extern "system" fn UnInitializeDivxDecoder() {}
