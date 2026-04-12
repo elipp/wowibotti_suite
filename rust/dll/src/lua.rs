@@ -9,8 +9,8 @@ use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
 use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager, WowObject, WowObjectType};
 use crate::patch::{
-    copy_original_opcodes, deref_opt_ptr, deref_opt_t, read_addr, write_addr,
-    InstructionBuffer, Patch, PatchKind,
+    copy_original_opcodes, deref_opt_ptr, deref_opt_t, deref_t, write_addr, InstructionBuffer,
+    Patch, PatchKind,
 };
 use crate::socket::cast_gtaoe;
 use crate::socket::facing::{self};
@@ -557,9 +557,9 @@ struct TaintReseter(Addr);
 
 impl TaintReseter {
     pub fn new() -> Self {
-        let taint_caller = read_addr::<Addr>(TAINT_CALLER);
+        let original_taint_caller: usize = deref_t::<_, 1>(TAINT_CALLER);
         write_addr(TAINT_CALLER, &[0x0u32]).unwrap();
-        TaintReseter(taint_caller)
+        TaintReseter(original_taint_caller)
     }
 }
 

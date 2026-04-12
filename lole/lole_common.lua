@@ -675,10 +675,17 @@ function track_heal_attempts(name)
 end
 
 -- GetSpellCooldown also accepts "spell" (BOOKTYPE_SPELL) or "pet" (BOOKTYPE_PET)
+
+local function fmt_spell_with_optional_rank(spellname, rank)
+  return rank and spellname.."(Rank "..rank..")" or spellname
+end
+
 function cast_if_nocd(spellname, rank, ...)
-	if GetSpellCooldown(spellname, ...) == 0 then
-		L_CastSpellByName(spellname)
-    if INSTANT_HEALS[spellname] or HEAL_ESTIMATES[spellname] or (rank and HEAL_ESTIMATES[spellname.."("..rank..")"]) then
+  -- hunter pets actually need the "(Rank 2)" part in GetSpellCooldown, and normal spells seem to work with it
+  local spellname_with_rank = fmt_spell_with_optional_rank(spellname, rank)
+	if GetSpellCooldown(spellname_with_rank, ...) == 0 then
+		L_CastSpellByName(spellname_with_rank)
+    if INSTANT_HEALS[spellname] or HEAL_ESTIMATES[spellname] or (rank and HEAL_ESTIMATES[spellname_with_rank]) then
         track_heal_attempts(UnitName("target"))
     end
 		return true
@@ -691,8 +698,8 @@ end
 
 function cast_spell(spellname)
 	local name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(spellname);
-	cast_state = { true, GetTime(), castTime, UnitName("target") };
-	cast_if_nocd(spellname, rank);
+	cast_state = { true, GetTime(), castTime, UnitName("target") }
+	cast_if_nocd(spellname, rank)
 end
 
 function cast_heal(spellname, target, range)
