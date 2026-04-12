@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use crate::addrs::{self, offsets};
 use crate::dostring;
-use crate::lua::{lua_dostring, RUN_SCRIPT_AFTER_N_FRAMES};
+use crate::lua::RUN_SCRIPT_AFTER_N_FRAMES;
 use crate::objectmanager::{GUIDFmt, ObjectManager, GUID, NO_TARGET};
 use crate::patch::{
     copy_original_opcodes, deref_t, read_elems_from_addr, write_addr, InstructionBuffer, Patch,
@@ -285,11 +285,10 @@ impl CtmQueue {
                     );
                 }
                 self.advance()?;
-            } else if current.priority == CtmPriority::Path {
-                if rand::thread_rng().gen::<f32>() < 0.003 {
+            } else if current.priority == CtmPriority::Path
+                && rand::thread_rng().gen::<f32>() < 0.003 {
                     dostring!("JumpOrAscendStart(); AscendStop()");
                 }
-            }
         } else {
             self.advance()?;
         }
@@ -425,10 +424,10 @@ impl Default for CtmEvent {
 }
 
 pub mod constants {
-    pub const GLOBAL_CONST1: f32 = 13.9626340866; // this is 9/4 PI ? :D
+    pub const GLOBAL_CONST1: f32 = 13.962_634; // this is 9/4 PI ? :D
     pub const MOVE_CONST2: f32 = 0.25;
     pub const MOVE_MINDISTANCE: f32 = 0.5;
-    pub const LOOT_CONST2: f32 = 13.4444444;
+    pub const LOOT_CONST2: f32 = 13.444_445;
     pub const LOOT_MINDISTANCE: f32 = 3.6666666;
 }
 
@@ -444,14 +443,14 @@ impl CtmEvent {
         let func: extern "cdecl" fn(a: u32, b: u32, c: u32, d: u32, e: u32) -> u32 =
             std::mem::transmute(0x4D4DB0 as *const c_void);
 
-        let ecx = func(
+        
+        func(
             deref_t::<_, 1>(0xCA1238),
             deref_t::<_, 1>(0xCA123C),
             8,
             0xA34B10,
             0x3CC4,
-        );
-        ecx
+        )
     }
     unsafe fn call_wow_click_to_move(&self) -> LoleResult<()> {
         // CPU Disasm
@@ -645,7 +644,7 @@ pub fn prepare_ctm_finished_patch() -> Patch {
 
     let mut patch_opcodes = InstructionBuffer::new();
     patch_opcodes.push(assembly::PUSHAD);
-    patch_opcodes.push_call_to(ctm_finished as Addr);
+    patch_opcodes.push_call_to(ctm_finished as *const () as Addr);
     patch_opcodes.push(assembly::POPAD);
     patch_opcodes.push_slice(&original_opcodes);
     patch_opcodes.push(assembly::PUSH_IMM);

@@ -8,13 +8,13 @@ use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use windows::Win32::System::Threading::ExitProcess;
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
-use lua::{lua_GetTime, lua_Integer, lua_Number, lua_debug_func, playermode, Opcode};
+use lua::{lua_GetTime, lua_Integer, lua_Number, Opcode};
 use patch::write_addr;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
@@ -115,7 +115,7 @@ macro_rules! global_var {
     ($name:ident) => {
         match $name.lock() {
             Ok(lock) => lock,
-            Err(e) => unsafe { crate::fatal_error_exit(e.into()) },
+            Err(e) => unsafe { $crate::fatal_error_exit(e.into()) },
         }
     };
 }
@@ -153,10 +153,10 @@ fn print_as_c_array(title: &str, bytes: &[u8]) {
     for (i, b) in bytes.iter().enumerate() {
         print!("0x{:02X}, ", b);
         if i % 10 == 9 {
-            print!("\n");
+            println!();
         }
     }
-    print!("\n");
+    println!();
 }
 
 fn reopen_stdout() -> windows::core::Result<HANDLE> {
@@ -384,7 +384,7 @@ pub fn get_config_file_path(pid: u32) -> Result<PathBuf, String> {
         std::env::var("LOCALAPPDATA").map_err(|_e| String::from("LOCALAPPDATA missing"))?;
     Ok(Path::new(&localappdata)
         .join("Temp")
-        .join(&format!("wow-{pid}.json")))
+        .join(format!("wow-{pid}.json")))
 }
 
 fn read_config_from_file(pid: u32) -> Result<ClientConfig, String> {
@@ -455,12 +455,9 @@ unsafe fn initialize_dll() -> LoleResult<()> {
                                 message_queue: Default::default(),
                             });
                         },
-                        |msg| match (msg.message, BROKER_STATE.get()) {
-                            (Msg::AddonMessage(msg), Some(state)) => {
-                                let mut queue = state.message_queue.lock().unwrap();
-                                queue.push_back(msg.clone());
-                            }
-                            _ => {}
+                        |msg| if let (Msg::AddonMessage(msg), Some(state)) = (msg.message, BROKER_STATE.get()) {
+                            let mut queue = state.message_queue.lock().unwrap();
+                            queue.push_back(msg.clone());
                         },
                     )
                     .await

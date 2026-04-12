@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::ffi::c_void;
-use std::mem::size_of;
 use std::pin::Pin;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::LazyLock;
 
 use windows::Win32::System::{
     Diagnostics::Debug::WriteProcessMemory,
@@ -18,17 +17,17 @@ use crate::{assembly, Addr, EndScene_hook, LoleError, LoleResult};
 
 pub static AVAILABLE_PATCHES: LazyLock<HashMap<&'static str, Patch>> = LazyLock::new(|| {
     HashMap::from_iter([
-        ("EndScene", prepare_endscene_trampoline().into()),
+        ("EndScene", prepare_endscene_trampoline()),
         (
             "ClosePetStables__lop_exec",
-            prepare_ClosePetStables_patch().into(),
+            prepare_ClosePetStables_patch(),
         ),
-        ("CTM_finished", prepare_ctm_finished_patch().into()),
+        ("CTM_finished", prepare_ctm_finished_patch()),
         (
             "dump_outbound_packet",
-            prepare_dump_outbound_packet_patch().into(),
+            prepare_dump_outbound_packet_patch(),
         ),
-        ("SpellErrMsg", prepare_spell_err_msg_trampoline().into()),
+        ("SpellErrMsg", prepare_spell_err_msg_trampoline()),
     ])
 });
 
@@ -40,6 +39,12 @@ const INSTRBUF_SIZE: usize = 64;
 pub struct InstructionBuffer {
     instructions: Pin<Box<[u8; INSTRBUF_SIZE]>>,
     current_offset: usize,
+}
+
+impl Default for InstructionBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl InstructionBuffer {
@@ -191,7 +196,7 @@ pub fn deref_opt_t<T: Copy, const N: u8>(ptr: *const c_void) -> Option<T> {
 }
 
 pub fn deref_res_t<T: Copy, const N: u8>(ptr: *const c_void) -> LoleResult<T> {
-    Ok(deref_opt_t::<T, N>(ptr).ok_or_else(|| LoleError::NullPtrError)?)
+    deref_opt_t::<T, N>(ptr).ok_or_else(|| LoleError::NullPtrError)
 }
 
 pub fn deref_ptr<const N: u8>(ptr: *const c_void) -> *const c_void {
@@ -239,7 +244,7 @@ pub fn write_addr<T: Sized + Copy + std::fmt::Debug>(addr: Addr, data: &[T]) -> 
             Some(&mut bytes_written),
         )
         .map_err(|_| LoleError::MemoryWriteError)?;
-        if bytes_written != data.len() * size_of::<T>() {
+        if bytes_written != std::mem::size_of_val(data) {
             return Err(LoleError::PartialMemoryWriteError);
         }
         Ok(())
@@ -264,7 +269,7 @@ pub fn prepare_endscene_trampoline() -> Patch {
 
     let mut patch_opcodes = InstructionBuffer::new();
     patch_opcodes.push(assembly::PUSHAD);
-    patch_opcodes.push_call_to(EndScene_hook as Addr);
+    patch_opcodes.push_call_to(EndScene_hook as *const () as Addr);
     patch_opcodes.push(assembly::POPAD);
     patch_opcodes.push_slice(&original_opcodes);
     patch_opcodes.push_default_return(EndScene, 7);

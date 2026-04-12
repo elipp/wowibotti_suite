@@ -1,7 +1,7 @@
 use crate::lua::spell_errmsg_received;
 use crate::patch::{copy_original_opcodes, InstructionBuffer, Patch, PatchKind};
-use crate::{add_repr_and_tryfrom, assembly, dostring, Addr};
-use crate::{LoleError, LAST_FRAME_NUM, LAST_SPELL_ERR_MSG};
+use crate::{assembly, Addr};
+use crate::LoleError;
 
 use crate::addrs::offsets;
 use lole_macros::generate_lua_enum;
@@ -57,7 +57,7 @@ struct SpellErrMsgArgs {
 }
 
 fn is_aligned_to<const A: usize, T>(ptr: *const T) -> bool {
-    (ptr as usize) % A == 0
+    (ptr as usize).is_multiple_of(A)
 }
 
 unsafe extern "stdcall" fn spell_err_msg(msg_ptr: *const SpellErrMsgArgs) {
@@ -112,7 +112,7 @@ pub fn prepare_spell_err_msg_trampoline() -> Patch {
     let mut patch_opcodes = InstructionBuffer::new();
     patch_opcodes.push(assembly::PUSHAD); // NOTE: this adds 0x20 to the stack
     patch_opcodes.push_slice(&[0x8D, 0x5C, 0x24, 0x24, 0x53]); // the original SpellErrMsg takes 6 arguments, third one is relevant
-    patch_opcodes.push_call_to(spell_err_msg as Addr);
+    patch_opcodes.push_call_to(spell_err_msg as *const () as Addr);
     patch_opcodes.push(assembly::POPAD);
     patch_opcodes.push_slice(&original_opcodes);
     patch_opcodes.push_default_return(offsets::wow_cfuncs::SpellErrMsg, 9);

@@ -1,8 +1,8 @@
 use std::{io::Write, path::Path};
 
-use proc_macro::{Literal, TokenStream};
+use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, ItemEnum, LitStr, Meta, Type};
+use syn::{parse_macro_input, ItemEnum, LitStr, Type};
 
 #[proc_macro_attribute]
 pub fn generate_lua_enum(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -62,7 +62,7 @@ pub fn generate_lua_enum(args: TokenStream, input: TokenStream) -> TokenStream {
 
     // Write the Lua code to a file
     // let lua_path = format!("generated/{}.lua", enum_name.to_string().to_lowercase());
-    let mut file = std::fs::File::create(&lua_path).unwrap();
+    let mut file = std::fs::File::create(lua_path).unwrap();
     write!(file, "{}", lua_code).expect("Unable to write Lua code");
     write!(file, "\n\n").expect("Unable to write Lua code");
     write!(file, "{}", lua_reverse).expect("Unable to write Lua code");
