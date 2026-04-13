@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::Registry;
 use windows::Win32::System::Threading::{ExitProcess, THREAD_CREATE_RUN_IMMEDIATELY};
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 use wowibotti_suite_types::{ClientConfig, RealmInfo, WowAccount};
@@ -37,7 +38,8 @@ use windows::Win32::System::Console::{FreeConsole, STD_OUTPUT_HANDLE};
 use windows::Win32::System::Console::{GetStdHandle, SetStdHandle};
 use windows::Win32::System::LibraryLoader::FreeLibraryAndExitThread;
 
-use lazy_static::lazy_static;
+#[cfg(not(any(feature = "host-linux", feature = "host-windows")))]
+compile_error!("At least one of 'host-linux' or 'host-windows' must be enabled.");
 
 type Addr = usize;
 type Offset = isize;
@@ -63,9 +65,7 @@ pub const POSTGRES_USER: &str = "lole";
 pub const POSTGRES_PASS: &str = "lole";
 pub const POSTGRES_DB: &str = "lole";
 
-lazy_static! {
-    pub static ref ENABLED_PATCHES: Arc<Mutex<Vec<&'static Patch>>> = Arc::new(Mutex::new(vec![]));
-}
+pub static ENABLED_PATCHES: LazyLock<Arc<Mutex<Vec<&'static Patch>>>> = LazyLock::new(|| Arc::new(Mutex::new(vec![])));
 
 thread_local! {
     pub static NEED_INIT: Cell<bool> = const { Cell::new(true) };
@@ -89,15 +89,6 @@ use addonmessage_broker::{
     server::MsgWrapper,
 };
 
-// #[cfg(feature = "addonmessage_broker")]
-// pub static BROKER_CONNECTION_ID: OnceLock<ConnectionId> = OnceLock::new();
-// #[cfg(feature = "addonmessage_broker")]
-// pub static BROKER_TX: OnceLock<std::sync::mpsc::Sender<MsgWrapper>> = OnceLock::new();
-// #[cfg(feature = "addonmessage_broker")]
-// lazy_static! {
-//     pub static ref BROKER_MESSAGE_QUEUE: Arc<Mutex<VecDeque<AddonMessage>>> =
-//         Arc::new(Mutex::new(VecDeque::new()));
-// }
 
 #[cfg(feature = "addonmessage_broker")]
 pub struct BrokerState {
@@ -346,7 +337,8 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     open_console()?;
 
     let filter = tracing_subscriber::filter::LevelFilter::INFO;
-    let (filter, reload_handle) = tracing_subscriber::reload::Layer::new(filter);
+    let (filter, reload_handle) =
+        tracing_subscriber::reload::Layer::<LevelFilter, Registry>::new(filter);
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -355,8 +347,7 @@ unsafe fn initialize_dll() -> LoleResult<()> {
         .with(tracing_subscriber::fmt::layer().with_ansi(cfg!(feature = "host-windows")))
         .init();
 
-    // let pid = std::process::id();
-    let pid = 1337;
+    let pid = std::process::id();
 
     let config = match read_config_from_file(pid) {
         Ok(config) => {
@@ -445,7 +436,7 @@ unsafe fn fatal_error_exit(err: LoleError) -> ! {
         windows_string!("wowibottihookdll_rust error :("),
         MB_OK | MB_ICONERROR, // MB_OK apparently waits for the user to click OK
     );
-    ExitProcess(1);
+    ExitProcess(1)
 }
 
 #[allow(non_snake_case)]

@@ -1951,7 +1951,6 @@ dependencies = [
  "http-body-util",
  "hyper",
  "image",
- "lazy_static",
  "nohash-hasher",
  "pin-project-lite",
  "rand 0.10.1",
@@ -1962,7 +1961,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-subscriber",
- "windows 0.62.2",
+ "windows",
  "wowibotti_suite_types",
  "wowibottihookdll",
 ]
@@ -5131,7 +5130,6 @@ version = "0.1.0"
 dependencies = [
  "addonmessage_broker",
  "bitcode",
- "lazy_static",
  "lole_macros",
  "nohash-hasher",
  "rand 0.10.1",
@@ -5141,7 +5139,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "windows 0.62.2",
+ "windows",
  "wowibotti_suite_types",
 ]
 

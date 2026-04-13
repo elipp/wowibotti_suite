@@ -20,19 +20,15 @@ use crate::socket::movement_flags;
 use crate::vec3::{Vec3, TWO_PI};
 use crate::{assembly, Addr, LoleError, LoleResult};
 
-use lazy_static::lazy_static;
-
-lazy_static! {
     // turns out that thread_local! { RefCell }, while possible, is kinda tedious
     // QUEUE.with(|cell| { let mut borrow = cell.borrow_mut(); // etc. })
-    static ref QUEUE: Mutex<CtmQueue> = Mutex::new(CtmQueue {
+    static QUEUE: LazyLock<Mutex<CtmQueue>> = LazyLock::new(||Mutex::new(CtmQueue {
         events: Default::default(),
         current: None,
         prev_pos: Default::default(),
         last_frame_time: Instant::now(),
         yards_moved: Default::default(),
-    });
-}
+    }));
 
 #[derive(Clone, Copy)]
 struct InterpStatus {

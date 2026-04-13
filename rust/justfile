@@ -1,6 +1,13 @@
-all:
+linux:
 	cargo build -p addonmessage_broker --target x86_64-unknown-linux-gnu
-	cargo build -p wowibottihookdll --profile=dev --target i686-pc-windows-gnu
+	cargo build -p wowibottihookdll --profile=dev --target i686-pc-windows-gnu --features host-linux
 
-broker:
+broker-linux:
 	cargo run --target x86_64-unknown-linux-gnu --bin broker-server
+
+win:
+	cargo build -p addonmessage_broker --target x86_64-pc-windows-msvc
+	cargo build -p wowibottihookdll --profile=dev --target i686-pc-windows-msvc --features host-windows
+
+broker-win:
+	cargo run --target x86_64-pc-windows-msvc --bin broker-server

@@ -1,4 +1,3 @@
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use shared::SendSyncWrapper;
 use std::ffi::c_void;
@@ -39,9 +38,7 @@ use crate::{str_into_vec_u16, InjectQuery, DUMMY_WINDOW_HWND};
 pub const INJ_MESSAGE_REGISTER_HOTKEY: u32 = WM_USER;
 pub const INJ_MESSAGE_UNREGISTER_HOTKEY: u32 = WM_USER + 1;
 
-lazy_static! {
-    pub static ref CLIENTS: Arc<Mutex<Vec<WowClient>>> = Arc::new(Mutex::new(Vec::new()));
-}
+pub static CLIENTS: LazyLock<Arc<Mutex<Vec<WowClient>>>> = LazyLock::new(||Arc::new(Mutex::new(Vec::new())));
 
 pub type InjectorResult<T> = Result<T, InjectorError>;
 
