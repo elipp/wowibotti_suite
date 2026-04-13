@@ -11,3 +11,6 @@ win:
 
 broker-win:
 	cargo run --target x86_64-pc-windows-msvc --bin broker-server
+
+injector-win:
+	cargo run --target i686-pc-windows-msvc --bin injector --features host-windows

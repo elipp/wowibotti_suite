@@ -66,7 +66,7 @@ impl MsgWrapper {
     ) -> anyhow::Result<Self> {
         let mut packet_size_buf = [0u8; std::mem::size_of::<PacketSize>()];
         read.read_exact(&mut packet_size_buf).await?;
-        let packet_size = PacketSize::from_le_bytes(packet_size_buf.try_into()?) as usize;
+        let packet_size = PacketSize::from_le_bytes(packet_size_buf) as usize;
 
         read.read_exact(&mut read_buffer[..packet_size]).await?;
         let msg = serialization_buffer

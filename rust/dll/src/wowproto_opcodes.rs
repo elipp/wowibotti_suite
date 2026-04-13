@@ -1,4 +1,5 @@
 use nohash_hasher::IntMap;
+use std::sync::LazyLock;
 
 macro_rules! opcode_as_tuple {
     ($name:ident) => {
@@ -6,7 +7,8 @@ macro_rules! opcode_as_tuple {
     };
 }
 
-    pub static OPCODE_NAME_MAP: LazyLock<IntMap<u16, &'static str>> = LazyLock::new(||IntMap::from_iter([
+pub static OPCODE_NAME_MAP: LazyLock<IntMap<u16, &'static str>> = LazyLock::new(|| {
+    IntMap::from_iter([
         opcode_as_tuple!(MSG_NULL_ACTION),
         opcode_as_tuple!(CMSG_BOOTME),
         opcode_as_tuple!(CMSG_DBLOOKUP),
@@ -1319,8 +1321,8 @@ macro_rules! opcode_as_tuple {
         opcode_as_tuple!(SMSG_COMMENTATOR_SKIRMISH_QUEUE_RESULT2),
         opcode_as_tuple!(SMSG_COMPRESSED_UNKNOWN_1310),
         opcode_as_tuple!(NUM_MSG_TYPES),
-    ]));
-
+    ])
+});
 
 pub const MSG_NULL_ACTION: u16 = 0x000;
 pub const CMSG_BOOTME: u16 = 0x001;

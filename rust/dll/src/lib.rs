@@ -6,13 +6,14 @@ use std::collections::VecDeque;
 use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
 
 use objectmanager::ObjectManager;
-use serde::{Deserialize, Serialize};
+
 use socket::read_os_tick_count;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::LazyLock;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tracing::level_filters::LevelFilter;
@@ -38,9 +39,6 @@ use windows::Win32::System::Console::{FreeConsole, STD_OUTPUT_HANDLE};
 use windows::Win32::System::Console::{GetStdHandle, SetStdHandle};
 use windows::Win32::System::LibraryLoader::FreeLibraryAndExitThread;
 
-#[cfg(not(any(feature = "host-linux", feature = "host-windows")))]
-compile_error!("At least one of 'host-linux' or 'host-windows' must be enabled.");
-
 type Addr = usize;
 type Offset = isize;
 
@@ -54,7 +52,6 @@ pub mod socket;
 pub mod spell_error;
 pub mod vec3;
 pub mod wowproto_opcodes;
-
 use crate::lua::LuaType;
 use crate::patch::{Patch, AVAILABLE_PATCHES};
 use crate::spell_error::SpellError;
@@ -65,7 +62,8 @@ pub const POSTGRES_USER: &str = "lole";
 pub const POSTGRES_PASS: &str = "lole";
 pub const POSTGRES_DB: &str = "lole";
 
-pub static ENABLED_PATCHES: LazyLock<Arc<Mutex<Vec<&'static Patch>>>> = LazyLock::new(|| Arc::new(Mutex::new(vec![])));
+pub static ENABLED_PATCHES: LazyLock<Arc<Mutex<Vec<&'static Patch>>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(vec![])));
 
 thread_local! {
     pub static NEED_INIT: Cell<bool> = const { Cell::new(true) };
@@ -89,6 +87,15 @@ use addonmessage_broker::{
     server::MsgWrapper,
 };
 
+// #[cfg(feature = "addonmessage_broker")]
+// pub static BROKER_CONNECTION_ID: OnceLock<ConnectionId> = OnceLock::new();
+// #[cfg(feature = "addonmessage_broker")]
+// pub static BROKER_TX: OnceLock<std::sync::mpsc::Sender<MsgWrapper>> = OnceLock::new();
+// #[cfg(feature = "addonmessage_broker")]
+// lazy_static! {
+//     pub static ref BROKER_MESSAGE_QUEUE: Arc<Mutex<VecDeque<AddonMessage>>> =
+//         Arc::new(Mutex::new(VecDeque::new()));
+// }
 
 #[cfg(feature = "addonmessage_broker")]
 pub struct BrokerState {

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use shared::SendSyncWrapper;
 use std::ffi::c_void;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use windows::core::BOOL;
 use windows::Win32::Foundation::WPARAM;
 use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, WM_USER};
@@ -38,7 +38,8 @@ use crate::{str_into_vec_u16, InjectQuery, DUMMY_WINDOW_HWND};
 pub const INJ_MESSAGE_REGISTER_HOTKEY: u32 = WM_USER;
 pub const INJ_MESSAGE_UNREGISTER_HOTKEY: u32 = WM_USER + 1;
 
-pub static CLIENTS: LazyLock<Arc<Mutex<Vec<WowClient>>>> = LazyLock::new(||Arc::new(Mutex::new(Vec::new())));
+pub static CLIENTS: LazyLock<Arc<Mutex<Vec<WowClient>>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
 
 pub type InjectorResult<T> = Result<T, InjectorError>;
 
