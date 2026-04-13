@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 use std::ffi::c_void;
-use std::mem::size_of;
 use std::pin::Pin;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::LazyLock;
 
 use windows::Win32::System::{
     Diagnostics::Debug::WriteProcessMemory,
-    Memory::{VirtualProtect, PAGE_PROTECTION_FLAGS},
+    Memory::{VirtualProtect, PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS},
     Threading::GetCurrentProcess,
 };
 
@@ -18,17 +17,11 @@ use crate::{assembly, Addr, EndScene_hook, LoleError, LoleResult};
 
 pub static AVAILABLE_PATCHES: LazyLock<HashMap<&'static str, Patch>> = LazyLock::new(|| {
     HashMap::from_iter([
-        ("EndScene", prepare_endscene_trampoline().into()),
-        (
-            "ClosePetStables__lop_exec",
-            prepare_ClosePetStables_patch().into(),
-        ),
-        ("CTM_finished", prepare_ctm_finished_patch().into()),
-        (
-            "dump_outbound_packet",
-            prepare_dump_outbound_packet_patch().into(),
-        ),
-        ("SpellErrMsg", prepare_spell_err_msg_trampoline().into()),
+        ("EndScene", prepare_endscene_trampoline()),
+        ("ClosePetStables__lop_exec", prepare_ClosePetStables_patch()),
+        ("CTM_finished", prepare_ctm_finished_patch()),
+        ("dump_outbound_packet", prepare_dump_outbound_packet_patch()),
+        ("SpellErrMsg", prepare_spell_err_msg_trampoline()),
     ])
 });
 
@@ -40,6 +33,12 @@ const INSTRBUF_SIZE: usize = 64;
 pub struct InstructionBuffer {
     instructions: Pin<Box<[u8; INSTRBUF_SIZE]>>,
     current_offset: usize,
+}
+
+impl Default for InstructionBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl InstructionBuffer {
@@ -165,33 +164,27 @@ pub fn deref_t<T: Copy, const N: u8>(addr: Addr) -> T {
 }
 
 pub fn deref_opt_t<T: Copy, const N: u8>(ptr: *const c_void) -> Option<T> {
+    if N == 0 {
+        return None;
+    }
+
     unsafe {
         let mut t = ptr;
         for _ in 1..N {
-            if t.is_null() || t.align_offset(std::mem::align_of::<*const *const c_void>()) != 0 {
-                tracing::warn!("invalid t: {t:p}");
+            if t.is_null() {
                 return None;
             }
             t = std::ptr::read_unaligned(t as *const *const c_void);
         }
         if t.is_null() {
-            //|| t.align_offset(std::mem::align_of::<T>()) != 0 {
             return None;
-            //     tracing::warn!(
-            //         "invalid t: {t:p} ({}/{})",
-            //         std::mem::align_of::<T>(),
-            //         t.align_offset(std::mem::align_of::<T>())
-            //     );
-            //     return None;
-            // }
         }
-        let final_deref = std::ptr::read_unaligned(t as *const T);
-        Some(final_deref)
+        Some(std::ptr::read_unaligned(t as *const T))
     }
 }
 
 pub fn deref_res_t<T: Copy, const N: u8>(ptr: *const c_void) -> LoleResult<T> {
-    Ok(deref_opt_t::<T, N>(ptr).ok_or_else(|| LoleError::NullPtrError)?)
+    deref_opt_t::<T, N>(ptr).ok_or_else(|| LoleError::NullPtrError)
 }
 
 pub fn deref_ptr<const N: u8>(ptr: *const c_void) -> *const c_void {
@@ -226,16 +219,32 @@ pub fn read_elems_from_addr<const N: usize, T: Default + Sized + Copy + std::fmt
 
 pub fn write_addr<T: Sized + Copy + std::fmt::Debug>(addr: Addr, data: &[T]) -> LoleResult<()> {
     unsafe {
+        let size = std::mem::size_of_val(data);
+        let mut old_flags = PAGE_PROTECTION_FLAGS(0);
+        VirtualProtect(
+            addr as *const c_void,
+            size,
+            PAGE_EXECUTE_READWRITE,
+            &mut old_flags,
+        )
+        .map_err(|e| LoleError::MemoryWriteError(format!("{e:?}")))?;
+
         let mut bytes_written = 0;
-        WriteProcessMemory(
+        let result = WriteProcessMemory(
             GetCurrentProcess(),
             addr as _,
             data.as_ptr() as _,
             std::mem::size_of_val(data),
             Some(&mut bytes_written),
-        )
-        .map_err(|_| LoleError::MemoryWriteError)?;
-        if bytes_written != data.len() * size_of::<T>() {
+        );
+        VirtualProtect(addr as *const c_void, size, old_flags, &mut old_flags)
+            .map_err(|e| LoleError::MemoryWriteError(format!("{e:?}")))?;
+
+        if let Err(e) = result {
+            return Err(LoleError::MemoryWriteError(format!("{e:?}")));
+        }
+
+        if bytes_written != std::mem::size_of_val(data) {
             return Err(LoleError::PartialMemoryWriteError);
         }
         Ok(())
@@ -255,19 +264,31 @@ pub fn copy_original_opcodes(addr: Addr, n: usize) -> Box<[u8]> {
 }
 
 pub fn prepare_endscene_trampoline() -> Patch {
-    let EndScene = find_EndScene();
-    let original_opcodes = copy_original_opcodes(EndScene, 7);
+    let endscene_addr = loop {
+        if let Some(addr) = find_EndScene() {
+            break addr;
+        }
+    };
+
+    #[cfg(feature = "host-linux")]
+    const LEN_TRAMP: usize = 5;
+
+    // has a different signature :D
+    #[cfg(feature = "host-windows")]
+    const LEN_TRAMP: usize = 7;
+
+    let original_opcodes = copy_original_opcodes(endscene_addr, LEN_TRAMP);
 
     let mut patch_opcodes = InstructionBuffer::new();
     patch_opcodes.push(assembly::PUSHAD);
-    patch_opcodes.push_call_to(EndScene_hook as Addr);
+    patch_opcodes.push_call_to(EndScene_hook as *const () as Addr);
     patch_opcodes.push(assembly::POPAD);
     patch_opcodes.push_slice(&original_opcodes);
-    patch_opcodes.push_default_return(EndScene, 7);
+    patch_opcodes.push_default_return(endscene_addr, LEN_TRAMP);
 
     Patch {
         name: "EndScene",
-        patch_addr: EndScene,
+        patch_addr: endscene_addr,
         original_opcodes,
         patch_opcodes,
         kind: PatchKind::JmpToTrampoline,
@@ -275,12 +296,10 @@ pub fn prepare_endscene_trampoline() -> Patch {
 }
 
 #[allow(non_snake_case)]
-fn find_EndScene() -> Addr {
+fn find_EndScene() -> Option<Addr> {
     unsafe {
-        let wowd3d9 =
-            deref_opt_t::<*const c_void, 1>(offsets::D3D9_DEVICE as *const c_void).unwrap();
-        let d3d9 =
-            deref_opt_t::<*const c_void, 2>(wowd3d9.offset(offsets::D3D9_DEVICE_OFFSET)).unwrap();
-        deref_opt_t::<Addr, 1>(d3d9.offset(0x2A * 4)).unwrap()
+        let wowd3d9 = deref_opt_t::<*const c_void, 1>(offsets::D3D9_DEVICE as *const c_void)?;
+        let d3d9 = deref_opt_t::<*const c_void, 2>(wowd3d9.offset(offsets::D3D9_DEVICE_OFFSET))?;
+        deref_opt_t::<Addr, 1>(d3d9.offset(0x2A * 4))
     }
 }

@@ -8,7 +8,7 @@ use windows::Win32::System::SystemInformation::GetTickCount;
 use crate::addrs::offsets::{self};
 use crate::assembly;
 use crate::patch::{
-    copy_original_opcodes, deref_opt_t, deref_ptr, deref_res_ptr, deref_res_t, deref_t, write_addr,
+    copy_original_opcodes, deref_opt_t, deref_res_ptr, deref_res_t, write_addr,
     InstructionBuffer, Patch, PatchKind,
 };
 use crate::vec3::Vec3;
@@ -286,7 +286,7 @@ pub mod facing {
 
     pub fn set_facing(player: WowObject, angle: f32, movement_flags: u8) -> LoleResult<()> {
         let angle = angle.rem_euclid(TWO_PI);
-        let (prev_angle, timestamp) = SETFACING_STATE.get();
+        let (_prev_angle, timestamp) = SETFACING_STATE.get();
         let timeout_passed =
             timestamp.elapsed() > std::time::Duration::from_millis(SETFACING_DELAY_MILLIS);
 
@@ -368,7 +368,7 @@ unsafe fn wrap_dump_outbound_packet(edi: *const c_void) -> LoleResult<()> {
                     facing::FALL_TIME.set(u32::from_le_bytes(buf));
                 }
             }
-            let our_ticks = read_os_tick_count();
+            let _our_ticks = read_os_tick_count();
             #[cfg(feature = "tbc")]
             let ticks = u32::from_le_bytes([
                 packet_bytes[11],
@@ -377,7 +377,7 @@ unsafe fn wrap_dump_outbound_packet(edi: *const c_void) -> LoleResult<()> {
                 packet_bytes[14],
             ]);
             #[cfg(feature = "wotlk")]
-            let ticks = u32::from_le_bytes([
+            let _ticks = u32::from_le_bytes([
                 packet_bytes[17],
                 packet_bytes[18],
                 packet_bytes[19],
@@ -434,7 +434,7 @@ pub fn prepare_dump_outbound_packet_patch() -> Patch {
     let mut patch_opcodes = InstructionBuffer::new();
     patch_opcodes.push(assembly::PUSHAD);
     patch_opcodes.push(assembly::PUSH_EDI);
-    patch_opcodes.push_call_to(dump_outbound_packet as Addr);
+    patch_opcodes.push_call_to(dump_outbound_packet as *const () as Addr);
     patch_opcodes.push(assembly::POPAD);
     patch_opcodes.push_call_to(EncryptPacketHeader);
     patch_opcodes.push_default_return(DUMP_OUTBOUND_PACKET_PATCHADDR, 5);

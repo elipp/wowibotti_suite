@@ -1,12 +1,10 @@
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpStream;
 
 use crate::server::{ConnectionId, Msg, MsgSender, MsgWrapper, BUF_SIZE};
 
 pub async fn start_addonmessage_client<
-    SetConnectionIdCallback: FnOnce(ConnectionId) -> (),
-    MsgHandler: Fn(MsgWrapper) -> () + Send + 'static,
+    SetConnectionIdCallback: FnOnce(ConnectionId),
+    MsgHandler: Fn(MsgWrapper) + Send + 'static,
 >(
     rx: std::sync::mpsc::Receiver<MsgWrapper>,
     name: String,

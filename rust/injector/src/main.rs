@@ -1,9 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(rustdoc::missing_crate_level_docs)]
 
-use addonmessage_broker::SendSyncWrapper;
 #[cfg(feature = "native-ui")]
 use eframe::egui;
+use shared::SendSyncWrapper;
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -15,11 +15,10 @@ use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey, MOD_ALT};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, RegisterClassW, SetForegroundWindow, CS_HREDRAW, CS_VREDRAW,
-    CW_USEDEFAULT, WINDOW_EX_STYLE, WM_USER, WNDCLASSW, WS_OVERLAPPEDWINDOW, WS_VISIBLE,
+    CW_USEDEFAULT, WINDOW_EX_STYLE, WNDCLASSW, WS_OVERLAPPEDWINDOW,
 };
 use windows::{
     core::PCWSTR,
-    core::PWSTR,
     Win32::{
         Foundation::{FALSE, HWND},
         System::{
@@ -82,9 +81,9 @@ pub struct InjectQuery {
 }
 
 pub fn read_potti_conf() -> Result<PottiConfig, InjectorError> {
-    // let config_str = std::fs::read_to_string("potti.conf")
-    //     .map_err(|_e| InjectorError::OtherError(format!("couldn't read potti.conf")))?;
-    let config_str = include_str!("..\\potti.conf.json");
+    let config_str = std::fs::read_to_string("..\\potti.conf.json")
+        .map_err(|_e| InjectorError::OtherError(format!("couldn't read potti.conf")))?;
+    // let config_str = include_str!("..\\potti.conf.json");
     let config: PottiConfig = serde_json::from_str(&config_str)
         .map_err(|_e| InjectorError::DeserializationError(format! {"{_e:?}"}))?;
     Ok(config)
@@ -254,7 +253,7 @@ fn main() -> Result<(), eframe::Error> {
         .collect();
 
     #[cfg(feature = "addonmessage_broker")]
-    let handle = std::thread::spawn(|| {
+    let _ = std::thread::spawn(|| {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             start_addonmessage_relay().await;
@@ -263,9 +262,9 @@ fn main() -> Result<(), eframe::Error> {
 
     let mut select_all = false;
 
-    eframe::run_simple_native("injector :D", options, move |ctx, _frame| {
+    eframe::run_ui_native("injector :D", options, move |ctx, _frame| {
         egui_extras::install_image_loaders(ctx);
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show_inside(ctx, |ui| {
             ui.heading("Injector :D");
             ui.add_space(20.0);
             ui.columns(2, |columns| {

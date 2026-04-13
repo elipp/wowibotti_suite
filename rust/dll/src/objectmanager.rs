@@ -70,7 +70,7 @@ impl WowObject {
         match self.get_type() {
             WowObjectType::Npc | WowObjectType::Unit => {
                 let mut result: *const c_char; // looks so weird, but the compiler is giving a warning if it's initialized :D
-                let mut unknown: usize = 0; // needs some stack address (never modified, apparently)
+                let unknown: usize = 0; // needs some stack address (never modified, apparently)
                 let base = self.base;
                 let func_addr = offsets::wow_cfuncs::GetUnitOrNPCNameAddr;
                 unsafe {
@@ -270,7 +270,7 @@ impl WowObject {
         }
         let edx = deref_res_t::<u32, 1>(unk_state.wrapping_byte_offset(0x124))?;
         if edx & (0x1 << 0x5) == 0 {
-            return Ok(false);
+            Ok(false)
         } else {
             Err(LoleError::UnknownBranchTaken)
         }

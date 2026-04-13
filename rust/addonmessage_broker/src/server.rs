@@ -1,6 +1,6 @@
-use std::sync::{mpsc, Arc, Mutex, OnceLock};
+use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
-use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpListener;
 
@@ -56,15 +56,17 @@ pub struct MsgWrapper {
     pub message: Msg,
 }
 
+type PacketSize = u32;
+
 impl MsgWrapper {
     pub async fn read(
         read: &mut OwnedReadHalf,
         serialization_buffer: &mut bitcode::Buffer,
         read_buffer: &mut [u8],
-    ) -> Result<Self, std::io::Error> {
-        let mut packet_size_buf = [0u8; std::mem::size_of::<usize>()];
+    ) -> anyhow::Result<Self> {
+        let mut packet_size_buf = [0u8; std::mem::size_of::<PacketSize>()];
         read.read_exact(&mut packet_size_buf).await?;
-        let packet_size = usize::from_le_bytes(packet_size_buf.try_into().unwrap());
+        let packet_size = PacketSize::from_le_bytes(packet_size_buf.try_into()?) as usize;
 
         read.read_exact(&mut read_buffer[..packet_size]).await?;
         let msg = serialization_buffer
@@ -83,9 +85,10 @@ impl MsgWrapper {
         self,
         write: &mut OwnedWriteHalf,
         serialization_buffer: &mut bitcode::Buffer,
-    ) -> Result<(), std::io::Error> {
+    ) -> anyhow::Result<()> {
         let encoded = serialization_buffer.encode(&self);
-        write.write_all(&encoded.len().to_le_bytes()).await?;
+        let size: PacketSize = encoded.len().try_into()?;
+        write.write_all(&size.to_le_bytes()).await?;
         write.write_all(encoded).await?;
         Ok(())
     }

@@ -2649,5 +2649,5 @@ pub fn is_movement_opcode(opcode: u16) -> bool {
         MSG_MOVE_STOP_STRAFE,
     ];
 
-    MOVEMENT_OPCODES.iter().any(|m| *m == opcode)
+    MOVEMENT_OPCODES.contains(&opcode)
 }

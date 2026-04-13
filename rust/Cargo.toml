@@ -1,7 +1,12 @@
-workspace = { members = ["addonmessage_broker", "dll", "injector", "macros", "wowibotti_suite_types"], resolver="2" }
+workspace = { members = ["addonmessage_broker", "dll", "injector", "macros", "wowibotti_suite_types", "shared"], resolver="2" }
 
 [profile.dev]
-panic = "unwind"
+panic = "abort"
+strip = true
+opt-level = 0
+
+[profile.dev.package."*"]
+opt-level = 3
  
 [profile.release]
 panic = "unwind"

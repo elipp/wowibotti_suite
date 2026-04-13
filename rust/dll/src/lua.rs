@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use std::ffi::{c_char, c_void, CStr, CString};
 
 use lole_macros::generate_lua_enum;
-use rand::Rng;
+use rand::RngExt;
 
 use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
@@ -85,11 +85,11 @@ pub const LUA_OK: i32 = 0;
 macro_rules! chatframe_print {
     ($fmt:expr, $($args:expr),*) => {
         // this [=[ blah blah blah ]=] syntax is a "level 1 long bracket"
-        crate::dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage([=[[DLL]: ", $fmt, "]=])"), $($args),*)
+        $crate::dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage([=[[DLL]: ", $fmt, "]=])"), $($args),*)
     };
 
     ($msg:literal) => {
-        crate::dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage([=[", $msg, "]=])"))
+        $crate::dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage([=[", $msg, "]=])"))
     };
 }
 
@@ -286,11 +286,11 @@ define_lua_function!(
 macro_rules! dostring {
     ($fmt:expr, $($args:expr),*) => {{
         let formatted = format!($fmt, $($args),*);
-        crate::dostring!(formatted)
+        $crate::dostring!(formatted)
     }};
 
     ($script:expr) => {{
-        use crate::lua::{lua_dostring};
+        use $crate::lua::{lua_dostring};
         use std::ffi::{c_char, CString};
         tracing::debug!("dostring('{}')", $script);
         if let Ok(s) = CString::new($script).map_err(|_e|LoleError::StringConvError(format!("{_e:?}"))) {
@@ -403,8 +403,8 @@ pub enum Opcode {
 #[macro_export]
 macro_rules! cstr_to_str {
     ($e:expr) => {{
-        use crate::LoleError;
         use std::ffi::CStr;
+        use $crate::LoleError;
         if $e.is_null() {
             Err(LoleError::NullPtrError)
         } else {
@@ -477,8 +477,8 @@ pub fn playermode() -> LoleResult<bool> {
 }
 
 fn random_01() -> f32 {
-    let mut rng = rand::thread_rng();
-    rng.gen()
+    let mut rng = rand::rng();
+    rng.random()
 }
 
 // impl From<postgres::Error> for LoleError {
@@ -501,7 +501,7 @@ impl From<serde_json::Error> for LoleError {
     }
 }
 
-fn store_path_to_db(name: &str, zonetext: &str, waypoint_data: Vec<Vec3>) -> LoleResult<()> {
+fn store_path_to_db(_name: &str, _zonetext: &str, _waypoint_data: Vec<Vec3>) -> LoleResult<()> {
     //     let mut client = get_postgres_conn()?;
     //     let waypoint_data = serde_json::to_value(waypoint_data)?;
 
@@ -541,7 +541,7 @@ struct PathRecording {
 //     }
 // }
 
-fn query_path_from_db(name: &str) -> LoleResult<Option<PathRecording>> {
+fn query_path_from_db(_name: &str) -> LoleResult<Option<PathRecording>> {
     //     let mut client = get_postgres_conn()?;
     //     if let Some(path_recording) = client.query_opt(
     //         "SELECT id, name, zonetext, waypoint_data FROM path_recordings WHERE name = $1",
@@ -570,9 +570,9 @@ impl Drop for TaintReseter {
     }
 }
 
-pub fn lua_debug_func(lua: lua_State) -> LoleResult<i32> {
+pub fn lua_debug_func(_lua: lua_State) -> LoleResult<i32> {
     let om = ObjectManager::new()?;
-    let time = lua_GetTime()?;
+    let _time = lua_GetTime()?;
     println!(
         "{:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
         om.get_unit_by_nameref_internal("player"),
@@ -589,7 +589,7 @@ pub fn lua_debug_func(lua: lua_State) -> LoleResult<i32> {
 unsafe fn mem_as_slice<'a, T>(addr: Addr, n_bytes: usize) -> &'a [T] {
     // Convert the byte slice to a pointer to u32 and determine its length
     let ptr = addr as *const T;
-    let len = (n_bytes as usize) / std::mem::size_of::<T>(); //truncate
+    let len = n_bytes / std::mem::size_of::<T>(); //truncate
 
     // Create a slice from the pointer and length
     std::slice::from_raw_parts(ptr, len)
@@ -863,9 +863,9 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 if let Some((msg, framenum)) = values.into_iter().last() {
                     lua_pushinteger(lua, msg as isize);
                     lua_pushinteger(lua, framenum);
-                    return Ok(2);
+                    Ok(2)
                 } else {
-                    return Ok(LUA_NO_RETVALS);
+                    Ok(LUA_NO_RETVALS)
                 }
             })
         }
@@ -1019,14 +1019,14 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
             store_path_to_db(name, zonetext, path)?;
         }
-        Opcode::PlaybackPath if 1 <= nargs && nargs <= 2 => {
+        Opcode::PlaybackPath if (1..=2).contains(&nargs) => {
             let name = lua_tostring!(lua, 2)?;
             let reversed = if nargs == 2 {
                 lua_toboolean(lua, 3) == 1
             } else {
                 false
             };
-            if let Some(mut path_recording) = query_path_from_db(&name)? {
+            if let Some(mut path_recording) = query_path_from_db(name)? {
                 chatframe_print!("Starting playback for path `{}`", name);
                 if reversed {
                     path_recording.waypoints.reverse();
@@ -1055,7 +1055,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             return Ok(1);
         }
         #[cfg(feature = "addonmessage_broker")]
-        Opcode::SendAddonMessage if nargs >= 2 && nargs < 5 => {
+        Opcode::SendAddonMessage if (2..5).contains(&nargs) => {
             if let Some(state) = BROKER_STATE.get() {
                 let prefix = lua_tostring!(lua, 2)?.to_owned();
                 let text = lua_tostring!(lua, 3)?.to_owned();
@@ -1070,12 +1070,11 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                     None
                 };
 
-                match (r#type.as_deref(), target.as_deref()) {
-                    (Some("WHISPER"), None) => {
-                        tracing::error!("(warning: Invalid use of SendAddonMessage(..., WHISPER) with no target)");
-                        return Ok(0);
-                    }
-                    _ => {}
+                if let (Some("WHISPER"), None) = (r#type.as_deref(), target.as_deref()) {
+                    tracing::error!(
+                        "(warning: Invalid use of SendAddonMessage(..., WHISPER) with no target)"
+                    );
+                    return Ok(0);
                 }
 
                 let _res = state.tx.send(MsgWrapper {
@@ -1096,7 +1095,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         }
         Opcode::DumpWowObject => {
             // when mob is looted, base + 0x2A*4 is set to 0, meanwhile "NpcState" seems to not be very interesting
-            let n_bytes = if nargs >= 1 {
+            let _n_bytes = if nargs >= 1 {
                 lua_tointeger(lua, 2)
             } else {
                 1024
@@ -1145,7 +1144,7 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
         Ok(num_retvals) => num_retvals,
         Err(error) => {
             tracing::error!("lop_exec: error: {:?}", error);
-            let x = chatframe_print!("lop_exec: error: {:?}", error);
+            chatframe_print!("lop_exec: error: {:?}", error);
             LUA_NO_RETVALS
         }
     }
@@ -1157,10 +1156,7 @@ pub fn get_wow_lua_state() -> LoleResult<lua_State> {
 }
 
 pub fn register_lop_exec_if_not_registered() -> LoleResult<()> {
-    if let Err(e) = ObjectManager::new() {
-        // we're not in the world
-        return Err(e);
-    }
+    ObjectManager::new()?;
 
     let lua = get_wow_lua_state()?;
     lua_getglobal!(lua, c"lop_exec");
@@ -1228,7 +1224,7 @@ pub fn lua_GetTime() -> LoleResult<lua_Number> {
 pub fn prepare_ClosePetStables_patch() -> Patch {
     let mut patch_opcodes = InstructionBuffer::new();
     patch_opcodes.push(assembly::PUSH_ESI);
-    patch_opcodes.push_call_to(closepetstables_lop_exec as Addr);
+    patch_opcodes.push_call_to(closepetstables_lop_exec as *const () as Addr);
     patch_opcodes.push(assembly::RET); // ret val is in eax
     Patch {
         name: "ClosePetStables__lop_exec",
@@ -1285,9 +1281,9 @@ impl FromLua for lua_Number {
             lua_pop!(lua, 1);
             Ok(res)
         } else {
-            return Err(LoleError::LuaError(format!(
+            Err(LoleError::LuaError(format!(
                 "FromLua for lua_Number failed, got type `{t}`"
-            )));
+            )))
         }
     }
 }
@@ -1300,9 +1296,9 @@ impl FromLua for lua_Integer {
             lua_pop!(lua, 1);
             Ok(res as lua_Integer)
         } else {
-            return Err(LoleError::LuaError(format!(
+            Err(LoleError::LuaError(format!(
                 "FromLua for lua_Number failed, got type `{t}`"
-            )));
+            )))
         }
     }
 }
@@ -1327,7 +1323,7 @@ pub trait LuaCall {
 }
 
 impl FromLua for () {
-    fn from_lua(lua: lua_State) -> LoleResult<Self> {
+    fn from_lua(_lua: lua_State) -> LoleResult<Self> {
         Ok(())
     }
 }

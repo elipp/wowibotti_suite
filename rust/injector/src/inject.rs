@@ -1,6 +1,6 @@
-use addonmessage_broker::SendSyncWrapper;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use shared::SendSyncWrapper;
 use std::ffi::c_void;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
