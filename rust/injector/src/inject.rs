@@ -1,11 +1,14 @@
 use addonmessage_broker::SendSyncWrapper;
 use lazy_static::lazy_static;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::ffi::c_void;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use windows::core::BOOL;
 use windows::Win32::Foundation::WPARAM;
 use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, WM_USER};
+use wowibotti_suite_types::{ClientConfig, RealmInfo, WowAccount};
+use wowibottihookdll::get_config_file_path;
 
 use windows::{
     core::{s, w, PCWSTR},
@@ -31,7 +34,7 @@ use windows::{
     },
 };
 
-use crate::{str_into_vec_u16, InjectQuery, PottiConfig, WowAccount, DUMMY_WINDOW_HWND};
+use crate::{str_into_vec_u16, InjectQuery, DUMMY_WINDOW_HWND};
 
 pub const INJ_MESSAGE_REGISTER_HOTKEY: u32 = WM_USER;
 pub const INJ_MESSAGE_UNREGISTER_HOTKEY: u32 = WM_USER + 1;
@@ -101,6 +104,46 @@ impl From<&WowClient> for WowClientInfo {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PatchConfig {
+    pub name: String,
+    pub enabled_by_default: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PottiConfig {
+    pub wow_client_path: PathBuf,
+    pub accounts: Vec<WowAccount>,
+    pub available_patches: Vec<PatchConfig>,
+    pub realm: Option<RealmInfo>,
+    pub log_level: Option<String>,
+}
+
+pub(crate) struct Account(WowAccount);
+
+impl Account {
+    pub fn write_config_to_tmp_file(
+        &self,
+        pid: u32,
+        realm_info: Option<&RealmInfo>,
+        enabled_patches: Vec<String>,
+    ) -> Result<(), String> {
+        let full_path = get_config_file_path(pid).map_err(|e| format!("Error: {e:?}"))?;
+
+        let client_config = ClientConfig {
+            realm: realm_info.map(|r| r.to_owned()),
+            account: Some(self.0.clone()),
+            enabled_patches,
+            log_level: None,
+        };
+
+        let serialized = serde_json::to_string(&client_config).map_err(|_e| format!("{_e:?}"))?;
+        std::fs::write(&full_path, &serialized).map_err(|_e| format!("{_e:?}"))?;
+
+        Ok(())
+    }
+}
+
 impl WowClient {
     fn register_hotkey(&self) -> InjectorResult<()> {
         let index_str = str_into_vec_u16((self.index + 1).rem_euclid(10).to_string());
@@ -146,7 +189,8 @@ impl WowClient {
 
     fn inject(
         &self,
-        account: Option<WowAccount>,
+        realm_info: Option<RealmInfo>,
+        account: Option<Account>,
         query: &InjectQuery,
     ) -> InjectorResult<WowClientInfo> {
         let pid = self.pid;
@@ -157,7 +201,7 @@ impl WowClient {
 
             if let Some(account) = account {
                 account
-                    .write_config_to_tmp_file(pid, enabled_patches)
+                    .write_config_to_tmp_file(pid, realm_info.as_ref(), enabled_patches)
                     .map_err(|s| InjectorError::OtherError(s))?;
             }
 
@@ -316,7 +360,7 @@ fn inject_dll(
             .iter()
             .find(|a| &a.character.name == name)
             .ok_or_else(|| InjectorError::CharacterEntryNotFound(name.to_owned()))?;
-        res.push(client.inject(Some(account.clone()), &query)?);
+        res.push(client.inject(config.realm.clone(), Some(Account(account.clone())), &query)?);
         client.register_hotkey()?;
     }
     Ok(res)

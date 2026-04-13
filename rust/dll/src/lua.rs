@@ -292,6 +292,7 @@ macro_rules! dostring {
     ($script:expr) => {{
         use crate::lua::{lua_dostring};
         use std::ffi::{c_char, CString};
+        tracing::debug!("dostring('{}')", $script);
         if let Ok(s) = CString::new($script).map_err(|_e|LoleError::StringConvError(format!("{_e:?}"))) {
             lua_dostring(s.as_ptr() as *const c_char, s.as_ptr() as *const c_char, 0);
         }

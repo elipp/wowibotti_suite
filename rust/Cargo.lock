@@ -1866,6 +1866,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "windows 0.62.2",
+ "wowibotti_suite_types",
  "wowibottihookdll",
 ]
 
@@ -4886,6 +4887,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f17a85883d4e6d00e8a97c586de764dabcc06133f7f1d55dce5cdc070ad7fe59"
 
 [[package]]
+name = "wowibotti_suite_types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "wowibottihookdll"
 version = "0.1.0"
 dependencies = [
@@ -4901,6 +4909,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "windows 0.62.2",
+ "wowibotti_suite_types",
 ]
 
 [[package]]

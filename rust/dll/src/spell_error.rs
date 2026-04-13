@@ -1,7 +1,7 @@
 use crate::lua::spell_errmsg_received;
 use crate::patch::{copy_original_opcodes, InstructionBuffer, Patch, PatchKind};
-use crate::{add_repr_and_tryfrom, assembly, dostring, Addr};
-use crate::{LoleError, LAST_FRAME_NUM, LAST_SPELL_ERR_MSG};
+use crate::LoleError;
+use crate::{assembly, Addr};
 
 use crate::addrs::offsets;
 use lole_macros::generate_lua_enum;

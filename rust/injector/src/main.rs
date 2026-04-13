@@ -33,12 +33,14 @@ use windows::{
         },
     },
 };
+use wowibotti_suite_types::CharacterInfo;
 
 mod inject;
 
 #[cfg(feature = "web")]
 mod tokio_io;
 
+use crate::inject::{PatchConfig, PottiConfig};
 #[cfg(feature = "web")]
 use crate::tokio_io::TokioIo;
 
@@ -53,22 +55,7 @@ use inject::{
 #[cfg(feature = "addonmessage_broker")]
 use addonmessage_broker::server::start_addonmessage_relay;
 
-use wowibottihookdll::{CharacterInfo, WowAccount};
-
 pub static DUMMY_WINDOW_HWND: OnceLock<SendSyncWrapper<HWND>> = OnceLock::new();
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PatchConfig {
-    pub name: String,
-    pub enabled_by_default: bool,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct PottiConfig {
-    pub wow_client_path: PathBuf,
-    pub accounts: Vec<WowAccount>,
-    pub available_patches: Vec<PatchConfig>,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConfigResult {

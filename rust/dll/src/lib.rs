@@ -7,14 +7,17 @@ use socket::read_os_tick_count;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
+use tracing::level_filters::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use windows::Win32::System::Threading::ExitProcess;
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
+use wowibotti_suite_types::{ClientConfig, RealmInfo, WowAccount};
 
-use lua::{lua_GetTime, lua_Integer, lua_Number, lua_debug_func, playermode, Opcode};
+use lua::{lua_GetTime, lua_Integer, lua_Number, Opcode};
 use patch::write_addr;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
@@ -287,93 +290,30 @@ unsafe fn open_console() -> LoleResult<()> {
 // instead of trying to catch SIGABRT, try creating WER crash dumps:
 // https://learn.microsoft.com/en-us/windows/win32/wer/collecting-user-mode-dumps?redirectedfrom=MSDN
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum CharacterClass {
-    Druid,
-    Hunter,
-    DeathKnight,
-    Paladin,
-    Priest,
-    Rogue,
-    Mage,
-    Shaman,
-    Warlock,
-    Warrior,
-}
+pub(crate) struct Account(WowAccount);
 
-impl std::fmt::Display for CharacterClass {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CharacterInfo {
-    pub name: String,
-    pub class: CharacterClass,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WowAccount {
-    pub username: String,
-    pub password: String,
-    pub character: CharacterInfo,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RealmInfo {
-    pub login_server: String,
-    pub name: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ClientConfig {
-    pub realm: Option<RealmInfo>,
-    pub account: Option<WowAccount>,
-    pub enabled_patches: Vec<String>,
-}
-
-impl WowAccount {
+impl Account {
     fn login(&self) -> LoleResult<()> {
         let sleep_duration = std::time::Duration::from_millis(rand::random::<u64>() % 4000);
         tracing::info!("Sleeping for {sleep_duration:?}");
         std::thread::sleep(sleep_duration);
         dostring!(
             "DefaultServerLogin('{}', '{}')",
-            self.username,
-            self.password
+            self.0.username,
+            self.0.password
         );
-        Ok(())
-    }
-    pub fn write_config_to_tmp_file(
-        &self,
-        pid: u32,
-        enabled_patches: Vec<String>,
-    ) -> Result<(), String> {
-        let full_path = get_config_file_path(pid).map_err(|e| format!("Error: {e:?}"))?;
-
-        let client_config = ClientConfig {
-            realm: Some(RealmInfo {
-                login_server: std::env::var("REALMLIST")
-                    .unwrap_or_else(|_| "LOGON.CHROMIECRAFT.COM".to_owned()),
-                name: std::env::var("REALM_NAME").unwrap_or_else(|_| "ChromieCraft".to_owned()),
-            }),
-            account: Some(self.clone()),
-            enabled_patches,
-        };
-
-        let serialized = serde_json::to_string(&client_config).map_err(|_e| format!("{_e:?}"))?;
-        std::fs::write(&full_path, &serialized).map_err(|_e| format!("{_e:?}"))?;
-
         Ok(())
     }
 }
 
-impl RealmInfo {
+pub(crate) struct DllRealmInfo(RealmInfo);
+
+impl DllRealmInfo {
     fn set_realm_info(&self) -> LoleResult<()> {
         dostring!(
             "SetCVar('realmList', '{}'); SetCVar('realmName', '{}')",
-            self.login_server,
-            self.name
+            self.0.login_server,
+            self.0.name
         );
         Ok(())
     }
@@ -401,11 +341,10 @@ fn read_config_from_file(pid: u32) -> Result<ClientConfig, String> {
 unsafe fn initialize_dll() -> LoleResult<()> {
     open_console()?;
 
+    let filter = tracing_subscriber::filter::LevelFilter::INFO;
+    let (filter, reload_handle) = tracing_subscriber::reload::Layer::new(filter);
     tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
+        .with(filter)
         .with(tracing_subscriber::fmt::layer().with_ansi(true))
         .init();
 
@@ -413,13 +352,23 @@ unsafe fn initialize_dll() -> LoleResult<()> {
         Ok(config) => {
             // NOTE: this means "we're still in the login/character selection screen"
             if let Err(LoleError::ObjectManagerIsNull) = ObjectManager::new() {
-                if let Some(ref realm) = config.realm {
-                    realm.set_realm_info()?;
+                if let Some(realm) = config.realm.clone() {
+                    DllRealmInfo(realm).set_realm_info()?;
                 }
-                if let Some(ref creds) = config.account {
-                    creds.login()?;
+                if let Some(account) = config.account.clone() {
+                    Account(account).login()?;
                 }
             }
+
+            if let Some(ref log_level) = config.log_level {
+                let log_level = log_level.to_lowercase();
+                let filter_from_config = LevelFilter::from_str(&log_level).unwrap();
+                reload_handle
+                    .modify(|filter| *filter = filter_from_config)
+                    .unwrap();
+            }
+
+            tracing::info!("{config:#?}");
             config
         }
         Err(e) => {
