@@ -8,6 +8,7 @@ use shared::SendSyncWrapper;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::sync::OnceLock;
 use std::{ffi::OsString, os::windows::ffi::OsStrExt, path::PathBuf};
 use windows::core::w;
@@ -32,14 +33,14 @@ use windows::{
         },
     },
 };
-use wowibotti_suite_types::CharacterInfo;
+use wowibotti_suite_types::{CharacterInfo, WowAccount};
 
 mod inject;
 
 #[cfg(feature = "web")]
 mod tokio_io;
 
-use crate::inject::{PatchConfig, PottiConfig};
+use crate::inject::{Account, PatchConfig, PottiConfig};
 #[cfg(feature = "web")]
 use crate::tokio_io::TokioIo;
 
@@ -80,10 +81,19 @@ pub struct InjectQuery {
     pub enabled_patches: Vec<String>,
 }
 
+const CONFIG_FILENAME: &str = "potti.conf.json";
+
 pub fn read_potti_conf() -> Result<PottiConfig, InjectorError> {
-    let config_str = std::fs::read_to_string("..\\potti.conf.json")
-        .map_err(|_e| InjectorError::OtherError(format!("couldn't read potti.conf")))?;
-    // let config_str = include_str!("..\\potti.conf.json");
+    let path = Path::new(std::env!("CARGO_MANIFEST_PATH"))
+        .parent()
+        .unwrap()
+        .join(CONFIG_FILENAME);
+    let config_str = std::fs::read_to_string(&path).map_err(|_e| {
+        InjectorError::OtherError(format!(
+            "Couldn't read config file '{}': {_e}",
+            path.display(),
+        ))
+    })?;
     let config: PottiConfig = serde_json::from_str(&config_str)
         .map_err(|_e| InjectorError::DeserializationError(format! {"{_e:?}"}))?;
     Ok(config)
@@ -218,6 +228,82 @@ struct Togglable<T> {
     enabled: bool,
 }
 
+struct InjectorApp {
+    select_all: bool,
+    accounts: Vec<Togglable<WowAccount>>,
+    patches: Vec<Togglable<PatchConfig>>,
+    config: PottiConfig,
+}
+
+impl eframe::App for InjectorApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("Injector :D");
+            ui.add_space(20.0);
+            ui.columns(2, |columns| {
+                columns[0].label("Available characters:");
+                egui::Grid::new("character_list").show(&mut columns[0], |ui| {
+                    let toggle = ui.toggle_value(&mut self.select_all, "Select all");
+                    if toggle.changed() {
+                        for account in self.accounts.iter_mut() {
+                            account.enabled = self.select_all;
+                        }
+                    }
+                    ui.end_row();
+                    for account in self.accounts.iter_mut() {
+                        let checkbox =
+                            ui.checkbox(&mut account.enabled, account.value.character.name.clone());
+                        if checkbox.changed() {
+                            self.select_all = false;
+                        }
+                        ui.image(format!(
+                            "file://injector/assets/{}.png",
+                            account.value.character.class
+                        ));
+                        ui.end_row();
+                    }
+                });
+                columns[1].label("Patches to enable:");
+                egui::Grid::new("enabled_patches").show(&mut columns[1], |ui| {
+                    for patch in self.patches.iter_mut() {
+                        ui.checkbox(&mut patch.enabled, patch.value.name.clone());
+                        ui.end_row();
+                    }
+                });
+            });
+            ui.add_space(50.0);
+            ui.horizontal(|ui| {
+                if ui.button("Inject DLL").clicked() {
+                    find_wow_windows_and_inject(
+                        self.config.clone(),
+                        InjectQuery {
+                            enabled_characters: self
+                                .accounts
+                                .iter()
+                                .filter(|t| t.enabled)
+                                .map(|t| t.value.character.name.clone())
+                                .collect(),
+                            enabled_patches: self
+                                .patches
+                                .iter()
+                                .filter(|t| t.enabled)
+                                .map(|t| t.value.name.clone())
+                                .collect(),
+                        },
+                    )
+                    .unwrap();
+                }
+                if ui.button("Launch clients").clicked() {
+                    let query = LaunchQuery {
+                        num_clients: self.accounts.iter().filter(|t| t.enabled).count() as i32,
+                    };
+                    query.launch(self.config.clone()).unwrap();
+                }
+            });
+        });
+    }
+}
+
 #[cfg(feature = "native-ui")]
 fn main() -> Result<(), eframe::Error> {
     tracing_subscriber::registry()
@@ -262,77 +348,19 @@ fn main() -> Result<(), eframe::Error> {
 
     let mut select_all = false;
 
-    eframe::run_ui_native("injector :D", options, move |ctx, _frame| {
-        egui_extras::install_image_loaders(ctx);
-        egui::CentralPanel::default().show_inside(ctx, |ui| {
-            ui.heading("Injector :D");
-            ui.add_space(20.0);
-            ui.columns(2, |columns| {
-                columns[0].label("Available characters:");
-                egui::Grid::new("character_list").show(&mut columns[0], |ui| {
-                    let toggle = ui.toggle_value(&mut select_all, "Select all");
-                    if toggle.changed() {
-                        for account in accounts.iter_mut() {
-                            account.enabled = select_all;
-                        }
-                    }
-                    ui.end_row();
-
-                    for account in accounts.iter_mut() {
-                        let checkbox =
-                            ui.checkbox(&mut account.enabled, account.value.character.name.clone());
-                        if checkbox.changed() {
-                            select_all = false;
-                        }
-                        ui.image(format!(
-                            "file://injector/assets/{}.png",
-                            account.value.character.class
-                        ));
-                        ui.end_row();
-                    }
-                });
-                columns[1].label("Patches to enable:");
-                egui::Grid::new("enabled_patches").show(&mut columns[1], |ui| {
-                    for patch in patches.iter_mut() {
-                        ui.checkbox(&mut patch.enabled, patch.value.name.clone());
-                        ui.end_row();
-                    }
-                });
-            });
-            ui.add_space(50.0);
-            ui.horizontal(|ui| {
-                if ui.button("Inject DLL").clicked() {
-                    find_wow_windows_and_inject(
-                        config.clone(),
-                        InjectQuery {
-                            enabled_characters: accounts
-                                .iter()
-                                .filter(|t| t.enabled)
-                                .map(|t| t.value.character.name.clone())
-                                .collect(),
-                            enabled_patches: patches
-                                .iter()
-                                .filter(|t| t.enabled)
-                                .map(|t| t.value.name.clone())
-                                .collect(),
-                        },
-                    )
-                    .unwrap();
-                }
-
-                if ui.button("Launch clients").clicked() {
-                    let query = LaunchQuery {
-                        num_clients: accounts
-                            .iter()
-                            .filter(|t| t.enabled)
-                            .map(|t| t.value.character.name.clone())
-                            .count() as i32,
-                    };
-                    query.launch(config.clone()).unwrap();
-                }
-            })
-        });
-    })
+    eframe::run_native(
+        "injector :D",
+        options,
+        Box::new(move |cc| {
+            egui_extras::install_image_loaders(&cc.egui_ctx);
+            Ok(Box::new(InjectorApp {
+                select_all,
+                accounts,
+                patches,
+                config,
+            }))
+        }),
+    )
 }
 
 #[cfg(feature = "web")]
