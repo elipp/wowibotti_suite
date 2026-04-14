@@ -10,7 +10,7 @@ tbc = []
 wotlk = []
 host-linux = []
 host-windows = []
-default = ["wotlk", "console", "addonmessage_broker"]
+default = ["wotlk", "console", "addonmessage_broker", "host-linux"]
 
 [lib]
 crate-type = ["cdylib", "lib"]

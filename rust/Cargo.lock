@@ -1929,6 +1929,7 @@ name = "injector"
 version = "0.1.0"
 dependencies = [
  "addonmessage_broker",
+ "anyhow",
  "bitcode",
  "eframe",
  "egui",

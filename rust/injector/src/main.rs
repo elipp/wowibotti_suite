@@ -1,76 +1,37 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(rustdoc::missing_crate_level_docs)]
 
+use anyhow::Context;
 #[cfg(feature = "native-ui")]
 use eframe::egui;
-use shared::SendSyncWrapper;
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use std::ffi::OsString;
 use std::path::Path;
-use std::sync::OnceLock;
-use std::{ffi::OsString, os::windows::ffi::OsStrExt, path::PathBuf};
-use windows::core::w;
-use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
-use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey, MOD_ALT};
-use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, RegisterClassW, SetForegroundWindow, CS_HREDRAW, CS_VREDRAW,
-    CW_USEDEFAULT, WINDOW_EX_STYLE, WNDCLASSW, WS_OVERLAPPEDWINDOW,
-};
-use windows::{
-    core::PCWSTR,
-    Win32::{
-        Foundation::{FALSE, HWND},
-        System::{
-            LibraryLoader::GetModuleHandleW,
-            Threading::{
-                CreateProcessW, PROCESS_CREATION_FLAGS, PROCESS_INFORMATION, STARTUPINFOW,
-            },
-        },
-        UI::WindowsAndMessaging::{
-            DispatchMessageW, GetMessageW, TranslateMessage, MSG, WM_HOTKEY,
-        },
-    },
-};
-use wowibotti_suite_types::{CharacterInfo, WowAccount};
 
-mod inject;
+#[cfg(feature = "host-windows")]
+use os::windows::ffi::OsStrExt;
+
+use wowibotti_suite_types::WowAccount;
 
 #[cfg(feature = "web")]
 mod tokio_io;
-
-use crate::inject::{Account, PatchConfig, PottiConfig};
 #[cfg(feature = "web")]
 use crate::tokio_io::TokioIo;
-
 #[cfg(feature = "web")]
 mod web;
 
-use inject::{
-    find_wow_windows_and_inject, InjectorError, InjectorResult, CLIENTS,
-    INJ_MESSAGE_REGISTER_HOTKEY, INJ_MESSAGE_UNREGISTER_HOTKEY,
-};
+#[cfg(feature = "host-windows")]
+mod windows;
+
+mod types;
+
+use types::{PatchConfig, PottiConfig};
 
 #[cfg(feature = "addonmessage_broker")]
 use addonmessage_broker::server::start_addonmessage_relay;
-
-pub static DUMMY_WINDOW_HWND: OnceLock<SendSyncWrapper<HWND>> = OnceLock::new();
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ConfigResult {
-    pub characters: Vec<CharacterInfo>,
-    pub available_patches: Vec<PatchConfig>,
-}
-
-impl From<PottiConfig> for ConfigResult {
-    fn from(p: PottiConfig) -> Self {
-        Self {
-            characters: p.accounts.into_iter().map(|a| a.character).collect(),
-            available_patches: p.available_patches.clone(),
-        }
-    }
-}
 
 #[cfg(all(not(feature = "native-ui"), not(feature = "web")))]
 compile_error!("one of `--feature=native-ui` or `--feature=web` must be provided");
@@ -83,19 +44,13 @@ pub struct InjectQuery {
 
 const CONFIG_FILENAME: &str = "potti.conf.json";
 
-pub fn read_potti_conf() -> Result<PottiConfig, InjectorError> {
+pub fn read_potti_conf() -> anyhow::Result<PottiConfig> {
     let path = Path::new(std::env!("CARGO_MANIFEST_PATH"))
         .parent()
-        .unwrap()
+        .context("CARGO_MANIFEST_PATH error")?
         .join(CONFIG_FILENAME);
-    let config_str = std::fs::read_to_string(&path).map_err(|_e| {
-        InjectorError::OtherError(format!(
-            "Couldn't read config file '{}': {_e}",
-            path.display(),
-        ))
-    })?;
-    let config: PottiConfig = serde_json::from_str(&config_str)
-        .map_err(|_e| InjectorError::DeserializationError(format! {"{_e:?}"}))?;
+    let config_str = std::fs::read_to_string(&path)?;
+    let config: PottiConfig = serde_json::from_str(&config_str)?;
     Ok(config)
 }
 
@@ -104,13 +59,9 @@ pub struct LaunchQuery {
     pub num_clients: i32,
 }
 
-pub fn str_into_vec_u16<S: Into<OsString>>(s: S) -> Vec<u16> {
-    let oss = s.into();
-    oss.as_os_str().encode_wide().chain([0u16]).collect()
-}
-
 impl LaunchQuery {
-    fn launch(self, config: PottiConfig) -> InjectorResult<()> {
+    #[cfg(feature = "host-windows")]
+    fn launch(self, config: PottiConfig) -> anyhow::Result<()> {
         unsafe {
             let path = config.wow_client_path.into_os_string();
             let as_u16: Vec<u16> = str_into_vec_u16(path.clone());
@@ -135,92 +86,16 @@ impl LaunchQuery {
         }
         Ok(())
     }
-}
 
-unsafe extern "system" fn dummy_wndproc(
-    hwnd: HWND,
-    msg: u32,
-    wparam: WPARAM,
-    lparam: LPARAM,
-) -> LRESULT {
-    match msg {
-        WM_HOTKEY => {
-            let clients = CLIENTS.lock().unwrap();
-            if let Some(client) = clients.get(wparam.0) {
-                if SetForegroundWindow(client.window_handle) == FALSE {
-                    tracing::error!("warning: `SetForegroundWindow` failed");
-                }
-            }
+    #[cfg(feature = "host-linux")]
+    fn launch(self, config: PottiConfig) -> anyhow::Result<()> {
+        let path = config.wow_client_path;
+        for _ in 0..self.num_clients {
+            let _ = std::process::Command::new("wine").arg(&path).spawn()?;
+            std::thread::sleep(std::time::Duration::from_millis(200));
         }
-        INJ_MESSAGE_REGISTER_HOTKEY => {
-            if let Err(e) = RegisterHotKey(Some(hwnd), wparam.0 as i32, MOD_ALT, lparam.0 as u32) {
-                tracing::error!("Warning: RegisterHotKey failed: {e:?}");
-            }
-        }
-
-        INJ_MESSAGE_UNREGISTER_HOTKEY => {
-            if let Err(e) = UnregisterHotKey(Some(hwnd), wparam.0 as i32) {
-                tracing::error!("Warning: UnregisterHotKey failed: {e:?}");
-            }
-        }
-        _ => {}
-    }
-    DefWindowProcW(hwnd, msg, wparam, lparam)
-}
-
-pub fn start_dummy_window() -> std::thread::JoinHandle<Result<(), InjectorError>> {
-    std::thread::spawn(|| unsafe {
-        let instance = GetModuleHandleW(None).unwrap();
-
-        let class_name = PCWSTR(
-            "InjectorHiddenWindow"
-                .encode_utf16()
-                .collect::<Vec<u16>>()
-                .as_ptr(),
-        );
-        let window_class = WNDCLASSW {
-            style: CS_HREDRAW | CS_VREDRAW,
-            lpfnWndProc: Some(dummy_wndproc),
-            hInstance: instance.into(),
-            lpszClassName: class_name,
-            ..Default::default()
-        };
-
-        RegisterClassW(&window_class);
-
-        match CreateWindowExW(
-            WINDOW_EX_STYLE(0),
-            class_name,
-            w!("injector"),
-            WS_OVERLAPPEDWINDOW, //| WS_VISIBLE,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            None,
-            None,
-            None, // used to be instance
-            None,
-        ) {
-            Ok(hwnd) => {
-                DUMMY_WINDOW_HWND.get_or_init(|| SendSyncWrapper(hwnd));
-            }
-            Err(_e) => {
-                return Err(InjectorError::OtherError(format!("CreateWindowExW failed")));
-            }
-        }
-
-        // Normally you would show the window with ShowWindow, but we'll keep it hidden.
-        // ShowWindow(hwnd, SW_SHOW);
-
-        let mut msg = MSG::default();
-        while GetMessageW(&mut msg, None, 0, 0) != FALSE {
-            let _ = TranslateMessage(&msg);
-            DispatchMessageW(&msg);
-        }
-        tracing::info!("exiting");
         Ok(())
-    })
+    }
 }
 
 struct Togglable<T> {
@@ -273,6 +148,7 @@ impl eframe::App for InjectorApp {
             });
             ui.add_space(50.0);
             ui.horizontal(|ui| {
+                #[cfg(feature = "host-windows")]
                 if ui.button("Inject DLL").clicked() {
                     find_wow_windows_and_inject(
                         self.config.clone(),
@@ -314,14 +190,17 @@ fn main() -> Result<(), eframe::Error> {
         .with(tracing_subscriber::fmt::layer().with_ansi(true))
         .init();
 
+    #[cfg(feature = "host-windows")]
     start_dummy_window();
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([400.0, 300.0]),
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([400.0, 300.0])
+            .with_app_id("lole"),
         ..Default::default()
     };
 
     let config = read_potti_conf().unwrap();
-    let mut accounts: Vec<_> = config
+    let accounts: Vec<_> = config
         .accounts
         .iter()
         .map(|a| Togglable {
@@ -329,7 +208,7 @@ fn main() -> Result<(), eframe::Error> {
             enabled: false,
         })
         .collect();
-    let mut patches: Vec<_> = config
+    let patches: Vec<_> = config
         .available_patches
         .iter()
         .map(|a| Togglable {
@@ -346,7 +225,7 @@ fn main() -> Result<(), eframe::Error> {
         })
     });
 
-    let mut select_all = false;
+    let select_all = false;
 
     eframe::run_native(
         "injector :D",

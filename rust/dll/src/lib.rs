@@ -62,6 +62,9 @@ pub const POSTGRES_USER: &str = "lole";
 pub const POSTGRES_PASS: &str = "lole";
 pub const POSTGRES_DB: &str = "lole";
 
+#[cfg(all(not(feature = "host-windows"), not(feature = "host-linux")))]
+compile_error!("one of `--feature=host-windows` or `--feature=host-linux` must be provided");
+
 pub static ENABLED_PATCHES: LazyLock<Arc<Mutex<Vec<&'static Patch>>>> =
     LazyLock::new(|| Arc::new(Mutex::new(vec![])));
 

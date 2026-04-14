@@ -5,6 +5,9 @@ linux:
 broker-linux:
 	cargo run --target x86_64-unknown-linux-gnu --bin broker-server
 
+injector-linux:
+	cargo run --target x86_64-unknown-linux-gnu --bin injector --features host-linux
+
 win:
 	cargo build -p addonmessage_broker --target x86_64-pc-windows-msvc
 	cargo build -p wowibottihookdll --profile=dev --target i686-pc-windows-msvc --features host-windows
