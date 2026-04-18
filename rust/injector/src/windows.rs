@@ -220,26 +220,30 @@ pub mod inject {
         }
     }
 
-    impl Account {
-        pub fn write_config_to_tmp_file(
-            &self,
-            pid: u32,
-            realm_info: Option<&RealmInfo>,
-            enabled_patches: Vec<String>,
-        ) -> Result<(), String> {
-            let full_path = get_config_file_path(pid).map_err(|e| format!("Error: {e:?}"))?;
-
-            let client_config = ClientConfig {
-                realm: realm_info.map(|r| r.to_owned()),
-                account: Some(self.0.clone()),
-                enabled_patches,
-                log_level: None,
-            };
-
-            let serialized =
-                serde_json::to_string(&client_config).map_err(|_e| format!("{_e:?}"))?;
-            std::fs::write(&full_path, &serialized).map_err(|_e| format!("{_e:?}"))?;
-
+    impl LaunchQuery {
+        fn launch(self, config: PottiConfig) -> anyhow::Result<()> {
+            unsafe {
+                let path = config.wow_client_path.into_os_string();
+                let as_u16: Vec<u16> = str_into_vec_u16(path.clone());
+                for _ in 0..self.num_clients {
+                    let startup_info = STARTUPINFOW::default();
+                    let mut process_information = PROCESS_INFORMATION::default();
+                    CreateProcessW(
+                        PCWSTR::from_raw(as_u16.as_ptr()),
+                        None,
+                        None,
+                        None,
+                        false,
+                        PROCESS_CREATION_FLAGS(0),
+                        None,
+                        None,
+                        &startup_info as *const STARTUPINFOW,
+                        &mut process_information,
+                    )
+                    .map_err(|_e| InjectorError::LaunchError(format!("{_e:?} ({:?})", path)))?;
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                }
+            }
             Ok(())
         }
     }

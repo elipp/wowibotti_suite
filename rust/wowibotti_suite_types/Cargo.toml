@@ -5,6 +5,9 @@ edition = "2024"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+serde_json = { version = "1" }
+anyhow = { version = "1" }
 
 [lib]
 crate-type = ["lib"]

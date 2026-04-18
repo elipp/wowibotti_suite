@@ -1,7 +1,9 @@
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash)]
 pub enum CharacterClass {
     Druid,
     Hunter,
@@ -20,17 +22,28 @@ impl std::fmt::Display for CharacterClass {
         write!(f, "{:?}", self)
     }
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash)]
 pub struct CharacterInfo {
     pub name: String,
     pub class: CharacterClass,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash)]
 pub struct WowAccount {
     pub username: String,
     pub password: String,
     pub character: CharacterInfo,
+}
+
+impl WowAccount {
+    pub fn account_hash(&self) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        format!("{:x}", hasher.finish()) // hex string
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,4 +58,12 @@ pub struct ClientConfig {
     pub account: Option<WowAccount>,
     pub enabled_patches: Vec<String>,
     pub log_level: Option<String>,
+    pub id: Uuid,
+}
+
+impl ClientConfig {
+    pub fn write_to_file(&self, path: impl AsRef<Path>) -> anyhow::Result<()> {
+        let serialized = serde_json::to_string(&self)?;
+        Ok(std::fs::write(&path, &serialized)?)
+    }
 }

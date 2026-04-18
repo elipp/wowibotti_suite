@@ -8,23 +8,29 @@ use eframe::egui;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use serde::Deserialize;
-use std::ffi::OsString;
 use std::path::Path;
+#[cfg(feature = "host-linux")]
+use uuid::Uuid;
 
 #[cfg(feature = "host-windows")]
 use os::windows::ffi::OsStrExt;
 
-use wowibotti_suite_types::WowAccount;
+use wowibotti_suite_types::ClientConfig;
 
 #[cfg(feature = "web")]
 mod tokio_io;
 #[cfg(feature = "web")]
 use crate::tokio_io::TokioIo;
+use crate::types::Account;
+
 #[cfg(feature = "web")]
 mod web;
 
 #[cfg(feature = "host-windows")]
 mod windows;
+
+#[cfg(feature = "host-linux")]
+mod linux;
 
 mod types;
 
@@ -56,46 +62,7 @@ pub fn read_potti_conf() -> anyhow::Result<PottiConfig> {
 
 #[derive(Debug, Deserialize)]
 pub struct LaunchQuery {
-    pub num_clients: i32,
-}
-
-impl LaunchQuery {
-    #[cfg(feature = "host-windows")]
-    fn launch(self, config: PottiConfig) -> anyhow::Result<()> {
-        unsafe {
-            let path = config.wow_client_path.into_os_string();
-            let as_u16: Vec<u16> = str_into_vec_u16(path.clone());
-            for _ in 0..self.num_clients {
-                let startup_info = STARTUPINFOW::default();
-                let mut process_information = PROCESS_INFORMATION::default();
-                CreateProcessW(
-                    PCWSTR::from_raw(as_u16.as_ptr()),
-                    None,
-                    None,
-                    None,
-                    false,
-                    PROCESS_CREATION_FLAGS(0),
-                    None,
-                    None,
-                    &startup_info as *const STARTUPINFOW,
-                    &mut process_information,
-                )
-                .map_err(|_e| InjectorError::LaunchError(format!("{_e:?} ({:?})", path)))?;
-                std::thread::sleep(std::time::Duration::from_millis(200));
-            }
-        }
-        Ok(())
-    }
-
-    #[cfg(feature = "host-linux")]
-    fn launch(self, config: PottiConfig) -> anyhow::Result<()> {
-        let path = config.wow_client_path;
-        for _ in 0..self.num_clients {
-            let _ = std::process::Command::new("wine").arg(&path).spawn()?;
-            std::thread::sleep(std::time::Duration::from_millis(200));
-        }
-        Ok(())
-    }
+    pub configs: Vec<ClientConfig>,
 }
 
 struct Togglable<T> {
@@ -105,9 +72,26 @@ struct Togglable<T> {
 
 struct InjectorApp {
     select_all: bool,
-    accounts: Vec<Togglable<WowAccount>>,
+    accounts: Vec<Togglable<Account>>,
     patches: Vec<Togglable<PatchConfig>>,
     config: PottiConfig,
+}
+
+impl InjectorApp {
+    fn enabled_patches(&self) -> Vec<String> {
+        self.patches
+            .iter()
+            .filter(|t| t.enabled)
+            .map(|t| t.value.name.clone())
+            .collect()
+    }
+    fn enabled_characters(&self) -> Vec<String> {
+        self.accounts
+            .iter()
+            .filter(|t| t.enabled)
+            .map(|t| t.value.0.character.name.clone())
+            .collect()
+    }
 }
 
 impl eframe::App for InjectorApp {
@@ -126,14 +110,14 @@ impl eframe::App for InjectorApp {
                     }
                     ui.end_row();
                     for account in self.accounts.iter_mut() {
-                        let checkbox =
-                            ui.checkbox(&mut account.enabled, account.value.character.name.clone());
+                        let checkbox = ui
+                            .checkbox(&mut account.enabled, account.value.0.character.name.clone());
                         if checkbox.changed() {
                             self.select_all = false;
                         }
                         ui.image(format!(
                             "file://injector/assets/{}.png",
-                            account.value.character.class
+                            account.value.0.character.class
                         ));
                         ui.end_row();
                     }
@@ -153,27 +137,28 @@ impl eframe::App for InjectorApp {
                     find_wow_windows_and_inject(
                         self.config.clone(),
                         InjectQuery {
-                            enabled_characters: self
-                                .accounts
-                                .iter()
-                                .filter(|t| t.enabled)
-                                .map(|t| t.value.character.name.clone())
-                                .collect(),
-                            enabled_patches: self
-                                .patches
-                                .iter()
-                                .filter(|t| t.enabled)
-                                .map(|t| t.value.name.clone())
-                                .collect(),
+                            enabled_characters: self.enabled_characters(),
+                            enabled_patches: self.enabled_patches(),
                         },
                     )
                     .unwrap();
                 }
                 if ui.button("Launch clients").clicked() {
                     let query = LaunchQuery {
-                        num_clients: self.accounts.iter().filter(|t| t.enabled).count() as i32,
+                        configs: self
+                            .accounts
+                            .iter()
+                            .filter(|t| t.enabled)
+                            .map(|a| ClientConfig {
+                                realm: self.config.realm.clone(),
+                                account: Some(a.value.0.clone()),
+                                enabled_patches: self.enabled_patches(),
+                                log_level: None,
+                                id: Uuid::new_v4(),
+                            })
+                            .collect(),
                     };
-                    query.launch(self.config.clone()).unwrap();
+                    query.launch_all(&self.config).unwrap();
                 }
             });
         });
@@ -204,7 +189,7 @@ fn main() -> Result<(), eframe::Error> {
         .accounts
         .iter()
         .map(|a| Togglable {
-            value: a.clone(),
+            value: Account(a.clone()),
             enabled: false,
         })
         .collect();

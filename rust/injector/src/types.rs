@@ -18,7 +18,8 @@ pub struct PottiConfig {
     pub log_level: Option<String>,
 }
 
-pub(crate) struct Account(WowAccount);
+#[derive(Debug)]
+pub(crate) struct Account(pub(crate) WowAccount);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConfigResult {

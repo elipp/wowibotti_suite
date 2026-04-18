@@ -1,11 +1,13 @@
-linux:
-	cargo build -p addonmessage_broker --target x86_64-unknown-linux-gnu
+linux-dll:
+	cargo build -p wowibottihookdll --profile=dev --target i686-pc-windows-gnu --features host-linux
+
+linux: linux-dll
 	cargo build -p wowibottihookdll --profile=dev --target i686-pc-windows-gnu --features host-linux
 
 broker-linux:
 	cargo run --target x86_64-unknown-linux-gnu --bin broker-server
 
-injector-linux:
+injector-linux: linux-dll 
 	cargo run --target x86_64-unknown-linux-gnu --bin injector --features host-linux
 
 win:

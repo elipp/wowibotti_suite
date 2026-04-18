@@ -3,6 +3,7 @@ use core::cell::Cell;
 use shared::SendSyncWrapper;
 #[cfg(feature = "addonmessage_broker")]
 use std::collections::VecDeque;
+use std::path::{Path, PathBuf};
 use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
 
 use objectmanager::ObjectManager;
@@ -11,11 +12,10 @@ use socket::read_os_tick_count;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
-use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::LazyLock;
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -324,22 +324,21 @@ impl DllRealmInfo {
     }
 }
 
-pub fn get_config_file_path(pid: u32) -> Result<PathBuf, String> {
-    let localappdata =
-        std::env::var("LOCALAPPDATA").map_err(|_e| String::from("LOCALAPPDATA missing"))?;
-    Ok(Path::new(&localappdata)
-        .join("Temp")
-        .join(format!("wow-{pid}.json")))
+pub fn get_config_file_path(identifier: &str) -> anyhow::Result<PathBuf> {
+    let temp = std::env::var("TEMP")?;
+    Ok(Path::new(&temp).join(format!("wow-{identifier}.json")))
 }
 
-fn read_config_from_file(pid: u32) -> Result<ClientConfig, String> {
-    let config_path = get_config_file_path(pid)?;
+fn read_config_from_file(identifier: &str) -> anyhow::Result<ClientConfig> {
+    let config_path = get_config_file_path(identifier)?;
     match std::fs::read_to_string(&config_path) {
         Ok(contents) => match serde_json::from_str::<ClientConfig>(&contents) {
             Ok(config) => Ok(config),
-            Err(err) => Err(format!("InvalidDllConfig: {err:?}")),
+            Err(err) => Err(anyhow::anyhow!("InvalidDllConfig: {err:?}")),
         },
-        Err(err) => Err(format!("DllConfigReadErr: ({config_path:?}) {err:?}")),
+        Err(err) => Err(anyhow::anyhow!(
+            "DllConfigReadErr: ({config_path:?}) {err:?}"
+        )),
     }
 }
 
@@ -347,19 +346,24 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     open_console()?;
 
     let filter = tracing_subscriber::filter::LevelFilter::INFO;
-    let (filter, reload_handle) =
+    let (_, reload_handle) =
         tracing_subscriber::reload::Layer::<LevelFilter, Registry>::new(filter);
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
-        .with(tracing_subscriber::fmt::layer().with_ansi(cfg!(feature = "host-windows")))
+        .with(tracing_subscriber::fmt::layer().with_ansi(!cfg!(feature = "host-linux"))) // host-windows with the extended terminal capabilities actually supports ansi codes, but not wine terminal
         .init();
 
-    let pid = std::process::id();
+    let identifier = cfg_select! {
+        feature = "host-linux" => { std::env::var("LOLE_ID").unwrap() }
+        feature = "host-windows" => {
+            std::process::id().to_string()
+        }
+    };
 
-    let config = match read_config_from_file(pid) {
+    let config = match read_config_from_file(&identifier.to_string()) {
         Ok(config) => {
             // NOTE: this means "we're still in the login/character selection screen"
             if let Err(LoleError::ObjectManagerIsNull) = ObjectManager::new() {
@@ -383,7 +387,8 @@ unsafe fn initialize_dll() -> LoleResult<()> {
             config
         }
         Err(e) => {
-            panic!("warning: reading config failed with {e:?}");
+            tracing::warn!("reading config failed with {e:?}");
+            return Ok(());
         }
     };
 
@@ -587,10 +592,10 @@ unsafe extern "system" fn main_thread(_: *mut c_void) -> u32 {
 }
 
 struct DivxReal {
-    divx_decode: unsafe extern "system" fn(i32, i32, i32) -> i32,
-    initialize: unsafe extern "system" fn(i32) -> i32,
-    set_output_format: unsafe extern "system" fn(i32, i32, i32, i32) -> i32,
-    uninitialize: unsafe extern "system" fn(i32) -> i32,
+    divx_decode: unsafe extern "C" fn(i32, i32, i32) -> i32,
+    initialize: unsafe extern "C" fn(i32) -> i32,
+    set_output_format: unsafe extern "C" fn(i32, i32, i32, i32) -> i32,
+    uninitialize: unsafe extern "C" fn(i32) -> i32,
 }
 
 static REAL: OnceLock<DivxReal> = OnceLock::new();
@@ -600,43 +605,49 @@ fn real() -> &'static DivxReal {
         let lib = LoadLibraryA(PCSTR(b"DivxDecoder.dll.real\0".as_ptr())).unwrap();
         macro_rules! proc {
             ($name:literal, $type:ty) => {
-                std::mem::transmute::<_, $type>(GetProcAddress(lib, PCSTR($name.as_ptr())))
+                std::mem::transmute::<_, $type>(GetProcAddress(lib, PCSTR($name.as_ptr())).unwrap())
             };
         }
         DivxReal {
-            divx_decode: proc!(
-                b"DivxDecode\0",
-                unsafe extern "system" fn(i32, i32, i32) -> i32
-            ),
-            initialize: proc!(
-                b"InitializeDivxDecoder\0",
-                unsafe extern "system" fn(i32) -> i32
-            ),
+            divx_decode: proc!(b"DivxDecode\0", unsafe extern "C" fn(i32, i32, i32) -> i32),
+            initialize: proc!(b"InitializeDivxDecoder\0", unsafe extern "C" fn(i32) -> i32),
             set_output_format: proc!(
                 b"SetOutputFormat\0",
-                unsafe extern "system" fn(i32, i32, i32, i32) -> i32
+                unsafe extern "C" fn(i32, i32, i32, i32) -> i32
             ),
             uninitialize: proc!(
                 b"UnInitializeDivxDecoder\0",
-                unsafe extern "system" fn(i32) -> i32
+                unsafe extern "C" fn(i32) -> i32
             ),
         }
     })
 }
 
+macro_rules! int3h {
+    () => {
+        asm! {
+            "int 3h"
+        }
+    };
+}
+
 #[no_mangle]
-pub unsafe extern "system" fn DivxDecode(a: i32, b: i32, c: i32) -> i32 {
+pub unsafe extern "C" fn DivxDecode(a: i32, b: i32, c: i32) -> i32 {
+    // int3h!();
     (real().divx_decode)(a, b, c)
 }
 #[no_mangle]
-pub unsafe extern "system" fn InitializeDivxDecoder(a: i32) -> i32 {
+pub unsafe extern "C" fn InitializeDivxDecoder(a: i32) -> i32 {
+    // int3h!();
     (real().initialize)(a)
 }
 #[no_mangle]
-pub unsafe extern "system" fn SetOutputFormat(a: i32, b: i32, c: i32, d: i32) -> i32 {
+pub unsafe extern "C" fn SetOutputFormat(a: i32, b: i32, c: i32, d: i32) -> i32 {
+    // int3h!();
     (real().set_output_format)(a, b, c, d)
 }
 #[no_mangle]
-pub unsafe extern "system" fn UnInitializeDivxDecoder(a: i32) -> i32 {
+pub unsafe extern "C" fn UnInitializeDivxDecoder(a: i32) -> i32 {
+    // int3h!();
     (real().uninitialize)(a)
 }
