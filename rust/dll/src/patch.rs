@@ -5,7 +5,7 @@ use std::sync::LazyLock;
 
 use windows::Win32::System::{
     Diagnostics::Debug::WriteProcessMemory,
-    Memory::{VirtualProtect, PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS},
+    Memory::{PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS, VirtualProtect},
     Threading::GetCurrentProcess,
 };
 
@@ -13,7 +13,7 @@ use crate::ctm::prepare_ctm_finished_patch;
 use crate::lua::prepare_ClosePetStables_patch;
 use crate::socket::prepare_dump_outbound_packet_patch;
 use crate::spell_error::prepare_spell_err_msg_trampoline;
-use crate::{assembly, Addr, EndScene_hook, LoleError, LoleResult};
+use crate::{Addr, EndScene_hook, LoleError, LoleResult, assembly};
 
 pub static AVAILABLE_PATCHES: LazyLock<HashMap<&'static str, Patch>> = LazyLock::new(|| {
     HashMap::from_iter([
@@ -123,18 +123,20 @@ impl Patch {
         write_addr(self.patch_addr, patch.instr_slice())
     }
 
-    pub unsafe fn enable(&self) -> LoleResult<()> {
+    pub fn enable(&self) -> LoleResult<()> {
         match self.kind {
             PatchKind::JmpToTrampoline => {
                 const PAGE_EXECUTE_READWRITE: u32 = 0x40;
                 let mut old_flags = PAGE_PROTECTION_FLAGS(0);
-                VirtualProtect(
-                    self.patch_opcodes.get_address() as *const c_void,
-                    self.patch_opcodes.len(),
-                    PAGE_PROTECTION_FLAGS(PAGE_EXECUTE_READWRITE),
-                    &mut old_flags,
-                )
-                .map_err(|e| LoleError::PatchError(format!("{:?}", e)))?;
+                unsafe {
+                    VirtualProtect(
+                        self.patch_opcodes.get_address() as *const c_void,
+                        self.patch_opcodes.len(),
+                        PAGE_PROTECTION_FLAGS(PAGE_EXECUTE_READWRITE),
+                        &mut old_flags,
+                    )
+                    .map_err(|e| LoleError::PatchError(format!("{:?}", e)))?;
+                }
 
                 let mut tmp_patch = InstructionBuffer::new();
                 tmp_patch.push(assembly::JMP);
@@ -145,7 +147,9 @@ impl Patch {
                     assembly::NOP;
                     self.original_opcodes.len() - tmp_patch.len()
                 ]);
-                self.commit(&tmp_patch)?;
+                unsafe {
+                    self.commit(&tmp_patch)?;
+                }
             }
             PatchKind::OverWrite => unsafe {
                 self.commit(&self.patch_opcodes)?;
@@ -270,11 +274,8 @@ pub fn prepare_endscene_trampoline() -> Patch {
         }
     };
 
-    #[cfg(feature = "host-linux")]
-    const LEN_TRAMP: usize = 5;
-
+    tracing::info!("EndScene: {:p}", endscene_addr as *const ());
     // has a different signature :D
-    #[cfg(feature = "host-windows")]
     const LEN_TRAMP: usize = 7;
 
     let original_opcodes = copy_original_opcodes(endscene_addr, LEN_TRAMP);

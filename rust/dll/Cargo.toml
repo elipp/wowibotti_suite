@@ -1,7 +1,7 @@
 [package]
 name = "wowibottihookdll"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [features]
 addonmessage_broker = ["dep:addonmessage_broker"]

@@ -18,6 +18,7 @@ impl LaunchQuery {
             let config_file_path = get_config_file_path(&id)?;
             client_config.write_to_file(&config_file_path)?;
 
+            // let _ = std::process::Command::new("winedbg")
             let _ = std::process::Command::new("wine")
                 .arg(&config.wow_client_path)
                 .env("LOLE_ID", id)

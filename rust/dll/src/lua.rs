@@ -1,30 +1,30 @@
 use std::cell::Cell;
 use std::f32::consts::PI;
-use std::ffi::{c_char, c_void, CStr, CString};
+use std::ffi::{CStr, CString, c_char, c_void};
 
 use lole_macros::generate_lua_enum;
 use rand::RngExt;
 
 use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
-use crate::objectmanager::{guid_from_str, GUIDFmt, ObjectManager, WowObject, WowObjectType};
+use crate::objectmanager::{GUIDFmt, ObjectManager, WowObject, WowObjectType, guid_from_str};
 use crate::patch::{
-    copy_original_opcodes, deref_opt_ptr, deref_opt_t, deref_t, write_addr, InstructionBuffer,
-    Patch, PatchKind,
+    InstructionBuffer, Patch, PatchKind, copy_original_opcodes, deref_opt_ptr, deref_opt_t,
+    deref_t, write_addr,
 };
 use crate::socket::cast_gtaoe;
 use crate::socket::facing::{self};
 use crate::socket::movement_flags::NOT_MOVING;
-use crate::vec3::{Vec3, TWO_PI};
+use crate::vec3::{TWO_PI, Vec3};
 use crate::{
-    add_repr_and_tryfrom, assembly, write_last_hardware_action, LoleError, LoleResult,
-    BROKER_STATE, LAST_SPELL_ERR_MSG, SHOULD_EJECT,
+    BROKER_STATE, LoleError, LoleResult, add_repr_and_tryfrom, assembly, get_state,
+    write_last_hardware_action,
 };
 
 #[cfg(feature = "addonmessage_broker")]
 use addonmessage_broker::server::{AddonMessage, Msg, MsgSender, MsgWrapper};
 
-use crate::{define_lua_function, Addr}; // POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
+use crate::{Addr, define_lua_function}; // POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
 
 thread_local! {
     // this is modified from CtmAction::commit() and set_facing
@@ -592,7 +592,7 @@ unsafe fn mem_as_slice<'a, T>(addr: Addr, n_bytes: usize) -> &'a [T] {
     let len = n_bytes / std::mem::size_of::<T>(); //truncate
 
     // Create a slice from the pointer and length
-    std::slice::from_raw_parts(ptr, len)
+    unsafe { std::slice::from_raw_parts(ptr, len) }
 }
 
 fn face_target(player: WowObject, target: Option<WowObject>) -> LoleResult<()> {
@@ -857,17 +857,17 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
         }
         Opcode::GetLastSpellErrMsg if nargs == 0 => {
-            return LAST_SPELL_ERR_MSG.with(|l| {
-                let mut values: Vec<(_, _)> = l.borrow().iter().map(|(k, v)| (*k, *v)).collect();
-                values.sort_unstable_by_key(|(_, v)| *v);
-                if let Some((msg, framenum)) = values.into_iter().last() {
-                    lua_pushinteger(lua, msg as isize);
-                    lua_pushinteger(lua, framenum);
-                    Ok(2)
-                } else {
-                    Ok(LUA_NO_RETVALS)
-                }
-            })
+            let state = get_state().lock().unwrap();
+            let l = &state.last_spell_err_msg;
+            let mut values: Vec<(_, _)> = l.iter().map(|(k, v)| (*k, *v)).collect();
+            values.sort_unstable_by_key(|(_, v)| *v);
+            if let Some((msg, framenum)) = values.into_iter().last() {
+                lua_pushinteger(lua, msg as isize);
+                lua_pushinteger(lua, framenum);
+                return Ok(2);
+            } else {
+                return Ok(LUA_NO_RETVALS);
+            }
         }
         Opcode::RefreshHwEventTimestamp if nargs == 0 => {
             write_last_hardware_action(0)?;
@@ -907,7 +907,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 other => {
                     return Err(LoleError::LuaError(format!(
                         "invalid target for AoeFeasibility: {other:?}"
-                    )))
+                    )));
                 }
             };
 
@@ -1048,7 +1048,8 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             return lua_debug_func(lua);
         }
         Opcode::EjectDll => {
-            SHOULD_EJECT.set(true);
+            let mut state = get_state().lock().unwrap();
+            state.should_eject = true;
         }
         Opcode::QueryInjected => {
             lua_pushboolean(lua, 1);
@@ -1138,7 +1139,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
     Ok(LUA_NO_RETVALS)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
     match handle_lop_exec(lua) {
         Ok(num_retvals) => num_retvals,

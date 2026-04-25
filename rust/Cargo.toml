@@ -7,13 +7,11 @@ opt-level = 0
 
 [profile.dev.package."*"]
 opt-level = 3
- 
+
 [profile.release]
-panic = "unwind"
+panic = "abort"
 
 [profile.release-with-debug]
 inherits = "release"
 debug = true
 strip = false
-
-

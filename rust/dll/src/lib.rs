@@ -1,5 +1,4 @@
 use addrs::offsets::LAST_HARDWARE_ACTION;
-use core::cell::Cell;
 use shared::SendSyncWrapper;
 #[cfg(feature = "addonmessage_broker")]
 use std::collections::VecDeque;
@@ -9,29 +8,26 @@ use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
 use objectmanager::ObjectManager;
 
 use socket::read_os_tick_count;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::str::FromStr;
-use std::sync::LazyLock;
-use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::sync::{Arc, LazyLock, Mutex, OnceLock};
 use tracing::level_filters::LevelFilter;
+use tracing_subscriber::Registry;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::Registry;
 use windows::Win32::System::Threading::{ExitProcess, THREAD_CREATE_RUN_IMMEDIATELY};
-use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
+use windows::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MB_OK, MessageBoxW};
 use wowibotti_suite_types::{ClientConfig, RealmInfo, WowAccount};
 
-use lua::{lua_GetTime, lua_Integer, lua_Number, Opcode};
+use lua::{Opcode, lua_GetTime, lua_Integer, lua_Number};
 use patch::write_addr;
-use windows::core::{PCSTR, PCWSTR};
 use windows::Win32::Foundation::*;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
+use windows::core::{PCSTR, PCWSTR};
 
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Console::AllocConsole;
@@ -53,9 +49,8 @@ pub mod spell_error;
 pub mod vec3;
 pub mod wowproto_opcodes;
 use crate::lua::LuaType;
-use crate::patch::{Patch, AVAILABLE_PATCHES};
+use crate::patch::{AVAILABLE_PATCHES, Patch};
 use crate::spell_error::SpellError;
-use tokio::task;
 
 pub const POSTGRES_ADDR: &str = "127.0.0.1:5432";
 pub const POSTGRES_USER: &str = "lole";
@@ -68,18 +63,38 @@ compile_error!("one of `--feature=host-windows` or `--feature=host-linux` must b
 pub static ENABLED_PATCHES: LazyLock<Arc<Mutex<Vec<&'static Patch>>>> =
     LazyLock::new(|| Arc::new(Mutex::new(vec![])));
 
-thread_local! {
-    pub static NEED_INIT: Cell<bool> = const { Cell::new(true) };
-    pub static SHOULD_EJECT: Cell<bool> = const { Cell::new(false) };
-    pub static CONSOLE_CONOUT: Cell<HANDLE> = const { Cell::new(HANDLE(std::ptr::null_mut())) };
-    pub static ORIGINAL_STDOUT: Cell<HANDLE> = const { Cell::new(HANDLE(std::ptr::null_mut())) };
-    pub static LAST_FRAME_TIME: Cell<lua_Number> = const { Cell::new(0.0) };
+pub struct DllState {
+    pub need_init: bool,
+    pub should_eject: bool,
+    pub console_conout: SendSyncWrapper<HANDLE>,
+    pub original_stdout: SendSyncWrapper<HANDLE>,
+    pub last_frame_time: lua_Number,
+    pub last_frame_num: lua_Integer,
+    pub last_hardware_interval: Option<std::time::Instant>,
+    pub last_spell_err_msg: HashMap<SpellError, lua_Integer>,
+}
 
-    pub static LAST_SPELL_ERR_MSG: RefCell<HashMap<SpellError, lua_Integer>> = RefCell::new(Default::default());
-    pub static LAST_FRAME_NUM: Cell<lua_Integer> = const { Cell::new(0) };
+pub static STATE: OnceLock<Mutex<DllState>> = OnceLock::new();
 
-    pub static LAST_HARDWARE_INTERVAL: Cell<std::time::Instant> = Cell::new(std::time::Instant::now());
-    pub static LOCAL_SET: RefCell<task::LocalSet> = RefCell::new(task::LocalSet::new());
+pub fn get_state() -> &'static Mutex<DllState> {
+    STATE.get_or_init(|| {
+        Mutex::new(DllState {
+            need_init: true,
+            should_eject: false,
+            console_conout: SendSyncWrapper(HANDLE(std::ptr::null_mut())),
+            original_stdout: SendSyncWrapper(HANDLE(std::ptr::null_mut())),
+            last_frame_time: 0.0,
+            last_frame_num: 0,
+            last_hardware_interval: None, // initialize lazily, not at TLS init time
+            last_spell_err_msg: HashMap::new(),
+        })
+    })
+}
+
+macro_rules! get_state_ {
+    () => {
+        get_state().lock().unwrap()
+    };
 }
 
 static DLL_HANDLE: OnceLock<SendSyncWrapper<HMODULE>> = OnceLock::new();
@@ -127,7 +142,7 @@ macro_rules! global_var {
     ($name:ident) => {
         match $name.lock() {
             Ok(lock) => lock,
-            Err(e) => unsafe { $crate::fatal_error_exit(e.into()) },
+            Err(e) => $crate::fatal_error_exit(e.into()),
         }
     };
 }
@@ -185,28 +200,31 @@ fn reopen_stdout() -> windows::core::Result<HANDLE> {
     }
 }
 
-unsafe fn restore_original_stdout() -> windows::core::Result<()> {
-    SetStdHandle(STD_OUTPUT_HANDLE, ORIGINAL_STDOUT.get())
+fn restore_original_stdout() -> windows::core::Result<()> {
+    unsafe { SetStdHandle(STD_OUTPUT_HANDLE, get_state_!().original_stdout.0) }
 }
 
-unsafe fn eject_dll() -> LoleResult<()> {
+fn eject_dll() -> LoleResult<()> {
     for patch in global_var!(ENABLED_PATCHES).drain(..) {
         patch.disable()?;
     }
 
     restore_original_stdout()?;
-    CloseHandle(CONSOLE_CONOUT.get())?;
-    FreeConsole()?;
+    unsafe {
+        CloseHandle(get_state_!().console_conout.0)?;
+        FreeConsole()?;
+    }
 
     if let Some(dll_handle) = DLL_HANDLE.get() {
-        std::thread::spawn(|| {
+        std::thread::spawn(|| unsafe {
             FreeLibraryAndExitThread(dll_handle.0, 0);
         });
     }
     Ok(())
 }
 
-const ROUGHLY_SIXTY_FPS: Duration = Duration::from_micros((950000.0 / 60.0) as u64);
+const TARGET_FPS: f64 = 100.0;
+const TARGET_SPF: f64 = 1.0 / TARGET_FPS; // "seconds per frame"
 
 fn write_last_hardware_action(offset_by: i64) -> LoleResult<()> {
     let ticks = read_os_tick_count() as i64;
@@ -220,16 +238,20 @@ fn write_last_hardware_action(offset_by: i64) -> LoleResult<()> {
 }
 
 fn set_frame_num() -> LoleResult<()> {
-    LAST_FRAME_NUM.set(LAST_FRAME_NUM.get() + 1);
-    LAST_FRAME_TIME.set(lua_GetTime()?);
+    let mut state = get_state_!();
+    state.last_frame_num = state.last_frame_num + 1;
+    state.last_frame_time = lua_GetTime()?;
     Ok(())
 }
 
 fn afk_refresh_hardware_event_timestamp() -> LoleResult<()> {
-    if LAST_HARDWARE_INTERVAL.get().elapsed() > std::time::Duration::from_secs(20) {
-        LAST_HARDWARE_INTERVAL.set(std::time::Instant::now());
+    let mut state = get_state_!();
+    if let Some(interval) = state.last_hardware_interval
+        && interval.elapsed() > std::time::Duration::from_secs(20)
+    {
         write_last_hardware_action(-1000)?;
     }
+    state.last_hardware_interval = Some(std::time::Instant::now());
     Ok(())
 }
 
@@ -256,10 +278,14 @@ fn unpack_broker_message_queue() {
 fn main_entrypoint() -> LoleResult<()> {
     ctm::poll()?;
 
-    #[cfg(feature = "tbc")]
+    // #[cfg(feature = "tbc")]
     // tbc client isn't doing any frame limiting for clients in the background
-    if let Some(dt) = ROUGHLY_SIXTY_FPS.checked_sub(LAST_FRAME_TIME.get().elapsed()) {
-        std::thread::sleep(dt);
+    {
+        let now = lua_GetTime()?;
+        let dt = now - get_state_!().last_frame_time;
+        if 0.0 < dt && dt < TARGET_SPF {
+            std::thread::sleep(std::time::Duration::from_secs_f64(TARGET_SPF - dt));
+        }
     }
 
     afk_refresh_hardware_event_timestamp()?;
@@ -271,24 +297,29 @@ fn main_entrypoint() -> LoleResult<()> {
     Ok(())
 }
 
-unsafe fn open_console() -> LoleResult<()> {
+fn open_console() -> LoleResult<()> {
     use windows::Win32::System::Console::{
-        GetConsoleMode, SetConsoleMode, CONSOLE_MODE, ENABLE_VIRTUAL_TERMINAL_PROCESSING,
+        CONSOLE_MODE, ENABLE_VIRTUAL_TERMINAL_PROCESSING, GetConsoleMode, SetConsoleMode,
     };
 
-    AllocConsole()?;
-    let original_stdout = GetStdHandle(STD_OUTPUT_HANDLE)?;
-    ORIGINAL_STDOUT.set(original_stdout);
+    unsafe {
+        AllocConsole()?;
+        let original_stdout = GetStdHandle(STD_OUTPUT_HANDLE)?;
+        let mut state = get_state_!();
 
-    let conout = reopen_stdout()?;
-    CONSOLE_CONOUT.set(conout);
+        state.original_stdout = SendSyncWrapper(original_stdout);
 
-    let mut mode = CONSOLE_MODE(0);
-    GetConsoleMode(conout, &mut mode)?;
-    // allow ANSI color (etc.) codes
-    SetConsoleMode(conout, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING)?;
+        let conout = reopen_stdout()?;
+        state.console_conout = SendSyncWrapper(conout);
 
-    SetStdHandle(STD_OUTPUT_HANDLE, conout)?;
+        let mut mode = CONSOLE_MODE(0);
+        GetConsoleMode(conout, &mut mode)?;
+        // allow ANSI color (etc.) codes
+        SetConsoleMode(conout, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING)?;
+
+        SetStdHandle(STD_OUTPUT_HANDLE, conout)?;
+    }
+
     Ok(())
 }
 
@@ -299,7 +330,7 @@ pub(crate) struct Account(WowAccount);
 
 impl Account {
     fn login(&self) -> LoleResult<()> {
-        let sleep_duration = std::time::Duration::from_millis(rand::random::<u64>() % 4000);
+        let sleep_duration = std::time::Duration::from_millis(rand::random::<u64>() % 4000) * 0;
         tracing::info!("Sleeping for {sleep_duration:?}");
         std::thread::sleep(sleep_duration);
         dostring!(
@@ -342,7 +373,7 @@ fn read_config_from_file(identifier: &str) -> anyhow::Result<ClientConfig> {
     }
 }
 
-unsafe fn initialize_dll() -> LoleResult<()> {
+fn initialize_dll() -> LoleResult<()> {
     open_console()?;
 
     let filter = tracing_subscriber::filter::LevelFilter::INFO;
@@ -353,11 +384,11 @@ unsafe fn initialize_dll() -> LoleResult<()> {
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
-        .with(tracing_subscriber::fmt::layer().with_ansi(!cfg!(feature = "host-linux"))) // host-windows with the extended terminal capabilities actually supports ansi codes, but not wine terminal
+        .with(tracing_subscriber::fmt::layer().with_ansi(!cfg!(feature = "host-linux"))) // host-windows with the extended terminal capabilities actually supports ansi codes, just not wine terminal
         .init();
 
     let identifier = cfg_select! {
-        feature = "host-linux" => { std::env::var("LOLE_ID").unwrap() }
+        feature = "host-linux" => { if let Ok(id) = std::env::var("LOLE_ID") { id } else { return Err(LoleError::InvalidParam(String::from("LOLE_ID missing")))} }
         feature = "host-windows" => {
             std::process::id().to_string()
         }
@@ -374,7 +405,6 @@ unsafe fn initialize_dll() -> LoleResult<()> {
                     Account(account).login()?;
                 }
             }
-
             if let Some(ref log_level) = config.log_level {
                 let log_level = log_level.to_lowercase();
                 let filter_from_config = LevelFilter::from_str(&log_level).unwrap();
@@ -394,7 +424,9 @@ unsafe fn initialize_dll() -> LoleResult<()> {
 
     for p in CLIENT_CONFIG.get_or_init(|| config).enabled_patches.iter() {
         if let Some(patch) = AVAILABLE_PATCHES.get(p.as_str()) {
-            patch.enable()?;
+            unsafe {
+                patch.enable()?;
+            }
             tracing::info!("enabled patch {p}");
             global_var!(ENABLED_PATCHES).push(patch);
         } else {
@@ -444,24 +476,29 @@ unsafe fn initialize_dll() -> LoleResult<()> {
     Ok(())
 }
 
-unsafe fn fatal_error_exit(err: LoleError) -> ! {
-    MessageBoxW(
-        None,
-        windows_string!(&format!("{err:?}")),
-        windows_string!("wowibottihookdll_rust error :("),
-        MB_OK | MB_ICONERROR, // MB_OK apparently waits for the user to click OK
-    );
-    ExitProcess(1)
+fn fatal_error_exit(err: LoleError) -> ! {
+    unsafe {
+        MessageBoxW(
+            None,
+            windows_string!(&format!("{err:?}")),
+            windows_string!("wowibottihookdll_rust error :("),
+            MB_OK | MB_ICONERROR, // MB_OK apparently waits for the user to click OK
+        );
+        ExitProcess(1)
+    }
 }
 
 #[allow(non_snake_case)]
 pub unsafe extern "stdcall" fn EndScene_hook() {
-    if NEED_INIT.get() {
+    let need_init = get_state_!().need_init; // guard drops here at semicolon
+    if need_init {
         if let Err(e) = initialize_dll() {
-            fatal_error_exit(e);
+            // fatal_error_exit(e);
+            tracing::error!("dll init failed: {e:?}");
         }
-        NEED_INIT.set(false);
-    } else if SHOULD_EJECT.get() {
+        tracing::info!("EndScene_hook: {:p}", EndScene_hook as *const ());
+        get_state_!().need_init = false;
+    } else if get_state_!().should_eject {
         if let Err(e) = eject_dll() {
             fatal_error_exit(e);
         }
@@ -554,7 +591,7 @@ impl From<std::ffi::NulError> for LoleError {
 
 //     true2// }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn DllMain(_hinst: HMODULE, reason: u32, _reserved: *mut c_void) -> i32 {
     if reason == 1 {
         // DLL_PROCESS_ATTACH
@@ -573,16 +610,10 @@ pub extern "system" fn DllMain(_hinst: HMODULE, reason: u32, _reserved: *mut c_v
     1
 }
 
-unsafe extern "system" fn main_thread(_: *mut c_void) -> u32 {
+extern "system" fn main_thread(_: *mut c_void) -> u32 {
     // all your actual code goes here
     unsafe { windows::Win32::System::Threading::Sleep(1500) };
     let tramp = AVAILABLE_PATCHES.get("EndScene").expect("EndScene");
-
-    std::fs::write(
-        "C:\\proof.txt",
-        format!("Patched EndScene at {:X}", tramp.patch_addr),
-    )
-    .ok();
 
     if let Err(e) = tramp.enable() {
         fatal_error_exit(e);
@@ -631,23 +662,23 @@ macro_rules! int3h {
     };
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn DivxDecode(a: i32, b: i32, c: i32) -> i32 {
+#[unsafe(no_mangle)]
+pub extern "C" fn DivxDecode(a: i32, b: i32, c: i32) -> i32 {
     // int3h!();
-    (real().divx_decode)(a, b, c)
+    unsafe { (real().divx_decode)(a, b, c) }
 }
-#[no_mangle]
-pub unsafe extern "C" fn InitializeDivxDecoder(a: i32) -> i32 {
+#[unsafe(no_mangle)]
+pub extern "C" fn InitializeDivxDecoder(a: i32) -> i32 {
     // int3h!();
-    (real().initialize)(a)
+    unsafe { (real().initialize)(a) }
 }
-#[no_mangle]
-pub unsafe extern "C" fn SetOutputFormat(a: i32, b: i32, c: i32, d: i32) -> i32 {
+#[unsafe(no_mangle)]
+pub extern "C" fn SetOutputFormat(a: i32, b: i32, c: i32, d: i32) -> i32 {
     // int3h!();
-    (real().set_output_format)(a, b, c, d)
+    unsafe { (real().set_output_format)(a, b, c, d) }
 }
-#[no_mangle]
-pub unsafe extern "C" fn UnInitializeDivxDecoder(a: i32) -> i32 {
+#[unsafe(no_mangle)]
+pub extern "C" fn UnInitializeDivxDecoder(a: i32) -> i32 {
     // int3h!();
-    (real().uninitialize)(a)
+    unsafe { (real().uninitialize)(a) }
 }
