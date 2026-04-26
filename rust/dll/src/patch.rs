@@ -233,6 +233,7 @@ pub fn write_addr<T: Sized + Copy + std::fmt::Debug>(addr: Addr, data: &[T]) -> 
         )
         .map_err(|e| LoleError::MemoryWriteError(format!("{e:?}")))?;
 
+        // could use just std::ptr::copy_nonoverlapping
         let mut bytes_written = 0;
         let result = WriteProcessMemory(
             GetCurrentProcess(),

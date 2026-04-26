@@ -1,6 +1,7 @@
 use std::cell::Cell;
 use std::f32::consts::PI;
 use std::ffi::{CStr, CString, c_char, c_void};
+use std::sync::Mutex;
 
 use lole_macros::generate_lua_enum;
 use rand::RngExt;
@@ -26,10 +27,7 @@ use addonmessage_broker::server::{AddonMessage, Msg, MsgSender, MsgWrapper};
 
 use crate::{Addr, define_lua_function}; // POSTGRES_ADDR, POSTGRES_DB, POSTGRES_PASS, POSTGRES_USER};
 
-thread_local! {
-    // this is modified from CtmAction::commit() and set_facing
-    pub static RUN_SCRIPT_AFTER_N_FRAMES: Cell<Option<(&'static str, usize)>> = const { Cell::new(None) };
-}
+pub static RUN_SCRIPT_AFTER_N_FRAMES: Mutex<Option<(String, usize)>> = Mutex::new(None);
 
 #[allow(non_camel_case_types)]
 pub type lua_State = *mut c_void;
@@ -415,12 +413,20 @@ macro_rules! cstr_to_str {
     }};
 }
 
-#[derive(Debug)]
-enum PlayerPositionStatus {
-    Ok,
-    TooNear,
-    TooFar,
-    WrongFacing,
+bitflags::bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct PlayerPositionStatus: u8 {
+        const OK           = 0;
+        const TOO_NEAR     = 0b01;
+        const TOO_FAR      = 0b10;
+        const WRONG_FACING = 0b100;
+    }
+}
+
+impl PlayerPositionStatus {
+    pub fn is_ok(&self) -> bool {
+        self.is_empty()
+    }
 }
 
 fn get_melee_position_status(
@@ -428,13 +434,16 @@ fn get_melee_position_status(
     tpdiff_unit: Vec3,
     prot_unit: Vec3,
 ) -> PlayerPositionStatus {
+    let mut status = PlayerPositionStatus::OK;
+
     if ideal_position_relative.length() > 0.5 {
-        PlayerPositionStatus::TooFar
-    } else if Vec3::dot(tpdiff_unit, prot_unit) < 0.85 {
-        PlayerPositionStatus::WrongFacing
-    } else {
-        PlayerPositionStatus::Ok
+        status |= PlayerPositionStatus::TOO_FAR;
     }
+    if Vec3::dot(tpdiff_unit, prot_unit) < 0.85 {
+        status |= PlayerPositionStatus::WRONG_FACING;
+    }
+
+    status
 }
 
 fn get_caster_position_status(
@@ -443,16 +452,19 @@ fn get_caster_position_status(
     tpdiff: Vec3,
     prot_unit: Vec3,
 ) -> PlayerPositionStatus {
+    let mut status = PlayerPositionStatus::OK;
     let distance_from_target = tpdiff.length();
+
     if distance_from_target >= range_max {
-        PlayerPositionStatus::TooFar
+        status |= PlayerPositionStatus::TOO_FAR;
     } else if distance_from_target < range_min {
-        PlayerPositionStatus::TooNear
-    } else if Vec3::dot(tpdiff.unit(), prot_unit) < 0.99 {
-        PlayerPositionStatus::WrongFacing
-    } else {
-        PlayerPositionStatus::Ok
+        status |= PlayerPositionStatus::TOO_NEAR;
     }
+    if Vec3::dot(tpdiff.unit(), prot_unit) < 0.99 {
+        status |= PlayerPositionStatus::WRONG_FACING;
+    }
+
+    status
 }
 
 pub fn playermode() -> LoleResult<bool> {
@@ -696,12 +708,14 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 if distance < 10.0 {
                     dostring!("MoveForwardStop(); FollowUnit('{}')", t.get_name());
                 } else {
-                    TRYING_TO_FOLLOW.set(Some(t.get_guid()));
+                    let mut ttf = TRYING_TO_FOLLOW.lock().unwrap();
+                    *ttf = Some(t.get_guid());
                 }
             }
         }
         Opcode::StopFollow if nargs == 0 => {
-            TRYING_TO_FOLLOW.set(None);
+            let mut ttf = TRYING_TO_FOLLOW.lock().unwrap();
+            *ttf = None;
             let target_pos = player.yards_in_front_of(0.1)?;
             ctm::clear()?;
             ctm::add_to_queue(CtmEvent {
@@ -724,31 +738,29 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 let tp = target.get_pos()?;
                 let tpdiff = (tp - pp).zero_z();
                 let tpdiff_unit = tpdiff.unit();
-                match get_caster_position_status(range_min, range_max, tpdiff, prot) {
-                    PlayerPositionStatus::TooNear => {
-                        ctm::add_to_queue(CtmEvent {
-                            target_pos: tp - (range_min + 2.0) * tpdiff_unit,
-                            priority: CtmPriority::Replace,
-                            action: CtmAction::Move,
-                            ..Default::default()
-                        })?;
-                    }
-                    PlayerPositionStatus::TooFar => {
-                        ctm::add_to_queue(CtmEvent {
-                            target_pos: tp - (range_max - 2.0) * tpdiff_unit,
-                            priority: CtmPriority::Replace,
-                            action: CtmAction::Move,
-                            ..Default::default()
-                        })?;
-                    }
-                    PlayerPositionStatus::WrongFacing => {
-                        facing::set_facing(player, tpdiff_unit.to_rot_value(), NOT_MOVING)?;
-                    }
+                let status = get_caster_position_status(range_min, range_max, tpdiff, prot);
 
-                    PlayerPositionStatus::Ok => {
-                        lua_pushboolean(lua, LUA_TRUE);
-                        return Ok(1);
-                    }
+                if status.is_ok() {
+                    lua_pushboolean(lua, LUA_TRUE);
+                    return Ok(1);
+                }
+                if status.contains(PlayerPositionStatus::TOO_NEAR) {
+                    ctm::add_to_queue(CtmEvent {
+                        target_pos: tp - (range_min + 2.0) * tpdiff_unit,
+                        priority: CtmPriority::Replace,
+                        action: CtmAction::Move,
+                        ..Default::default()
+                    })?;
+                } else if status.contains(PlayerPositionStatus::TOO_FAR) {
+                    ctm::add_to_queue(CtmEvent {
+                        target_pos: tp - (range_max - 2.0) * tpdiff_unit,
+                        priority: CtmPriority::Replace,
+                        action: CtmAction::Move,
+                        ..Default::default()
+                    })?;
+                }
+                if status.contains(PlayerPositionStatus::WRONG_FACING) {
+                    facing::set_facing(player, tpdiff_unit.to_rot_value(), NOT_MOVING)?;
                 }
             }
         }
@@ -782,23 +794,23 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 let ideal = pp.select_closer(candidate1, candidate2);
                 let ideal_relative = (ideal - pp).zero_z();
 
-                match get_melee_position_status(ideal_relative, tpdiff_unit, prot) {
-                    PlayerPositionStatus::TooFar | PlayerPositionStatus::TooNear => {
-                        ctm::add_to_queue(CtmEvent {
-                            target_pos: ideal + 0.5 * prot,
-                            priority: CtmPriority::Replace,
-                            action: CtmAction::Move,
-                            distance_margin: Some(0.5),
-                            ..Default::default()
-                        })?;
-                    }
-                    PlayerPositionStatus::WrongFacing => {
-                        facing::set_facing(player, tpdiff.to_rot_value(), NOT_MOVING)?;
-                    }
-                    PlayerPositionStatus::Ok => {
-                        lua_pushboolean(lua, LUA_TRUE);
-                        return Ok(1);
-                    }
+                let status = get_melee_position_status(ideal_relative, tpdiff_unit, prot);
+
+                if status.is_ok() {
+                    lua_pushboolean(lua, LUA_TRUE);
+                    return Ok(1);
+                }
+                if status.intersects(PlayerPositionStatus::TOO_FAR | PlayerPositionStatus::TOO_NEAR)
+                {
+                    ctm::add_to_queue(CtmEvent {
+                        target_pos: ideal + 0.5 * prot,
+                        priority: CtmPriority::Replace,
+                        action: CtmAction::Move,
+                        distance_margin: Some(0.5),
+                        ..Default::default()
+                    })?;
+                } else if status.contains(PlayerPositionStatus::WRONG_FACING) {
+                    facing::set_facing(player, tpdiff.to_rot_value(), NOT_MOVING)?;
                 }
             }
         }
@@ -806,20 +818,26 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
         Opcode::HealerRangeCheck if nargs == 1 => {
             if let Some(target) = target {
                 let range_max = lua_tonumber_f32!(lua, 2);
-                let pp = player.get_pos()?;
+                let (pp, prot) = player.get_pos_and_rotvec()?;
                 let tp = target.get_pos()?;
                 let tpdiff = (tp - pp).zero_z();
-                if tpdiff.length() < range_max {
-                    return Ok(LUA_NO_RETVALS);
-                }
                 let tpdiff_unit = tpdiff.unit();
 
-                ctm::add_to_queue(CtmEvent {
-                    target_pos: tp - (range_max - 2.0) * tpdiff_unit,
-                    priority: CtmPriority::Replace,
-                    action: CtmAction::Move,
-                    ..Default::default()
-                })?;
+                let status = get_caster_position_status(0.0, range_max, tpdiff, prot);
+
+                if status.contains(PlayerPositionStatus::TOO_FAR) {
+                    ctm::add_to_queue(CtmEvent {
+                        target_pos: tp - (range_max - 2.0) * tpdiff_unit,
+                        priority: CtmPriority::Replace,
+                        action: CtmAction::Move,
+                        ..Default::default()
+                    })?;
+                    lua_pushboolean(lua, LUA_FALSE);
+                    return Ok(1);
+                } else if status.is_ok() {
+                    lua_pushboolean(lua, LUA_TRUE);
+                    return Ok(1);
+                }
             }
         }
 
@@ -873,7 +891,8 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             write_last_hardware_action(0)?;
         }
         Opcode::StopFollowSpread if nargs == 0 => {
-            TRYING_TO_FOLLOW.set(None);
+            let mut ttf = TRYING_TO_FOLLOW.lock().unwrap();
+            *ttf = None;
             // add randomness (for multibox masking)
             let target_pos =
                 player.get_pos()? + random_01() * Vec3::from_rot_value(random_01() * TWO_PI);
@@ -961,7 +980,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             let mut lootable = lootable?;
             lootable.sort_unstable_by_key(|l| (l.1 * 1024.0) as u32);
             if let Some((closest, distance_from_player)) = lootable.into_iter().next() {
-                if distance_from_player > ctm::constants::LOOT_MINDISTANCE {
+                if distance_from_player > ctm::ctm_constants::LOOT_MINDISTANCE {
                     let action = CtmEvent {
                         target_pos: closest.get_pos()?,
                         priority: CtmPriority::Replace,

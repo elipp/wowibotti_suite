@@ -374,7 +374,7 @@ fn read_config_from_file(identifier: &str) -> anyhow::Result<ClientConfig> {
 }
 
 fn initialize_dll() -> LoleResult<()> {
-    open_console()?;
+    // open_console()?;
 
     let filter = tracing_subscriber::filter::LevelFilter::INFO;
     let (_, reload_handle) =

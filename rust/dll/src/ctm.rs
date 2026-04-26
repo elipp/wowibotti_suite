@@ -1,6 +1,5 @@
 use rand::RngExt;
 use std::arch::asm;
-use std::cell::Cell;
 use std::collections::VecDeque;
 use std::f32::consts::PI;
 use std::ffi::c_void;
@@ -8,18 +7,19 @@ use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+use crate::addrs::offsets::ctm::CTM_FINISHED_PATCHADDR;
 use crate::addrs::{self, offsets};
 use crate::dostring;
 use crate::lua::RUN_SCRIPT_AFTER_N_FRAMES;
-use crate::objectmanager::{GUIDFmt, ObjectManager, GUID, NO_TARGET};
+use crate::objectmanager::{GUID, GUIDFmt, NO_TARGET, ObjectManager};
 use crate::patch::{
-    copy_original_opcodes, deref_t, read_elems_from_addr, write_addr, InstructionBuffer, Patch,
-    PatchKind,
+    InstructionBuffer, Patch, PatchKind, copy_original_opcodes, deref_t, read_elems_from_addr,
+    write_addr,
 };
 use crate::socket::facing::{self, SETFACING_STATE};
 use crate::socket::movement_flags;
-use crate::vec3::{Vec3, TWO_PI};
-use crate::{assembly, Addr, LoleError, LoleResult};
+use crate::vec3::{TWO_PI, Vec3};
+use crate::{Addr, LoleError, LoleResult, assembly};
 
 // turns out that thread_local! { RefCell }, while possible, is kinda tedious
 // QUEUE.with(|cell| { let mut borrow = cell.borrow_mut(); // etc. })
@@ -41,12 +41,9 @@ struct InterpStatus {
     t: f32,
 }
 
-thread_local! {
-    pub static TRYING_TO_FOLLOW: Cell<Option<GUID>> = const { Cell::new(None) };
-    pub static CTM_EVENT_ID: Cell<u64> = const { Cell::new(0) };
-
-    static ANGLE_INTERP_STATUS: Cell<Option<InterpStatus>> = const { Cell::new(None) };
-}
+pub static TRYING_TO_FOLLOW: Mutex<Option<GUID>> = Mutex::new(None);
+pub static CTM_EVENT_ID: Mutex<u64> = Mutex::new(0);
+static ANGLE_INTERP_STATUS: Mutex<Option<InterpStatus>> = Mutex::new(None);
 
 #[derive(Debug, Default)]
 pub struct MovingAverage<const WINDOW_SIZE: usize> {
@@ -125,18 +122,20 @@ const INTERP_DT_DEFAULT: f32 = 0.035; // lower means smoother turns :D
 const INTERP_NONE: f32 = 1.0;
 
 fn handle_walking_angle_interp(player_r: f32, diff_rot: f32) -> LoleResult<()> {
+    let mut interp = ANGLE_INTERP_STATUS.lock().unwrap();
+
     if let Some(InterpStatus {
         start_angle,
         end_angle,
         dt,
         t,
-    }) = ANGLE_INTERP_STATUS.take()
+    }) = interp.take()
     {
         let om = ObjectManager::new()?;
         let player = om.get_player()?;
         if t >= 1.0 {
             facing::set_facing(player, diff_rot, movement_flags::FORWARD)?;
-            ANGLE_INTERP_STATUS.set(None);
+            *interp = None;
         } else {
             if short_angle_dist(player_r, diff_rot).abs() > 0.01 {
                 facing::set_facing(
@@ -145,23 +144,22 @@ fn handle_walking_angle_interp(player_r: f32, diff_rot: f32) -> LoleResult<()> {
                     movement_flags::FORWARD,
                 )?;
             }
-            ANGLE_INTERP_STATUS.set(Some(InterpStatus {
+            *interp = Some(InterpStatus {
                 start_angle,
                 end_angle: diff_rot,
                 dt,
                 t: t + dt,
-            }));
+            });
         }
-    } else {
-        if short_angle_dist(player_r, diff_rot).abs() > 0.01 {
-            ANGLE_INTERP_STATUS.set(Some(InterpStatus {
-                start_angle: player_r,
-                end_angle: diff_rot,
-                dt: INTERP_DT_DEFAULT,
-                t: 0.0,
-            }));
-        }
+    } else if short_angle_dist(player_r, diff_rot).abs() > 0.01 {
+        *interp = Some(InterpStatus {
+            start_angle: player_r,
+            end_angle: diff_rot,
+            dt: INTERP_DT_DEFAULT,
+            t: 0.0,
+        });
     }
+
     Ok(())
 }
 
@@ -216,12 +214,13 @@ impl CtmQueue {
         })
     }
     fn poll(&mut self) -> LoleResult<()> {
-        if let Some((script, n)) = RUN_SCRIPT_AFTER_N_FRAMES.get() {
+        let mut run_script = RUN_SCRIPT_AFTER_N_FRAMES.lock().unwrap();
+        if let Some((script, n)) = run_script.clone() {
             if n <= 1 {
-                dostring!(script);
-                RUN_SCRIPT_AFTER_N_FRAMES.set(None);
+                dostring!(script.as_str());
+                *run_script = None;
             } else {
-                RUN_SCRIPT_AFTER_N_FRAMES.set(Some((script, n - 1)));
+                *run_script = Some((script, n - 1))
             }
         }
         let prev_frame_time = self.last_frame_time;
@@ -237,13 +236,11 @@ impl CtmQueue {
 
         self.prev_pos = pp;
 
-        if let Some(guid) = TRYING_TO_FOLLOW.get() {
+        if let Some(guid) = *TRYING_TO_FOLLOW.lock().unwrap() {
             if let Some(t) = om.get_object_by_guid(guid)? {
                 let tp = t.get_pos()?;
                 if (pp - tp).length() < 10.0 {
-                    TRYING_TO_FOLLOW.set(None);
-                    // doing FollowUnit() here causes a ctm_finished, causing a deadlock on the QUEUE mutex.
-                    // is avoidable using try_lock();
+                    *TRYING_TO_FOLLOW.lock().unwrap() = None;
                     dostring!("MoveForwardStop(); FollowUnit('{}')", t.get_name());
                     self.current = None;
                 } else {
@@ -260,7 +257,7 @@ impl CtmQueue {
                     "follow: object with guid {} doesn't exist, stopping trying to follow",
                     GUIDFmt(guid)
                 );
-                TRYING_TO_FOLLOW.set(None);
+                *TRYING_TO_FOLLOW.lock().unwrap() = None;
                 self.current = None;
             }
         } else if let Some((current, start_time)) = self.current.as_mut() {
@@ -405,8 +402,9 @@ pub struct CtmEvent {
 
 impl Default for CtmEvent {
     fn default() -> Self {
-        let id = CTM_EVENT_ID.get();
-        CTM_EVENT_ID.set(id + 1);
+        let mut ctm = CTM_EVENT_ID.lock().unwrap();
+        let id = *ctm;
+        *ctm = id + 1;
         Self {
             id,
             target_pos: Vec3::default(),
@@ -421,7 +419,7 @@ impl Default for CtmEvent {
     }
 }
 
-pub mod constants {
+pub mod ctm_constants {
     pub const GLOBAL_CONST1: f32 = 13.962_634; // this is 9/4 PI ? :D
     pub const MOVE_CONST2: f32 = 0.25;
     pub const MOVE_MINDISTANCE: f32 = 0.5;
@@ -438,16 +436,18 @@ impl CtmEvent {
     }
 
     unsafe fn get_unk_ctm_state() -> u32 {
-        let func: extern "cdecl" fn(a: u32, b: u32, c: u32, d: u32, e: u32) -> u32 =
-            std::mem::transmute(0x4D4DB0 as *const c_void);
+        unsafe {
+            let func: extern "cdecl" fn(a: u32, b: u32, c: u32, d: u32, e: u32) -> u32 =
+                std::mem::transmute(0x4D4DB0 as *const c_void);
 
-        func(
-            deref_t::<_, 1>(0xCA1238),
-            deref_t::<_, 1>(0xCA123C),
-            8,
-            0xA34B10,
-            0x3CC4,
-        )
+            func(
+                deref_t::<_, 1>(0xCA1238),
+                deref_t::<_, 1>(0xCA123C),
+                8,
+                0xA34B10,
+                0x3CC4,
+            )
+        }
     }
     unsafe fn call_wow_click_to_move(&self) -> LoleResult<()> {
         // CPU Disasm
@@ -461,35 +461,36 @@ impl CtmEvent {
         // 00731567  |.  51            PUSH ECX
         // 00731568  |.  E8 4338DAFF   CALL 004D4DB0
 
-        let ecx = CtmEvent::get_unk_ctm_state();
+        unsafe {
+            let ecx = CtmEvent::get_unk_ctm_state();
 
-        if ecx == 0 {
-            return Err(LoleError::NullPtrError);
+            if ecx == 0 {
+                return Err(LoleError::NullPtrError);
+            }
+
+            let action: u8 = self.action.into();
+            let interact_guid = self.interact_guid.unwrap_or(0x0);
+
+            asm! {
+                "push 0", // is an unknown float value, stored into [CA11EC]
+                "push {}",
+                "push {}",
+                "push {}",
+                in(reg) &self.target_pos.x as *const f32,
+                in(reg) &interact_guid as *const GUID,
+                in(reg) action as u32,
+                out("ecx") _,
+            }
+
+            asm! {
+                "mov ecx, {}",
+                "call {}",
+                in(reg) ecx,
+                in(reg) addrs::offsets::ctm::WOW_CLICK_TO_MOVE,
+                out("ecx") _,
+                clobber_abi("stdcall"),
+            }
         }
-
-        let action: u8 = self.action.into();
-        let interact_guid = self.interact_guid.unwrap_or(0x0);
-
-        asm! {
-            "push 0", // is an unknown float value, stored into [CA11EC]
-            "push {}",
-            "push {}",
-            "push {}",
-            in(reg) &self.target_pos.x as *const f32,
-            in(reg) &interact_guid as *const GUID,
-            in(reg) action as u32,
-            out("ecx") _,
-        }
-
-        asm! {
-            "mov ecx, {}",
-            "call {}",
-            in(reg) ecx,
-            in(reg) addrs::offsets::ctm::WOW_CLICK_TO_MOVE,
-            out("ecx") _,
-            clobber_abi("stdcall"),
-        }
-
         Ok(())
     }
     fn commit(&self) -> LoleResult<()> {
@@ -515,8 +516,8 @@ impl CtmEvent {
         let (const2, min_distance, interact_guid) = match self.action {
             CtmAction::Loot => match self.interact_guid {
                 Some(interact_guid) if interact_guid != NO_TARGET => (
-                    constants::LOOT_CONST2,
-                    constants::LOOT_MINDISTANCE,
+                    ctm_constants::LOOT_CONST2,
+                    ctm_constants::LOOT_MINDISTANCE,
                     interact_guid,
                 ),
                 _ => {
@@ -526,21 +527,21 @@ impl CtmEvent {
                 }
             },
             CtmAction::Move => (
-                constants::MOVE_CONST2,
-                constants::MOVE_MINDISTANCE,
+                ctm_constants::MOVE_CONST2,
+                ctm_constants::MOVE_MINDISTANCE,
                 NO_TARGET,
             ),
             CtmAction::Done => return Err(LoleError::InvalidParam("CtmKind::Done".to_owned())),
             _ => (
-                constants::MOVE_CONST2,
-                constants::MOVE_MINDISTANCE,
+                ctm_constants::MOVE_CONST2,
+                ctm_constants::MOVE_MINDISTANCE,
                 NO_TARGET,
             ),
         };
 
         write_addr(offsets::ctm::WALKING_ANGLE, &[walking_angle])?;
         write_addr(offsets::ctm::INTERACT_GUID, &[interact_guid])?;
-        write_addr(offsets::ctm::GLOBAL_CONST1, &[constants::GLOBAL_CONST1])?;
+        write_addr(offsets::ctm::GLOBAL_CONST1, &[ctm_constants::GLOBAL_CONST1])?;
         write_addr(offsets::ctm::GLOBAL_CONST2, &[const2])?;
         write_addr(
             offsets::ctm::MIN_DISTANCE,
@@ -559,7 +560,7 @@ impl CtmEvent {
         )?;
 
         write_addr::<u8>(offsets::ctm::ACTION, &[self.action.into()])?;
-        SETFACING_STATE.set((walking_angle, std::time::Instant::now()));
+        (*SETFACING_STATE.lock().unwrap()) = (walking_angle, std::time::Instant::now());
         Ok(())
     }
     fn start_walking_towards(&self) -> LoleResult<()> {
@@ -602,6 +603,11 @@ pub fn clear() -> LoleResult<()> {
 }
 
 unsafe extern "C" fn ctm_finished() {
+    unsafe {
+        asm! {
+            "int 3h"
+        }
+    }
     // if let Ok(mut ctm_queue) = QUEUE.try_lock() {
     //     if let Some((_current, _)) = ctm_queue.current.take() {
     //         if !ctm_queue.events.is_empty() {
@@ -635,7 +641,6 @@ unsafe extern "C" fn ctm_finished() {
 }
 
 pub fn prepare_ctm_finished_patch() -> Patch {
-    const CTM_FINISHED_PATCHADDR: Addr = 0x612A53;
     let patch_addr = CTM_FINISHED_PATCHADDR;
     let original_opcodes = copy_original_opcodes(patch_addr, 12);
 

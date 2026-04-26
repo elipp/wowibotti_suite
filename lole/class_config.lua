@@ -1,11 +1,12 @@
 ClassConfig = {}
 ClassConfig.__index = ClassConfig
 
-function ClassConfig:GlobalCooldown() 
+function ClassConfig:GlobalCooldown()
     return self.gcd_spell and GetSpellCooldown(self.gcd_spell) == 0
 end
 
-function ClassConfig:create(name, buffs, self_buffs, color, combatfunc, cooldown_spells, role, general_role, survivefunc, spellerror_handlers, gcd_spell)
+function ClassConfig:create(name, buffs, self_buffs, color, combatfunc, cooldown_spells, role, general_role, survivefunc,
+                            spellerror_handlers, gcd_spell)
     local c = {}
     setmetatable(c, ClassConfig)
 
@@ -60,7 +61,7 @@ local AUTO_FACING_HANDLERS = {
 
 function table_concat(t1, t2)
     local res = {}
-    for k,v in pairs(t1) do
+    for k, v in pairs(t1) do
         res[k] = v
     end
     for k, v in pairs(t2) do
@@ -75,11 +76,13 @@ local available_configs = {
 
     hunter =
         ClassConfig:create("hunter", {}, {}, get_class_color("hunter"), combat_hunter,
-            { "Bestial Wrath", "Rapid Fire", "Call of the Wild" }, ROLES.mana_melee, "RANGED", survive_hunter, "Hunter's Mark"),
+            { "Bestial Wrath", "Rapid Fire", "Call of the Wild" }, ROLES.mana_melee, "RANGED", survive_hunter,
+            "Hunter's Mark"),
 
     paladin_prot =
         ClassConfig:create("paladin_prot", {}, { "Devotion Aura", "Righteous Fury", "Seal of Command" },
-            get_class_color("paladin"), combat_paladin_prot, {}, ROLES.mana_tank, "TANK", survive_paladin_prot, "Devotion Aura"),
+            get_class_color("paladin"), combat_paladin_prot, {}, ROLES.mana_tank, "TANK", survive_paladin_prot,
+            "Devotion Aura"),
 
     priest_holy =
         ClassConfig:create("priest_holy", { "Power Word: Fortitude", "Divine Spirit", "Shadow Protection" },
@@ -88,7 +91,8 @@ local available_configs = {
 
     rogue =
         ClassConfig:create("rogue", {}, {}, get_class_color("rogue"), rogue_combat,
-            { "Adrenaline Rush", "Blade Flurry", "Killing Spree" }, ROLES.melee, "MELEE", survive_rogue, AUTO_FACING_HANDLERS, "Sinister Strike"),
+            { "Adrenaline Rush", "Blade Flurry", "Killing Spree" }, ROLES.melee, "MELEE", survive_rogue,
+            AUTO_FACING_HANDLERS, "Sinister Strike"),
 
     shaman_resto =
         ClassConfig:create("shaman_resto", {}, { "Water Shield" }, get_class_color("shaman"), combat_shaman_resto,
@@ -117,12 +121,17 @@ local available_configs = {
     tmp_warlock = ClassConfig:create("tmp_warlock", {}, {}, get_class_color("warlock"), tmp_warlock_combat, {},
         ROLES.caster, "RANGED", survive_template, "Shadow Bolt"),
     tmp_priest = ClassConfig:create("tmp_priest", { "Power Word: Fortitude" }, {}, get_class_color("priest"),
-        tmp_priest_combat, {}, ROLES.caster, "RANGED", survive_template, "Flash Heal"),
+        tmp_priest_combat, {}, ROLES.healer, "HEALER", survive_template, "Flash Heal"),
     tmp_mage = ClassConfig:create("tmp_mage", {}, {}, get_class_color("mage"), tmp_mage_combat, {}, ROLES.caster,
         "RANGED", survive_template, "Frostbolt"),
     -- tmp_paladin = class_config:create("tmp_paladin", {"Blessing of Wisdom"}, {}, get_class_color("paladin"), tmp_paladin_combat, {}, ROLES.healer, "HEALER", survive_template),
-    tmp_paladin = ClassConfig:create("tmp_paladin", {}, {}, get_class_color("paladin"), tmp_paladin_combat, { "Avenging Wrath" },
+    tmp_paladin = ClassConfig:create("tmp_paladin", {}, {}, get_class_color("paladin"), tmp_paladin_combat,
+        { "Avenging Wrath" },
         ROLES.mana_melee, "MELEE", survive_template, AUTO_FACING_HANDLERS, "Devotion Aura"),
+
+    tmp_warrior = ClassConfig:create("tmp_warrior", {}, {}, get_class_color("warrior"), tmp_warrior_combat,
+        {},
+        ROLES.melee, "MELEE", survive_template, AUTO_FACING_HANDLERS),
 
     aoe_druid_balance =
         ClassConfig:create("aoe_druid_balance", {}, {}, get_class_color("druid"), aoe_combat_druid, {}, ROLES.caster,
@@ -137,7 +146,7 @@ local available_configs = {
             "RANGED", survive_template, "Frostbolt"),
 
     shaman_resto_leveling =
-        ClassConfig:create("shaman_resto_leveling", {}, {"Water Shield"}, get_class_color("shaman"), 
+        ClassConfig:create("shaman_resto_leveling", {}, { "Water Shield" }, get_class_color("shaman"),
             combat_shaman_resto_leveling, {}, ROLES.healer, "HEALER", survive_shaman_resto),
 };
 

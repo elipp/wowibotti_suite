@@ -20,7 +20,7 @@ macro_rules! define_lua_function {
 }
 #[cfg(feature = "tbc")]
 pub mod offsets {
-    use crate::{objectmanager::GUID, Addr, Offset};
+    use crate::{Addr, Offset, objectmanager::GUID};
 
     pub const D3D9_DEVICE: Addr = 0xD2A15C;
     pub const D3D9_DEVICE_OFFSET: Offset = 0x3864;
@@ -88,6 +88,8 @@ pub mod offsets {
         pub const MYSTERY_C8: Addr = 0xD689C8;
         pub const MYSTERY_90: Addr = 0xD68A90;
         pub const MYSTERY_94: Addr = 0xD68A94;
+
+        pub const CTM_FINISHED_PATCHADDR: Addr = 0x612A53;
     }
 
     #[allow(non_upper_case_globals)]
@@ -207,7 +209,7 @@ pub mod offsets {
 pub mod offsets {
     use std::ffi::c_void;
 
-    use crate::{objectmanager::GUID, Addr, Offset};
+    use crate::{Addr, Offset, objectmanager::GUID};
 
     use super::UNKNOWN_ADDRESS;
 
@@ -224,7 +226,7 @@ pub mod offsets {
 
     #[allow(non_upper_case_globals)]
     pub mod wow_cfuncs {
-        use crate::{addrs::UNKNOWN_ADDRESS, Addr};
+        use crate::{Addr, addrs::UNKNOWN_ADDRESS};
         // pub const GetUnitOrNPCNameAddr: Addr = 0x614520;
         pub const GetUnitOrNPCNameAddr: Addr = 0x72A000;
         pub const SelectUnit: Addr = 0x524BF0;
@@ -263,7 +265,7 @@ pub mod offsets {
 
     #[allow(non_upper_case_globals)]
     pub mod lua {
-        use crate::{addrs::UNKNOWN_ADDRESS, Addr};
+        use crate::{Addr, addrs::UNKNOWN_ADDRESS};
         pub const lua_gettop: Addr = 0x84DBD0;
         pub const lua_settop: Addr = 0x84DBF0;
         pub const lua_tonumber: Addr = 0x84E030;
@@ -308,7 +310,7 @@ pub mod offsets {
     }
 
     pub mod ctm {
-        use crate::{addrs::UNKNOWN_ADDRESS, Addr};
+        use crate::{Addr, addrs::UNKNOWN_ADDRESS};
         pub const WOW_CLICK_TO_MOVE: Addr = 0x727400;
 
         pub const PREV_POS_X: Addr = UNKNOWN_ADDRESS;
@@ -335,6 +337,8 @@ pub mod offsets {
         pub const MYSTERY_C8: Addr = UNKNOWN_ADDRESS;
         pub const MYSTERY_90: Addr = UNKNOWN_ADDRESS;
         pub const MYSTERY_94: Addr = UNKNOWN_ADDRESS;
+
+        pub const CTM_FINISHED_PATCHADDR: Addr = 0x7273C7;
     }
 
     pub mod socket {

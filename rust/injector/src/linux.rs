@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use crate::types::PottiConfig;
 use crate::LaunchQuery;
+use crate::types::PottiConfig;
 
 pub fn get_config_file_path(identifier: &str) -> anyhow::Result<PathBuf> {
     Ok(

@@ -4,116 +4,117 @@ vec3 = {}
 vec3.__index = vec3
 
 function vec3:create(x, y, z)
-   local v = {}             -- our new object
-   setmetatable(v,vec3)
-   v.x = x      -- initialize our object
-   v.y = y
-   v.z = z
-   return v
+    local v = {} -- our new object
+    setmetatable(v, vec3)
+    v.x = x      -- initialize our object
+    v.y = y
+    v.z = z
+    return v
 end
 
 function vec3:rotated2d(angle)
-  return vec3:create(self.x * math.cos(angle) - self.y * math.sin(angle), self.x * math.sin(angle) + self.y * math.cos(angle), 0)
+    return vec3:create(self.x * math.cos(angle) - self.y * math.sin(angle),
+        self.x * math.sin(angle) + self.y * math.cos(angle), 0)
 end
 
 function vec3:length()
-  return math.sqrt(self.x*self.x + self.y*self.y + self.z*self.z)
+    return math.sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
 end
 
 function vec3:subtract(other)
-  return vec3:create(self.x - other.x, self.y - other.y, self.z - other.z)
+    return vec3:create(self.x - other.x, self.y - other.y, self.z - other.z)
 end
 
 function vec3:add(other)
-  return vec3:create(self.x + other.x, self.y + other.y, self.z + other.z)
+    return vec3:create(self.x + other.x, self.y + other.y, self.z + other.z)
 end
 
 function vec3:distance(other)
-  return self:subtract(other):length()
+    return self:subtract(other):length()
 end
 
 function vec3:unit()
-  local len = self:length()
-  return vec3:create(self.x / len, self.y / len, self.z / len)
+    local len = self:length()
+    return vec3:create(self.x / len, self.y / len, self.z / len)
 end
 
 function vec3:unit_scaled(s)
-  return self:unit():scale(s)
+    return self:unit():scale(s)
 end
 
 function vec3:scale2d(s)
-  return vec3:create(self.x * s, self.y * s, self.z)
+    return vec3:create(self.x * s, self.y * s, self.z)
 end
 
 function vec3:direction_angle()
-  local u = self:unit()
-  return math.atan2(u.y, u.x);
+    local u = self:unit()
+    return math.atan2(u.y, u.x);
 end
 
 function vec3:scale(s)
-  return vec3:create(s * self.x, s * self.y, s * self.z)
+    return vec3:create(s * self.x, s * self.y, s * self.z)
 end
 
 function vec3:sublength(s)
-  return self:subtract(s):length()
+    return self:subtract(s):length()
 end
 
 function get_arg_table(...)
-  -- NOTE: THIS CONVERTS EVERYTHING TO STRINGS!
-  local atab = {};
-  if select('#', ...) < 1 then
-    return atab;
-  end
+    -- NOTE: THIS CONVERTS EVERYTHING TO STRINGS!
+    local atab = {};
+    if select('#', ...) < 1 then
+        return atab;
+    end
 
-  for i = 1, select('#', ...) do
-      local arg = select(i, ...);
-      table.insert(atab, tostring(arg));
-  end
-  return atab
+    for i = 1, select('#', ...) do
+        local arg = select(i, ...);
+        table.insert(atab, tostring(arg));
+    end
+    return atab
 end
 
 function concatenate_args(separator, ...)
-  -- NOTE: this assumes that all the elements are actually strings
-  local atab = get_arg_table(...)
-  if tablelength(atab) < 1 then
-    return nil
-  else
-    return table.concat(atab, separator);
-  end
+    -- NOTE: this assumes that all the elements are actually strings
+    local atab = get_arg_table(...)
+    if tablelength(atab) < 1 then
+        return nil
+    else
+        return table.concat(atab, separator);
+    end
 end
 
 local ESSENCE_CLICK_TIME = 0
 
 function run_to_essenceportal_and_click(name)
+    if playermode() then return true end
 
-  if playermode() then return true end
+    if GetTime() - ESSENCE_CLICK_TIME < 1.5 then
+        return true
+    end
 
-  if GetTime() - ESSENCE_CLICK_TIME < 1.5 then
-    return true
-  end
+    local GUID, success = interact_with_spellnpc(name)
+    if not GUID then return false end
 
-  local GUID, success = interact_with_spellnpc(name)
-  if not GUID then return false end
-
-  if not success then
-    local x, y, z = get_unit_position(GUID)
-    echo("spellnpc interaction: walking to object " .. GUID .. ' at (' .. tostring(x) .. ", " .. tostring(y) .. ", " .. tostring(z) .. ")")
-    walk_to(x, y, z, CtmPrio.ClearHold)
-  else
-    echo("successfully clicked " .. name .. "!")
-    ESSENCE_CLICK_TIME = GetTime()
-  end
+    if not success then
+        local x, y, z = get_unit_position(GUID)
+        echo("spellnpc interaction: walking to object " ..
+            GUID .. ' at (' .. tostring(x) .. ", " .. tostring(y) .. ", " .. tostring(z) .. ")")
+        walk_to(x, y, z, CtmPrio.ClearHold)
+    else
+        echo("successfully clicked " .. name .. "!")
+        ESSENCE_CLICK_TIME = GetTime()
+    end
 end
 
 local function LEGION_FLAME_AVOID()
-  if avoid_npc_with_name("Legion Flame", 8) then
-    local dpos = TOC_middle:subtract(get_unit_position("player"))
-    if dpos:length() < 10 then
-      dpos = dpos:unit_scaled(15)
+    if avoid_npc_with_name("Legion Flame", 8) then
+        local dpos = TOC_middle:subtract(get_unit_position("player"))
+        if dpos:length() < 10 then
+            dpos = dpos:unit_scaled(15)
+        end
+        local walk_pos = TOC_middle:add(dpos:rotated2d(6.28 / 6))
+        walk_to(walk_pos.x, walk_pos.y, walk_pos.z, CtmPrio.Follow)
     end
-    local walk_pos = TOC_middle:add(dpos:rotated2d(6.28/6))
-    walk_to(walk_pos.x, walk_pos.y, walk_pos.z, CtmPrio.Follow)
-  end
 end
 
 
@@ -121,140 +122,132 @@ local green_warn_sent = 0
 local red_warn_sent = 0
 
 local function putricide_stuff()
+    if UnitName("player") == "Kuratorn" then
+        if not UnitAffectingCombat("Kuratorn") then
+            red_warn_sent = 0
+            green_warn_sent = 0
+            return
+        end
 
-  if UnitName("player") == "Kuratorn" then
-    if not UnitAffectingCombat("Kuratorn") then
-      red_warn_sent = 0
-      green_warn_sent = 0
-      return
+        L_ClearTarget()
+        L_TargetUnit("Gas Cloud")
+        if UnitExists("target") then
+            if red_warn_sent == 0 then
+                SendChatMessage("RED slimu is targetting " .. tostring(UnitName("targettarget")) .. ". RUN!!!", "GUILD")
+                red_warn_sent = 1
+                green_warn_sent = 0
+                return
+            end
+        end
+
+        L_ClearTarget()
+        L_TargetUnit("Volatile Ooze")
+        if UnitExists("target") then
+            if green_warn_sent == 0 then
+                SendChatMessage("GREEN slimu is targetting " .. tostring(UnitName("targettarget")) .. "!", "GUILD")
+                green_warn_sent = 1
+                red_warn_sent = 0
+                return
+            end
+        end
+
+        L_TargetUnit("focus")
     end
-
-    L_ClearTarget()
-    L_TargetUnit("Gas Cloud")
-    if UnitExists("target") then
-      if red_warn_sent == 0 then
-        SendChatMessage("RED slimu is targetting " .. tostring(UnitName("targettarget")) .. ". RUN!!!", "GUILD")
-        red_warn_sent = 1
-        green_warn_sent = 0
-        return
-      end
-    end
-
-    L_ClearTarget()
-    L_TargetUnit("Volatile Ooze")
-    if UnitExists("target") then
-      if green_warn_sent == 0 then
-        SendChatMessage("GREEN slimu is targetting " .. tostring(UnitName("targettarget")) .. "!", "GUILD")
-        green_warn_sent = 1
-        red_warn_sent = 0
-        return
-      end
-    end
-
-    L_TargetUnit("focus")
-  end
 end
 
 local ooze_avoid_level = 0
 
 local function putricide_ooze_avoid()
-  if has_debuff("player", "Gaseous Bloat") then
-    local ppos = vec3:create(get_unit_position("player"))
-    local opos = vec3:create(get_unit_position("target"))
-    if ooze_avoid_level == 0 then
-      local wp0 = vec3:create(4404.2, 3224.8, 389.4)
-      local dwp = wp0:sublength(ppos)
+    if has_debuff("player", "Gaseous Bloat") then
+        local ppos = vec3:create(get_unit_position("player"))
+        local opos = vec3:create(get_unit_position("target"))
+        if ooze_avoid_level == 0 then
+            local wp0 = vec3:create(4404.2, 3224.8, 389.4)
+            local dwp = wp0:sublength(ppos)
 
-      if dwp > 2 then
-        walk_to(wp0.x, wp0.y, wp0.z, CtmPrio.NoOverride)
-      end
+            if dwp > 2 then
+                walk_to(wp0.x, wp0.y, wp0.z, CtmPrio.NoOverride)
+            end
 
-      local dl = opos:sublength(ppos)
-      if (dl < 15) then
-        ooze_avoid_level = 1
-      end
+            local dl = opos:sublength(ppos)
+            if (dl < 15) then
+                ooze_avoid_level = 1
+            end
+        elseif ooze_avoid_level == 1 then
+            local wp1 = vec3:create(4403.6, 3199.8, 389.4)
+            walk_to(wp1.x, wp1.y, wp1.z, CtmPrio.NoOverride)
 
-    elseif ooze_avoid_level == 1 then
-      local wp1 = vec3:create(4403.6, 3199.8, 389.4)
-      walk_to(wp1.x, wp1.y, wp1.z, CtmPrio.NoOverride)
-
-      local dl = wp1:sublength(ppos)
-      if (dl < 3) then
-        ooze_avoid_level = 2
-      end
-
-    elseif ooze_avoid_level == 2 then
-      local wp2 = vec3:create(4366.8, 3165.6, 389.4)
-      walk_to(wp2.x, wp2.y, wp2.z, CtmPrio.Follow)
+            local dl = wp1:sublength(ppos)
+            if (dl < 3) then
+                ooze_avoid_level = 2
+            end
+        elseif ooze_avoid_level == 2 then
+            local wp2 = vec3:create(4366.8, 3165.6, 389.4)
+            walk_to(wp2.x, wp2.y, wp2.z, CtmPrio.Follow)
+        end
+    else
+        ooze_avoid_level = 0
     end
-  else
-    ooze_avoid_level = 0
-  end
 end
 
 local function blast_cannons()
     if UnitAffectingCombat("player") then
-      local n = UnitName("player")
-      if (n == "Iijj" or n == "Spobodi") then -- or n == "Kuratorn") then
-          if UnitInVehicle("player") then
-            L_RunScript("if VehicleMenuBarPowerBar.currValue > 95 then VehicleMenuBarActionButton2:Click() else VehicleMenuBarActionButton1:Click() end")
-          end
-      end
+        local n = UnitName("player")
+        if (n == "Iijj" or n == "Spobodi") then -- or n == "Kuratorn") then
+            if UnitInVehicle("player") then
+                L_RunScript(
+                    "if VehicleMenuBarPowerBar.currValue > 95 then VehicleMenuBarActionButton2:Click() else VehicleMenuBarActionButton1:Click() end")
+            end
+        end
     end
 end
 
 local REMOVE_THIS_FRAME = CreateFrame("frame", nil, UIParent)
 REMOVE_THIS_FRAME:SetScript("OnUpdate",
 
-function()
+    function()
+        blast_cannons()
 
-  blast_cannons()
+        if not playermode() then
+            -- if validate_target() then
+            --   caster_range_check(0, 36)
+            -- end
 
-  if not playermode() then
+            -- this is for gunship
 
-    -- if validate_target() then
-    --   caster_range_check(0, 36)
-    -- end
+            if unit_castorchannel("focus") == "Staggering Stomp" then
+                L_SpellStopCasting(); return;
+            end
 
-    -- this is for gunship
+            --if UnitCastingInfo("target") == "Lightning Nova" then
+            --  walk_to(-219, -235, 97, CTM_PRIO_CLEAR_HOLD) -- the coords are for emalon :D
+            -- if UnitCastingInfo("target") == "Poison Nova" then
+            --     walk_to(814, 92, 509, CTM_PRIO_FOLLOW) -- these are for ICK
+            -- end
 
-    if unit_castorchannel("focus") == "Staggering Stomp" then L_SpellStopCasting(); return; end
+            --if unit_castorchannel("target") == "Blade Tempest" then
+            -- if get_distance_between("player", "target") < 15 then
+            --    walk_to(3238, 399, 78, CTM_PRIO_FOLLOW) -- these are for BALTHARUS
+            --  end
+            -- end
 
-  --if UnitCastingInfo("target") == "Lightning Nova" then
-    --  walk_to(-219, -235, 97, CTM_PRIO_CLEAR_HOLD) -- the coords are for emalon :D
-    -- if UnitCastingInfo("target") == "Poison Nova" then
-    --     walk_to(814, 92, 509, CTM_PRIO_FOLLOW) -- these are for ICK
-    -- end
+            -- THIS IS GOLDEN STUFF: ----------------------
+            if UnitAffectingCombat("player") then
+                local n = UnitName("player")
+                if not (n == "Iijj" or n == "Spobodi") then -- or n == "Kuratorn") then
+                    hconfig("status")
+                end
 
-    --if unit_castorchannel("target") == "Blade Tempest" then
-      -- if get_distance_between("player", "target") < 15 then
-      --    walk_to(3238, 399, 78, CTM_PRIO_FOLLOW) -- these are for BALTHARUS
-      --  end
-    -- end
+                putricide_ooze_avoid()
+            end
+            --------------------------------------------
+        end
 
-    -- THIS IS GOLDEN STUFF: ----------------------
-    if UnitAffectingCombat("player") then
-      local n = UnitName("player")
-      if not (n == "Iijj" or n == "Spobodi") then -- or n == "Kuratorn") then
-        hconfig("status")
-      end
-
-      putricide_ooze_avoid()
-
+        if not playermode() then
+            --  LEGION_FLAME_AVOID()
+            --  boss_action("Gormok")
+        end
     end
-    --------------------------------------------
-
-
-  end
-
-  if not playermode() then
-
-  --  LEGION_FLAME_AVOID()
-  --  boss_action("Gormok")
-
-  end
-
-end
 )
 
 LAST_SPELL_ERROR = nil
@@ -265,29 +258,27 @@ TOC_middle = vec3:create(562, 137, 395) -- not "local" because lole.lua needs th
 
 REMOVE_THIS_FRAME:RegisterEvent("MINIMAP_PING")
 REMOVE_THIS_FRAME:SetScript("OnEvent", function(self, event, prefix, message, channel, sender)
+    if event == "MINIMAP_PING" then
+        -- THIS IS FOR TOC ONLY!!
 
-  if event == "MINIMAP_PING" then
-    -- THIS IS FOR TOC ONLY!!
+        local from = prefix
+        if (from ~= "player") then
+            return
+        end
 
-    local from = prefix
-    if (from ~= "player") then
-      return
+
+        local x = message
+        local y = channel
+
+        -- left side is 561, 186; center 562, 137
+        -- and minimap left is -0.25
+
+        local ppos = vec3:create(get_unit_position(UnitName("player")))
+        local world_pos = vec3:create(ppos.x + (200 * y), ppos.y + (-200 * x), ppos.z)
+
+        L_SendAddonMessage("lole_avoid_coords",
+            tostring(world_pos.x) .. "," .. tostring(world_pos.y) .. "," .. tostring(world_pos.z), "RAID")
     end
-
-
-    local x = message
-    local y = channel
-
-    -- left side is 561, 186; center 562, 137
-    -- and minimap left is -0.25
-
-    local ppos = vec3:create(get_unit_position(UnitName("player")))
-    local world_pos = vec3:create(ppos.x + (200 * y), ppos.y + (-200 * x), ppos.z)
-
-    L_SendAddonMessage("lole_avoid_coords", tostring(world_pos.x) .. "," .. tostring(world_pos.y) .. "," .. tostring(world_pos.z), "RAID")
-
-  end
-
 end)
 
 
@@ -300,14 +291,20 @@ BLAST_TARGET_GUID = "0x0000000000000000";
 MISSING_BUFFS = {};
 OVERRIDE_COMMAND = nil;
 
-HEALERS = {"Bacc", "Chonkki", "Hepens", "Inspiration"}; -- for keeping order mostly
+-- HEALERS = {"Bacc", "Chonkki", "Hepens", "Inspiration"}; -- for keeping order mostly
+-- DEFAULT_HEALER_TARGETS = {
+--   Bacc = {heals={"raid"}, hots={"Raimo"}},
+--   Chonkki = {heals={"raid"}},
+--   Hepens = {heals={"Muskeln", "raid"}, hots={"Muskeln"}},
+--   Inspiration = {heals={"Rhotaa", "raid"}}
+-- }
+
+HEALERS = { "Ahaa" }
 DEFAULT_HEALER_TARGETS = {
-  Bacc = {heals={"raid"}, hots={"Raimo"}},
-  Chonkki = {heals={"raid"}},
-  Hepens = {heals={"Muskeln", "raid"}, hots={"Muskeln"}},
-  Inspiration = {heals={"Rhotaa", "raid"}}
+    Ahaa = { heals = { "raid" } }
 }
-ASSIGNMENT_DOMAINS = {"heals", "hots", "ignores"};
+
+ASSIGNMENT_DOMAINS = { "heals", "hots", "ignores" };
 HEALS_IN_PROGRESS = {};
 HEAL_FINISH_INFO = {};
 HEAL_ATTEMPTS = 0;
@@ -339,6 +336,7 @@ HEAL_ESTIMATES = {
     ["Greater Heal"] = 10000,
     ["Prayer of Healing"] = 4600,
     ["Binding Heal"] = 4000,
+    ["Lesser Heal"] = 160,
 }
 
 INSTANT_HEALS = {
@@ -373,65 +371,65 @@ local CLASS_COLORS = {
 }
 
 function get_class_color(class)
-	local r = CLASS_COLORS[string.lower(class)]
-	if not r then
-		return "(ERR)"
-	else
-		return r
-	end
+    local r = CLASS_COLORS[string.lower(class)]
+    if not r then
+        return "(ERR)"
+    else
+        return r
+    end
 end
 
 local raid_target_indices = {
 
-["star"] = 1,
-["circle"] = 2,
-["diamond"] = 3,
-["triangle"] = 4,
-["crescent"] = 5,
-["moon"] = 5,
-["square"] = 6,
-["cross"] = 7,
-["skull"] = 8,
+    ["star"] = 1,
+    ["circle"] = 2,
+    ["diamond"] = 3,
+    ["triangle"] = 4,
+    ["crescent"] = 5,
+    ["moon"] = 5,
+    ["square"] = 6,
+    ["cross"] = 7,
+    ["skull"] = 8,
 
 }
 
 function get_marker_index(marker)
-	return raid_target_indices[string.lower(marker)]
+    return raid_target_indices[string.lower(marker)]
 end
 
 local CC_spells = {
-  -- full ranks
-	polymorph = 118,
-	sheep = 118,
-	cyclone = 33786,
-	roots = 26989,
-	root = 26989,
-	banish = 18647,
-	ban = 18647,
-	fear = 6215,
-	shackle = 10955,
-	turn = 10326,
-  sleep = 18658,
+    -- full ranks
+    polymorph = 118,
+    sheep = 118,
+    cyclone = 33786,
+    roots = 26989,
+    root = 26989,
+    banish = 18647,
+    ban = 18647,
+    fear = 6215,
+    shackle = 10955,
+    turn = 10326,
+    sleep = 18658,
 
 }
 
 local CC_spellnames = { -- in a L_CastSpellByName-able format
-	[118] = "Polymorph",
-	[33786] = "Cyclone",
-	[26989] = "Entangling Roots",
-	[18647] = "Banish",
-	[6215] = "Fear",
-	[10955] = "Shackle Undead",
-	[10326] = "Turn Evil",
-  [18658] = "Hibernate"
+    [118] = "Polymorph",
+    [33786] = "Cyclone",
+    [26989] = "Entangling Roots",
+    [18647] = "Banish",
+    [6215] = "Fear",
+    [10955] = "Shackle Undead",
+    [10326] = "Turn Evil",
+    [18658] = "Hibernate"
 }
 
 function get_CC_spellID(name)
-	return CC_spells[string.lower(name)];
+    return CC_spells[string.lower(name)];
 end
 
 function get_CC_spellname(spellID)
-	return CC_spellnames[tonumber(spellID)];
+    return CC_spellnames[tonumber(spellID)];
 end
 
 function get_spellID(name)
@@ -449,16 +447,15 @@ function echo(...)
 end
 
 function lole_error(text)
-	DEFAULT_CHAT_FRAME:AddMessage("|cFFFF3300lole: error: " .. tostring(text))
+    DEFAULT_CHAT_FRAME:AddMessage("|cFFFF3300lole: error: " .. tostring(text))
 end
 
 function player_casting()
-  return unit_castorchannel("player")
+    return unit_castorchannel("player")
 end
 
-
 function unit_castorchannel(unit)
-  return UnitCastingInfo(unit) or UnitChannelInfo(unit)
+    return UnitCastingInfo(unit) or UnitChannelInfo(unit)
 end
 
 function shallowcopy(orig)
@@ -496,74 +493,74 @@ function first_to_upper(str)
     return (str:gsub("^%l", string.upper))
 end
 
-function table.val_to_str ( v )
-  if "string" == type( v ) then
-    v = string.gsub( v, "\n", "\\n" )
-    if string.match( string.gsub(v,"[^'\"]",""), '^"+$' ) then
-      return "'" .. v .. "'"
+function table.val_to_str(v)
+    if "string" == type(v) then
+        v = string.gsub(v, "\n", "\\n")
+        if string.match(string.gsub(v, "[^'\"]", ""), '^"+$') then
+            return "'" .. v .. "'"
+        end
+        return '"' .. string.gsub(v, '"', '\\"') .. '"'
+    else
+        return "table" == type(v) and table.tostring(v) or
+            tostring(v)
     end
-    return '"' .. string.gsub(v,'"', '\\"' ) .. '"'
-  else
-    return "table" == type( v ) and table.tostring( v ) or
-      tostring( v )
-  end
 end
 
-function table.key_to_str ( k )
-  if "string" == type( k ) and string.match( k, "^[_%a][_%a%d]*$" ) then
-    return k
-  else
-    return "[" .. table.val_to_str( k ) .. "]"
-  end
-end
-
-function table.tostring( tbl )
-  local result, done = {}, {}
-  for k, v in ipairs( tbl ) do
-    table.insert( result, table.val_to_str( v ) )
-    done[ k ] = true
-  end
-  for k, v in pairs( tbl ) do
-    if not done[ k ] then
-      table.insert( result,
-        table.key_to_str( k ) .. "=" .. table.val_to_str( v ) )
+function table.key_to_str(k)
+    if "string" == type(k) and string.match(k, "^[_%a][_%a%d]*$") then
+        return k
+    else
+        return "[" .. table.val_to_str(k) .. "]"
     end
-  end
-  return "{" .. table.concat( result, "," ) .. "}"
 end
 
-function table_print (tt, indent, done)
-  done = done or {}
-  indent = indent or 0
-  if type(tt) == "table" then
-    local sb = {}
-    for key, value in pairs (tt) do
-      table.insert(sb, string.rep (" ", indent)) -- indent it
-      if type (value) == "table" and not done [value] then
-        done [value] = true
-        table.insert(sb, key .. " = {\n");
-        table.insert(sb, table_print (value, indent + 2, done))
-        table.insert(sb, string.rep (" ", indent)) -- indent it
-        table.insert(sb, "}\n");
-      elseif "number" == type(key) then
-        table.insert(sb, string.format("\"%s\"\n", tostring(value)))
-      else
-        table.insert(sb, string.format(
-            "%s = \"%s\"\n", tostring (key), tostring(value)))
-       end
+function table.tostring(tbl)
+    local result, done = {}, {}
+    for k, v in ipairs(tbl) do
+        table.insert(result, table.val_to_str(v))
+        done[k] = true
     end
-    return table.concat(sb)
-  else
-    return tt .. "\n"
-  end
+    for k, v in pairs(tbl) do
+        if not done[k] then
+            table.insert(result,
+                table.key_to_str(k) .. "=" .. table.val_to_str(v))
+        end
+    end
+    return "{" .. table.concat(result, ",") .. "}"
 end
 
-function to_string( tbl )
-    if  "nil"       == type( tbl ) then
+function table_print(tt, indent, done)
+    done = done or {}
+    indent = indent or 0
+    if type(tt) == "table" then
+        local sb = {}
+        for key, value in pairs(tt) do
+            table.insert(sb, string.rep(" ", indent)) -- indent it
+            if type(value) == "table" and not done[value] then
+                done[value] = true
+                table.insert(sb, key .. " = {\n");
+                table.insert(sb, table_print(value, indent + 2, done))
+                table.insert(sb, string.rep(" ", indent)) -- indent it
+                table.insert(sb, "}\n");
+            elseif "number" == type(key) then
+                table.insert(sb, string.format("\"%s\"\n", tostring(value)))
+            else
+                table.insert(sb, string.format(
+                    "%s = \"%s\"\n", tostring(key), tostring(value)))
+            end
+        end
+        return table.concat(sb)
+    else
+        return tt .. "\n"
+    end
+end
+
+function to_string(tbl)
+    if "nil" == type(tbl) then
         return tostring(nil)
-    elseif  "table" == type( tbl ) then
+    elseif "table" == type(tbl) then
         return table_print(tbl)
-    elseif  "string" == type( tbl ) then
+    elseif "string" == type(tbl) then
         return tbl
     else
         return tostring(tbl)
@@ -571,22 +568,22 @@ function to_string( tbl )
 end
 
 function table.contains(table, element)
-  for _, value in pairs(table) do
-    if value == element then
-      return true
+    for _, value in pairs(table) do
+        if value == element then
+            return true
+        end
     end
-  end
-  return false
+    return false
 end
 
 function table.remove_duplicates(table)
     local hash = {}
     local set = {}
-    for _,v in ipairs(table) do
-       if (not hash[v]) then
-           set[#set+1] = v
-           hash[v] = true
-       end
+    for _, v in ipairs(table) do
+        if (not hash[v]) then
+            set[#set + 1] = v
+            hash[v] = true
+        end
     end
     return set;
 end
@@ -610,86 +607,86 @@ function table.rid(tbl, value)
 end
 
 function starts_with(str, start)
-   return str:sub(1, #start) == start
+    return str:sub(1, #start) == start
 end
 
 function ends_with(str, ending)
-   return ending == "" or str:sub(-#ending) == ending
+    return ending == "" or str:sub(- #ending) == ending
 end
 
 function get_available_class_configs()
-	return get_list_of_keys(available_configs)
+    return get_list_of_keys(available_configs)
 end
 
 function get_available_class_configs_pretty()
-	local key_tab, n = {}, 1;
+    local key_tab, n = {}, 1;
 
-	for name, _ in pairs_by_key(get_available_configs()) do
-		key_tab[n] = get_config_name_with_color(name);
-		n = n + 1;
-	end
+    for name, _ in pairs_by_key(get_available_configs()) do
+        key_tab[n] = get_config_name_with_color(name);
+        n = n + 1;
+    end
 
-	return table.concat(key_tab, ", ");
-
+    return table.concat(key_tab, ", ");
 end
-
 
 function get_mode_attribs()
-	return get_list_of_keys(lole_subcommands.get())
+    return get_list_of_keys(lole_subcommands.get())
 end
 
-
 function get_available_subcommands()
-	return get_list_of_keys(lole_subcommands);
+    return get_list_of_keys(lole_subcommands);
 end
 
 function get_config_name_with_color(arg_config)
-	if arg_config == "default" then
-		return "|r|rdefault";
-	else
-		local avconf = get_available_configs()
-		return "|cFF" .. avconf[arg_config].color .. avconf[arg_config].name .. "|r";
-	end
-
+    if arg_config == "default" then
+        return "|r|rdefault";
+    else
+        local avconf = get_available_configs()
+        return "|cFF" .. avconf[arg_config].color .. avconf[arg_config].name .. "|r";
+    end
 end
 
 function track_heal_attempts(name)
     if not name then return end
     local msgid, _ = get_last_spell_error()
     if msgid == nil then
-      return
+        return
     end
     local fail_msg = SPELL_ERROR_TEXTS[msgid];
     if fail_msg == nil or fail_msg == "Another action is in progress" then
-      return
+        return
     end
-    
+
     HEAL_ATTEMPTS = HEAL_ATTEMPTS + 1;
     if HEAL_ATTEMPTS == MAX_HEAL_ATTEMPTS then
         HEAL_ATTEMPTS = 0;
         if UNREACHABLE_TARGETS[name] + SECONDS_UNREACHABLES_IGNORED < GetTime() then
-            lole_echo(string.format("UNREACHABLE HEAL TARGET: %s is now ignored for %s sec by %s. Fail msg: %s", name, SECONDS_UNREACHABLES_IGNORED, UnitName("player"), fail_msg))
+            lole_echo(string.format("UNREACHABLE HEAL TARGET: %s is now ignored for %s sec by %s. Fail msg: %s", name,
+                SECONDS_UNREACHABLES_IGNORED, UnitName("player"), fail_msg))
         end
         UNREACHABLE_TARGETS[name] = GetTime() + SECONDS_UNREACHABLES_IGNORED;
     end
 end
 
--- GetSpellCooldown also accepts "spell" (BOOKTYPE_SPELL) or "pet" (BOOKTYPE_PET)
-
 local function fmt_spell_with_optional_rank(spellname, rank)
-  return rank and spellname.."(Rank "..rank..")" or spellname
+    if rank then
+        local rank_str = rank:find("^Rank") and rank or ("Rank " .. rank)
+        return spellname .. "(" .. rank_str .. ")"
+    end
+    return spellname
 end
 
 function cast_if_nocd(spellname, rank, ...)
-  -- hunter pets actually need the "(Rank 2)" part in GetSpellCooldown, and normal spells seem to work with it
-  local spellname_with_rank = fmt_spell_with_optional_rank(spellname, rank)
-	if GetSpellCooldown(spellname_with_rank, ...) == 0 then
-		L_CastSpellByName(spellname_with_rank)
-    if INSTANT_HEALS[spellname] or HEAL_ESTIMATES[spellname] or (rank and HEAL_ESTIMATES[spellname_with_rank]) then
-        track_heal_attempts(UnitName("target"))
+    -- hunter pets actually need the "(Rank 2)" part in GetSpellCooldown, and normal spells seem to work with it
+    local spellname_with_rank = fmt_spell_with_optional_rank(spellname, rank)
+    -- GetSpellCooldown also accepts "spell" (BOOKTYPE_SPELL) or "pet" (BOOKTYPE_PET)
+    if GetSpellCooldown(spellname_with_rank, ...) == 0 then
+        L_CastSpellByName(spellname_with_rank)
+        if INSTANT_HEALS[spellname] or HEAL_ESTIMATES[spellname] or (rank and HEAL_ESTIMATES[spellname_with_rank]) then
+            track_heal_attempts(UnitName("target"))
+        end
+        return true
     end
-		return true
-	end
 end
 
 function off_cd(spellname)
@@ -697,13 +694,12 @@ function off_cd(spellname)
 end
 
 function cast_spell(spellname)
-	local name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(spellname);
-	cast_state = { true, GetTime(), castTime, UnitName("target") }
-	cast_if_nocd(spellname, rank)
+    local name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(spellname);
+    cast_state = { true, GetTime(), castTime, UnitName("target") }
+    cast_if_nocd(spellname, rank)
 end
 
 function cast_heal(spellname, target, range)
-
     if UnitName("player") == "Hepens" and player_casting() == "Lightning Bolt" then
         L_SpellStopCasting();
     end
@@ -722,7 +718,7 @@ function cast_heal(spellname, target, range)
 end
 
 function get_HP_deficits(party_only, with_heals)
-	local HP_deficits = {};
+    local HP_deficits = {};
     local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);
 
     local num_raid_members;
@@ -732,63 +728,60 @@ function get_HP_deficits(party_only, with_heals)
         num_raid_members = GetNumRaidMembers();
     end
 
-	if num_raid_members == 0 then
-	    HP_deficits[UnitName("player")] = UnitHealthMax("player") - UnitHealth("player");
-	    for i=1,4,1 do local exists = GetPartyMember(i)
+    if num_raid_members == 0 then
+        HP_deficits[UnitName("player")] = UnitHealthMax("player") - UnitHealth("player");
+        for i = 1, 4, 1 do
+            local exists = GetPartyMember(i)
             local name = UnitName("party" .. i);
             if exists and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and UNREACHABLE_TARGETS[name] < GetTime() then
                 local hp = UnitHealth(name);
                 if with_heals then
                     for healer, info in pairs(heals_in_progress[name]) do
-                        if info[2] > GetTime()*1000 then
-                            hp = hp + info[1];
-                        end
-                    end
-                end
-            	HP_deficits[name] = UnitHealthMax(name) - hp;
-            end
-	    end
-	else
-		for i=1,num_raid_members,1 do
-			local name = UnitName("raid" .. i);
-			if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and UNREACHABLE_TARGETS[name] < GetTime() then
-                local hp = UnitHealth(name);
-                if with_heals then
-                    for healer, info in pairs(heals_in_progress[name]) do
-                        if info[2] > GetTime()*1000 then
+                        if info[2] > GetTime() * 1000 then
                             hp = hp + info[1];
                         end
                     end
                 end
                 HP_deficits[name] = UnitHealthMax(name) - hp;
-			end
-		end
-	end
+            end
+        end
+    else
+        for i = 1, num_raid_members, 1 do
+            local name = UnitName("raid" .. i);
+            if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and UNREACHABLE_TARGETS[name] < GetTime() then
+                local hp = UnitHealth(name);
+                if with_heals then
+                    for healer, info in pairs(heals_in_progress[name]) do
+                        if info[2] > GetTime() * 1000 then
+                            hp = hp + info[1];
+                        end
+                    end
+                end
+                HP_deficits[name] = UnitHealthMax(name) - hp;
+            end
+        end
+    end
 
-	return HP_deficits;
-
+    return HP_deficits;
 end
 
 function get_lowest_hp(hp_deficits)
+    local lowest = nil;
+    local lowest_deficit = 0;
 
-	local lowest = nil;
-	local lowest_deficit = 0;
+    for name, hp_deficit in pairs(hp_deficits) do
+        if not lowest then
+            lowest = name
+            lowest_deficit = hp_deficit
+        else
+            if hp_deficit > hp_deficits[lowest] then
+                lowest = name
+                lowest_deficit = hp_deficit
+            end
+        end
+    end
 
-	for name,hp_deficit in pairs(hp_deficits) do
-
-		if not lowest then
-			lowest = name
-			lowest_deficit = hp_deficit
-		else
-			if hp_deficit > hp_deficits[lowest] then
-				lowest = name
-				lowest_deficit = hp_deficit
-			end
-		end
-	end
-
-	return lowest, lowest_deficit;
-
+    return lowest, lowest_deficit;
 end
 
 function get_HP_table_and_maxmaxHP(party_only)
@@ -803,22 +796,23 @@ function get_HP_table_and_maxmaxHP(party_only)
 
     local maxmaxHP = 0;
     if num_raid_members == 0 then
-        HP_table[UnitName("player")] = {UnitHealth("player"), UnitHealthMax("player")};
-        for i=1,4,1 do local exists = GetPartyMember(i)
+        HP_table[UnitName("player")] = { UnitHealth("player"), UnitHealthMax("player") };
+        for i = 1, 4, 1 do
+            local exists = GetPartyMember(i)
             local name = UnitName("party" .. i);
             if exists and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and UNREACHABLE_TARGETS[name] < GetTime() and is_valid_pair(UnitName("player"), name) then
-                HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
+                HP_table[name] = { UnitHealth(name), UnitHealthMax(name) };
                 if HP_table[name][2] > maxmaxHP then
                     maxmaxHP = HP_table[name][2];
                 end
             end
         end
     else
-        for i=1,num_raid_members,1 do
+        for i = 1, num_raid_members, 1 do
             local name = UnitName("raid" .. tonumber(i));
             local unr = UNREACHABLE_TARGETS[name]
             if UnitExists(name) and UnitIsConnected(name) and (not UnitIsDead(name)) and (not has_buff(name, "Spirit of Redemption")) and (unr ~= nil) and unr < GetTime() and is_valid_pair(UnitName("player"), name) then
-                HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
+                HP_table[name] = { UnitHealth(name), UnitHealthMax(name) };
                 if HP_table[name][2] > maxmaxHP then
                     maxmaxHP = HP_table[name][2];
                 end
@@ -827,7 +821,6 @@ function get_HP_table_and_maxmaxHP(party_only)
     end
 
     return HP_table, maxmaxHP;
-
 end
 
 local CS_CASTING, CS_TIMESTAMP, CS_CASTTIME, CS_TARGET = 1, 2, 3, 4;
@@ -836,53 +829,50 @@ local NOT_CASTING = { false, 0.0, 0.0, "none" };
 local cast_state = NOT_CASTING;
 
 function casting_legit_heal()
+    if UnitCastingInfo("player") then return true; end
 
-	if UnitCastingInfo("player") then return true; end
+    if cast_state[CS_CASTING] then
+        if (GetTime() - cast_state[CS_TIMESTAMP]) * 1000 > (cast_state[CS_CASTTIME] + 100) then
+            cast_state = NOT_CASTING;
+            return false;
+        elseif not UnitCastingInfo("player") then
+            cast_state = NOT_CASTING;
+            return false;
+        elseif health_percentage("target") > 90 then
+            stopfollow();
+            cast_state = NOT_CASTING; -- useful when the UnitHealth info lag causes the char to overheal (or any cause)
+            return false;
+        else
+            return true;
+        end
+    end
 
-	if cast_state[CS_CASTING] then
-		if (GetTime() - cast_state[CS_TIMESTAMP])*1000 > (cast_state[CS_CASTTIME]+100) then
-			cast_state = NOT_CASTING;
-			return false;
-
-		elseif not UnitCastingInfo("player") then
-			cast_state = NOT_CASTING;
-			return false;
-
-		elseif health_percentage("target") > 90 then
-			stopfollow();
-			cast_state = NOT_CASTING; -- useful when the UnitHealth info lag causes the char to overheal (or any cause)
-			return false;
-
-		else return true; end
-	end
-
-	return false;
-
+    return false;
 end
 
 function cleanse_party(debuffname)
-	for i=1,5,1 do
-    local exists = true;
-    local name = "party" .. i;
-    if i == 5 then
-        name = "player"
-    else
-        exists = GetPartyMember(i)
+    for i = 1, 5, 1 do
+        local exists = true;
+        local name = "party" .. i;
+        if i == 5 then
+            name = "player"
+        else
+            exists = GetPartyMember(i)
+        end
+        if exists and has_debuff(name, debuffname) then
+            L_TargetUnit(name);
+            L_CastSpellByName("Cleanse");
+            L_CastSpellByName("Dispel Magic")
+            return true;
+        end
     end
-    if exists and has_debuff(name, debuffname) then
-	    L_TargetUnit(name);
-      L_CastSpellByName("Cleanse");
-			L_CastSpellByName("Dispel Magic")
-      return true;
-		end
-	end
-	return false;
+    return false;
 end
 
 function get_player_with_debuff(debuffname)
     num_raid_members = GetNumRaidMembers();
     if num_raid_members == 0 then
-        for i=1,5,1 do
+        for i = 1, 5, 1 do
             local exists = true;
             local name = "party" .. i;
             if i == 5 then
@@ -895,7 +885,7 @@ function get_player_with_debuff(debuffname)
             end
         end
     else
-        for i=1,num_raid_members,1 do
+        for i = 1, num_raid_members, 1 do
             local exists = true;
             local name = UnitName("raid" .. tonumber(i));
             if UnitExists(name) and has_debuff(name, debuffname) then
@@ -906,16 +896,16 @@ function get_player_with_debuff(debuffname)
 end
 
 local function CAST_CLEANSE_ALL()
-  L_CastSpellByName("Cleanse");
-  L_CastSpellByName("Dispel Magic")
-  L_CastSpellByName("Cleanse Spirit")
-  L_CastSpellByName("Remove Curse")
+    L_CastSpellByName("Cleanse");
+    L_CastSpellByName("Dispel Magic")
+    L_CastSpellByName("Cleanse Spirit")
+    L_CastSpellByName("Remove Curse")
 end
 
 function cleanse_raid(debuffname)
     num_raid_members = GetNumRaidMembers();
     if num_raid_members == 0 then
-        for i=1,5,1 do
+        for i = 1, 5, 1 do
             local exists = true;
             local name = "party" .. i;
             if i == 5 then
@@ -930,7 +920,7 @@ function cleanse_raid(debuffname)
             end
         end
     else
-        for i=1,num_raid_members,1 do
+        for i = 1, num_raid_members, 1 do
             local exists = true;
             local name = UnitName("raid" .. tonumber(i));
             if UnitExists(name) and has_debuff(name, debuffname) then
@@ -944,7 +934,7 @@ function cleanse_raid(debuffname)
 end
 
 function decurse_party(debuffname)
-    for i=1,5,1 do
+    for i = 1, 5, 1 do
         local exists = true;
         local name = "party" .. i;
         if i == 5 then
@@ -962,141 +952,129 @@ function decurse_party(debuffname)
     return false;
 end
 
-
 function table_empty(t)
-  if t == nil then return true end
-  return next(t) == nil
+    if t == nil then return true end
+    return next(t) == nil
 end
 
 function update_table(target, source)
-  -- only update values, don't destroy keys that already exist
-  for k,v in pairs(source) do
-    target[k] = v
-  end
+    -- only update values, don't destroy keys that already exist
+    for k, v in pairs(source) do
+        target[k] = v
+    end
 end
 
 function match_any(tab, string)
-  for k,v in pairs(tab) do
-    if string == v then
-      return true
+    for k, v in pairs(tab) do
+        if string == v then
+            return true
+        end
     end
-  end
 
-  return nil
+    return nil
 end
 
 function get_raid_debuffs_by_type(debuff_types)
+    local matching_debuffs = {}
 
-  local matching_debuffs = {}
+    -- Wotlk:
+    -- local _ua = UnitAura
+    -- local unit_debuff = function(unit, idx)
+    --   return _ua(unit, idx, "HARMFUL")
+    -- end
 
-  -- Wotlk:
-  -- local _ua = UnitAura
-  -- local unit_debuff = function(unit, idx)
-  --   return _ua(unit, idx, "HARMFUL")
-  -- end
+    -- TBC:
+    local unit_debuff = UnitDebuff
 
-  -- TBC:
-  local unit_debuff = UnitDebuff
-  
-  local RM = GetRealNumRaidMembers()
+    local RM = GetRealNumRaidMembers()
 
-  local dtypes = tokenize_string(debuff_types, ", ")
+    local dtypes = tokenize_string(debuff_types, ", ")
 
-  for i=1,RM,1 do
-    local rname = "raid" .. tostring(i)
-    local debuffs = {}
+    for i = 1, RM, 1 do
+        local rname = "raid" .. tostring(i)
+        local debuffs = {}
 
-    local a = 1
-    local name,rank,_,_,type = unit_debuff(rname, a)
-    while name do
-      if match_any(dtypes, type) then
-        table.insert(debuffs, name)
-      end
-      a = a + 1
-      name,rank,_,_,type = unit_debuff(rname, a)
+        local a = 1
+        local name, rank, _, _, type = unit_debuff(rname, a)
+        while name do
+            if match_any(dtypes, type) then
+                table.insert(debuffs, name)
+            end
+            a = a + 1
+            name, rank, _, _, type = unit_debuff(rname, a)
+        end
+
+        if not table_empty(debuffs) then
+            matching_debuffs[UnitName(rname)] = debuffs
+        end
     end
 
-    if not table_empty(debuffs) then
-      matching_debuffs[UnitName(rname)] = debuffs
-    end
-  end
-
-  return matching_debuffs
-
+    return matching_debuffs
 end
 
 function cast_dispel(debuff_table, spellname)
--- TODO: cleansing totem is a very powerful spell tho...
-  local charname = table_getkey_any(debuff_table)
-  if not charname then return nil end
+    -- TODO: cleansing totem is a very powerful spell tho...
+    local charname = table_getkey_any(debuff_table)
+    if not charname then return nil end
     -- we dont really care about the actual debuff, just cleanse, don't ask questions :D
-  L_TargetUnit(charname)
-  healer_range_check(40) -- most dispel spells have a 40 yd range?
-  L_CastSpellByName(spellname)
+    L_TargetUnit(charname)
+    healer_range_check(40) -- most dispel spells have a 40 yd range?
+    L_CastSpellByName(spellname)
 
-  return true
-
+    return true
 end
 
 function table_getkey_any(t)
-  if not t or table_empty(t) then return nil end
-  for k,_ in pairs(t) do return k end -- yeah this is so great :DDD
+    if not t or table_empty(t) then return nil end
+    for k, _ in pairs(t) do return k end -- yeah this is so great :DDD
 end
-
-
 
 function has_buff(targetname, buff_name)
+    local UB = UnitBuff
 
-  local UB = UnitBuff
+    local i = 1
+    local name, _, _, count, _, duration, timeleft = UB(targetname, i)
+    while name do
+        if string.find(name, buff_name) then
+            return true, timeleft, count
+        end
+        i = i + 1
+        name, _, _, count, _, duration, timeleft = UB(targetname, i)
+    end
 
-  local i = 1
-	local name, _, _, count, _, duration, timeleft = UB(targetname, i)
-	while name do
-    if string.find(name, buff_name) then
-      return true, timeleft, count
-		end
-    i = i + 1
-    name, _, _, count, _, duration, timeleft = UB(targetname, i)
-	end
-
-  return nil
-
+    return nil
 end
 
-
 function has_debuff(targetname, debuff_name)
+    local UD = UnitDebuff
+    local i = 1
+    local name, _, _, count, _, duration, expirationTime = UD(targetname, i)
+    while name do
+        if string.find(name, debuff_name) then
+            local timeleft = expirationTime - GetTime()
+            return true, timeleft, count, duration
+        end
+        i = i + 1
+        name, _, _, count, _, duration, expirationTime = UD(targetname, i)
+    end
 
-  local UD = UnitDebuff
-  local i = 1
-  local name, _, _, count, _, duration, expirationTime = UD(targetname,i)
-	while name do
-		if string.find(name, debuff_name) then
-      local timeleft = expirationTime - GetTime()
-      return true, timeleft, count, duration
-		end
-    i = i + 1
-    name, _, _, count, _, duration, expirationTime = UD(targetname,i)
-	end
-
-	return nil
-
+    return nil
 end
 
 function has_debuff_by_self(targetname, debuff_name)
-  local has, timeleft, count, duration = has_debuff(targetname, debuff_name)
+    local has, timeleft, count, duration = has_debuff(targetname, debuff_name)
 
-  if has and duration then -- duration is nil for debuffs cast by others
-    return true, timeleft, count
-  end
+    if has and duration then -- duration is nil for debuffs cast by others
+        return true, timeleft, count
+    end
 
-  return nil
+    return nil
 end
 
-
 function get_self_debuff_expiration(targetname, debuff_name)
-  local h, timeleft, count = has_debuff_by_self(targetname, debuff_name)
-  if h then return timeleft end
-  return nil
+    local h, timeleft, count = has_debuff_by_self(targetname, debuff_name)
+    if h then return timeleft end
+    return nil
 end
 
 function debuff_left_percentage(targetname, debuff_name)
@@ -1108,59 +1086,53 @@ function debuff_left_percentage(targetname, debuff_name)
 end
 
 function get_num_debuff_stacks(targetname, debuff_name)
+    local h, timeleft, count = has_debuff(targetname, debuff_name)
 
-  local h, timeleft, count = has_debuff(targetname, debuff_name)
-
-  if h then return count, timeleft end
-	-- not debuffed with debuff_name
-	return 0, 999;
-
+    if h then return count, timeleft end
+    -- not debuffed with debuff_name
+    return 0, 999;
 end
-
 
 local CC_jobs = {}
 local num_CC_jobs = 0
 
 function set_CC_job(spellID, marker)
-	num_CC_jobs = num_CC_jobs + 1
-	CC_jobs[marker] = spellID
+    num_CC_jobs = num_CC_jobs + 1
+    CC_jobs[marker] = spellID
 end
 
 function unset_CC_job(marker)
-	num_CC_jobs = num_CC_jobs - 1
-	CC_jobs[marker] = nil;
+    num_CC_jobs = num_CC_jobs - 1
+    CC_jobs[marker] = nil;
 end
 
 function unset_all_CC_jobs()
-	CC_jobs = nil
+    CC_jobs = nil
 end
 
-
-
 function do_CC_jobs()
+    for marker, spellID in pairs(CC_jobs) do
+        target_unit_with_marker(marker);
 
-	for marker, spellID in pairs(CC_jobs) do
-		target_unit_with_marker(marker);
+        if UnitExists("target") and not UnitIsDead("target") then
+            local spellname = get_CC_spellname(spellID)
+            a, d = has_debuff("target", spellname)
+            if not a then
+                L_CastSpellByName(spellname)
+                return true;
+            elseif d < 3 then
+                L_CastSpellByName(spellname)
+                return true;
+            end
+        end
+    end
 
-		if UnitExists("target") and not UnitIsDead("target") then
-      local spellname = get_CC_spellname(spellID)
-			a, d = has_debuff("target", spellname)
-			if not a then
-				L_CastSpellByName(spellname)
-				return true;
-			elseif d < 3 then
-				L_CastSpellByName(spellname)
-				return true;
-			end
-		end
-	end
-
-	return false
+    return false
 end
 
 function can_attack_target()
     return UnitCanAttack("player", "target") == 1 and
-            not UnitIsDead("target")
+        not UnitIsDead("target")
 end
 
 function player_is_targeted()
@@ -1168,114 +1140,120 @@ function player_is_targeted()
 end
 
 function validate_target()
-	if BLAST_TARGET_GUID ~= NOTARGET and UnitExists("focus") and BLAST_TARGET_GUID == UnitGUID("focus") then
-		if not UnitIsDead("focus") then
-			if has_debuff("focus", "Polymorph") or has_debuff("focus", "Shackle") then
-			 	return false
-			end
-			L_TargetUnit("focus")
-			return true
-		else
-			clear_target()
-			return false
-		end
-	else
-		return false
-	end
-
+    if BLAST_TARGET_GUID ~= NOTARGET and UnitExists("focus") and BLAST_TARGET_GUID == UnitGUID("focus") then
+        if not UnitIsDead("focus") then
+            if has_debuff("focus", "Polymorph") or has_debuff("focus", "Shackle") then
+                return false
+            end
+            L_TargetUnit("focus")
+            return true
+        else
+            clear_target()
+            return false
+        end
+    else
+        return false
+    end
 end
 
 function get_distance_between(c1, c2)
-  local x1,y1,z1 = get_unit_position(c1)
-  if not x1 then return nil end
+    local x1, y1, z1 = get_unit_position(c1)
+    if not x1 then return nil end
 
-  local x2,y2,z2 = get_unit_position(c2)
-  if not x2 then return nil end
+    local x2, y2, z2 = get_unit_position(c2)
+    if not x2 then return nil end
 
-  local x = x2-x1
-  local y = y2-y1
-  local z = z2-z1
+    local x = x2 - x1
+    local y = y2 - y1
+    local z = z2 - z1
 
-  local length = math.sqrt(x*x + y*y + z*z)
+    local length = math.sqrt(x * x + y * y + z * z)
 
-  return length;
-
+    return length;
 end
 
 function get_int_from_strbool(strbool)
-	local rval = -1;
-	if strbool ~= nil then
-		if strbool == "on" or strbool == "1" or strbool == 1 then
-			rval = 1;
-		elseif strbool == "off" or strbool == "0" or strbool == 0 then
-			rval = 0;
-		end
-	end
+    local rval = -1;
+    if strbool ~= nil then
+        if strbool == "on" or strbool == "1" or strbool == 1 then
+            rval = 1;
+        elseif strbool == "off" or strbool == "0" or strbool == 0 then
+            rval = 0;
+        end
+    end
 
-	return rval;
+    return rval;
 end
 
 function pairs_by_key(t, f)
-	local a = {}
-		for n in pairs(t) do table.insert(a, n) end
-		table.sort(a, f)
-		local i = 0      -- iterator variable
-		local iter = function ()   -- iterator function
-			i = i + 1
-			if a[i] == nil then return nil
-			else return a[i], t[a[i]]
-			end
-		end
-	return iter
+    local a = {}
+    for n in pairs(t) do table.insert(a, n) end
+    table.sort(a, f)
+    local i = 0             -- iterator variable
+    local iter = function() -- iterator function
+        i = i + 1
+        if a[i] == nil then
+            return nil
+        else
+            return a[i], t[a[i]]
+        end
+    end
+    return iter
 end
 
 function get_list_of_keys(dict)
-	if not dict or next(dict) == nil then
-		return "-none-"
-	end
+    if not dict or next(dict) == nil then
+        return "-none-"
+    end
 
-	local key_tab, n = {}, 1;
+    local key_tab, n = {}, 1;
 
-	for k, _ in pairs_by_key(dict) do
-		key_tab[n] = k;
-		n = n + 1;
-	end
+    for k, _ in pairs_by_key(dict) do
+        key_tab[n] = k;
+        n = n + 1;
+    end
 
-	return table.concat(key_tab, ", "); -- alphabetical sort.
-
+    return table.concat(key_tab, ", "); -- alphabetical sort.
 end
 
 function tokenize_string(str, sep)
-        local sep, fields = sep or ":", {}
-        local pattern = string.format("([^%s]+)", sep)
-        str:gsub(pattern, function(c) fields[#fields+1] = c end)
-        return fields
+    local sep, fields = sep or ":", {}
+    local pattern = string.format("([^%s]+)", sep)
+    str:gsub(pattern, function(c) fields[#fields + 1] = c end)
+    return fields
 end
 
 function trim_string(s)
-  return (s:gsub("^%s*(.-)%s*$", "%1"))
+    return (s:gsub("^%s*(.-)%s*$", "%1"))
 end
 
+-- local guild_members = {
+--     Chonkki = 1,
+--     Bacc = 2,
+--     Boyee = 3,
+--     Setitboy = 4,
+--     Raimo = 5,
+--     Vomitonux = 6,
+--     Abych = 7,
+--     Nonankh = 8,
+--     Flaunor = 9,
+--     Ocdun = 10,
+--     Crititboy = 11,
+--     Muskeln = 12,
+--     Hepens = 13,
+--     Friid = 14,
+--     Noggins = 15,
+--     Boppins = 16,
+--     Poet = 17,
+--     Inspiration = 18,
+--     Rhotaa = 19,
+-- }
+
 local guild_members = {
-  Chonkki = 1,
-  Bacc = 2,
-  Boyee = 3,
-  Setitboy = 4,
-  Raimo = 5,
-  Vomitonux = 6,
-  Abych = 7,
-  Nonankh = 8,
-  Flaunor = 9,
-  Ocdun = 10,
-  Crititboy = 11,
-  Muskeln = 12,
-  Hepens = 13,
-  Friid = 14,
-  Noggins = 15,
-  Boppins = 16,
-  Poet = 17,
-  Inspiration = 18,
-  Rhotaa = 19,
+    Brah = 1,
+    Ahaa = 2,
+    Juuh = 3,
+    Jaakko = 4,
 }
 
 for name, num in pairs(guild_members) do
@@ -1284,54 +1262,54 @@ for name, num in pairs(guild_members) do
 end
 
 function get_guild_members()
-	return guild_members
+    return guild_members
 end
 
 function get_guild_members_list()
-  local res = {}
-  for name, _ in pairs(get_guild_members()) do
-    table.insert(res, name)
-  end
-  return res
+    local res = {}
+    for name, _ in pairs(get_guild_members()) do
+        table.insert(res, name)
+    end
+    return res
 end
 
 function filter(predicate, array)
-  local res = {}
-  for _, v in ipairs(array) do
-    if predicate(v) then
-      table.insert(res, v)
+    local res = {}
+    for _, v in ipairs(array) do
+        if predicate(v) then
+            table.insert(res, v)
+        end
     end
-  end
-  return res
+    return res
 end
 
 function get_online_guild_members_list()
-  -- NOTE: UnitGUID() returns non-nil when arg is a _character name_ AND if the unit is in the same party
-  return filter(function(n) return UnitGUID(n) ~= nil end, get_guild_members_list())
+    -- NOTE: UnitGUID() returns non-nil when arg is a _character name_ AND if the unit is in the same party
+    return filter(function(n) return UnitGUID(n) ~= nil end, get_guild_members_list())
 end
 
 function tablelength(T)
-  local count = 0
-  for _ in pairs(T) do count = count + 1 end
-  return count
+    local count = 0
+    for _ in pairs(T) do count = count + 1 end
+    return count
 end
 
 function get_durability_status()
-	for i=1,10,1 do
-		local dur, max = GetInventoryItemDurability(i)
-		if dur and dur == 0 then
-			return false
-		end
-	end
+    for i = 1, 10, 1 do
+        local dur, max = GetInventoryItemDurability(i)
+        if dur and dur == 0 then
+            return false
+        end
+    end
 
-	for i=16,18,1 do
-		local dur, max = GetInventoryItemDurability(i)
-		if dur and dur == 0 then
-			return false
-		end
-	end
+    for i = 16, 18, 1 do
+        local dur, max = GetInventoryItemDurability(i)
+        if dur and dur == 0 then
+            return false
+        end
+    end
 
-	return true
+    return true
 end
 
 function player_class()
@@ -1339,7 +1317,6 @@ function player_class()
 end
 
 function get_item_bag_position(itemLink)
-
     for bag = 0, NUM_BAG_SLOTS do
         for slot = 1, GetContainerNumSlots(bag) do
             if (GetContainerItemLink(bag, slot) == itemLink) then
@@ -1348,9 +1325,8 @@ function get_item_bag_position(itemLink)
         end
     end
 
--- (else)
-	return nil,nil
-
+    -- (else)
+    return nil, nil
 end
 
 function in_party()
@@ -1374,10 +1350,8 @@ function in_party_or_raid()
     return false
 end
 
-
 function get_raid_groups()
-
-    local groups = {[1] = {}};
+    local groups = { [1] = {} };
 
     if GetNumRaidMembers() == 0 then
         local name = UnitName("player");
@@ -1390,7 +1364,7 @@ function get_raid_groups()
     else
         local i = 1;
         while GetRaidRosterInfo(i) do
-            local raid_info = {GetRaidRosterInfo(i)};
+            local raid_info = { GetRaidRosterInfo(i) };
             if not groups[raid_info[3]] then
                 groups[raid_info[3]] = {};
             end
@@ -1400,11 +1374,9 @@ function get_raid_groups()
     end
 
     return groups;
-
 end
 
 function get_raid_HP_deficits_grouped(groups)
-
     local grouped_deficits = {}
 
     for grp, tbl in pairs(groups) do
@@ -1418,11 +1390,9 @@ function get_raid_HP_deficits_grouped(groups)
     end
 
     return grouped_deficits;
-
 end
 
 function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars, max_distance)
-
     -- Gieves [target] - {group members} pairs for each group with a healable target that
     -- has at least 3 healable targets within 18 yards of itself. If there are
     -- multiple such targets in a group, the one with the most nearby targets and
@@ -1444,20 +1414,20 @@ function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars, max_
             for i, name in ipairs(tbl) do
                 local hp = UnitHealth(name);
                 for healer, info in pairs(heals_in_progress[name]) do
-                    if info[2] > GetTime()*1000 then
+                    if info[2] > GetTime() * 1000 then
                         hp = hp + info[1];
                     end
                 end
                 if (not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption")
-                    or UnitHealthMax(name) - hp < min_deficit or UNREACHABLE_TARGETS[name] > GetTime()) then
+                        or UnitHealthMax(name) - hp < min_deficit or UNREACHABLE_TARGETS[name] > GetTime()) then
                     ineligible_chars[name] = true;
                     num_ineligible_chars = num_ineligible_chars + 1;
                     if num_ineligible_chars > max_ineligible_chars then
                         break;
                     end
                 else
-                    group_candidates[name] = {name};
-                    for j=i-1,1,-1 do
+                    group_candidates[name] = { name };
+                    for j = i - 1, 1, -1 do
                         if not ineligible_chars[tbl[j]] then
                             local distance = get_distance_between(name, tbl[j]);
                             if distance and distance <= max_distance then
@@ -1473,9 +1443,9 @@ function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars, max_
                     if #grp_cand >= (5 - max_ineligible_chars) then
                         local dist_to_me = get_distance_between("player", tar);
                         if not target_data or #grp_cand > target_data[2] then
-                            target_data = {tar, #grp_cand, dist_to_me};
+                            target_data = { tar, #grp_cand, dist_to_me };
                         elseif #grp_cand == target_data[2] and dist_to_me < target_data[3] then
-                            target_data = {tar, #grp_cand, dist_to_me};
+                            target_data = { tar, #grp_cand, dist_to_me };
                         end
                     end
                 end
@@ -1487,7 +1457,6 @@ function get_CoH_eligible_groups(groups, min_deficit, max_ineligible_chars, max_
     end
 
     return coh_groups;
-
 end
 
 function get_assigned_targets(healer)
@@ -1503,7 +1472,6 @@ function get_assigned_ignores(healer)
 end
 
 function get_heal_target(HP_table, maxmaxHP, with_urgencies)
-
     local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);
     local most_urgent = nil;
     local highest_urgency = 0;
@@ -1512,7 +1480,7 @@ function get_heal_target(HP_table, maxmaxHP, with_urgencies)
         local tar_hp = hp_data[1];
         local tar_maxhp = hp_data[2];
         for healer, info in pairs(heals_in_progress[target]) do
-            if info[2] > GetTime()*1000 then
+            if info[2] > GetTime() * 1000 then
                 tar_hp = tar_hp + info[1];
             end
         end
@@ -1532,7 +1500,6 @@ function get_heal_target(HP_table, maxmaxHP, with_urgencies)
     else
         return most_urgent;
     end
-
 end
 
 function get_raid_heal_target(with_urgencies)
@@ -1541,7 +1508,6 @@ function get_raid_heal_target(with_urgencies)
 end
 
 function get_raid_heal_targets(urgencies, num_targets)
-
     -- Returns a table of healable raid members sorted in descending order of urgency.
     -- Limit number of elements to num_targets when passed.
 
@@ -1567,17 +1533,15 @@ function get_raid_heal_targets(urgencies, num_targets)
     end
 
     return r_tbl;
-
 end
 
 function sorted_by_urgency(chars)
-
     local HP_table = {};
     local maxmaxHP = 0;
     for i, name in pairs(chars) do
         if name == "raid" or not UnitExists(name) or not UnitIsConnected(name) or UnitIsDead(name) or has_buff(name, "Spirit of Redemption") or UNREACHABLE_TARGETS[name] > GetTime() then
         else
-            HP_table[name] = {UnitHealth(name), UnitHealthMax(name)};
+            HP_table[name] = { UnitHealth(name), UnitHealthMax(name) };
             if HP_table[name][2] > maxmaxHP then
                 maxmaxHP = HP_table[name][2];
             end
@@ -1602,11 +1566,9 @@ function sorted_by_urgency(chars)
     end
 
     return ordered_targets;
-
 end
 
 function sync_healer_targets_with_mine()
-
     local healer_targets = deepcopy(HEALER_TARGETS);
 
     local msg = "set;";
@@ -1628,11 +1590,9 @@ function sync_healer_targets_with_mine()
     end
 
     L_SendAddonMessage("lole_healers", msg, "RAID");
-
 end
 
 function get_new_healer_targets(domain, op, healer, new_targets)
-
     local targets = {};
     local old_targets = {};
     if domain == "ignores" then
@@ -1673,24 +1633,20 @@ function get_new_healer_targets(domain, op, healer, new_targets)
     end
 
     return targets;
-
 end
 
 function get_healer_target_info()
-
     local info = "";
     for i, healer in ipairs(HEALERS) do
         info = info .. get_healer_assignments_msg(healer) .. "\n";
     end
 
     return info;
-
 end
 
 function get_healer_assignments_msg(healer)
-
     local msg = nil;
-    local order = {"heals", "hots", "ignores"};
+    local order = { "heals", "hots", "ignores" };
     local verbose = {
         heals = "Heals",
         hots = "HoT/ES",
@@ -1718,11 +1674,10 @@ function get_healer_assignments_msg(healer)
 
     msg = "[" .. healer .. "] " .. msg;
     return msg;
-
 end
 
 function handle_healer_assignment(message)
-    local msg_tbl = {strsplit(";", message)};
+    local msg_tbl = { strsplit(";", message) };
     local op = msg_tbl[1];
     local msg = msg_tbl[2];
 
@@ -1776,11 +1731,11 @@ function handle_healer_assignment(message)
         end
         return;
     end
-    local per_healer = {strsplit(".", msg)};
+    local per_healer = { strsplit(".", msg) };
     local new_assignments = {};
     echo("Healer assignments change:")
     for key, healer_targets in pairs(per_healer) do
-        local ht = {strsplit(":", healer_targets)};
+        local ht = { strsplit(":", healer_targets) };
         local healer = ht[1];
         if not table.contains(HEALERS, healer) then
             echo("No such healer: " .. "'" .. healer .. "'");
@@ -1792,12 +1747,12 @@ function handle_healer_assignment(message)
         end
         if ht[2] ~= "" then
             local assign_data = {};
-            local tars_itars = table.rid({strsplit("<", ht[2])}, "");
+            local tars_itars = table.rid({ strsplit("<", ht[2]) }, "");
             for i, tars in pairs(tars_itars) do
-                local tmp = {strsplit(">", tars)};
+                local tmp = { strsplit(">", tars) };
                 local tmp_tars = {};
                 if tmp[2] then
-                    tmp_tars = table.rid({strsplit(",", tmp[2])}, "");
+                    tmp_tars = table.rid({ strsplit(",", tmp[2]) }, "");
                 end
                 assign_data[tmp[1]] = tmp_tars;
             end
@@ -1825,11 +1780,9 @@ function handle_healer_assignment(message)
     end
 
     LOLE_HEALER_TARGETS_SAVED = HEALER_TARGETS;
-
 end
 
 function get_serialized_heals()
-
     local serialized_heals = "";
     local heals_in_progress = shallowcopy(HEALS_IN_PROGRESS);
     local raid_members = get_raid_members();
@@ -1840,7 +1793,7 @@ function get_serialized_heals()
         else
             local heals = heals_in_progress[target];
             for healer, info in pairs(heals) do
-                if info[2] > GetTime()*1000 then
+                if info[2] > GetTime() * 1000 then
                     target_heals = target_heals + info[1];
                 end
             end
@@ -1855,11 +1808,9 @@ function get_serialized_heals()
     end
 
     return serialized_heals;
-
 end
 
 function get_raid_members()
-
     local members = {};
     local raid_groups = get_raid_groups();
     for grp, tbl in pairs(raid_groups) do
@@ -1869,24 +1820,20 @@ function get_raid_members()
     end
 
     return members;
-
 end
 
 function get_group_members(grp_num)
-
     local raid_groups = get_raid_groups();
     return raid_groups[grp_num];
-
 end
 
 function get_group_number(name)
-
     if GetNumRaidMembers() == 0 then
         return 1;
     else
         local i = 1;
         while GetRaidRosterInfo(i) do
-            local raid_info = {GetRaidRosterInfo(i)};
+            local raid_info = { GetRaidRosterInfo(i) };
             if raid_info[1] == name then
                 return raid_info[3];
             end
@@ -1895,11 +1842,9 @@ function get_group_number(name)
     end
 
     return nil;
-
 end
 
 function handle_CH_report(targets, healer)
-
     table.remove(targets, 1);
     local hfi = shallowcopy(HEAL_FINISH_INFO[healer]);
     for i, target in ipairs(targets) do
@@ -1908,9 +1853,8 @@ function handle_CH_report(targets, healer)
         if not hfi[2] then
             echo("hfi[2] is nil")
         end
-        HEALS_IN_PROGRESS[target][healer] = {heal_estimate, hfi[2]};
+        HEALS_IN_PROGRESS[target][healer] = { heal_estimate, hfi[2] };
     end
-
 end
 
 function on_gcd()
@@ -1949,132 +1893,128 @@ function run_override()
 end
 
 function is_valid_pair(healer, target)
+    local healer_ignores = get_assigned_ignores(healer);
+    if healer_ignores and table.contains(healer_ignores, target) then
+        return false;
+    end
 
-	local healer_ignores = get_assigned_ignores(healer);
-	if healer_ignores and table.contains(healer_ignores, target) then
-		return false;
-	end
-
-	return true;
-
+    return true;
 end
 
 -- just a convenience function
 
 function playermode()
-  if lole_subcommands.get("playermode") == 1 then
-    return 1
-  else
-    return nil
-  end
+    if lole_subcommands.get("playermode") == 1 then
+        return 1
+    else
+        return nil
+    end
 end
 
 function health_percentage(unitname)
-  return UnitHealth(unitname)/UnitHealthMax(unitname) * 100
+    return UnitHealth(unitname) / UnitHealthMax(unitname) * 100
 end
 
 function mana_percentage(unitname)
-  return UnitMana(unitname)/UnitManaMax(unitname) * 100
+    return UnitMana(unitname) / UnitManaMax(unitname) * 100
 end
 
 local function bitoper(a, b, oper)
-   local r, m, s = 0, 2^52
-   repeat
-      s,a,b = a+b+m, a%m, b%m
-      r,m = r + m*oper%(s-a-b), m/2
-   until m < 1
-   return r
+    local r, m, s = 0, 2 ^ 52
+    repeat
+        s, a, b = a + b + m, a % m, b % m
+        r, m = r + m * oper % (s - a - b), m / 2
+    until m < 1
+    return r
 end
 
-BITWISE = { 
-    OR=function(a,b) return bitoper(a,b,1) end,
-    XOR=function(a,b) return bitoper(a,b,3) end,
-    AND=function(a,b) return bitoper(a,b,4) end,
+BITWISE = {
+    OR = function(a, b) return bitoper(a, b, 1) end,
+    XOR = function(a, b) return bitoper(a, b, 3) end,
+    AND = function(a, b) return bitoper(a, b, 4) end,
 }
 
 function all(iterable, condition)
-  for k, v in pairs(iterable) do
-    if not condition(k, v) then return false end
-  end
-  return true
+    for k, v in pairs(iterable) do
+        if not condition(k, v) then return false end
+    end
+    return true
 end
 
 function any(iterable, condition)
-  for k, v in pairs(iterable) do
-    if condition(k, v) then return true end
-  end
-  return false
+    for k, v in pairs(iterable) do
+        if condition(k, v) then return true end
+    end
+    return false
 end
 
 local DISPEL_SPELLS = {
-  Poison = { Cleanse = 4987 },
-  Magic = { Cleanse = 4987, ["Dispel Magic"] = 988 },
-  Disease = { Cleanse = 4987, ["Abolish Disease"] = 552 },
-  -- Curse = { ":("}
+    Poison = { Cleanse = 4987 },
+    Magic = { Cleanse = 4987, ["Dispel Magic"] = 988 },
+    Disease = { Cleanse = 4987, ["Abolish Disease"] = 552 },
+    -- Curse = { ":("}
 }
 
 local function get_eligible_player_dispel_spell(spell_type)
-  local spells = DISPEL_SPELLS[spell_type]
-  if spells ~= nil then
-    for spell_name, spellid in pairs(spells) do
-      if IsSpellKnown(spellid) then
-        return spell_name
-      end
+    local spells = DISPEL_SPELLS[spell_type]
+    if spells ~= nil then
+        for spell_name, spellid in pairs(spells) do
+            if IsSpellKnown(spellid) then
+                return spell_name
+            end
+        end
     end
-  end
 end
 
 function group_dispel()
-  if get_current_config():GlobalCooldown() then
-    return
-  end
-  local guildies = get_online_guild_members_list()
-  local guildie_name = guildies[random(1, #guildies)]
-  for i=1,40 do
-    local debuff_name, _rank, _icon, count, dispel_type = UnitAura(guildie_name, i, "HARMFUL")
-    if debuff_name == nil then break end
-    local dispel_spell = get_eligible_player_dispel_spell(dispel_type)
-    if dispel_spell ~= nil then
-      L_TargetUnit(guildie_name)
-      L_CastSpellByName(dispel_spell)
-      return true
+    if get_current_config():GlobalCooldown() then
+        return
     end
-  end
+    local guildies = get_online_guild_members_list()
+    local guildie_name = guildies[random(1, #guildies)]
+    for i = 1, 40 do
+        local debuff_name, _rank, _icon, count, dispel_type = UnitAura(guildie_name, i, "HARMFUL")
+        if debuff_name == nil then break end
+        local dispel_spell = get_eligible_player_dispel_spell(dispel_type)
+        if dispel_spell ~= nil then
+            L_TargetUnit(guildie_name)
+            L_CastSpellByName(dispel_spell)
+            return true
+        end
+    end
 end
 
 function total_combat_mob_health()
     local combat_mobs = get_combat_mobs()
     local total_health = 0
-    for _,mob in ipairs(combat_mobs) do
+    for _, mob in ipairs(combat_mobs) do
         total_health = total_health + mob.hp
     end
     return total_health
 end
 
-
 function spell_errmsg_received(msg)
-  -- print('got spellerrmsg', string.format("%X", msg), 'at', GetTime(), 'aka', SpellErrorReverse[msg])
-  local c = get_current_config()
-  local handler = c and c.spellerror_handlers[msg]
-  if handler then
-    handler()
-  end
+    -- print('got spellerrmsg', string.format("%X", msg), 'at', GetTime(), 'aka', SpellErrorReverse[msg])
+    local c = get_current_config()
+    local handler = c and c.spellerror_handlers[msg]
+    if handler then
+        handler()
+    end
 end
-
 
 local TIMERS = {}
 
 local Timer = { callback = function() end, delay = 0, start_time = 0, end_time = 0 }
 
 function Timer:new(callback, delay)
-  local res = {} 
-  setmetatable(res, self)
-  self.__index = self
-  res.callback = callback
-  res.delay = delay
-  res.start_time = GetTime()
-  res.end_time = res.start_time + delay/1000.0
-  return res
+    local res = {}
+    setmetatable(res, self)
+    self.__index = self
+    res.callback = callback
+    res.delay = delay
+    res.start_time = GetTime()
+    res.end_time = res.start_time + delay / 1000.0
+    return res
 end
 
 local function run_timers()
@@ -2096,12 +2036,12 @@ function setTimeout(callback, delay)
 end
 
 function clearTimeout(timer)
-  for i,v in ipairs(TIMERS) do
-    if (v == timer) then
-      table.remove(TIMERS, i)
-      return
+    for i, v in ipairs(TIMERS) do
+        if (v == timer) then
+            table.remove(TIMERS, i)
+            return
+        end
     end
-  end
 end
 
 local timeout_frame = CreateFrame("Frame", "TimeoutFrame")
