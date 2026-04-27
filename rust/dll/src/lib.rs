@@ -612,11 +612,13 @@ pub extern "system" fn DllMain(_hinst: HMODULE, reason: u32, _reserved: *mut c_v
 
 extern "system" fn main_thread(_: *mut c_void) -> u32 {
     // all your actual code goes here
-    unsafe { windows::Win32::System::Threading::Sleep(1500) };
+    unsafe { windows::Win32::System::Threading::Sleep(3000) }; // Sleep enough so Wow has time to initialize properly
     let tramp = AVAILABLE_PATCHES.get("EndScene").expect("EndScene");
 
-    if let Err(e) = tramp.enable() {
-        fatal_error_exit(e);
+    unsafe {
+        if let Err(e) = tramp.enable() {
+            fatal_error_exit(e);
+        }
     }
     global_var!(ENABLED_PATCHES).push(tramp);
     0

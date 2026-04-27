@@ -223,6 +223,7 @@ impl CtmQueue {
                 *run_script = Some((script, n - 1))
             }
         }
+        drop(run_script);
         let prev_frame_time = self.last_frame_time;
         self.last_frame_time = Instant::now();
 
@@ -236,7 +237,8 @@ impl CtmQueue {
 
         self.prev_pos = pp;
 
-        if let Some(guid) = *TRYING_TO_FOLLOW.lock().unwrap() {
+        let guid = *TRYING_TO_FOLLOW.lock().unwrap(); // lock acquired and immediately dropped
+        if let Some(guid) = guid {
             if let Some(t) = om.get_object_by_guid(guid)? {
                 let tp = t.get_pos()?;
                 if (pp - tp).length() < 10.0 {
@@ -603,11 +605,6 @@ pub fn clear() -> LoleResult<()> {
 }
 
 unsafe extern "C" fn ctm_finished() {
-    unsafe {
-        asm! {
-            "int 3h"
-        }
-    }
     // if let Ok(mut ctm_queue) = QUEUE.try_lock() {
     //     if let Some((_current, _)) = ctm_queue.current.take() {
     //         if !ctm_queue.events.is_empty() {

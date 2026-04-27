@@ -128,10 +128,12 @@ local available_configs = {
     tmp_paladin = ClassConfig:create("tmp_paladin", {}, {}, get_class_color("paladin"), tmp_paladin_combat,
         { "Avenging Wrath" },
         ROLES.mana_melee, "MELEE", survive_template, AUTO_FACING_HANDLERS, "Devotion Aura"),
-
     tmp_warrior = ClassConfig:create("tmp_warrior", {}, {}, get_class_color("warrior"), tmp_warrior_combat,
         {},
         ROLES.melee, "MELEE", survive_template, AUTO_FACING_HANDLERS),
+
+    tmp_hunter = ClassConfig:create("tmp_hunter", {}, {}, get_class_color("hunter"), tmp_hunter_combat, {}, ROLES.caster,
+        "RANGED", survive_template, "Hunter's Mark"),
 
     aoe_druid_balance =
         ClassConfig:create("aoe_druid_balance", {}, {}, get_class_color("druid"), aoe_combat_druid, {}, ROLES.caster,

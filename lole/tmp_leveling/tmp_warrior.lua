@@ -2,6 +2,8 @@ function tmp_warrior_combat()
     if validate_target() then
         melee_attack_behind(1.5);
         L_StartAttack();
+        if IsUsableSpell("Charge") and cast_if_nocd("Charge") then return end
+
         local aoe_feas = get_aoe_feasibility("player", 5)
         local overpower, _ = IsUsableSpell("Overpower")
         cast_if_nocd("Bloodrage")

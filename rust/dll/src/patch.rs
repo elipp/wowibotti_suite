@@ -123,7 +123,7 @@ impl Patch {
         write_addr(self.patch_addr, patch.instr_slice())
     }
 
-    pub fn enable(&self) -> LoleResult<()> {
+    pub unsafe fn enable(&self) -> LoleResult<()> {
         match self.kind {
             PatchKind::JmpToTrampoline => {
                 const PAGE_EXECUTE_READWRITE: u32 = 0x40;

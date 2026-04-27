@@ -714,8 +714,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             }
         }
         Opcode::StopFollow if nargs == 0 => {
-            let mut ttf = TRYING_TO_FOLLOW.lock().unwrap();
-            *ttf = None;
+            *TRYING_TO_FOLLOW.lock().unwrap() = None;
             let target_pos = player.yards_in_front_of(0.1)?;
             ctm::clear()?;
             ctm::add_to_queue(CtmEvent {
@@ -891,8 +890,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             write_last_hardware_action(0)?;
         }
         Opcode::StopFollowSpread if nargs == 0 => {
-            let mut ttf = TRYING_TO_FOLLOW.lock().unwrap();
-            *ttf = None;
+            *TRYING_TO_FOLLOW.lock().unwrap() = None;
             // add randomness (for multibox masking)
             let target_pos =
                 player.get_pos()? + random_01() * Vec3::from_rot_value(random_01() * TWO_PI);
@@ -1067,8 +1065,7 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
             return lua_debug_func(lua);
         }
         Opcode::EjectDll => {
-            let mut state = get_state().lock().unwrap();
-            state.should_eject = true;
+            get_state().lock().unwrap().should_eject = true;
         }
         Opcode::QueryInjected => {
             lua_pushboolean(lua, 1);
