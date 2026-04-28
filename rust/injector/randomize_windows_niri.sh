@@ -5,7 +5,12 @@ mapfile -t ids < <(niri msg --json windows \
   | jq -r '.[] | select(.app_id | test("wow.exe"; "i")) | .id')
 
 # shuffle with shuf
-mapfile -t ids < <(printf '%s\n' "${ids[@]}" | shuf)
+mapfile -t ids < <(printf '%s\n' "${ids[@]}" | grep -v '^$' | shuf)
+
+if [ ${#ids[@]} -eq 0 ]; then
+    echo "No windows found, exiting."
+    exit 0
+fi
 
 for i in "${!ids[@]}"; do
     niri msg action move-window-to-workspace --window-id "${ids[$i]}" "$((i+1))"

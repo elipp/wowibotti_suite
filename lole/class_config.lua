@@ -135,6 +135,9 @@ local available_configs = {
     tmp_hunter = ClassConfig:create("tmp_hunter", {}, {}, get_class_color("hunter"), tmp_hunter_combat, {}, ROLES.caster,
         "RANGED", survive_template, "Hunter's Mark"),
 
+    tmp_shaman = ClassConfig:create("tmp_shaman", {}, {}, get_class_color("shaman"), tmp_shaman_combat, {},
+        ROLES.mana_melee, "MELEE", hunter_survive, "Healing Wave"),
+
     aoe_druid_balance =
         ClassConfig:create("aoe_druid_balance", {}, {}, get_class_color("druid"), aoe_combat_druid, {}, ROLES.caster,
             "RANGED", survive_template, "Wrath"),

@@ -160,6 +160,20 @@ impl eframe::App for InjectorApp {
                     };
                     query.launch_all(&self.config).unwrap();
                 }
+                if ui.button("Assign windows (niri)").clicked() {
+                    match std::process::Command::new("/bin/bash")
+                        .arg(format!(
+                            "{}/randomize_windows_niri.sh",
+                            std::env!("CARGO_MANIFEST_DIR")
+                        ))
+                        .spawn()
+                    {
+                        Ok(_) => {}
+                        Err(e) => {
+                            tracing::error!("Command failed {e:?}");
+                        }
+                    }
+                }
             });
         });
     }

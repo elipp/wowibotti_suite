@@ -48,8 +48,6 @@ local TOTEM_NAME_BUFFNAME_MAP = {
 };
 
 function get_active_multicast_totems()
-    echo("warning: tbc doesn't have totem multicast")
-    if true then return end
     local r = {}
     for i = 1, 4 do
         local _, _, _, spellId = GetActionInfo(_G["MultiCastSlotButton" .. tostring(i)].actionButton.action)
@@ -59,8 +57,6 @@ function get_active_multicast_totems()
 end
 
 function get_active_multicast_summonspell()
-    echo("warning: tbc doesn't have totem multicast")
-    if true then return end
     return GetSpellInfo(MultiCastSummonSpellButton.spellId)
 end
 

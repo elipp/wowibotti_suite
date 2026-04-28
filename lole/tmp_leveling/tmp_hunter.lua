@@ -44,17 +44,24 @@ local function pet_combat()
         return
     end
 
-    if get_aoe_feasibility("pet", 8) > 1.0 and cast_if_nocd_pet("Thunderstomp") then
+    -- if get_aoe_feasibility("pet", 8) > 1.0 and cast_if_nocd_pet("Thunderstomp") then
+    --     return
+    -- end
+
+    -- if cast_if_nocd_pet("Growl", 7) then
+    --     return
+    -- end
+    -- if cast_if_nocd_pet("Gore", 4) then
+    --     return
+    -- end
+    -- if cast_if_nocd_pet("Bite", 8) then
+    --     return
+    -- end
+    if cast_if_nocd_pet("Gore", 2) then
         return
     end
 
-    if cast_if_nocd_pet("Growl", 7) then
-        return
-    end
-    if cast_if_nocd_pet("Gore", 4) then
-        return
-    end
-    if cast_if_nocd_pet("Bite", 8) then
+    if cast_if_nocd_pet("Bite", 3) then
         return
     end
 end
@@ -88,7 +95,7 @@ function tmp_hunter_combat()
 
 
     if not validate_target() then return end -- DEFAULT
-    -- caster_range_check(11, 35)
+    caster_range_check(11, 35)
 
     --local BEST_ASPECT = "Aspect of the Dragonhawk"
     -- local BEST_ASPECT = "Aspect of the Wild"

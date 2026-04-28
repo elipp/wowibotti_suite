@@ -336,7 +336,9 @@ HEAL_ESTIMATES = {
     ["Greater Heal"] = 10000,
     ["Prayer of Healing"] = 4600,
     ["Binding Heal"] = 4000,
+    -- leveling stuff
     ["Lesser Heal"] = 160,
+    ["Heal"] = 380,
 }
 
 INSTANT_HEALS = {
@@ -670,7 +672,8 @@ end
 
 local function fmt_spell_with_optional_rank(spellname, rank)
     if rank then
-        local rank_str = rank:find("^Rank") and rank or ("Rank " .. rank)
+        local rank_s = tostring(rank)
+        local rank_str = rank_s:find("^Rank") and rank_s or ("Rank " .. rank_s)
         return spellname .. "(" .. rank_str .. ")"
     end
     return spellname
@@ -1254,6 +1257,7 @@ local guild_members = {
     Ahaa = 2,
     Juuh = 3,
     Jaakko = 4,
+    ['Entsä'] = 5,
 }
 
 for name, num in pairs(guild_members) do
