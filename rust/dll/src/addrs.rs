@@ -224,6 +224,10 @@ pub mod offsets {
     pub const LAST_HARDWARE_ACTION: Addr = 0xB499A4;
     pub const SPELL_CAST_COUNTER: Addr = 0xD397D4; // actually the byte at SPELL_CAST_COUNTER+1
 
+    // pub const RENDERING_ENABLES: Addr = 0x008D774C;
+    pub const RENDERING_ENABLES: Addr = 0xCD774C;
+    pub const RENDERING_ENABLES_DEFAULT_VALUE: u32 = 0x1F104F73;
+
     #[allow(non_upper_case_globals)]
     pub mod wow_cfuncs {
         use crate::{Addr, addrs::UNKNOWN_ADDRESS};

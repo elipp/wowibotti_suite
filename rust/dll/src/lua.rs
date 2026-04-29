@@ -1,4 +1,3 @@
-use std::cell::Cell;
 use std::f32::consts::PI;
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::sync::Mutex;
@@ -886,9 +885,9 @@ fn handle_lop_exec(lua: lua_State) -> LoleResult<i32> {
                 return Ok(LUA_NO_RETVALS);
             }
         }
-        Opcode::RefreshHwEventTimestamp if nargs == 0 => {
+        Opcode::RefreshHwEventTimestamp if nargs == 0 => unsafe {
             write_last_hardware_action(0)?;
-        }
+        },
         Opcode::StopFollowSpread if nargs == 0 => {
             *TRYING_TO_FOLLOW.lock().unwrap() = None;
             // add randomness (for multibox masking)
@@ -1271,7 +1270,9 @@ pub fn spell_errmsg_received(msg: u32) -> LoleResult<()> {
 }
 
 pub fn move_forward_start() -> LoleResult<()> {
-    write_last_hardware_action(0)?;
+    unsafe {
+        write_last_hardware_action(0)?;
+    }
     let lua = get_wow_lua_state()?;
     lua_getglobal!(lua, c"MoveForwardStart");
     pcall(lua, 0, 0)?;
@@ -1279,7 +1280,9 @@ pub fn move_forward_start() -> LoleResult<()> {
 }
 
 pub fn move_forward_stop() -> LoleResult<()> {
-    write_last_hardware_action(0)?;
+    unsafe {
+        write_last_hardware_action(0)?;
+    }
     let lua = get_wow_lua_state()?;
     lua_getglobal!(lua, c"MoveForwardStop");
     pcall(lua, 0, 0)?;

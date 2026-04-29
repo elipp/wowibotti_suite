@@ -16,8 +16,12 @@ use tracing::level_filters::LevelFilter;
 use tracing_subscriber::Registry;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use windows::Win32::System::Threading::{ExitProcess, THREAD_CREATE_RUN_IMMEDIATELY};
-use windows::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MB_OK, MessageBoxW};
+use windows::Win32::System::Threading::{
+    ExitProcess, GetCurrentProcessId, THREAD_CREATE_RUN_IMMEDIATELY,
+};
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetForegroundWindow, GetWindowThreadProcessId, MB_ICONERROR, MB_OK, MessageBoxW,
+};
 use wowibotti_suite_types::{ClientConfig, RealmInfo, WowAccount};
 
 use lua::{Opcode, lua_GetTime, lua_Integer, lua_Number};
@@ -48,8 +52,9 @@ pub mod socket;
 pub mod spell_error;
 pub mod vec3;
 pub mod wowproto_opcodes;
+use crate::addrs::offsets::{RENDERING_ENABLES, RENDERING_ENABLES_DEFAULT_VALUE};
 use crate::lua::LuaType;
-use crate::patch::{AVAILABLE_PATCHES, Patch};
+use crate::patch::{AVAILABLE_PATCHES, Patch, read_elems_from_addr};
 use crate::spell_error::SpellError;
 
 pub const POSTGRES_ADDR: &str = "127.0.0.1:5432";
@@ -226,7 +231,7 @@ fn eject_dll() -> LoleResult<()> {
 const TARGET_FPS: f64 = 100.0;
 const TARGET_SPF: f64 = 1.0 / TARGET_FPS; // "seconds per frame"
 
-fn write_last_hardware_action(offset_by: i64) -> LoleResult<()> {
+unsafe fn write_last_hardware_action(offset_by: i64) -> LoleResult<()> {
     let ticks = read_os_tick_count() as i64;
     write_addr::<u32>(
         LAST_HARDWARE_ACTION,
@@ -244,12 +249,14 @@ fn set_frame_num() -> LoleResult<()> {
     Ok(())
 }
 
-fn afk_refresh_hardware_event_timestamp() -> LoleResult<()> {
+unsafe fn afk_refresh_hardware_event_timestamp() -> LoleResult<()> {
     let mut state = get_state_!();
     if let Some(interval) = state.last_hardware_interval
         && interval.elapsed() > std::time::Duration::from_secs(20)
     {
-        write_last_hardware_action(-1000)?;
+        unsafe {
+            write_last_hardware_action(-1000)?;
+        }
     }
     state.last_hardware_interval = Some(std::time::Instant::now());
     Ok(())
@@ -275,6 +282,24 @@ fn unpack_broker_message_queue() {
     }
 }
 
+unsafe fn disable_rendering_if_not_focused() -> LoleResult<()> {
+    unsafe {
+        let fg = GetForegroundWindow();
+        if fg.is_invalid() {
+            return Ok(());
+        }
+
+        let mut fg_pid = 0u32;
+        GetWindowThreadProcessId(fg, Some(&mut fg_pid));
+        if fg_pid != GetCurrentProcessId() {
+            write_addr(RENDERING_ENABLES, &[0u32])?;
+        } else {
+            write_addr(RENDERING_ENABLES, &[RENDERING_ENABLES_DEFAULT_VALUE])?;
+        }
+    }
+    Ok(())
+}
+
 fn main_entrypoint() -> LoleResult<()> {
     ctm::poll()?;
 
@@ -288,7 +313,11 @@ fn main_entrypoint() -> LoleResult<()> {
         }
     }
 
-    afk_refresh_hardware_event_timestamp()?;
+    unsafe {
+        disable_rendering_if_not_focused()?;
+        afk_refresh_hardware_event_timestamp()?;
+    }
+
     set_frame_num()?;
 
     #[cfg(feature = "addonmessage_broker")]
