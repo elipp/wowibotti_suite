@@ -1,7 +1,7 @@
-use crate::lua::spell_errmsg_received;
-use crate::patch::{copy_original_opcodes, InstructionBuffer, Patch, PatchKind};
 use crate::LoleError;
-use crate::{assembly, Addr};
+use crate::lua::spell_errmsg_received;
+use crate::patch::{InstructionBuffer, Patch, PatchKind, copy_original_opcodes};
+use crate::{Addr, assembly};
 
 use crate::addrs::offsets;
 use lole_macros::generate_lua_enum;
@@ -64,7 +64,7 @@ unsafe extern "stdcall" fn spell_err_msg(msg_ptr: *const SpellErrMsgArgs) {
     if msg_ptr.is_null() || !is_aligned_to::<4, _>(msg_ptr) {
         return;
     }
-    let msg = (*msg_ptr).msg;
+    let msg = unsafe { (*msg_ptr).msg };
     let as_spellerrmsg: Result<SpellError, _> = msg.try_into();
     match as_spellerrmsg {
         Ok(m) => {

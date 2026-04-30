@@ -9,11 +9,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use serde::Deserialize;
 use std::path::Path;
-#[cfg(feature = "host-linux")]
 use uuid::Uuid;
-
-#[cfg(feature = "host-windows")]
-use os::windows::ffi::OsStrExt;
 
 use wowibotti_suite_types::ClientConfig;
 
@@ -132,17 +128,6 @@ impl eframe::App for InjectorApp {
             });
             ui.add_space(50.0);
             ui.horizontal(|ui| {
-                #[cfg(feature = "host-windows")]
-                if ui.button("Inject DLL").clicked() {
-                    find_wow_windows_and_inject(
-                        self.config.clone(),
-                        InjectQuery {
-                            enabled_characters: self.enabled_characters(),
-                            enabled_patches: self.enabled_patches(),
-                        },
-                    )
-                    .unwrap();
-                }
                 if ui.button("Launch clients").clicked() {
                     let query = LaunchQuery {
                         configs: self
@@ -161,6 +146,7 @@ impl eframe::App for InjectorApp {
                     };
                     query.launch_all(&self.config).unwrap();
                 }
+                #[cfg(feature = "host-linux")]
                 if ui.button("Assign windows (niri)").clicked() {
                     match std::process::Command::new("/bin/bash")
                         .arg(format!(
@@ -175,6 +161,11 @@ impl eframe::App for InjectorApp {
                         }
                     }
                 }
+                #[cfg(feature = "host-windows")]
+                if ui.button("Assign hotkeys").clicked() {
+                    use crate::windows::inject::find_wow_windows_and_register_hotkeys;
+                    find_wow_windows_and_register_hotkeys();
+                }
             });
         });
     }
@@ -182,6 +173,9 @@ impl eframe::App for InjectorApp {
 
 #[cfg(feature = "native-ui")]
 fn main() -> Result<(), eframe::Error> {
+    #[cfg(feature = "host-windows")]
+    use crate::windows::start_dummy_window;
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -192,6 +186,7 @@ fn main() -> Result<(), eframe::Error> {
 
     #[cfg(feature = "host-windows")]
     start_dummy_window();
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([400.0, 300.0])
