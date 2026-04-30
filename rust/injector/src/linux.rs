@@ -20,7 +20,13 @@ impl LaunchQuery {
 
             // let _ = std::process::Command::new("winedbg")
             let _ = std::process::Command::new("wine")
-                .arg(&config.wow_client_path)
+                .arg(
+                    client_config
+                        .path_override
+                        .as_ref()
+                        .map(|p| Path::new(p))
+                        .unwrap_or(&config.wow_client_path),
+                )
                 .env("LOLE_ID", id)
                 .spawn()?;
 

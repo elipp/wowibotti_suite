@@ -1,8 +1,9 @@
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpListener;
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 
 pub type ConnectionId = u32;
 
@@ -107,15 +108,13 @@ impl std::fmt::Display for MsgWrapper {
 #[derive(Clone)]
 struct Clients {
     connections: Arc<Mutex<Vec<BrokerClient>>>,
-    client_id_counter: Arc<Mutex<ConnectionId>>,
+    client_id_counter: Arc<AtomicU32>,
     main_tx: std::sync::mpsc::Sender<ServerMsg>,
 }
 
 impl Clients {
     fn get_next_client_id(&mut self) -> ConnectionId {
-        let mut client_id = self.client_id_counter.lock().unwrap();
-        *client_id += 1;
-        *client_id
+        self.client_id_counter.fetch_add(1, Ordering::Relaxed)
     }
     fn spawn_socket_reader_task(
         &self,
@@ -143,7 +142,7 @@ impl Clients {
                                 from: MsgSender::Server,
                                 message: Msg::Welcome(connection_id),
                             })
-                            .unwrap();
+                            .expect("Welcome msg send to succeed");
                         let mut connections = connections.lock().unwrap();
                         connections.push(BrokerClient {
                             id: connection_id,
@@ -152,23 +151,27 @@ impl Clients {
                         });
                     } else {
                         if let Err(e) = main_tx.send(ServerMsg::RelayMsg(msg.clone())) {
-                            tracing::error!("connection {connection_id}: write: {e:?}");
-                            main_tx
-                                .send(ServerMsg::RemoveClient(
-                                    connection_id,
-                                    format!("mpsc::Sender::send failed: {e:?}"),
-                                ))
-                                .unwrap();
+                            tracing::error!(
+                                "connection {connection_id}: write: {e:?}.\nRemoving client"
+                            );
+                            match main_tx.send(ServerMsg::RemoveClient(
+                                connection_id,
+                                format!("mpsc::Sender::send failed: {e:?}"),
+                            )) {
+                                Ok(_) => {}
+                                Err(e) => tracing::error!("{e:?}"),
+                            }
                             break;
                         }
                     }
                 } else {
-                    main_tx
-                        .send(ServerMsg::RemoveClient(
-                            connection_id,
-                            format!("read_one_message failed: {msg:?}"),
-                        ))
-                        .unwrap();
+                    match main_tx.send(ServerMsg::RemoveClient(
+                        connection_id,
+                        format!("read_one_message failed: {msg:?}"),
+                    )) {
+                        Ok(_) => {}
+                        Err(e) => tracing::error!("{e:?}"),
+                    }
                     break;
                 }
             }
@@ -188,17 +191,24 @@ impl Clients {
             let mut serialization_buffer = bitcode::Buffer::new();
             loop {
                 match rx.recv() {
-                    Ok(msg) => msg
+                    Ok(msg) => match msg
+                        .clone()
                         .send(&mut write, &mut serialization_buffer)
                         .await
-                        .unwrap(),
+                    {
+                        Ok(_) => {
+                            tracing::debug!("{connection_id}: relayed {msg:?}");
+                        }
+                        Err(e) => tracing::error!("msg.send: {e:?}"),
+                    },
                     Err(e) => {
-                        main_tx
-                            .send(ServerMsg::RemoveClient(
-                                connection_id,
-                                format!("mpsc::Receiver::recv() failed: {e:?}"),
-                            ))
-                            .unwrap();
+                        match main_tx.send(ServerMsg::RemoveClient(
+                            connection_id,
+                            format!("mpsc::Receiver::recv() failed: {e:?}"),
+                        )) {
+                            Ok(_) => {}
+                            Err(_) => tracing::error!("removeClient: {e:?}"),
+                        }
                         break;
                     }
                 }
@@ -209,12 +219,14 @@ impl Clients {
 
 pub async fn start_addonmessage_relay() {
     tracing::info!("listening on port 1337");
-    let listener = TcpListener::bind("127.0.0.1:1337").await.unwrap();
+    let listener = TcpListener::bind("127.0.0.1:1337")
+        .await
+        .expect("bind to succeed");
 
     let (main_tx, main_rx) = mpsc::channel::<ServerMsg>(); // Channel for broadcasting messages
     let mut clients = Clients {
         connections: Arc::new(Mutex::new(Vec::new())),
-        client_id_counter: Arc::new(Mutex::new(1)),
+        client_id_counter: Arc::new(AtomicU32::new(1)),
         main_tx: main_tx.clone(),
     };
 
@@ -226,26 +238,30 @@ pub async fn start_addonmessage_relay() {
             match message {
                 ServerMsg::RelayMsg(message) => {
                     if let Msg::AddonMessage(ref msg) = message.message {
-                        let mut clients = cloned_clients.connections.lock().unwrap();
                         match (msg.r#type.as_deref(), msg.target.as_deref()) {
                             (Some("WHISPER"), Some(name)) => {
+                                let clients = cloned_clients.connections.lock().unwrap();
                                 if let Some(client) = clients.iter().find(|c| c.name == name) {
                                     client.tx.send(message.clone()).unwrap();
                                 } else {
-                                    tracing::warn!("warning: not forwarding message {message:?}: client '{name}' not found");
+                                    tracing::warn!(
+                                        "warning: not forwarding message {message:?}: client '{name}' not found"
+                                    );
                                 }
                             }
                             (Some("RAID"), _) | (Some("PARTY"), _) | (None, _) => {
+                                let mut clients = cloned_clients.connections.lock().unwrap();
                                 for client in clients.iter_mut()
                                 // .filter(|c| MsgSender::Peer(c.id) != message.from)
                                 {
                                     if let Err(e) = client.tx.send(message.clone()) {
-                                        cloned_main_tx
-                                            .send(ServerMsg::RemoveClient(
-                                                client.id,
-                                                format!("mpsc::Sender::send failed: {e:?}"),
-                                            ))
-                                            .unwrap();
+                                        match cloned_main_tx.send(ServerMsg::RemoveClient(
+                                            client.id,
+                                            format!("mpsc::Sender::send failed: {e:?}"),
+                                        )) {
+                                            Ok(_) => {}
+                                            Err(e) => tracing::error!("wtf: {e:?}"),
+                                        }
                                     }
                                 }
                             }
@@ -267,15 +283,15 @@ pub async fn start_addonmessage_relay() {
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(Duration::from_millis(5000)).await;
-            cloned_main_tx
-                .send(ServerMsg::RelayMsg(MsgWrapper {
-                    from: MsgSender::Server,
-                    message: Msg::String(format!(
-                        "The time is now {:?}",
-                        std::time::Instant::now()
-                    )),
-                }))
-                .unwrap();
+            match cloned_main_tx.send(ServerMsg::RelayMsg(MsgWrapper {
+                from: MsgSender::Server,
+                message: Msg::String(format!("The time is now {:?}", std::time::Instant::now())),
+            })) {
+                Ok(_) => {}
+                Err(e) => {
+                    tracing::error!("{e:?}")
+                }
+            }
         }
     });
 

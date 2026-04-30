@@ -273,7 +273,6 @@ local function HandleAddonMessage(self, event, prefix, message, channel, sender)
 end
 
 function addonmessage_received(...)
-    -- print(...)
     HandleAddonMessage(nil, nil, ...)
 end
 
@@ -300,4 +299,7 @@ end
 function lole_OnLoad()
     SLASH_LOLEXDD1 = "/lole";
     SlashCmdList["LOLEXDD"] = lole_SlashCommand;
+    SetCVar('maxFPS', 140)
+    SetCVar('maxFPSBk', 15)
+    print('fps limits set')
 end

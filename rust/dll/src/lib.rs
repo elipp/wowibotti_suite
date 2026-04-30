@@ -3,6 +3,7 @@ use shared::SendSyncWrapper;
 #[cfg(feature = "addonmessage_broker")]
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
 
 use objectmanager::ObjectManager;
@@ -54,13 +55,15 @@ pub mod vec3;
 pub mod wowproto_opcodes;
 use crate::addrs::offsets::{RENDERING_ENABLES, RENDERING_ENABLES_DEFAULT_VALUE};
 use crate::lua::LuaType;
-use crate::patch::{AVAILABLE_PATCHES, Patch, read_elems_from_addr};
+use crate::patch::{AVAILABLE_PATCHES, Patch};
 use crate::spell_error::SpellError;
 
-pub const POSTGRES_ADDR: &str = "127.0.0.1:5432";
-pub const POSTGRES_USER: &str = "lole";
-pub const POSTGRES_PASS: &str = "lole";
-pub const POSTGRES_DB: &str = "lole";
+pub mod postgres {
+    pub const POSTGRES_ADDR: &str = "127.0.0.1:5432";
+    pub const POSTGRES_USER: &str = "lole";
+    pub const POSTGRES_PASS: &str = "lole";
+    pub const POSTGRES_DB: &str = "lole";
+}
 
 #[cfg(all(not(feature = "host-windows"), not(feature = "host-linux")))]
 compile_error!("one of `--feature=host-windows` or `--feature=host-linux` must be provided");
@@ -228,9 +231,6 @@ fn eject_dll() -> LoleResult<()> {
     Ok(())
 }
 
-const TARGET_FPS: f64 = 100.0;
-const TARGET_SPF: f64 = 1.0 / TARGET_FPS; // "seconds per frame"
-
 unsafe fn write_last_hardware_action(offset_by: i64) -> LoleResult<()> {
     let ticks = read_os_tick_count() as i64;
     write_addr::<u32>(
@@ -282,7 +282,15 @@ fn unpack_broker_message_queue() {
     }
 }
 
-unsafe fn disable_rendering_if_not_focused() -> LoleResult<()> {
+macro_rules! do_once {
+    ($b:expr, $stuff:block) => {
+        if let Ok(true) = $b.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed) {
+            $stuff
+        }
+    };
+}
+
+unsafe fn reduce_rendering_if_not_focused() -> LoleResult<()> {
     unsafe {
         let fg = GetForegroundWindow();
         if fg.is_invalid() {
@@ -305,16 +313,16 @@ fn main_entrypoint() -> LoleResult<()> {
 
     // #[cfg(feature = "tbc")]
     // tbc client isn't doing any frame limiting for clients in the background
-    {
-        let now = lua_GetTime()?;
-        let dt = now - get_state_!().last_frame_time;
-        if 0.0 < dt && dt < TARGET_SPF {
-            std::thread::sleep(std::time::Duration::from_secs_f64(TARGET_SPF - dt));
-        }
-    }
+    // {
+    //     let now = lua_GetTime()?;
+    //     let dt = now - get_state_!().last_frame_time;
+    //     if 0.0 < dt && dt < TARGET_SPF {
+    //         std::thread::sleep(std::time::Duration::from_secs_f64(TARGET_SPF - dt));
+    //     }
+    // }
 
     unsafe {
-        disable_rendering_if_not_focused()?;
+        reduce_rendering_if_not_focused()?;
         afk_refresh_hardware_event_timestamp()?;
     }
 

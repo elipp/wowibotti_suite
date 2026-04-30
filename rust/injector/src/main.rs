@@ -155,6 +155,7 @@ impl eframe::App for InjectorApp {
                                 enabled_patches: self.enabled_patches(),
                                 log_level: None,
                                 id: Uuid::new_v4(),
+                                path_override: a.value.0.path_override.clone(),
                             })
                             .collect(),
                     };

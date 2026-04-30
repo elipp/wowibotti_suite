@@ -35,7 +35,7 @@ function tmp_priest_combat()
     -- if UnitGUID("target") ~= UnitGUID("player") and health_percentage("player") < 75 then
     --     cast_heal("Binding Heal");
     if target_HPP < 30 then
-        cast_heal("Heal")
+        cast_heal("Flash Heal")
         -- elseif target_HPP < 55 and GetSpellCooldown("Prayer of Mending") == 0 then
         --     cast_heal("Prayer of Mending")
     elseif target_HPP < 85 and not has_renew then
@@ -44,6 +44,6 @@ function tmp_priest_combat()
         --     L_TargetUnit(coh_target.name);
         --     return cast_heal("Circle of Healing");
     elseif target_HPP < 60 then
-        cast_heal("Lesser Heal")
+        cast_heal("Heal")
     end
 end

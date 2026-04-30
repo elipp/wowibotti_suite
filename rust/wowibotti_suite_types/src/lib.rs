@@ -33,6 +33,7 @@ pub struct WowAccount {
     pub username: String,
     pub password: String,
     pub character: CharacterInfo,
+    pub path_override: Option<String>,
 }
 
 impl WowAccount {
@@ -59,6 +60,7 @@ pub struct ClientConfig {
     pub enabled_patches: Vec<String>,
     pub log_level: Option<String>,
     pub id: Uuid,
+    pub path_override: Option<String>,
 }
 
 impl ClientConfig {
