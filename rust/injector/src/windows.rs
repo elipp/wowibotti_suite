@@ -70,12 +70,9 @@ pub fn start_dummy_window() -> std::thread::JoinHandle<Result<(), InjectorError>
     std::thread::spawn(|| unsafe {
         let instance = GetModuleHandleW(None).unwrap();
 
-        let class_name = PCWSTR(
-            "InjectorHiddenWindow"
-                .encode_utf16()
-                .collect::<Vec<u16>>()
-                .as_ptr(),
-        );
+        let class_name_buf: Vec<u16> = "InjectorHiddenWindow\0".encode_utf16().collect();
+        let class_name = PCWSTR(class_name_buf.as_ptr());
+
         let window_class = WNDCLASSW {
             style: CS_HREDRAW | CS_VREDRAW,
             lpfnWndProc: Some(dummy_wndproc),
