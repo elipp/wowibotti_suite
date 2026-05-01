@@ -272,6 +272,7 @@ local function HandleAddonMessage(self, event, prefix, message, channel, sender)
     end
 end
 
+-- this is for "brokered" addon messages
 function addonmessage_received(...)
     HandleAddonMessage(nil, nil, ...)
 end
@@ -281,10 +282,9 @@ buff_check_frame:RegisterEvent("PLAYER_ALIVE");
 buff_check_frame:RegisterEvent("PLAYER_ENTERING_WORLD");
 buff_check_frame:SetScript("OnEvent", on_buff_check_event);
 
-local msg_frame = CreateFrame("Frame");
-
--- msg_frame:RegisterEvent("CHAT_MSG_ADDON");
--- msg_frame:SetScript("OnEvent", HandleAddonMessage);
+local addonmessage_frame = CreateFrame("Frame");
+addonmessage_frame:RegisterEvent("CHAT_MSG_ADDON");
+addonmessage_frame:SetScript("OnEvent", HandleAddonMessage);
 
 local spell_event_frame = nil;
 if HEALER_TARGETS[UnitName("player")] then

@@ -21,8 +21,6 @@ use crate::socket::movement_flags;
 use crate::vec3::{TWO_PI, Vec3};
 use crate::{Addr, LoleError, assembly};
 
-// turns out that thread_local! { RefCell }, while possible, is kinda tedious
-// QUEUE.with(|cell| { let mut borrow = cell.borrow_mut(); // etc. })
 static QUEUE: LazyLock<Mutex<CtmQueue>> = LazyLock::new(|| {
     Mutex::new(CtmQueue {
         events: Default::default(),
