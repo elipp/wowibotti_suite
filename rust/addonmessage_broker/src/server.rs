@@ -123,49 +123,51 @@ impl Clients {
             let mut serialization_buffer = bitcode::Buffer::new();
             let mut read_buffer = vec![0u8; BUF_SIZE];
             loop {
-                let msg =
-                    MsgWrapper::read(&mut s_read, &mut serialization_buffer, &mut read_buffer)
-                        .await;
-                if let Ok(msg) = msg {
-                    if let (MsgSender::PeerWithoutConnectionId, Msg::Hello(name)) =
-                        (&msg.from, &msg.message)
-                    {
-                        client_tx
-                            .send(MsgWrapper {
-                                from: MsgSender::Server,
-                                message: Msg::Welcome(connection_id),
-                            })
-                            .expect("Welcome msg send to succeed");
-                        let mut connections = connections.lock().unwrap();
-                        connections.push(BrokerClient {
-                            id: connection_id,
-                            name: name.to_owned(),
-                            tx: client_tx.clone(),
-                        });
-                    } else {
-                        if let Err(e) = main_tx.send(ServerMsg::RelayMsg(msg.clone())) {
-                            tracing::error!(
-                                "connection {connection_id}: write: {e}.\nRemoving client"
-                            );
-                            match main_tx.send(ServerMsg::RemoveClient(
-                                connection_id,
-                                format!("mpsc::Sender::send failed: {e:?}"),
-                            )) {
-                                Ok(_) => {}
-                                Err(e) => tracing::error!("{e:?}"),
+                match MsgWrapper::read(&mut s_read, &mut serialization_buffer, &mut read_buffer)
+                    .await
+                {
+                    Ok(msg) => {
+                        if let (MsgSender::PeerWithoutConnectionId, Msg::Hello(name)) =
+                            (&msg.from, &msg.message)
+                        {
+                            client_tx
+                                .send(MsgWrapper {
+                                    from: MsgSender::Server,
+                                    message: Msg::Welcome(connection_id),
+                                })
+                                .expect("Welcome msg send to succeed");
+                            let mut connections = connections.lock().unwrap();
+                            connections.push(BrokerClient {
+                                id: connection_id,
+                                name: name.to_owned(),
+                                tx: client_tx.clone(),
+                            });
+                        } else {
+                            if let Err(e) = main_tx.send(ServerMsg::RelayMsg(msg.clone())) {
+                                tracing::error!(
+                                    "connection {connection_id}: write: {e}.\nRemoving client"
+                                );
+                                match main_tx.send(ServerMsg::RemoveClient(
+                                    connection_id,
+                                    format!("mpsc::Sender::send failed: {e:?}"),
+                                )) {
+                                    Ok(_) => {}
+                                    Err(e) => tracing::error!("{e:?}"),
+                                }
+                                break;
                             }
-                            break;
                         }
                     }
-                } else {
-                    match main_tx.send(ServerMsg::RemoveClient(
-                        connection_id,
-                        format!("read_one_message failed: {msg:?}"),
-                    )) {
-                        Ok(_) => {}
-                        Err(e) => tracing::error!("{e}"),
+                    Err(e) => {
+                        match main_tx.send(ServerMsg::RemoveClient(
+                            connection_id,
+                            format!("read_one_message failed: {e}"),
+                        )) {
+                            Ok(_) => {}
+                            Err(e) => tracing::error!("{e}"),
+                        }
+                        break;
                     }
-                    break;
                 }
             }
         });

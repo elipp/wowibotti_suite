@@ -80,16 +80,16 @@ pub const LUA_OK: i32 = 0;
 
 #[macro_export]
 macro_rules! chatframe_print {
-    ($fmt:expr, $($args:expr),*) => {
-        // this [=[ blah blah blah ]=] syntax is a "level 1 long bracket"
-        $crate::dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage([=[[DLL]: ", $fmt, "]=])"), $($args),*)
+    ($fmt:expr) => {
+        $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $fmt, "]=]) end"))
     };
-
+    ($fmt:expr, $($args:expr),*) => {
+        $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $fmt, "]=]) end"), $($args),*)
+    };
     ($msg:literal) => {
-        $crate::dostring!(concat!("DEFAULT_CHAT_FRAME:AddMessage([=[", $msg, "]=])"))
+        $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $msg, "]=]) end"))
     };
 }
-
 add_repr_and_tryfrom! {
     i32,
     #[derive(Debug)]
@@ -578,7 +578,7 @@ impl Drop for TaintReseter {
 pub fn lua_debug_func(_lua: lua_State) -> anyhow::Result<i32> {
     let om = ObjectManager::new()?;
     let _time = lua_GetTime()?;
-    println!(
+    tracing::info!(
         "{:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
         om.get_unit_by_nameref_internal("player"),
         om.get_unit_by_nameref_internal("target"),
@@ -1102,9 +1102,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
                 lua_pushboolean(lua, LUA_TRUE);
                 return Ok(1);
             } else {
-                tracing::error!(
-                    "(warning: failed to send AddonMessage: Connection not initialized)"
-                );
+                // Returning nil from this makes Wow use the regular SendAddonMessage
                 return LUA_NO_RETVALS;
             }
         }

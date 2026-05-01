@@ -19,6 +19,7 @@ use tracing::level_filters::LevelFilter;
 use tracing_subscriber::Registry;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+
 use windows::Win32::System::Threading::{
     ExitProcess, GetCurrentProcessId, THREAD_CREATE_RUN_IMMEDIATELY,
 };
@@ -304,9 +305,52 @@ unsafe fn reduce_rendering_if_not_focused() -> anyhow::Result<()> {
     }
     Ok(())
 }
+struct LuaPrintLayer;
+
+impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for LuaPrintLayer {
+    fn on_event(
+        &self,
+        event: &tracing::Event<'_>,
+        _ctx: tracing_subscriber::layer::Context<'_, S>,
+    ) {
+        let mut message = String::new();
+        let mut visitor = StringVisitor(&mut message);
+        event.record(&mut visitor);
+        let meta = event.metadata();
+
+        let color = match *event.metadata().level() {
+            tracing::Level::ERROR => "FFFF5555", // red
+            tracing::Level::WARN => "FFFFAA44",  // orange
+            tracing::Level::INFO => "FFAAAAAA",  // grey
+            _ => "FFFFFFFF",                     // white for debug/trace
+        };
+
+        chatframe_print!(
+            "|c{} [{}] {}: {}|r",
+            color,
+            meta.level(),
+            meta.target(),
+            message
+        );
+    }
+}
+
+struct StringVisitor<'a>(&'a mut String);
+
+impl<'a> tracing::field::Visit for StringVisitor<'a> {
+    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+        if field.name() == "message" {
+            *self.0 = format!("{:?}", value);
+        }
+    }
+}
 
 fn main_entrypoint() -> anyhow::Result<()> {
-    ctm::poll()?;
+    match ctm::poll() {
+        Ok(_) => {}
+        Err(e) if let Some(LoleError::PlayerNotFound) = e.downcast_ref() => {}
+        Err(e) => return Err(e),
+    }
 
     // #[cfg(feature = "tbc")]
     // tbc client isn't doing any frame limiting for clients in the background
@@ -418,12 +462,14 @@ fn initialize_dll() -> anyhow::Result<()> {
     let filter = tracing_subscriber::filter::LevelFilter::INFO;
     let (_, reload_handle) =
         tracing_subscriber::reload::Layer::<LevelFilter, Registry>::new(filter);
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
         .with(tracing_subscriber::fmt::layer().with_ansi(!cfg!(feature = "host-linux"))) // host-windows with the extended terminal capabilities actually supports ansi codes, just not wine terminal
+        .with(LuaPrintLayer)
         .init();
 
     let config = match read_config_from_file(&lole_id) {

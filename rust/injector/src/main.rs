@@ -143,29 +143,32 @@ impl eframe::App for InjectorApp {
             });
             ui.add_space(50.0);
             ui.horizontal(|ui| {
-                if ui.button("Launch clients").clicked() {
-                    let query = LaunchQuery {
-                        configs: self
-                            .accounts
-                            .iter()
-                            .filter(|t| t.enabled)
-                            .map(|a| ClientConfig {
-                                realm: self.config.realm.clone(),
-                                account: Some(a.value.0.clone()),
-                                enabled_patches: self.enabled_patches(),
-                                log_level: None,
-                                id: Uuid::new_v4(),
-                                path_override: a.value.0.path_override.clone(),
-                                addonmessage_broker_addr: if self.enable_addonmessage_broker {
-                                    self.config.addonmessage_broker_addr.clone()
-                                } else {
-                                    None
-                                },
-                            })
-                            .collect(),
-                    };
-                    query.launch_all(&self.config).unwrap();
-                }
+                let launch_button_enabled = !self.enabled_characters().is_empty();
+                ui.add_enabled_ui(launch_button_enabled, |ui| {
+                    if ui.button("Launch clients").clicked() {
+                        let query = LaunchQuery {
+                            configs: self
+                                .accounts
+                                .iter()
+                                .filter(|t| t.enabled)
+                                .map(|a| ClientConfig {
+                                    realm: self.config.realm.clone(),
+                                    account: Some(a.value.0.clone()),
+                                    enabled_patches: self.enabled_patches(),
+                                    log_level: None,
+                                    id: Uuid::new_v4(),
+                                    path_override: a.value.0.path_override.clone(),
+                                    addonmessage_broker_addr: if self.enable_addonmessage_broker {
+                                        self.config.addonmessage_broker_addr.clone()
+                                    } else {
+                                        None
+                                    },
+                                })
+                                .collect(),
+                        };
+                        query.launch_all(&self.config).unwrap();
+                    }
+                });
                 #[cfg(feature = "host-linux")]
                 if ui.button("Assign windows (niri)").clicked() {
                     match std::process::Command::new("/bin/bash")

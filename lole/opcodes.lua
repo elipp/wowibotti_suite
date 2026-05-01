@@ -132,6 +132,12 @@ function lole_debug_dump_wowobjects(type_filter, ...)
     return true;
 end
 
+function lole_debug()
+    echo("moi")
+    LOP:call(LOP.Debug);
+    return true;
+end
+
 function lole_debug_dump_wowobject_memory(n_bytes)
     if UnitName("target") == nil then
         return echo("Please select a target")
