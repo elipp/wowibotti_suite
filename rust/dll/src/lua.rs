@@ -78,18 +78,32 @@ const LUA_NO_RETVALS: anyhow::Result<i32> = Ok(0);
 
 pub const LUA_OK: i32 = 0;
 
+// #[macro_export]
+// macro_rules! chatframe_print {
+//     ($fmt:expr) => {
+//         $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $fmt, "]=]) end"))
+//     };
+//     ($fmt:expr, $($args:expr),*) => {
+//         $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $fmt, "]=]) end"), $($args),*)
+//     };
+//     ($msg:literal) => {
+//         $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $msg, "]=]) end"))
+//     };
+// }
+
 #[macro_export]
 macro_rules! chatframe_print {
     ($fmt:expr) => {
-        $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $fmt, "]=]) end"))
+        $crate::dostring!(concat!("print([=[", $fmt, "]=])"))
     };
     ($fmt:expr, $($args:expr),*) => {
-        $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $fmt, "]=]) end"), $($args),*)
+        $crate::dostring!(concat!("print([=[", $fmt, "]=])"), $($args),*)
     };
     ($msg:literal) => {
-        $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $msg, "]=]) end"))
+        $crate::dostring!(concat!("print([=[", $msg, "]=])"))
     };
 }
+
 add_repr_and_tryfrom! {
     i32,
     #[derive(Debug)]
@@ -285,7 +299,6 @@ macro_rules! dostring {
     ($script:expr) => {{
         use $crate::lua::{lua_dostring};
         use std::ffi::{c_char, CString};
-        tracing::debug!("dostring('{}')", $script);
         if let Ok(s) = CString::new($script) {
             lua_dostring(s.as_ptr() as *const c_char, s.as_ptr() as *const c_char, 0);
         }
@@ -1037,7 +1050,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
                 false
             };
             if let Some(mut path_recording) = query_path_from_db(name)? {
-                chatframe_print!("Starting playback for path `{}`", name);
+                tracing::debug!("Starting playback for path `{}`", name);
                 if reversed {
                     path_recording.waypoints.reverse();
                 }
@@ -1051,7 +1064,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
                     })?;
                 }
             } else {
-                chatframe_print!("Path with name '{}' not found in db", name);
+                tracing::warn!("Path with name '{}' not found in db", name);
             }
         }
         Opcode::Debug => {
@@ -1156,8 +1169,7 @@ pub unsafe extern "C" fn lop_exec(lua: lua_State) -> i32 {
     match handle_lop_exec(lua) {
         Ok(num_retvals) => num_retvals,
         Err(error) => {
-            tracing::error!("lop_exec: error: {:?}", error);
-            chatframe_print!("lop_exec: error: {:?}", error);
+            tracing::error!("lop_exec: error: {error}");
             0
         }
     }

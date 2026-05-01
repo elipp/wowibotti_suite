@@ -5,7 +5,6 @@ use shared::SendSyncWrapper;
 use std::collections::VecDeque;
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
 
 use objectmanager::ObjectManager;
@@ -313,25 +312,29 @@ impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for LuaPrintLayer {
         event: &tracing::Event<'_>,
         _ctx: tracing_subscriber::layer::Context<'_, S>,
     ) {
-        let mut message = String::new();
-        let mut visitor = StringVisitor(&mut message);
-        event.record(&mut visitor);
-        let meta = event.metadata();
+        if let Ok(om) = ObjectManager::new()
+            && let Ok(_) = om.get_player()
+        {
+            let mut message = String::new();
+            let mut visitor = StringVisitor(&mut message);
+            event.record(&mut visitor);
+            let meta = event.metadata();
 
-        let color = match *event.metadata().level() {
-            tracing::Level::ERROR => "FFFF5555", // red
-            tracing::Level::WARN => "FFFFAA44",  // orange
-            tracing::Level::INFO => "FFAAAAAA",  // grey
-            _ => "FFFFFFFF",                     // white for debug/trace
-        };
+            let color = match *event.metadata().level() {
+                tracing::Level::ERROR => "FFFF5555", // red
+                tracing::Level::WARN => "FFFFAA44",  // orange
+                tracing::Level::INFO => "FFAAAAAA",  // grey
+                _ => "FFFFFFFF",                     // white for debug/trace
+            };
 
-        chatframe_print!(
-            "|c{} [{}] {}: {}|r",
-            color,
-            meta.level(),
-            meta.target(),
-            message
-        );
+            chatframe_print!(
+                "|c{} [{}] {}: {}|r",
+                color,
+                meta.level(),
+                meta.target(),
+                message
+            );
+        }
     }
 }
 
@@ -495,7 +498,7 @@ fn initialize_dll() -> anyhow::Result<()> {
             config
         }
         Err(e) => {
-            tracing::warn!("reading config failed with {e:?}");
+            tracing::warn!("reading config failed with {e}");
             return Ok(());
         }
     };
@@ -577,7 +580,7 @@ pub unsafe extern "stdcall" fn EndScene_hook() {
     if need_init {
         if let Err(e) = initialize_dll() {
             // fatal_error_exit(e);
-            tracing::error!("dll init failed: {e:?}");
+            tracing::error!("dll init failed: {e}");
         }
         tracing::info!("EndScene_hook: {:p}", EndScene_hook as *const ());
         get_state_!().need_init = false;

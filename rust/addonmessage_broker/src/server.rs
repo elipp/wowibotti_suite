@@ -149,10 +149,10 @@ impl Clients {
                                 );
                                 match main_tx.send(ServerMsg::RemoveClient(
                                     connection_id,
-                                    format!("mpsc::Sender::send failed: {e:?}"),
+                                    format!("mpsc::Sender::send failed: {e}"),
                                 )) {
                                     Ok(_) => {}
-                                    Err(e) => tracing::error!("{e:?}"),
+                                    Err(e) => tracing::error!("{e}"),
                                 }
                                 break;
                             }
@@ -194,12 +194,12 @@ impl Clients {
                         Ok(_) => {
                             tracing::debug!("{connection_id}: relayed {msg:?}");
                         }
-                        Err(e) => tracing::error!("msg.send: {e:?}"),
+                        Err(e) => tracing::error!("msg.send: {e}"),
                     },
                     Err(e) => {
                         match main_tx.send(ServerMsg::RemoveClient(
                             connection_id,
-                            format!("mpsc::Receiver::recv() failed: {e:?}"),
+                            format!("mpsc::Receiver::recv() failed: {e}"),
                         )) {
                             Ok(_) => {}
                             Err(e2) => tracing::error!("removeClient: {e2:?}"),
@@ -253,10 +253,10 @@ pub async fn start_addonmessage_relay() {
                                     if let Err(e) = client.tx.send(message.clone()) {
                                         match cloned_main_tx.send(ServerMsg::RemoveClient(
                                             client.id,
-                                            format!("mpsc::Sender::send failed: {e:?}"),
+                                            format!("mpsc::Sender::send failed: {e}"),
                                         )) {
                                             Ok(_) => {}
-                                            Err(e) => tracing::error!("wtf: {e:?}"),
+                                            Err(e) => tracing::error!("wtf: {e}"),
                                         }
                                     }
                                 }
@@ -285,7 +285,7 @@ pub async fn start_addonmessage_relay() {
             })) {
                 Ok(_) => {}
                 Err(e) => {
-                    tracing::error!("{e:?}")
+                    tracing::error!("{e}")
                 }
             }
         }

@@ -183,8 +183,8 @@ fn set_facing_remote(pos: Vec3, angle: f32, movement_flags: u8) -> LoleResult<()
 
 #[cfg(feature = "wotlk")]
 pub mod facing {
+    use std::arch::asm;
     use std::sync::{LazyLock, Mutex};
-    use std::{arch::asm, cell::Cell};
 
     use super::movement_flags::NOT_MOVING;
     use super::{pack_guid, read_os_tick_count};
@@ -194,7 +194,7 @@ pub mod facing {
     use crate::objectmanager::WowObject;
     use crate::socket::get_wow_sockobj;
     use crate::{
-        LoleResult, chatframe_print,
+        LoleResult,
         objectmanager::{GUID, ObjectManager},
         vec3::{TWO_PI, Vec3},
         wowproto_opcodes::MSG_MOVE_SET_FACING,
@@ -223,7 +223,7 @@ pub mod facing {
                 out("edx") _,
             }
         }
-        chatframe_print!("called set_facing_local: {}", angle);
+        tracing::debug!("called set_facing_local: {}", angle);
         Ok(())
     }
 
@@ -279,7 +279,7 @@ pub mod facing {
         let packet = create_facing_packet(player_guid, pos, angle, movement_flags);
         let wowsocket = get_wow_sockobj().ok_or_else(|| LoleError::WowSocketNotAvailable)?;
         wowsocket.send_packet(packet)?;
-        chatframe_print!("called set_facing_remote: {}", angle);
+        tracing::debug!("called set_facing_remote: {}", angle);
         Ok(())
     }
 
@@ -296,7 +296,7 @@ pub mod facing {
                 set_facing_local(angle)?;
                 *setfacing = (angle, std::time::Instant::now());
             } else {
-                chatframe_print!("ctm event in progress; not setting facing");
+                tracing::info!("ctm event in progress; not setting facing");
             }
         }
         Ok(())
