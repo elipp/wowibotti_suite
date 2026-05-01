@@ -192,7 +192,7 @@ impl Clients {
                         .await
                     {
                         Ok(_) => {
-                            tracing::debug!("{connection_id}: relayed {msg:?}");
+                            // tracing::debug!("[connection {connection_id}]: relayed {msg:?}");
                         }
                         Err(e) => tracing::error!("msg.send: {e}"),
                     },
@@ -234,6 +234,7 @@ pub async fn start_addonmessage_relay() {
             match message {
                 ServerMsg::RelayMsg(message) => {
                     if let Msg::AddonMessage(ref msg) = message.message {
+                        tracing::debug!("{:?} {:?}", message.from, message.message);
                         match (msg.r#type.as_deref(), msg.target.as_deref()) {
                             (Some("WHISPER"), Some(name)) => {
                                 let clients = cloned_clients.connections.lock().unwrap();
