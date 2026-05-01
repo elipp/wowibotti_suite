@@ -61,6 +61,7 @@ pub struct ClientConfig {
     pub log_level: Option<String>,
     pub id: Uuid,
     pub path_override: Option<String>,
+    pub addonmessage_broker_addr: Option<String>,
 }
 
 impl ClientConfig {

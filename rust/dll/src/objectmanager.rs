@@ -1,10 +1,10 @@
-use std::ffi::{c_char, c_void, CString};
+use std::ffi::{CString, c_char, c_void};
 
 use crate::patch::{
     deref_opt_ptr, deref_opt_t, deref_ptr, deref_res_ptr, deref_res_t, read_elems_from_addr,
 };
 use crate::vec3::Vec3;
-use crate::{add_repr_and_tryfrom, LoleError, LoleResult};
+use crate::{LoleError, LoleResult, add_repr_and_tryfrom};
 
 use crate::addrs::offsets;
 use crate::addrs::offsets::wowobject;
@@ -22,7 +22,7 @@ impl std::fmt::Display for GUIDFmt {
     }
 }
 
-pub fn guid_from_str(s: &str) -> LoleResult<GUID> {
+pub fn guid_from_str(s: &str) -> anyhow::Result<GUID> {
     let res = GUID::from_str_radix(s.trim_start_matches("0x"), 16)?;
     Ok(res)
 }
@@ -176,11 +176,7 @@ impl WowObject {
     }
     pub fn try_new(base: *const c_void) -> Option<Self> {
         let res = WowObject { base };
-        if res.valid() {
-            Some(res)
-        } else {
-            None
-        }
+        if res.valid() { Some(res) } else { None }
     }
     #[cfg(feature = "wotlk")]
     pub fn get_xyzr(&self) -> LoleResult<[f32; 4]> {
@@ -358,11 +354,7 @@ impl ObjectManager {
     }
     pub fn get_player_target_guid(&self) -> LoleResult<Option<GUID>> {
         let res = deref_res_t::<GUID, 1>(offsets::PLAYER_TARGET_GUID as _)?;
-        if res == 0 {
-            Ok(None)
-        } else {
-            Ok(Some(res))
-        }
+        if res == 0 { Ok(None) } else { Ok(Some(res)) }
     }
     pub fn get_focus_guid(&self) -> LoleResult<GUID> {
         deref_res_t::<GUID, 1>(offsets::PLAYER_FOCUS_GUID as _)

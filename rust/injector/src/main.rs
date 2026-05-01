@@ -71,6 +71,7 @@ struct InjectorApp {
     accounts: Vec<Togglable<Account>>,
     patches: Vec<Togglable<PatchConfig>>,
     config: PottiConfig,
+    enable_addonmessage_broker: bool,
 }
 
 impl InjectorApp {
@@ -126,6 +127,20 @@ impl eframe::App for InjectorApp {
                     }
                 });
             });
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                let checkbox_enabled = self.config.addonmessage_broker_addr.is_some();
+                ui.add_enabled_ui(checkbox_enabled, |ui| {
+                    ui.checkbox(
+                        &mut self.enable_addonmessage_broker,
+                        if checkbox_enabled {
+                            "Enable addonmessage broker"
+                        } else {
+                            "Enable addonmessage broker (needs potti.conf configuration)"
+                        },
+                    );
+                })
+            });
             ui.add_space(50.0);
             ui.horizontal(|ui| {
                 if ui.button("Launch clients").clicked() {
@@ -141,6 +156,11 @@ impl eframe::App for InjectorApp {
                                 log_level: None,
                                 id: Uuid::new_v4(),
                                 path_override: a.value.0.path_override.clone(),
+                                addonmessage_broker_addr: if self.enable_addonmessage_broker {
+                                    self.config.addonmessage_broker_addr.clone()
+                                } else {
+                                    None
+                                },
                             })
                             .collect(),
                     };
@@ -164,7 +184,10 @@ impl eframe::App for InjectorApp {
                 #[cfg(feature = "host-windows")]
                 if ui.button("Assign hotkeys").clicked() {
                     use crate::windows::inject::find_wow_windows_and_register_hotkeys;
-                    find_wow_windows_and_register_hotkeys();
+                    match find_wow_windows_and_register_hotkeys() {
+                        Ok(_) => {}
+                        Err(e) => tracing::error!("hotkeys: {e}"),
+                    }
                 }
             });
         });
@@ -184,9 +207,6 @@ fn main() -> Result<(), eframe::Error> {
         .with(tracing_subscriber::fmt::layer().with_ansi(true))
         .init();
 
-    #[cfg(feature = "host-windows")]
-    start_dummy_window();
-
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([400.0, 300.0])
@@ -195,6 +215,11 @@ fn main() -> Result<(), eframe::Error> {
     };
 
     let config = read_potti_conf().unwrap();
+
+    // Windows needs this to configure hotkeys
+    #[cfg(feature = "host-windows")]
+    start_dummy_window();
+
     let accounts: Vec<_> = config
         .accounts
         .iter()
@@ -221,6 +246,7 @@ fn main() -> Result<(), eframe::Error> {
     });
 
     let select_all = false;
+    let enable_broker = false;
 
     eframe::run_native(
         "injector :D",
@@ -232,6 +258,7 @@ fn main() -> Result<(), eframe::Error> {
                 accounts,
                 patches,
                 config,
+                enable_addonmessage_broker: enable_broker,
             }))
         }),
     )

@@ -1,6 +1,6 @@
 use tokio::net::TcpStream;
 
-use crate::server::{ConnectionId, Msg, MsgSender, MsgWrapper, BUF_SIZE};
+use crate::server::{BUF_SIZE, ConnectionId, Msg, MsgSender, MsgWrapper};
 
 pub async fn start_addonmessage_client<
     SetConnectionIdCallback: FnOnce(ConnectionId),
@@ -10,9 +10,9 @@ pub async fn start_addonmessage_client<
     name: String,
     set_connection_id: SetConnectionIdCallback,
     msg_handler: MsgHandler,
+    addr: String,
 ) -> Result<(), std::io::Error> {
-    let addr = "127.0.0.1:1337";
-    let stream = TcpStream::connect(addr).await?;
+    let stream = TcpStream::connect(&addr).await?;
 
     let hello = MsgWrapper {
         from: MsgSender::PeerWithoutConnectionId,
@@ -41,18 +41,25 @@ pub async fn start_addonmessage_client<
     tokio::spawn(async move {
         let mut serialization_buffer = bitcode::Buffer::new();
         loop {
-            let msg = MsgWrapper::read(&mut read, &mut serialization_buffer, &mut read_buffer)
-                .await
-                .unwrap();
-            msg_handler(msg);
+            match MsgWrapper::read(&mut read, &mut serialization_buffer, &mut read_buffer).await {
+                Ok(msg) => {
+                    msg_handler(msg);
+                }
+                Err(e) => {
+                    tracing::error!("msg.read: {e}");
+                }
+            }
         }
     });
 
     loop {
         let msg = rx.recv().unwrap();
         tracing::debug!("relaying {msg} to socket");
-        msg.send(&mut write, &mut serialization_buffer)
-            .await
-            .unwrap();
+        match msg.send(&mut write, &mut serialization_buffer).await {
+            Ok(_) => {}
+            Err(e) => {
+                tracing::error!("msg.send: {e}")
+            }
+        }
     }
 }

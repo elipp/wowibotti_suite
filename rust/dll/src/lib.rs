@@ -1,7 +1,9 @@
 use addrs::offsets::LAST_HARDWARE_ACTION;
 use shared::SendSyncWrapper;
+
 #[cfg(feature = "addonmessage_broker")]
 use std::collections::VecDeque;
+
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
@@ -105,13 +107,13 @@ macro_rules! get_state_ {
     };
 }
 
-static DLL_HANDLE: OnceLock<SendSyncWrapper<HMODULE>> = OnceLock::new();
-
 #[cfg(feature = "addonmessage_broker")]
 use addonmessage_broker::{
     client::start_addonmessage_client, server::AddonMessage, server::ConnectionId, server::Msg,
     server::MsgWrapper,
 };
+
+static DLL_HANDLE: OnceLock<SendSyncWrapper<HMODULE>> = OnceLock::new();
 
 // #[cfg(feature = "addonmessage_broker")]
 // pub static BROKER_CONNECTION_ID: OnceLock<ConnectionId> = OnceLock::new();
@@ -150,7 +152,7 @@ macro_rules! global_var {
     ($name:ident) => {
         match $name.lock() {
             Ok(lock) => lock,
-            Err(e) => $crate::fatal_error_exit(e.into()),
+            Err(e) => $crate::fatal_error_exit(anyhow::anyhow!("{e}")),
         }
     };
 }
@@ -212,7 +214,7 @@ fn restore_original_stdout() -> windows::core::Result<()> {
     unsafe { SetStdHandle(STD_OUTPUT_HANDLE, get_state_!().original_stdout.0) }
 }
 
-fn eject_dll() -> LoleResult<()> {
+fn eject_dll() -> anyhow::Result<()> {
     for patch in global_var!(ENABLED_PATCHES).drain(..) {
         patch.disable()?;
     }
@@ -231,25 +233,20 @@ fn eject_dll() -> LoleResult<()> {
     Ok(())
 }
 
-unsafe fn write_last_hardware_action(offset_by: i64) -> LoleResult<()> {
+unsafe fn write_last_hardware_action(offset_by: i64) -> anyhow::Result<()> {
     let ticks = read_os_tick_count() as i64;
-    write_addr::<u32>(
-        LAST_HARDWARE_ACTION,
-        &[(ticks + offset_by)
-            .try_into()
-            .map_err(|_e| LoleError::InvalidParam(format!("ticks + {offset_by}")))?],
-    )?;
+    write_addr::<u32>(LAST_HARDWARE_ACTION, &[(ticks + offset_by).try_into()?])?;
     Ok(())
 }
 
-fn set_frame_num() -> LoleResult<()> {
+fn set_frame_num() -> anyhow::Result<()> {
     let mut state = get_state_!();
     state.last_frame_num = state.last_frame_num + 1;
     state.last_frame_time = lua_GetTime()?;
     Ok(())
 }
 
-unsafe fn afk_refresh_hardware_event_timestamp() -> LoleResult<()> {
+unsafe fn afk_refresh_hardware_event_timestamp() -> anyhow::Result<()> {
     let mut state = get_state_!();
     if let Some(interval) = state.last_hardware_interval
         && interval.elapsed() > std::time::Duration::from_secs(20)
@@ -290,7 +287,7 @@ macro_rules! do_once {
     };
 }
 
-unsafe fn reduce_rendering_if_not_focused() -> LoleResult<()> {
+unsafe fn reduce_rendering_if_not_focused() -> anyhow::Result<()> {
     unsafe {
         let fg = GetForegroundWindow();
         if fg.is_invalid() {
@@ -308,7 +305,7 @@ unsafe fn reduce_rendering_if_not_focused() -> LoleResult<()> {
     Ok(())
 }
 
-fn main_entrypoint() -> LoleResult<()> {
+fn main_entrypoint() -> anyhow::Result<()> {
     ctm::poll()?;
 
     // #[cfg(feature = "tbc")]
@@ -334,7 +331,7 @@ fn main_entrypoint() -> LoleResult<()> {
     Ok(())
 }
 
-fn open_console() -> LoleResult<()> {
+fn open_console() -> anyhow::Result<()> {
     use windows::Win32::System::Console::{
         CONSOLE_MODE, ENABLE_VIRTUAL_TERMINAL_PROCESSING, GetConsoleMode, SetConsoleMode,
     };
@@ -366,7 +363,7 @@ fn open_console() -> LoleResult<()> {
 pub(crate) struct Account(WowAccount);
 
 impl Account {
-    fn login(&self) -> LoleResult<()> {
+    fn login(&self) -> anyhow::Result<()> {
         let sleep_duration = std::time::Duration::from_millis(rand::random::<u64>() % 4000) * 0;
         tracing::info!("Sleeping for {sleep_duration:?}");
         std::thread::sleep(sleep_duration);
@@ -382,7 +379,7 @@ impl Account {
 pub(crate) struct DllRealmInfo(RealmInfo);
 
 impl DllRealmInfo {
-    fn set_realm_info(&self) -> LoleResult<()> {
+    fn set_realm_info(&self) -> anyhow::Result<()> {
         dostring!(
             "SetCVar('realmList', '{}'); SetCVar('realmName', '{}')",
             self.0.login_server,
@@ -410,7 +407,11 @@ fn read_config_from_file(identifier: &str) -> anyhow::Result<ClientConfig> {
     }
 }
 
-fn initialize_dll() -> LoleResult<()> {
+fn initialize_dll() -> anyhow::Result<()> {
+    let Ok(lole_id) = std::env::var("LOLE_ID") else {
+        return Err(LoleError::InvalidParam(String::from("LOLE_ID missing")))?;
+    };
+
     #[cfg(feature = "host-windows")]
     open_console()?;
 
@@ -425,14 +426,7 @@ fn initialize_dll() -> LoleResult<()> {
         .with(tracing_subscriber::fmt::layer().with_ansi(!cfg!(feature = "host-linux"))) // host-windows with the extended terminal capabilities actually supports ansi codes, just not wine terminal
         .init();
 
-    let identifier = cfg_select! {
-        feature = "host-linux" => { if let Ok(id) = std::env::var("LOLE_ID") { id } else { return Err(LoleError::InvalidParam(String::from("LOLE_ID missing")))} }
-        feature = "host-windows" => {
-            std::process::id().to_string()
-        }
-    };
-
-    let config = match read_config_from_file(&identifier.to_string()) {
+    let config = match read_config_from_file(&lole_id) {
         Ok(config) => {
             // NOTE: this means "we're still in the login/character selection screen"
             if let Err(LoleError::ObjectManagerIsNull) = ObjectManager::new() {
@@ -460,7 +454,9 @@ fn initialize_dll() -> LoleResult<()> {
         }
     };
 
-    for p in CLIENT_CONFIG.get_or_init(|| config).enabled_patches.iter() {
+    let config = CLIENT_CONFIG.get_or_init(|| config);
+
+    for p in config.enabled_patches.iter() {
         if let Some(patch) = AVAILABLE_PATCHES.get(p.as_str()) {
             unsafe {
                 patch.enable()?;
@@ -474,7 +470,9 @@ fn initialize_dll() -> LoleResult<()> {
 
     #[cfg(feature = "addonmessage_broker")]
     {
-        if let Some(character_name) = get_current_character_name() {
+        if let Some(character_name) = get_current_character_name()
+            && let Some(addr) = config.addonmessage_broker_addr.clone()
+        {
             let (tx, rx) = std::sync::mpsc::channel::<MsgWrapper>();
             let _handle = std::thread::spawn(move || {
                 let rt = tokio::runtime::Runtime::new().unwrap();
@@ -498,6 +496,7 @@ fn initialize_dll() -> LoleResult<()> {
                                 queue.push_back(msg.clone());
                             }
                         },
+                        addr,
                     )
                     .await
                     .unwrap();
@@ -514,11 +513,11 @@ fn initialize_dll() -> LoleResult<()> {
     Ok(())
 }
 
-fn fatal_error_exit(err: LoleError) -> ! {
+fn fatal_error_exit(err: anyhow::Error) -> ! {
     unsafe {
         MessageBoxW(
             None,
-            windows_string!(&format!("{err:?}")),
+            windows_string!(&format!("{err}")),
             windows_string!("wowibottihookdll_rust error :("),
             MB_OK | MB_ICONERROR, // MB_OK apparently waits for the user to click OK
         );
@@ -543,91 +542,82 @@ pub unsafe extern "stdcall" fn EndScene_hook() {
     } else {
         match main_entrypoint() {
             Ok(_) => {}
-            Err(LoleError::ObjectManagerIsNull) => {}
-            Err(e) => {
-                tracing::error!("main_entrypoint: error: {e:?}");
-            }
+            Err(anyhow_err) => match anyhow_err.downcast_ref::<LoleError>() {
+                Some(e) if let LoleError::ObjectManagerIsNull = e => {
+                    // this error is the only one that's fine
+                }
+                _ => {
+                    fatal_error_exit(anyhow_err);
+                }
+            },
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum LoleError {
+    #[error("Patch error: {0}")]
     PatchError(String),
+    #[error("Windows error: {0}")]
     WindowsError(String),
+    #[error("Client connection is null")]
     ClientConnectionIsNull,
+    #[error("Object manager is null")]
     ObjectManagerIsNull,
+    #[error("Player not found")]
     PlayerNotFound,
+    #[error("Invalid param: {0}")]
     InvalidParam(String),
+    #[error("Invalid WoW object type")]
     InvalidWowObjectType,
+    #[error("Memory write error: {0}")]
     MemoryWriteError(String),
+    #[error("Partial memory write error")]
     PartialMemoryWriteError,
+    #[error("Lua state is null")]
     LuaStateIsNull,
+    #[error("Missing opcode")]
     MissingOpcode,
+    #[error("Unknown opcode: {0}")]
     UnknownOpcode(i32),
+    #[error("Null pointer error")]
     NullPtrError,
+    #[error("Invalid raw string: {0}")]
     InvalidRawString(String),
+    #[error("Invalid enum value: {0}")]
     InvalidEnumValue(String),
+    #[error("Invalid or unimplemented opcode call nargs: {0:?}, {1}")]
     InvalidOrUnimplementedOpcodeCallNargs(Opcode, i32),
+    #[error("WoW socket not available")]
     WowSocketNotAvailable,
+    #[error("Packet synth error: {0}")]
     PacketSynthError(String),
+    #[error("Socket send error: {0}")]
     SocketSendError(String),
+    #[error("Mutex lock error")]
     MutexLockError,
+    #[error("String conversion error: {0}")]
     StringConvError(String),
+    #[error("Lua error: {0}")]
     LuaError(String),
+    #[error("Lua unexpected type error: expected {0:?}, got {1:?}")]
     LuaUnexpectedTypeError(LuaType, LuaType),
     // DbError(postgres::Error),
+    #[error("Serde error: {0}")]
     SerdeError(serde_json::Error),
+    #[error("Invalid DLL config: {0}")]
     InvalidDllConfig(String),
+    #[error("DLL config read error: {0}")]
     DllConfigReadError(String),
+    #[error("Missing credentials")]
     MissingCredentials,
+    #[error("Not implemented")]
     NotImplemented,
+    #[error("Unknown branch taken")]
     UnknownBranchTaken,
 }
 
-pub type LoleResult<T> = std::result::Result<T, LoleError>;
-
-impl<T> From<std::sync::PoisonError<T>> for LoleError {
-    fn from(_: std::sync::PoisonError<T>) -> Self {
-        LoleError::MutexLockError
-    }
-}
-
-impl From<windows::core::Error> for LoleError {
-    fn from(err: windows::core::Error) -> Self {
-        Self::WindowsError(format!("{err:?}"))
-    }
-}
-
-impl From<std::num::ParseIntError> for LoleError {
-    fn from(err: std::num::ParseIntError) -> Self {
-        LoleError::InvalidParam(format!("{err:?}"))
-    }
-}
-
-impl From<std::ffi::NulError> for LoleError {
-    fn from(err: std::ffi::NulError) -> Self {
-        LoleError::StringConvError(format!("{err:?}"))
-    }
-}
-
-// #[no_mangle]
-// #[allow(non_snake_case, unused_variables)]
-// unsafe extern "system" fn DllMain(dll_module: HMODULE, call_reason: u32, _: *mut ()) -> bool {
-//     match call_reason {
-//         DLL_PROCESS_ATTACH => {
-//             let tramp = AVAILABLE_PATCHES.get("EndScene").expect("EndScene");
-//             if let Err(e) = tramp.enable() {
-//                 fatal_error_exit(e);
-//             }
-//             global_var!(ENABLED_PATCHES).push(tramp);
-//             DLL_HANDLE.get_or_init(|| SendSyncWrapper(dll_module));
-//         }
-//         // DLL_PROCESS_DETACH => {},
-//         _ => (),
-//     }
-
-//     true2// }
+pub type LoleResult<T> = Result<T, LoleError>;
 
 #[unsafe(no_mangle)]
 pub extern "system" fn DllMain(_hinst: HMODULE, reason: u32, _reserved: *mut c_void) -> i32 {
@@ -649,16 +639,18 @@ pub extern "system" fn DllMain(_hinst: HMODULE, reason: u32, _reserved: *mut c_v
 }
 
 extern "system" fn main_thread(_: *mut c_void) -> u32 {
-    // all your actual code goes here
-    unsafe { windows::Win32::System::Threading::Sleep(3000) }; // Sleep enough so Wow has time to initialize properly
-    let tramp = AVAILABLE_PATCHES.get("EndScene").expect("EndScene");
+    if let Ok(_) = std::env::var("LOLE_ID") {
+        unsafe { windows::Win32::System::Threading::Sleep(3000) }; // Sleep enough so Wow has time to initialize properly (sometimes even this isn't enough)
+        let tramp = AVAILABLE_PATCHES.get("EndScene").expect("EndScene");
 
-    unsafe {
-        if let Err(e) = tramp.enable() {
-            fatal_error_exit(e);
+        // there's a tiny chance the tramp patching occurs exactly as EndScene is executing, but hey
+        unsafe {
+            if let Err(e) = tramp.enable() {
+                fatal_error_exit(e.into());
+            }
         }
+        global_var!(ENABLED_PATCHES).push(tramp);
     }
-    global_var!(ENABLED_PATCHES).push(tramp);
     0
 }
 

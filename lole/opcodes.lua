@@ -334,7 +334,10 @@ function get_aoe_feasibility(relative_to, range)
 end
 
 function L_SendAddonMessage(...)
-    LOP:call(LOP.SendAddonMessage, ...)
+    local ok = query_injected() and lop_exec(LOP.SendAddonMessage, ...)
+    if not ok then
+        return SendAddonMessage(...)
+    end
 end
 
 function L_ClearTarget()

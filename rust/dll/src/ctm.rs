@@ -19,7 +19,7 @@ use crate::patch::{
 use crate::socket::facing::{self, SETFACING_STATE};
 use crate::socket::movement_flags;
 use crate::vec3::{TWO_PI, Vec3};
-use crate::{Addr, LoleError, LoleResult, assembly};
+use crate::{Addr, LoleError, assembly};
 
 // turns out that thread_local! { RefCell }, while possible, is kinda tedious
 // QUEUE.with(|cell| { let mut borrow = cell.borrow_mut(); // etc. })
@@ -121,7 +121,7 @@ const ALMOST_IDENTICAL_TARGET_POS_THRESHOLD: f32 = 0.2;
 const INTERP_DT_DEFAULT: f32 = 0.035; // lower means smoother turns :D
 const INTERP_NONE: f32 = 1.0;
 
-fn handle_walking_angle_interp(player_r: f32, diff_rot: f32) -> LoleResult<()> {
+fn handle_walking_angle_interp(player_r: f32, diff_rot: f32) -> anyhow::Result<()> {
     let mut interp = ANGLE_INTERP_STATUS.lock().unwrap();
 
     if let Some(InterpStatus {
@@ -164,7 +164,7 @@ fn handle_walking_angle_interp(player_r: f32, diff_rot: f32) -> LoleResult<()> {
 }
 
 impl CtmQueue {
-    fn add_to_queue(&mut self, ev: CtmEvent) -> LoleResult<()> {
+    fn add_to_queue(&mut self, ev: CtmEvent) -> anyhow::Result<()> {
         if let Some((current, start_time)) = self.current.as_mut() {
             if ev.priority < current.priority {
                 return Ok(());
@@ -182,14 +182,14 @@ impl CtmQueue {
         }
         Ok(())
     }
-    fn replace_current(&mut self, ev: CtmEvent) -> LoleResult<()> {
+    fn replace_current(&mut self, ev: CtmEvent) -> anyhow::Result<()> {
         self.events.clear();
         // NOTE: if mixing Backends, probably should set ctm memory state to 0xD (done) in between?
         ev.commit()?;
         self.current = Some((ev, Instant::now()));
         Ok(())
     }
-    fn abort_current(&mut self) -> LoleResult<()> {
+    fn abort_current(&mut self) -> anyhow::Result<()> {
         // 00612A53  |.  891D C089D600 MOV DWORD PTR DS:[0D689C0],EBX
         // 00612A59  |.  D91D 9889D600 FSTP DWORD PTR DS:[0D68998]              ; FLOAT 0.0
         // 00612A5F  |.  891D C489D600 MOV DWORD PTR DS:[0D689C4],EBX
@@ -213,7 +213,7 @@ impl CtmQueue {
             ..Default::default()
         })
     }
-    fn poll(&mut self) -> LoleResult<()> {
+    fn poll(&mut self) -> anyhow::Result<()> {
         let mut run_script = RUN_SCRIPT_AFTER_N_FRAMES.lock().unwrap();
         if let Some((script, n)) = run_script.clone() {
             if n <= 1 {
@@ -292,7 +292,7 @@ impl CtmQueue {
 
         Ok(())
     }
-    pub fn advance(&mut self) -> LoleResult<()> {
+    pub fn advance(&mut self) -> anyhow::Result<()> {
         let prev_current = self.current.take();
         if let Some(next) = self.events.pop_front() {
             self.yards_moved.reset();
@@ -305,7 +305,7 @@ impl CtmQueue {
         }
         Ok(())
     }
-    pub fn clear(&mut self) -> LoleResult<()> {
+    pub fn clear(&mut self) -> anyhow::Result<()> {
         self.events.clear();
         Ok(())
     }
@@ -451,7 +451,7 @@ impl CtmEvent {
             )
         }
     }
-    unsafe fn call_wow_click_to_move(&self) -> LoleResult<()> {
+    unsafe fn call_wow_click_to_move(&self) -> anyhow::Result<()> {
         // CPU Disasm
         // Address   Hex dump          Command                                  Comments
         // 0073154F  |.  A1 3C12CA00   MOV EAX,DWORD PTR DS:[0CA123C]
@@ -467,7 +467,7 @@ impl CtmEvent {
             let ecx = CtmEvent::get_unk_ctm_state();
 
             if ecx == 0 {
-                return Err(LoleError::NullPtrError);
+                return Err(LoleError::NullPtrError)?;
             }
 
             let action: u8 = self.action.into();
@@ -495,7 +495,7 @@ impl CtmEvent {
         }
         Ok(())
     }
-    fn commit(&self) -> LoleResult<()> {
+    fn commit(&self) -> anyhow::Result<()> {
         match self.backend {
             CtmBackend::ClickToMove => {
                 // self.commit_to_memory()?;
@@ -507,7 +507,7 @@ impl CtmEvent {
         }
         Ok(())
     }
-    fn commit_to_memory(&self) -> LoleResult<()> {
+    fn commit_to_memory(&self) -> anyhow::Result<()> {
         let om = ObjectManager::new()?;
         let p = om.get_player()?;
         let ppos = p.get_pos()?;
@@ -525,7 +525,7 @@ impl CtmEvent {
                 _ => {
                     return Err(LoleError::InvalidParam(
                         "CtmAction::Loot requires interact_guid".to_string(),
-                    ));
+                    ))?;
                 }
             },
             CtmAction::Move => (
@@ -533,7 +533,7 @@ impl CtmEvent {
                 ctm_constants::MOVE_MINDISTANCE,
                 NO_TARGET,
             ),
-            CtmAction::Done => return Err(LoleError::InvalidParam("CtmKind::Done".to_owned())),
+            CtmAction::Done => return Err(LoleError::InvalidParam("CtmKind::Done".to_owned()))?,
             _ => (
                 ctm_constants::MOVE_CONST2,
                 ctm_constants::MOVE_MINDISTANCE,
@@ -565,7 +565,7 @@ impl CtmEvent {
         (*SETFACING_STATE.lock().unwrap()) = (walking_angle, std::time::Instant::now());
         Ok(())
     }
-    fn start_walking_towards(&self) -> LoleResult<()> {
+    fn start_walking_towards(&self) -> anyhow::Result<()> {
         let om = ObjectManager::new()?;
         let p = om.get_player()?;
         let ppos = p.get_pos()?;
@@ -578,29 +578,29 @@ impl CtmEvent {
     }
 }
 
-pub fn add_to_queue(action: CtmEvent) -> LoleResult<()> {
-    let mut ctm = QUEUE.lock()?;
+pub fn add_to_queue(action: CtmEvent) -> anyhow::Result<()> {
+    let mut ctm = QUEUE.lock().unwrap();
     ctm.add_to_queue(action)?;
     Ok(())
 }
 
-pub fn abort_current_event() -> LoleResult<()> {
-    let mut ctm = QUEUE.lock()?;
+pub fn abort_current_event() -> anyhow::Result<()> {
+    let mut ctm = QUEUE.lock().unwrap();
     ctm.abort_current()
 }
 
-pub fn event_in_progress() -> LoleResult<bool> {
-    let ctm = QUEUE.lock()?;
+pub fn event_in_progress() -> anyhow::Result<bool> {
+    let ctm = QUEUE.lock().unwrap();
     Ok(ctm.current.is_some())
 }
 
-pub fn poll() -> LoleResult<()> {
-    let mut ctm = QUEUE.lock()?;
+pub fn poll() -> anyhow::Result<()> {
+    let mut ctm = QUEUE.lock().unwrap();
     ctm.poll()
 }
 
-pub fn clear() -> LoleResult<()> {
-    let mut ctm = QUEUE.lock()?;
+pub fn clear() -> anyhow::Result<()> {
+    let mut ctm = QUEUE.lock().unwrap();
     ctm.clear()
 }
 

@@ -12,12 +12,7 @@ use windows::core::w;
 use windows::{
     Win32::{
         Foundation::{FALSE, HWND},
-        System::{
-            LibraryLoader::GetModuleHandleW,
-            Threading::{
-                CreateProcessW, PROCESS_CREATION_FLAGS, PROCESS_INFORMATION, STARTUPINFOW,
-            },
-        },
+        System::LibraryLoader::GetModuleHandleW,
         UI::WindowsAndMessaging::{
             DispatchMessageW, GetMessageW, MSG, TranslateMessage, WM_HOTKEY,
         },
@@ -42,7 +37,7 @@ pub unsafe extern "system" fn dummy_wndproc(
             WM_HOTKEY => {
                 let clients = CLIENTS.lock().unwrap();
                 if let Some(client) = clients.get(wparam.0) {
-                    if SetForegroundWindow(client.window_handle) == FALSE {
+                    if SetForegroundWindow(client.0.window_handle) == FALSE {
                         tracing::error!("warning: `SetForegroundWindow` failed");
                     }
                 }
@@ -159,26 +154,35 @@ pub mod inject {
     pub const INJ_MESSAGE_REGISTER_HOTKEY: u32 = WM_USER;
     pub const INJ_MESSAGE_UNREGISTER_HOTKEY: u32 = WM_USER + 1;
 
-    pub static CLIENTS: LazyLock<Arc<Mutex<Vec<WowClient>>>> =
+    pub static CLIENTS: LazyLock<Arc<Mutex<Vec<SendSyncWrapper<WowClient>>>>> =
         LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
 
     pub type InjectorResult<T> = Result<T, InjectorError>;
 
-    #[derive(Debug)]
+    #[derive(Debug, thiserror::Error)]
     pub enum InjectorError {
+        #[error("Debug privileges failed: {0}")]
         DebugPrivilegesFailed(String),
+        #[error("Serialization error: {0}")]
         SerializationError(String),
+        #[error("Deserialization error: {0}")]
         DeserializationError(String),
+        #[error("Injection error: {0}")]
         InjectionError(String),
+        #[error("Not found")]
         NotFound,
         #[cfg(feature = "web")]
+        #[error("HTTP error: {0}")]
         HttpError(http::Error),
+        #[error("Character entry not found: {0}")]
         CharacterEntryNotFound(String),
+        #[error("Launch error: {0}")]
         LaunchError(String),
+        #[error("Hotkey error: {0}")]
         HotkeyError(String),
+        #[error("Other error: {0}")]
         OtherError(String),
     }
-
     #[cfg(feature = "web")]
     impl From<http::Error> for InjectorError {
         fn from(e: http::Error) -> Self {
@@ -196,9 +200,6 @@ pub mod inject {
         index: i32,
         library_handle: Option<HANDLE>,
     }
-
-    unsafe impl Sync for WowClient {}
-    unsafe impl Send for WowClient {}
 
     impl Drop for WowClient {
         fn drop(&mut self) {
@@ -246,12 +247,12 @@ pub mod inject {
     }
 
     impl WowClient {
-        fn register_hotkey(&self) -> InjectorResult<()> {
+        fn register_hotkey(&self) -> anyhow::Result<()> {
             let index_str = str_into_vec_u16((self.index + 1).rem_euclid(10).to_string());
             if index_str.len() < 1 {
                 return Err(InjectorError::HotkeyError(format!(
                     "Hotkey vkeycode conversion failed"
-                )));
+                )))?;
             }
             tracing::info!("Registering hotkey for {self:?}");
             if let Some(SendSyncWrapper(hwnd)) = DUMMY_WINDOW_HWND.get() {
@@ -267,7 +268,7 @@ pub mod inject {
             } else {
                 Err(InjectorError::HotkeyError(format!(
                     "register_hotkey: DUMMY_WINDOW not set"
-                )))
+                )))?
             }
         }
 
@@ -387,26 +388,19 @@ pub mod inject {
         // }
     }
 
-    unsafe fn obtain_debug_privileges() -> InjectorResult<()> {
+    unsafe fn obtain_debug_privileges() -> anyhow::Result<()> {
         let mut token: HANDLE = Default::default();
         unsafe {
-            ImpersonateSelf(SecurityImpersonation).map_err(|_e| {
-                InjectorError::DebugPrivilegesFailed(format!("ImpersonateSelf: {_e:?}"))
-            })?;
+            ImpersonateSelf(SecurityImpersonation)?;
             OpenThreadToken(
                 GetCurrentThread(),
                 TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
                 false,
                 &mut token,
-            )
-            .map_err(|_e| {
-                InjectorError::DebugPrivilegesFailed(format!("OpenThreadToken: {_e:?}"))
-            })?;
+            )?;
 
             let mut luid: LUID = Default::default();
-            LookupPrivilegeValueW(None, SE_DEBUG_NAME, &mut luid).map_err(|_e| {
-                InjectorError::DebugPrivilegesFailed(format!("LookupPrivilegeValueW: {_e:?}"))
-            })?;
+            LookupPrivilegeValueW(None, SE_DEBUG_NAME, &mut luid)?;
 
             let mut privileges: TOKEN_PRIVILEGES = Default::default();
             privileges.PrivilegeCount = 1;
@@ -420,10 +414,7 @@ pub mod inject {
                 std::mem::size_of::<TOKEN_PRIVILEGES>() as u32,
                 None,
                 None,
-            )
-            .map_err(|_e| {
-                InjectorError::DebugPrivilegesFailed(format!("AdjustTokenPrivileges: {_e:?}"))
-            })?;
+            )?;
         }
 
         return Ok(());
@@ -453,7 +444,7 @@ pub mod inject {
                 let mut pid = 0u32;
                 let tid = GetWindowThreadProcessId(hwnd, Some(&mut pid));
 
-                clients.push(WowClient {
+                clients.push(SendSyncWrapper(WowClient {
                     window_handle: hwnd,
                     window_title,
                     class_name,
@@ -461,7 +452,7 @@ pub mod inject {
                     tid,
                     index: index as i32,
                     library_handle: None,
-                });
+                }));
             }
         }
 
@@ -495,11 +486,11 @@ pub mod inject {
         unsafe { EnumWindows(Some(enum_windows_proc), LPARAM::default()) }.unwrap();
     }
 
-    pub fn find_wow_windows_and_register_hotkeys() -> InjectorResult<()> {
+    pub fn find_wow_windows_and_register_hotkeys() -> anyhow::Result<()> {
         enum_windows();
         let clients = CLIENTS.lock().unwrap();
         for client in clients.iter() {
-            client.register_hotkey()?;
+            client.0.register_hotkey()?;
         }
         Ok(())
     }

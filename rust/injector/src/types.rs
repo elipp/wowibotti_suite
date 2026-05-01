@@ -16,6 +16,8 @@ pub struct PottiConfig {
     pub available_patches: Vec<PatchConfig>,
     pub realm: Option<RealmInfo>,
     pub log_level: Option<String>,
+    pub enable_hotkeys: Option<bool>,
+    pub addonmessage_broker_addr: Option<String>,
 }
 
 #[derive(Debug)]

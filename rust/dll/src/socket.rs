@@ -283,7 +283,7 @@ pub mod facing {
         Ok(())
     }
 
-    pub fn set_facing(player: WowObject, angle: f32, movement_flags: u8) -> LoleResult<()> {
+    pub fn set_facing(player: WowObject, angle: f32, movement_flags: u8) -> anyhow::Result<()> {
         let angle = angle.rem_euclid(TWO_PI);
         let mut setfacing = SETFACING_STATE.lock().unwrap();
         let (_prev_angle, timestamp) = setfacing.clone();
@@ -321,14 +321,14 @@ fn read_cast_count() -> LoleResult<u8> {
     Ok(counter)
 }
 
-fn increment_cast_count() -> LoleResult<()> {
+fn increment_cast_count() -> anyhow::Result<()> {
     let byte: u32 = deref_res_t::<_, 1>(offsets::SPELL_CAST_COUNTER as _)?;
     let [a, b, c, d] = byte.to_le_bytes();
     let new_value = u32::from_le_bytes([a, b.wrapping_add(1), c, d]);
     write_addr(offsets::SPELL_CAST_COUNTER, &[new_value])
 }
 
-pub fn cast_gtaoe(spellid: i32, pos: Vec3) -> LoleResult<()> {
+pub fn cast_gtaoe(spellid: i32, pos: Vec3) -> anyhow::Result<()> {
     let mut packet: Vec<u8> = vec![0x0, 0x1B, 0x2E, 0x1, 0x0, 0x0]; // packet size, 0x012E -> CMSG_CAST_SPELL
     packet.push(read_cast_count()?);
     packet.extend(spellid.to_le_bytes());

@@ -8,8 +8,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 static CONNECTION_ID: OnceLock<ConnectionId> = OnceLock::new();
 
-const LIPSUM: &str = 
-"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
+const LIPSUM: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
@@ -20,7 +19,6 @@ async fn main() -> Result<(), std::io::Error> {
         )
         .with(tracing_subscriber::fmt::layer().with_ansi(true))
         .init();
-
 
     let character_name = String::from("Pylly");
     let (tx, rx) = std::sync::mpsc::channel();
@@ -51,6 +49,7 @@ async fn main() -> Result<(), std::io::Error> {
             });
         },
         |m| tracing::info!("message {m:?}"),
+        String::from("127.0.0.1:1337"),
     )
     .await
     .unwrap();

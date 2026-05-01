@@ -119,11 +119,11 @@ impl Patch {
         }
     }
 
-    unsafe fn commit(&self, patch: &InstructionBuffer) -> LoleResult<()> {
+    unsafe fn commit(&self, patch: &InstructionBuffer) -> anyhow::Result<()> {
         write_addr(self.patch_addr, patch.instr_slice())
     }
 
-    pub unsafe fn enable(&self) -> LoleResult<()> {
+    pub unsafe fn enable(&self) -> anyhow::Result<()> {
         match self.kind {
             PatchKind::JmpToTrampoline => {
                 const PAGE_EXECUTE_READWRITE: u32 = 0x40;
@@ -134,8 +134,7 @@ impl Patch {
                         self.patch_opcodes.len(),
                         PAGE_PROTECTION_FLAGS(PAGE_EXECUTE_READWRITE),
                         &mut old_flags,
-                    )
-                    .map_err(|e| LoleError::PatchError(format!("{:?}", e)))?;
+                    )?;
                 }
 
                 let mut tmp_patch = InstructionBuffer::new();
@@ -157,7 +156,7 @@ impl Patch {
         }
         Ok(())
     }
-    pub fn disable(&self) -> LoleResult<()> {
+    pub fn disable(&self) -> anyhow::Result<()> {
         tracing::info!("disabling {}", self.name);
         write_addr(self.patch_addr, &self.original_opcodes)
     }
@@ -221,7 +220,7 @@ pub fn read_elems_from_addr<const N: usize, T: Default + Sized + Copy + std::fmt
     res
 }
 
-pub fn write_addr<T: Sized + Copy + std::fmt::Debug>(addr: Addr, data: &[T]) -> LoleResult<()> {
+pub fn write_addr<T: Sized + Copy + std::fmt::Debug>(addr: Addr, data: &[T]) -> anyhow::Result<()> {
     unsafe {
         let size = std::mem::size_of_val(data);
         let mut old_flags = PAGE_PROTECTION_FLAGS(0);
@@ -230,8 +229,7 @@ pub fn write_addr<T: Sized + Copy + std::fmt::Debug>(addr: Addr, data: &[T]) -> 
             size,
             PAGE_EXECUTE_READWRITE,
             &mut old_flags,
-        )
-        .map_err(|e| LoleError::MemoryWriteError(format!("{e:?}")))?;
+        )?;
 
         // could use just std::ptr::copy_nonoverlapping
         let mut bytes_written = 0;
@@ -242,15 +240,14 @@ pub fn write_addr<T: Sized + Copy + std::fmt::Debug>(addr: Addr, data: &[T]) -> 
             std::mem::size_of_val(data),
             Some(&mut bytes_written),
         );
-        VirtualProtect(addr as *const c_void, size, old_flags, &mut old_flags)
-            .map_err(|e| LoleError::MemoryWriteError(format!("{e:?}")))?;
+        VirtualProtect(addr as *const c_void, size, old_flags, &mut old_flags)?;
 
         if let Err(e) = result {
-            return Err(LoleError::MemoryWriteError(format!("{e:?}")));
+            return Err(LoleError::MemoryWriteError(format!("{e:?}")))?;
         }
 
         if bytes_written != std::mem::size_of_val(data) {
-            return Err(LoleError::PartialMemoryWriteError);
+            return Err(LoleError::PartialMemoryWriteError)?;
         }
         Ok(())
     }

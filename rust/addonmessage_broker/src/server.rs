@@ -70,14 +70,7 @@ impl MsgWrapper {
         let packet_size = PacketSize::from_le_bytes(packet_size_buf) as usize;
 
         read.read_exact(&mut read_buffer[..packet_size]).await?;
-        let msg = serialization_buffer
-            .decode::<MsgWrapper>(&read_buffer[..packet_size])
-            .map_err(|_e| {
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("bitcode::Decode failed: {_e:?}"),
-                )
-            })?;
+        let msg = serialization_buffer.decode::<MsgWrapper>(&read_buffer[..packet_size])?;
 
         Ok(msg)
     }
@@ -152,7 +145,7 @@ impl Clients {
                     } else {
                         if let Err(e) = main_tx.send(ServerMsg::RelayMsg(msg.clone())) {
                             tracing::error!(
-                                "connection {connection_id}: write: {e:?}.\nRemoving client"
+                                "connection {connection_id}: write: {e}.\nRemoving client"
                             );
                             match main_tx.send(ServerMsg::RemoveClient(
                                 connection_id,
@@ -170,7 +163,7 @@ impl Clients {
                         format!("read_one_message failed: {msg:?}"),
                     )) {
                         Ok(_) => {}
-                        Err(e) => tracing::error!("{e:?}"),
+                        Err(e) => tracing::error!("{e}"),
                     }
                     break;
                 }
@@ -207,7 +200,7 @@ impl Clients {
                             format!("mpsc::Receiver::recv() failed: {e:?}"),
                         )) {
                             Ok(_) => {}
-                            Err(_) => tracing::error!("removeClient: {e:?}"),
+                            Err(e2) => tracing::error!("removeClient: {e2:?}"),
                         }
                         break;
                     }
@@ -218,8 +211,9 @@ impl Clients {
 }
 
 pub async fn start_addonmessage_relay() {
-    tracing::info!("listening on port 1337");
-    let listener = TcpListener::bind("127.0.0.1:1337")
+    let port = 1337;
+    tracing::info!("listening on port {port}");
+    let listener = TcpListener::bind(&format!("0.0.0.0:{port}"))
         .await
         .expect("bind to succeed");
 
