@@ -15,9 +15,10 @@ function tmp_warrior_combat()
             L_CastSpellByName("Rend")
         elseif UnitMana("player") > 50 then
             L_CastSpellByName("Heroic Strike")
-            -- elseif
         elseif aoe_feas > 1.5 then
             L_CastSpellByName("Thunder Clap")
+        elseif IsUsableSpell("Execute") then
+            L_CastSpellByName("Execute")
         end
     end
 end

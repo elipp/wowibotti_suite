@@ -26,8 +26,12 @@ add_repr_and_tryfrom! {
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 #[generate_lua_enum(repr = u32, lua_path = "../lole/generated/spell_error.lua")]
 pub enum SpellError {
+    YouAreInCombat = 0x1,
     YouHaveNoTarget = 0xB,
     InvalidTarget = 0xC,
+    YouCantDoThatYet = 0x16,
+    YouAreDead = 0x18,
+    ThereIsNothingToAttack = 0x1B,
     Interrupted = 0x28,
     NotInLineOfSight = 0x2F,
     CantDoThatWhileMoving = 0x33,
@@ -36,14 +40,16 @@ pub enum SpellError {
     SpellIsNotReadyYet = 0x43,
     NotEnoughMana = 0x55,
     OutOfRange = 0x61,
+    AnotherActionIsInProgress = 0x69,
     TargetTooClose = 0x80,
     TargetNeedsToBeInFrontOfYou = 0x86,
+    CantDoThatWhileStunned = 0x93, // or silenced??
 
     // the ones with the 0x1000 bitmask originate from the UI_ERROR_MESSAGE event handler
     YouAreFacingTheWrongWay = 0x1000,
-    ThereIsNothingToAttack = 0x1001,
+    ThereIsNothingToAttackUI = 0x1001,
     YouAreTooFarAway = 0x1002,
-    YouCantDoThatYet = 0x1003,
+    YouCantDoThatYetUI = 0x1003,
 }
 
 #[repr(C)]
@@ -68,7 +74,7 @@ unsafe extern "stdcall" fn spell_err_msg(msg_ptr: *const SpellErrMsgArgs) {
     let as_spellerrmsg: Result<SpellError, _> = msg.try_into();
     match as_spellerrmsg {
         Ok(m) => {
-            tracing::error!("{m:?} ({msg:X})");
+            tracing::debug!("{m:?} ({msg:X})");
             let _res = spell_errmsg_received(msg);
             // LAST_SPELL_ERR_MSG.with(|l| {
             //     let mut l = l.borrow_mut();

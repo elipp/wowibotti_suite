@@ -2,11 +2,14 @@ local lop_exec = ClosePetStables -- Can't actually lua_register a new function, 
 
 local LOP = Opcode
 
+local NOT_INJECTED = 'NOT_INJECTED'
+
 function LOP:call(opcode, ...)
     if query_injected() then
         return lop_exec(opcode, ...)
     else
         lole_error("LOP:call(" .. tostring(opcode) .. ") called, but we're not injected!")
+        return NOT_INJECTED
     end
 end
 
@@ -334,6 +337,13 @@ end
 function enable_wc3mode(enabled)
     LOP:call(LOP.WC3MODE, tonumber(enabled))
 end
+
+local frame = CreateFrame("Frame")
+frame:SetScript("OnUpdate", function(self)
+    if LOP:call(LOP.EnableLogging) ~= NOT_INJECTED then
+        self:SetScript("OnUpdate", nil)
+    end
+end)
 
 function get_aoe_feasibility(relative_to, range)
     return LOP:call(LOP.GetAoeFeasibility, relative_to, range)

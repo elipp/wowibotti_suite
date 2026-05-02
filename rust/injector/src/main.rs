@@ -71,7 +71,8 @@ struct InjectorApp {
     accounts: Vec<Togglable<Account>>,
     patches: Vec<Togglable<PatchConfig>>,
     config: PottiConfig,
-    enable_addonmessage_broker: bool,
+    enable_addonmessage_broker_client: bool,
+    addonmessage_broker_server_started: bool,
 }
 
 impl InjectorApp {
@@ -132,7 +133,7 @@ impl eframe::App for InjectorApp {
                 let checkbox_enabled = self.config.addonmessage_broker_addr.is_some();
                 ui.add_enabled_ui(checkbox_enabled, |ui| {
                     ui.checkbox(
-                        &mut self.enable_addonmessage_broker,
+                        &mut self.enable_addonmessage_broker_client,
                         if checkbox_enabled {
                             "Enable addonmessage broker"
                         } else {
@@ -158,7 +159,9 @@ impl eframe::App for InjectorApp {
                                     log_level: None,
                                     id: Uuid::new_v4(),
                                     path_override: a.value.0.path_override.clone(),
-                                    addonmessage_broker_addr: if self.enable_addonmessage_broker {
+                                    addonmessage_broker_addr: if self
+                                        .enable_addonmessage_broker_client
+                                    {
                                         self.config.addonmessage_broker_addr.clone()
                                     } else {
                                         None
@@ -169,6 +172,14 @@ impl eframe::App for InjectorApp {
                         query.launch_all(&self.config).unwrap();
                     }
                 });
+
+                ui.add_enabled_ui(!self.addonmessage_broker_server_started, |ui| {
+                    if ui.button("Start addonmessage broker server").clicked() {
+                        start_addonmessage_broker_server();
+                        self.addonmessage_broker_server_started = true;
+                    }
+                });
+
                 #[cfg(feature = "host-linux")]
                 if ui.button("Assign windows (niri)").clicked() {
                     match std::process::Command::new("/bin/bash")
@@ -197,11 +208,18 @@ impl eframe::App for InjectorApp {
     }
 }
 
+#[cfg(feature = "addonmessage_broker")]
+fn start_addonmessage_broker_server() {
+    let _ = std::thread::spawn(|| {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            start_addonmessage_relay().await;
+        })
+    });
+}
+
 #[cfg(feature = "native-ui")]
 fn main() -> Result<(), eframe::Error> {
-    #[cfg(feature = "host-windows")]
-    use crate::windows::start_dummy_window;
-
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -219,9 +237,12 @@ fn main() -> Result<(), eframe::Error> {
 
     let config = read_potti_conf().unwrap();
 
-    // Windows needs this to configure hotkeys
     #[cfg(feature = "host-windows")]
-    start_dummy_window();
+    {
+        // Windows needs this to configure hotkeys
+        use crate::windows::start_dummy_window;
+        start_dummy_window();
+    }
 
     let accounts: Vec<_> = config
         .accounts
@@ -240,28 +261,18 @@ fn main() -> Result<(), eframe::Error> {
         })
         .collect();
 
-    #[cfg(feature = "addonmessage_broker")]
-    let _ = std::thread::spawn(|| {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            start_addonmessage_relay().await;
-        })
-    });
-
-    let select_all = false;
-    let enable_broker = false;
-
     eframe::run_native(
         "injector :D",
         options,
         Box::new(move |cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);
             Ok(Box::new(InjectorApp {
-                select_all,
+                select_all: false,
                 accounts,
                 patches,
                 config,
-                enable_addonmessage_broker: enable_broker,
+                enable_addonmessage_broker_client: false,
+                addonmessage_broker_server_started: false,
             }))
         }),
     )

@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use lole_macros::generate_lua_enum;
 use rand::RngExt;
@@ -90,6 +91,8 @@ pub const LUA_OK: i32 = 0;
 //         $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $msg, "]=]) end"))
 //     };
 // }
+
+pub static DEBUG_TRACING_OUTPUT_AVAILABLE: AtomicBool = AtomicBool::new(false);
 
 #[macro_export]
 macro_rules! chatframe_print {
@@ -404,6 +407,7 @@ pub enum Opcode {
     QueryInjected = 0x404,
     DumpWowObject = 0x405,
     RegisterUiErrorMessage = 0x406,
+    EnableLogging = 0x407,
 }
 
 #[macro_export]
@@ -1077,6 +1081,18 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             lua_pushboolean(lua, 1);
             return Ok(1);
         }
+
+        Opcode::EnableLogging => {
+            if let Ok(true) = DEBUG_TRACING_OUTPUT_AVAILABLE.compare_exchange(
+                false,
+                true,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                tracing::info!("Enabled `tracing` logging!");
+            }
+        }
+
         #[cfg(feature = "addonmessage_broker")]
         Opcode::SendAddonMessage if (2..5).contains(&nargs) => {
             // BROKER_STATE is uninitialized if the broker wasn't started

@@ -9,7 +9,7 @@ web = [ "dep:tokio", "dep:tokio-util", "dep:http", "dep:http-body-util", "dep:hy
 addonmessage_broker = [ "dep:addonmessage_broker", "dep:tokio" ]
 host-windows = [ "dep:windows", "dep:wowibottihookdll" ]
 host-linux = []
-default = ["native-ui", "addonmessage_broker"]
+default = ["native-ui", "addonmessage_broker", "host-linux"]
 
 [dependencies]
 wowibottihookdll = { optional=true, path="../dll" }

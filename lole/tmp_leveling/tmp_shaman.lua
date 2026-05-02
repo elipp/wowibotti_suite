@@ -1,7 +1,8 @@
 local rotation = Rotation(
     {
         Spell("Flame Shock", nil, true),
-        Spell("Earth Shock")
+        Spell("Frost Shock"),
+        -- Spell("Earth Shock")
     }
 )
 
@@ -10,7 +11,7 @@ local function imbue_weapons()
     local has_offhand = GetInventoryItemLink("player", 17) -- 17 = offhand slot
     local mh_imbue, _, _, oh_imbue, _, _ = GetWeaponEnchantInfo()
     if not mh_imbue then
-        L_CastSpellByName("Flametongue Weapon")
+        L_CastSpellByName("Frostbrand Weapon")
     elseif has_offhand and not oh_imbue then
         L_CastSpellByName("Flametongue Weapon")
     end
@@ -41,7 +42,20 @@ local function set_totems()
     end
 end
 
+local function stuff()
+    if not has_buff('player', 'Water Shield') then
+        L_CastSpellByName('Water Shield')
+    end
+end
+
+local frame = nil
+
 function tmp_shaman_combat()
+    if not frame then
+        frame = CreateFrame("frame", nil, UIParent)
+        frame:SetScript("OnUpdate", stuff)
+    end
+
     imbue_weapons()
 
     if validate_target() then

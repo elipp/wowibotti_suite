@@ -5,6 +5,7 @@ use shared::SendSyncWrapper;
 use std::collections::VecDeque;
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
 
 use objectmanager::ObjectManager;
@@ -56,7 +57,7 @@ pub mod spell_error;
 pub mod vec3;
 pub mod wowproto_opcodes;
 use crate::addrs::offsets::{RENDERING_ENABLES, RENDERING_ENABLES_DEFAULT_VALUE};
-use crate::lua::LuaType;
+use crate::lua::{DEBUG_TRACING_OUTPUT_AVAILABLE, LuaType};
 use crate::patch::{AVAILABLE_PATCHES, Patch};
 use crate::spell_error::SpellError;
 
@@ -304,7 +305,77 @@ unsafe fn reduce_rendering_if_not_focused() -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+#[derive(Default)]
+struct LogState {
+    messages: Vec<(tracing::Level, String, String)>, // (level, target, message)
+}
+
+#[derive(Clone)]
+pub struct DebugLogLayer {
+    state: Arc<Mutex<LogState>>,
+}
+
+impl DebugLogLayer {
+    pub fn new() -> (Self, Arc<Mutex<LogState>>) {
+        let state = Arc::new(Mutex::new(LogState::default()));
+        (
+            Self {
+                state: Arc::clone(&state),
+            },
+            state,
+        )
+    }
+}
+
+impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for DebugLogLayer {
+    fn on_event(
+        &self,
+        event: &tracing::Event<'_>,
+        _ctx: tracing_subscriber::layer::Context<'_, S>,
+    ) {
+        let mut message = String::new();
+        let mut visitor = StringVisitor(&mut message);
+        event.record(&mut visitor);
+
+        let meta = event.metadata();
+        let level = *meta.level();
+        let target = meta.target().to_string();
+
+        if let Ok(mut state) = self.state.lock() {
+            state.messages.push((level, target, message));
+        }
+    }
+}
+
 struct LuaPrintLayer;
+
+struct PendingMessage {
+    level: tracing::Level,
+    target: String,
+    message: String,
+}
+
+impl PendingMessage {
+    fn print(self) {
+        let level_color = match self.level {
+            tracing::Level::ERROR => "FFFF5555",
+            tracing::Level::WARN => "FFFFAA22",
+            tracing::Level::INFO => "FF99CCAA",
+            tracing::Level::DEBUG => "FF6699FF",
+            _ => "FFFFFFFF",
+        };
+        chatframe_print!(
+            "|c{}[{}][{}] {}|r",
+            level_color,
+            self.level,
+            self.target,
+            self.message
+        );
+    }
+}
+
+static PENDING_MESSAGES: Mutex<Vec<PendingMessage>> = Mutex::new(Vec::new());
 
 impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for LuaPrintLayer {
     fn on_event(
@@ -312,28 +383,23 @@ impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for LuaPrintLayer {
         event: &tracing::Event<'_>,
         _ctx: tracing_subscriber::layer::Context<'_, S>,
     ) {
-        if let Ok(om) = ObjectManager::new()
-            && let Ok(_) = om.get_player()
-        {
-            let mut message = String::new();
-            let mut visitor = StringVisitor(&mut message);
-            event.record(&mut visitor);
-            let meta = event.metadata();
+        let mut message = String::new();
+        event.record(&mut StringVisitor(&mut message));
 
-            let color = match *event.metadata().level() {
-                tracing::Level::ERROR => "FFFF5555", // red
-                tracing::Level::WARN => "FFFFAA44",  // orange
-                tracing::Level::INFO => "FFAAAAAA",  // grey
-                _ => "FFFFFFFF",                     // white for debug/trace
-            };
+        let meta = event.metadata();
+        let level = *meta.level();
 
-            chatframe_print!(
-                "|c{} [{}] {}: {}|r",
-                color,
-                meta.level(),
-                meta.target(),
-                message
-            );
+        let mut pending = PENDING_MESSAGES.lock().unwrap();
+        pending.push(PendingMessage {
+            level,
+            target: meta.target().to_string(),
+            message,
+        });
+
+        if DEBUG_TRACING_OUTPUT_AVAILABLE.load(Ordering::Relaxed) {
+            for msg in pending.drain(..) {
+                msg.print();
+            }
         }
     }
 }
@@ -466,6 +532,8 @@ fn initialize_dll() -> anyhow::Result<()> {
     let (_, reload_handle) =
         tracing_subscriber::reload::Layer::<LevelFilter, Registry>::new(filter);
 
+    // let (debug_log_layer, state) = DebugLogLayer::new();
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -473,6 +541,7 @@ fn initialize_dll() -> anyhow::Result<()> {
         )
         .with(tracing_subscriber::fmt::layer().with_ansi(!cfg!(feature = "host-linux"))) // host-windows with the extended terminal capabilities actually supports ansi codes, just not wine terminal
         .with(LuaPrintLayer)
+        // .with(debug_log_layer)
         .init();
 
     let config = match read_config_from_file(&lole_id) {

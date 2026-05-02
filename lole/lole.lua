@@ -302,4 +302,5 @@ function lole_OnLoad()
     SetCVar('maxFPS', 140)
     SetCVar('maxFPSBk', 15)
     print('fps limits set')
+    lole_enable_logging()
 end
