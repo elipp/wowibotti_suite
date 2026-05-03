@@ -140,6 +140,67 @@ function lole_debug()
     return true;
 end
 
+-- wowhead.com "pre-bis articles" can be scraped like this:
+-- var items = [...document.querySelectorAll('div.gear-planner-slots-group-slot[data-item-id]')].map(el => el.dataset.itemId); console.log(`{${items.join(', ')}}`);
+
+function lole_gearify(class_spec)
+    if class_spec == nil then
+        return lole_error('`class_spec` is required')
+    end
+
+    SendChatMessage('.learn all my quest')
+    SendChatMessage('.learn all my trainer')
+    SendChatMessage('.additem 41599 2')
+    L_RunMacroText('/equip Frostweave Bag')
+    L_RunMacroText('/equip Frostweave Bag')
+
+    local pre_bis_items = {
+        PaladinProt = { 41387, 40679, 37635, 37728, 44198, 37620, 44183, 40689, 43500, 44201, 42643, 37784, 44063, 42341, 37401, 40701, 40707, 44040, 40679, 40675, 44188, 44198, 44341, 41357, 40689, 44240, 44201, 44337, 43179, 44063, 42341, 44734, 40701, 40707 },
+        DkBlood = { 41387, 40679, 44312, 43565, 39623, 37620, 39624, 40689, 43500, 41392, 42643, 37257, 37220, 44063, 37401, 37179, 40822 },
+        ShamanResto = { 37180, 40681, 37875, 41610, 39588, 37788, 39591, 40693, 37791, 43469, 37694, 44283, 37111, 40685, 37169, 40700, 40709 },
+        ShamanEnh = { 41387, 40679, 37635, 37728, 44198, 37620, 44183, 40689, 43500, 44201, 42643, 37784, 44063, 42341, 37401, 40701, 40707, 44040, 40679, 40675, 44188, 44198, 44341, 41357, 40689, 44240, 44201, 44337, 43179, 44063, 42341, 44734, 40701, 40707 },
+        PaladinRetri = { 41386, 40678, 34388, 37647, 39633, 41355, 39634, 40694, 37193, 44297, 44935, 37685, 42987, 40684, 37852, 37574 },
+        Hunter = { 42551, 40678, 37373, 43406, 39579, 37170, 39582, 37407, 37669, 37167, 42642, 37685, 44253, 40684, 44249, 37191 },
+        Rogue = { 42550, 40678, 37139, 34241, 39558, 34448, 39560, 40694, 37644, 34575, 40586, 37642, 40684, 44253, 37693, 37856, 44504 },
+        Warrior = { 41386, 42645, 44195, 37647, 39606, 44203, 39609, 40694, 37193, 44306, 42642, 37642, 42987, 40684, 37852, 37852, 37191, 41386, 42645, 44195, 37647, 39606, 44203, 39609, 40694, 37193, 44306, 42642, 37642, 42987, 40684, 37852, 37852, 37191 },
+        Boomkin = { 42554, 40680, 37673, 41610, 39547, 37361, 39544, 40696, 37791, 44202, 40585, 43253, 37873, 40682, 45085, 40698, 40712 },
+        PriestDisc = { 42553, 40681, 37196, 41609, 39515, 37361, 39519, 40696, 37622, 44202, 42644, 44283, 37835, 42988, 37169, 44210, 37238, 37294, 40681, 37691, 37630, 39515, 37361, 39519, 40697, 37622, 44202, 37694, 44283, 42988, 42132, 37169, 44210, 37238 },
+        WarlockAffli = { 42553, 39472, 34210, 41610, 39497, 37361, 39500, 40696, 34386, 40558, 37192, 37694, 37873, 40682, 45085, 40698, 34347, 42553, 39472, 34210, 41610, 39497, 37361, 39500, 40696, 34386, 40558, 37192, 37694, 37873, 40682, 45085, 40698, 34347 },
+    }
+
+    for _, itemId in ipairs(pre_bis_items[class_spec]) do
+        SendChatMessage(".additem " .. itemId)
+    end
+end
+
+function engineering_400()
+    SendChatMessage(".learn 51306")
+    SendChatMessage(".setskill 202 400")
+end
+
+function jewelcrafting_400()
+    SendChatMessage(".learn 51311")
+    SendChatMessage(".setskill 755 400")
+end
+
+function get_questids()
+    local res = {}
+    for i = 1, GetNumQuestLogEntries() do
+        local title, level, _, _, _, _, _, _, questID = GetQuestLogTitle(i)
+        if questID then
+            table.insert(res, questID)
+        end
+    end
+    return res
+end
+
+function complete_current_quests()
+    local quests = get_questids()
+    for i, u in ipairs(quests) do
+        SendChatMessage('.quest complete ' .. tostring(u))
+    end
+end
+
 function lole_debug_dump_wowobject_memory(n_bytes)
     if UnitName("target") == nil then
         return echo("Please select a target")
