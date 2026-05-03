@@ -5,7 +5,7 @@ broker-linux:
 	cargo run --target x86_64-unknown-linux-gnu --bin broker-server
 
 injector-linux: dll-linux
-	RUST_LOG=addonmessage_broker::server=debug,addonmessage_broker::client=debug,info cargo run --target x86_64-unknown-linux-gnu --bin injector --features host-linux
+	RUST_LOG=addonmessage_broker::server=debug,addonmessage_broker::client=debug,wowibottihookdll::addonmessage=debug,info cargo run --target x86_64-unknown-linux-gnu --bin injector --features host-linux
 
 win:
 	cargo build -p addonmessage_broker --target x86_64-pc-windows-msvc

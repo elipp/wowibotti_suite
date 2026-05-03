@@ -6,7 +6,6 @@ use std::collections::VecDeque;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
-use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
 
 use objectmanager::ObjectManager;
 
@@ -46,6 +45,7 @@ use windows::Win32::System::LibraryLoader::FreeLibraryAndExitThread;
 type Addr = usize;
 type Offset = isize;
 
+pub mod addonmessage;
 pub mod addrs;
 pub mod assembly;
 pub mod ctm;
@@ -57,6 +57,8 @@ pub mod socket;
 pub mod spell_error;
 pub mod vec3;
 pub mod wowproto_opcodes;
+#[cfg(feature = "addonmessage_broker")]
+use crate::addonmessage::unpack_broker_message_queue;
 use crate::addrs::offsets::{RENDERING_ENABLES, RENDERING_ENABLES_DEFAULT_VALUE};
 use crate::lua::{DEBUG_TRACING_OUTPUT_AVAILABLE, LuaType};
 use crate::patch::{AVAILABLE_PATCHES, Patch};
@@ -109,34 +111,7 @@ macro_rules! get_state_ {
     };
 }
 
-#[cfg(feature = "addonmessage_broker")]
-use addonmessage_broker::{
-    client::start_addonmessage_client, server::AddonMessage, server::ConnectionId, server::Msg,
-    server::MsgWrapper,
-};
-
 static DLL_HANDLE: OnceLock<SendSyncWrapper<HMODULE>> = OnceLock::new();
-
-// #[cfg(feature = "addonmessage_broker")]
-// pub static BROKER_CONNECTION_ID: OnceLock<ConnectionId> = OnceLock::new();
-// #[cfg(feature = "addonmessage_broker")]
-// pub static BROKER_TX: OnceLock<std::sync::mpsc::Sender<MsgWrapper>> = OnceLock::new();
-// #[cfg(feature = "addonmessage_broker")]
-// lazy_static! {
-//     pub static ref BROKER_MESSAGE_QUEUE: Arc<Mutex<VecDeque<AddonMessage>>> =
-//         Arc::new(Mutex::new(VecDeque::new()));
-// }
-
-#[cfg(feature = "addonmessage_broker")]
-pub struct BrokerState {
-    pub connection_id: ConnectionId,
-    pub character_name: String,
-    pub tx: std::sync::mpsc::Sender<MsgWrapper>,
-    pub message_queue: Arc<Mutex<VecDeque<AddonMessage>>>,
-}
-
-#[cfg(feature = "addonmessage_broker")]
-pub static BROKER_STATE: OnceLock<BrokerState> = OnceLock::new();
 
 pub static CLIENT_CONFIG: OnceLock<ClientConfig> = OnceLock::new();
 
@@ -261,26 +236,6 @@ unsafe fn afk_refresh_hardware_event_timestamp() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "addonmessage_broker")]
-fn unpack_broker_message_queue() {
-    if let Some(state) = BROKER_STATE.get() {
-        let mut queue = state.message_queue.lock().unwrap();
-        for message in queue.drain(..) {
-            let script = format!(
-                "addonmessage_received([[{}]], [[{}]], {}, [[{}]])",
-                message.prefix,
-                message.text,
-                message
-                    .r#type
-                    .map(|s| format!("[[{}]]", s))
-                    .unwrap_or_else(|| "nil".to_string()),
-                message.from,
-            );
-            dostring!(script);
-        }
-    }
-}
-
 macro_rules! do_once {
     ($b:expr, $stuff:block) => {
         if let Ok(true) = $b.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed) {
@@ -363,7 +318,7 @@ impl PendingMessage {
             tracing::Level::ERROR => "FFFF5555",
             tracing::Level::WARN => "FFFFAA22",
             tracing::Level::INFO => "FF99CCAA",
-            tracing::Level::DEBUG => "FF6699FF",
+            tracing::Level::DEBUG => "FF77AAFF",
             _ => "FFFFFFFF",
         };
         chatframe_print!(
@@ -396,12 +351,6 @@ impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for LuaPrintLayer {
             target: meta.target().to_string(),
             message,
         });
-
-        if DEBUG_TRACING_OUTPUT_AVAILABLE.load(Ordering::Relaxed) {
-            for msg in pending.drain(..) {
-                msg.print();
-            }
-        }
     }
 }
 
@@ -415,7 +364,17 @@ impl<'a> tracing::field::Visit for StringVisitor<'a> {
     }
 }
 
-fn main_entrypoint() -> anyhow::Result<()> {
+// This must occur on the main thread, otherwise Wow gets "Fatal condition" errors
+fn flush_tracing_log_queue() {
+    let mut pending = PENDING_MESSAGES.lock().unwrap();
+    if DEBUG_TRACING_OUTPUT_AVAILABLE.load(Ordering::Relaxed) {
+        for msg in pending.drain(..) {
+            msg.print();
+        }
+    }
+}
+
+fn on_every_frame() -> anyhow::Result<()> {
     match ctm::poll() {
         Ok(_) => {}
         Err(e) if let Some(LoleError::PlayerNotFound) = e.downcast_ref() => {}
@@ -441,6 +400,8 @@ fn main_entrypoint() -> anyhow::Result<()> {
 
     #[cfg(feature = "addonmessage_broker")]
     unpack_broker_message_queue();
+
+    flush_tracing_log_queue();
 
     Ok(())
 }
@@ -592,38 +553,9 @@ fn initialize_dll() -> anyhow::Result<()> {
         if let Some(character_name) = get_current_character_name()
             && let Some(addr) = config.addonmessage_broker_addr.clone()
         {
-            let (tx, rx) = std::sync::mpsc::channel::<MsgWrapper>();
-            let _handle = std::thread::spawn(move || {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(async {
-                    match start_addonmessage_client(
-                        rx,
-                        character_name.clone(),
-                        |connection_id| {
-                            BROKER_STATE.get_or_init(|| BrokerState {
-                                connection_id,
-                                character_name,
-                                tx,
-                                message_queue: Default::default(),
-                            });
-                        },
-                        |msg| {
-                            if let (Msg::AddonMessage(msg), Some(state)) =
-                                (msg.message, BROKER_STATE.get())
-                            {
-                                let mut queue = state.message_queue.lock().unwrap();
-                                queue.push_back(msg.clone());
-                            }
-                        },
-                        addr,
-                    )
-                    .await
-                    {
-                        Ok(_) => tracing::info!("Addonmessage client started"),
-                        Err(e) => tracing::error!("Couldn't connect to addonmessage server: {e:?}. Using regular SendAddonMessage API."),
-                    }
-                });
-            });
+            use crate::addonmessage::start_client;
+
+            start_client(character_name, addr);
         }
     }
 
@@ -662,7 +594,7 @@ pub unsafe extern "stdcall" fn EndScene_hook() {
             fatal_error_exit(e);
         }
     } else {
-        match main_entrypoint() {
+        match on_every_frame() {
             Ok(_) => {}
             Err(anyhow_err) => match anyhow_err.downcast_ref::<LoleError>() {
                 Some(e) if let LoleError::ObjectManagerIsNull = e => {

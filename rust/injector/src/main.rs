@@ -135,9 +135,12 @@ impl eframe::App for InjectorApp {
                     ui.checkbox(
                         &mut self.enable_addonmessage_broker_client,
                         if checkbox_enabled {
-                            "Enable addonmessage broker"
+                            format!(
+                                "Enable addonmessage broker client @ {}",
+                                self.config.addonmessage_broker_addr.as_ref().unwrap()
+                            )
                         } else {
-                            "Enable addonmessage broker (needs potti.conf configuration)"
+                            "Enable addonmessage broker (needs potti.conf configuration)".into()
                         },
                     );
                 })

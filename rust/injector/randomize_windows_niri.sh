@@ -16,3 +16,5 @@ for i in "${!ids[@]}"; do
     niri msg action move-window-to-workspace --window-id "${ids[$i]}" "$((i+1))"
     niri msg action focus-window --id "${ids[$i]}"
 done
+
+niri msg action focus-window --id "${ids[0]}"

@@ -61,7 +61,7 @@ local function pet_combat()
         return
     end
 
-    if cast_if_nocd_pet("Bite", 3) then
+    if cast_if_nocd_pet("Bite", 4) then
         return
     end
 end
@@ -95,7 +95,11 @@ function tmp_hunter_combat()
 
 
     if not validate_target() then return end -- DEFAULT
-    caster_range_check(11, 35)
+    if UnitName("targettarget") ~= UnitName("player") then
+        caster_range_check(9, 35)
+    else
+        caster_range_check(0, 35)
+    end
 
     --local BEST_ASPECT = "Aspect of the Dragonhawk"
     -- local BEST_ASPECT = "Aspect of the Wild"

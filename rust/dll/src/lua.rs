@@ -18,8 +18,7 @@ use crate::socket::facing::{self};
 use crate::socket::movement_flags::NOT_MOVING;
 use crate::vec3::{TWO_PI, Vec3};
 use crate::{
-    BROKER_STATE, LoleError, LoleResult, add_repr_and_tryfrom, assembly, get_state,
-    write_last_hardware_action,
+    LoleError, LoleResult, add_repr_and_tryfrom, assembly, get_state, write_last_hardware_action,
 };
 
 #[cfg(feature = "addonmessage_broker")]
@@ -79,33 +78,20 @@ const LUA_NO_RETVALS: anyhow::Result<i32> = Ok(0);
 
 pub const LUA_OK: i32 = 0;
 
-// #[macro_export]
-// macro_rules! chatframe_print {
-//     ($fmt:expr) => {
-//         $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $fmt, "]=]) end"))
-//     };
-//     ($fmt:expr, $($args:expr),*) => {
-//         $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $fmt, "]=]) end"), $($args),*)
-//     };
-//     ($msg:literal) => {
-//         $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $msg, "]=]) end"))
-//     };
-// }
-
-pub static DEBUG_TRACING_OUTPUT_AVAILABLE: AtomicBool = AtomicBool::new(false);
-
 #[macro_export]
 macro_rules! chatframe_print {
     ($fmt:expr) => {
-        $crate::dostring!(concat!("print([=[", $fmt, "]=])"))
+        $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $fmt, "]=]) end"))
     };
     ($fmt:expr, $($args:expr),*) => {
-        $crate::dostring!(concat!("print([=[", $fmt, "]=])"), $($args),*)
+        $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $fmt, "]=]) end"), $($args),*)
     };
     ($msg:literal) => {
-        $crate::dostring!(concat!("print([=[", $msg, "]=])"))
+        $crate::dostring!(concat!("if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage([=[", $msg, "]=]) end"))
     };
 }
+
+pub static DEBUG_TRACING_OUTPUT_AVAILABLE: AtomicBool = AtomicBool::new(false);
 
 add_repr_and_tryfrom! {
     i32,
@@ -1096,6 +1082,8 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
         #[cfg(feature = "addonmessage_broker")]
         Opcode::SendAddonMessage if (2..5).contains(&nargs) => {
             // BROKER_STATE is uninitialized if the broker wasn't started
+
+            use crate::addonmessage::BROKER_STATE;
             if let Some(state) = BROKER_STATE.get() {
                 let prefix = lua_tostring!(lua, 2)?.to_owned();
                 let text = lua_tostring!(lua, 3)?.to_owned();
