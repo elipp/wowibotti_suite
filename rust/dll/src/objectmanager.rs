@@ -1,9 +1,9 @@
 use std::ffi::{CString, c_char, c_void};
 
+use crate::linalg::WowVector3;
 use crate::patch::{
     deref_opt_ptr, deref_opt_t, deref_ptr, deref_res_ptr, deref_res_t, read_elems_from_addr,
 };
-use crate::vec3::Vec3;
 use crate::{LoleError, LoleResult, add_repr_and_tryfrom};
 
 use crate::addrs::offsets;
@@ -31,7 +31,7 @@ pub const NO_TARGET: GUID = 0x0;
 
 #[derive(Clone, Copy)]
 pub struct WowObject {
-    pub base: *const c_void,
+    pub base: *const (),
 }
 
 add_repr_and_tryfrom! {
@@ -171,10 +171,10 @@ impl WowObject {
         reaction.wrapping_add(1)
     }
     fn get_next(&self) -> Option<WowObject> {
-        let next_base_addr = unsafe { deref_opt_t::<_, 1>(self.base.offset(wowobject::Next)) }?;
+        let next_base_addr = deref_opt_t::<_, 1>(self.base.wrapping_byte_offset(wowobject::Next))?;
         WowObject::try_new(next_base_addr)
     }
-    pub fn try_new(base: *const c_void) -> Option<Self> {
+    pub fn try_new(base: *const ()) -> Option<Self> {
         let res = WowObject { base };
         if res.valid() { Some(res) } else { None }
     }
@@ -209,20 +209,20 @@ impl WowObject {
             _ => [0., 0., 0., 0.],
         }
     }
-    pub fn get_pos(&self) -> LoleResult<Vec3> {
+    pub fn get_pos(&self) -> LoleResult<WowVector3> {
         let [x, y, z, _] = self.get_xyzr()?;
-        Ok(Vec3 { x, y, z })
+        Ok(WowVector3::new(x, y, z))
     }
-    pub fn get_pos_and_rotvec(&self) -> LoleResult<(Vec3, Vec3)> {
+    pub fn get_pos_and_rotvec(&self) -> LoleResult<(WowVector3, WowVector3)> {
         let [x, y, z, r] = self.get_xyzr()?;
-        Ok((Vec3 { x, y, z }, Vec3::from_rot_value(r)))
+        Ok((WowVector3::new(x, y, z), WowVector3::from_rot_value(r)))
     }
-    pub fn get_rotvec(&self) -> LoleResult<Vec3> {
+    pub fn get_rotvec(&self) -> LoleResult<WowVector3> {
         let [_, _, _, r] = self.get_xyzr()?;
-        Ok(Vec3::from_rot_value(r))
+        Ok(WowVector3::from_rot_value(r))
     }
-    pub fn get_movement_info(&self) -> Option<*const c_void> {
-        deref_opt_t::<_, 1>(self.base.wrapping_offset(wowobject::MovementInfo))
+    pub fn get_movement_info(&self) -> Option<*const ()> {
+        deref_opt_t::<_, 1>(self.base.wrapping_byte_offset(wowobject::MovementInfo))
     }
 
     pub fn npc_has_loot_table(&self) -> LoleResult<bool> {
@@ -236,7 +236,7 @@ impl WowObject {
         }
     }
 
-    pub fn yards_in_front_of(&self, yards: f32) -> LoleResult<Vec3> {
+    pub fn yards_in_front_of(&self, yards: f32) -> LoleResult<WowVector3> {
         let (pos, rotvec) = self.get_pos_and_rotvec()?;
         Ok(pos + (yards * rotvec))
     }
@@ -250,7 +250,7 @@ impl WowObject {
 
     pub fn health(&self) -> LoleResult<u32> {
         let unk_state =
-            deref_res_t::<*const c_void, 1>(self.base.wrapping_byte_offset(wowobject::UnkState2))?;
+            deref_res_t::<*const (), 1>(self.base.wrapping_byte_offset(wowobject::UnkState2))?;
         deref_res_t::<_, 1>(unk_state.wrapping_byte_offset(0x48))
     }
 
@@ -319,7 +319,7 @@ impl IntoIterator for ObjectManager {
 
 #[derive(Copy, Clone)]
 pub struct ObjectManager {
-    base: *const c_void,
+    base: *const (),
 }
 
 #[macro_export]
@@ -353,8 +353,11 @@ impl ObjectManager {
         )
     }
     pub fn get_player_target_guid(&self) -> LoleResult<Option<GUID>> {
-        let res = deref_res_t::<GUID, 1>(offsets::PLAYER_TARGET_GUID as _)?;
-        if res == 0 { Ok(None) } else { Ok(Some(res)) }
+        match deref_res_t::<GUID, 1>(offsets::PLAYER_TARGET_GUID as _) {
+            Ok(res) if res == 0 => Ok(None),
+            Ok(res) => Ok(Some(res)),
+            Err(e) => Err(e),
+        }
     }
     pub fn get_focus_guid(&self) -> LoleResult<GUID> {
         deref_res_t::<GUID, 1>(offsets::PLAYER_FOCUS_GUID as _)
@@ -400,7 +403,7 @@ impl ObjectManager {
     }
 
     pub fn get_unit_by_nameref_internal(&self, name: &str) -> Option<WowObject> {
-        let wow_find_wowobject_by_nameref: extern "cdecl" fn(s: *const i8) -> *const c_void =
+        let wow_find_wowobject_by_nameref: extern "cdecl" fn(s: *const c_char) -> *const () =
             unsafe { std::mem::transmute(0x60C1F0 as *const c_void) };
 
         let c_str = CString::new(name).ok()?;

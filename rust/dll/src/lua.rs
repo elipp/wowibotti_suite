@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::f32::consts::{PI, TAU};
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -8,6 +8,7 @@ use rand::RngExt;
 
 use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
+use crate::linalg::WowVector3;
 use crate::objectmanager::{GUIDFmt, ObjectManager, WowObject, WowObjectType, guid_from_str};
 use crate::patch::{
     InstructionBuffer, Patch, PatchKind, copy_original_opcodes, deref_opt_ptr, deref_opt_t,
@@ -16,7 +17,7 @@ use crate::patch::{
 use crate::socket::cast_gtaoe;
 use crate::socket::facing::{self};
 use crate::socket::movement_flags::NOT_MOVING;
-use crate::vec3::{TWO_PI, Vec3};
+use crate::wc3::WowCamera;
 use crate::{
     LoleError, LoleResult, add_repr_and_tryfrom, assembly, get_state, write_last_hardware_action,
 };
@@ -91,7 +92,7 @@ macro_rules! chatframe_print {
     };
 }
 
-pub static DEBUG_TRACING_OUTPUT_AVAILABLE: AtomicBool = AtomicBool::new(false);
+pub static WORLD_ENTERED: AtomicBool = AtomicBool::new(false);
 
 add_repr_and_tryfrom! {
     i32,
@@ -134,7 +135,7 @@ define_lua_function!(
 
 // kept here for reference (not allowed by the compiler atm):
 // const _lua_gettop: extern "C" fn(lua_State) -> i32 = {
-//     let ptr = offsets::lua_gettop as *const ();
+//     let ptr = lua_gettop as *const ();
 //     unsafe { std::mem::transmute(ptr) }
 //     // let func: extern "C" fn($($param_ty),*) -> $ret_ty = unsafe { std::mem::transmute(ptr) };
 // };
@@ -161,6 +162,14 @@ define_lua_function!(
 define_lua_function!(
     lua_pushboolean,
     (state: lua_State, b: lua_Boolean) -> ());
+
+define_lua_function!(
+    lua_pushnil,
+    (state: lua_State) -> ());
+
+define_lua_function!(
+    lua_pushstring,
+    (state: lua_State, str: *const c_char) -> ());
 
 define_lua_function!(
     lua_gettable,
@@ -228,14 +237,6 @@ macro_rules! lua_tostring {
 define_lua_function!(
     lua_tonumber,
     (state: lua_State, idx: i32) -> lua_Number);
-
-define_lua_function!(
-    lua_pushnil,
-    (state: lua_State) -> ());
-
-define_lua_function!(
-    lua_pushstring,
-    (state: lua_State, str: *const c_char) -> ());
 
 pub trait LuaPushString {
     fn pushstring(&self, lua: lua_State) -> anyhow::Result<()>;
@@ -393,7 +394,7 @@ pub enum Opcode {
     QueryInjected = 0x404,
     DumpWowObject = 0x405,
     RegisterUiErrorMessage = 0x406,
-    EnableLogging = 0x407,
+    WorldEntered = 0x407,
 }
 
 #[macro_export]
@@ -426,16 +427,16 @@ impl PlayerPositionStatus {
 }
 
 fn get_melee_position_status(
-    ideal_position_relative: Vec3,
-    tpdiff_unit: Vec3,
-    prot_unit: Vec3,
+    ideal_position_relative: WowVector3,
+    tpdiff_unit: WowVector3,
+    prot_unit: WowVector3,
 ) -> PlayerPositionStatus {
     let mut status = PlayerPositionStatus::OK;
 
     if ideal_position_relative.length() > 0.5 {
         status |= PlayerPositionStatus::TOO_FAR;
     }
-    if Vec3::dot(tpdiff_unit, prot_unit) < 0.85 {
+    if tpdiff_unit.dot(prot_unit) < 0.85 {
         status |= PlayerPositionStatus::WRONG_FACING;
     }
 
@@ -445,8 +446,8 @@ fn get_melee_position_status(
 fn get_caster_position_status(
     range_min: f32,
     range_max: f32,
-    tpdiff: Vec3,
-    prot_unit: Vec3,
+    tpdiff: WowVector3,
+    prot_unit: WowVector3,
 ) -> PlayerPositionStatus {
     let mut status = PlayerPositionStatus::OK;
     let distance_from_target = tpdiff.length();
@@ -456,7 +457,7 @@ fn get_caster_position_status(
     } else if distance_from_target < range_min {
         status |= PlayerPositionStatus::TOO_NEAR;
     }
-    if Vec3::dot(tpdiff.unit(), prot_unit) < 0.99 {
+    if tpdiff.unit().dot(prot_unit) < 0.99 {
         status |= PlayerPositionStatus::WRONG_FACING;
     }
 
@@ -509,7 +510,11 @@ impl From<serde_json::Error> for LoleError {
     }
 }
 
-fn store_path_to_db(_name: &str, _zonetext: &str, _waypoint_data: Vec<Vec3>) -> anyhow::Result<()> {
+fn store_path_to_db(
+    _name: &str,
+    _zonetext: &str,
+    _waypoint_data: Vec<WowVector3>,
+) -> anyhow::Result<()> {
     //     let mut client = get_postgres_conn()?;
     //     let waypoint_data = serde_json::to_value(waypoint_data)?;
 
@@ -535,7 +540,7 @@ struct PathRecording {
     id: i32,
     name: String,
     zonetext: String,
-    waypoints: Vec<Vec3>,
+    waypoints: Vec<WowVector3>,
 }
 
 // // impl From<postgres::Row> for PathRecording {
@@ -591,6 +596,10 @@ pub fn lua_debug_func(_lua: lua_State) -> anyhow::Result<i32> {
         om.get_unit_by_nameref_internal("raid1"),
         om.get_unit_by_nameref_internal("pylly"),
     );
+
+    let camera = WowCamera::fetch().ok_or_else(|| anyhow::anyhow!("no camera"))?;
+    tracing::info!("{camera:?}");
+
     Ok(0)
 }
 
@@ -842,7 +851,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             let z = lua_tonumber_f32!(lua, 4);
             let prio = lua_tointeger(lua, 5);
             let action = CtmEvent {
-                target_pos: Vec3 { x, y, z },
+                target_pos: WowVector3::new(x, y, z),
                 priority: prio.try_into()?,
                 action: CtmAction::Move,
                 ..Default::default()
@@ -889,7 +898,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             *TRYING_TO_FOLLOW.lock().unwrap() = None;
             // add randomness (for multibox masking)
             let target_pos =
-                player.get_pos()? + random_01() * Vec3::from_rot_value(random_01() * TWO_PI);
+                player.get_pos()? + random_01() * WowVector3::from_rot_value(random_01() * TAU);
             ctm::add_to_queue(CtmEvent {
                 target_pos,
                 priority: CtmPriority::NoOverride,
@@ -955,7 +964,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
         }
 
         Opcode::LootMob => {
-            fn is_loot_candidate(o: WowObject, ppos: Vec3) -> LoleResult<(bool, f32)> {
+            fn is_loot_candidate(o: WowObject, ppos: WowVector3) -> LoleResult<(bool, f32)> {
                 let distance_from_player = (o.get_pos()? - ppos).length();
                 Ok((
                     o.npc_has_loot_table()? && distance_from_player < 30.0,
@@ -993,11 +1002,11 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
 
         Opcode::CastGtAoe if nargs == 4 => {
             let spellid = lua_tointeger(lua, 2);
-            let pos = Vec3 {
-                x: lua_tonumber_f32!(lua, 3),
-                y: lua_tonumber_f32!(lua, 4),
-                z: lua_tonumber_f32!(lua, 5),
-            };
+            let pos = WowVector3::new(
+                lua_tonumber_f32!(lua, 3),
+                lua_tonumber_f32!(lua, 4),
+                lua_tonumber_f32!(lua, 5),
+            );
             cast_gtaoe(spellid, pos)?;
             return LUA_NO_RETVALS;
         }
@@ -1025,7 +1034,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
                         // Pop the fields, but keep the inner table for the next iteration
                         lua_pop!(lua, 3);
 
-                        path.push(Vec3 { x, y, z });
+                        path.push(WowVector3::new(x, y, z));
                     }
                     lua_pop!(lua, 1);
                 }
@@ -1068,14 +1077,11 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             return Ok(1);
         }
 
-        Opcode::EnableLogging => {
-            if let Ok(_) = DEBUG_TRACING_OUTPUT_AVAILABLE.compare_exchange(
-                false,
-                true,
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            ) {
-                tracing::info!("Enabled `tracing` logging!");
+        Opcode::WorldEntered => {
+            if let Ok(_) =
+                WORLD_ENTERED.compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
+            {
+                tracing::info!("Set WORLD_ENTERED flag to true!");
             }
         }
 
@@ -1397,6 +1403,40 @@ impl LuaPushMulti for LuaMultiValue {
 }
 
 struct LuaFunction(&'static CStr);
+
+#[allow(dead_code)]
+pub fn dump_all_globals_to_file() -> anyhow::Result<()> {
+    use std::io::Write;
+    let mut file = std::fs::File::create("/tmp/whatever.txt")?;
+    let lua = get_wow_lua_state()?;
+    // Push the global table onto the stack
+    lua_getfield(lua, LUA_GLOBALSINDEX, c"_G".as_ptr());
+
+    // Push nil as the first key to start iteration
+    lua_pushnil(lua);
+
+    while lua_next(lua, -2) != 0 {
+        // stack: ... | _G | key | value
+        // only call lua_tostring on the key if it's already a string
+        // number keys won't be coerced since we skip them or handle separately
+        let key = lua_tostring!(lua, -2); // -2 is the key, -1 is the value
+        if let Ok(key) = key {
+            writeln!(file, "{key}")?;
+        }
+        lua_pop!(lua, 1); // pop just the value, leave key for lua_next
+    }
+
+    // Pop the global table
+    lua_pop!(lua, 1);
+    Ok(())
+}
+
+pub fn enter_world() -> anyhow::Result<()> {
+    if !WORLD_ENTERED.load(Ordering::Relaxed) {
+        dostring!(r#"if CharSelectEnterWorldButton then CharSelectEnterWorldButton:Click() end"#);
+    }
+    Ok(())
+}
 
 // impl LuaFunction {
 //     pub fn call(lua: lua_State, A: LuaPushMulti, R: FromLuaMulti) -> anyhow::Result<R> {}

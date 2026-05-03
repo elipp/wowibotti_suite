@@ -3,17 +3,26 @@ use std::ffi::c_void;
 use std::pin::Pin;
 use std::sync::LazyLock;
 
-use windows::Win32::System::{
-    Diagnostics::Debug::WriteProcessMemory,
-    Memory::{PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS, VirtualProtect},
-    Threading::GetCurrentProcess,
+use windows::{
+    Win32::{
+        Graphics::Direct3D9::IDirect3DDevice9,
+        System::{
+            Diagnostics::Debug::WriteProcessMemory,
+            Memory::{PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS, VirtualProtect},
+            Threading::GetCurrentProcess,
+        },
+    },
+    core::Interface,
 };
 
-use crate::ctm::prepare_ctm_finished_patch;
-use crate::lua::prepare_ClosePetStables_patch;
-use crate::socket::prepare_dump_outbound_packet_patch;
-use crate::spell_error::prepare_spell_err_msg_trampoline;
 use crate::{Addr, EndScene_hook, LoleError, LoleResult, assembly};
+use crate::{addrs::offsets, lua::prepare_ClosePetStables_patch};
+use crate::{
+    addrs::offsets::{WOW_CAMERA, WOW_CAMERA_L2_OFFSET},
+    spell_error::prepare_spell_err_msg_trampoline,
+};
+use crate::{ctm::prepare_ctm_finished_patch, wc3::WowCamera};
+use crate::{fatal_error_exit, socket::prepare_dump_outbound_packet_patch};
 
 pub static AVAILABLE_PATCHES: LazyLock<HashMap<&'static str, Patch>> = LazyLock::new(|| {
     HashMap::from_iter([
@@ -24,8 +33,6 @@ pub static AVAILABLE_PATCHES: LazyLock<HashMap<&'static str, Patch>> = LazyLock:
         ("SpellErrMsg", prepare_spell_err_msg_trampoline()),
     ])
 });
-
-use crate::addrs::offsets;
 
 const INSTRBUF_SIZE: usize = 64;
 
@@ -163,13 +170,11 @@ impl Patch {
 }
 
 pub fn deref_t<T: Copy, const N: u8>(addr: Addr) -> T {
-    deref_opt_t::<T, N>(addr as *const c_void).unwrap()
+    deref_opt_t::<T, N>(addr as _).unwrap()
 }
 
-pub fn deref_opt_t<T: Copy, const N: u8>(ptr: *const c_void) -> Option<T> {
-    if N == 0 {
-        return None;
-    }
+pub fn deref_opt_t<T: Copy, const N: u8>(ptr: *const ()) -> Option<T> {
+    const { assert!(N > 0, "N must be greater than 0") };
 
     unsafe {
         let mut t = ptr;
@@ -177,7 +182,7 @@ pub fn deref_opt_t<T: Copy, const N: u8>(ptr: *const c_void) -> Option<T> {
             if t.is_null() {
                 return None;
             }
-            t = std::ptr::read_unaligned(t as *const *const c_void);
+            t = std::ptr::read_unaligned(t as *const *const ());
         }
         if t.is_null() {
             return None;
@@ -186,25 +191,25 @@ pub fn deref_opt_t<T: Copy, const N: u8>(ptr: *const c_void) -> Option<T> {
     }
 }
 
-pub fn deref_res_t<T: Copy, const N: u8>(ptr: *const c_void) -> LoleResult<T> {
+pub fn deref_res_t<T: Copy, const N: u8>(ptr: *const ()) -> LoleResult<T> {
     deref_opt_t::<T, N>(ptr).ok_or_else(|| LoleError::NullPtrError)
 }
 
-pub fn deref_ptr<const N: u8>(ptr: *const c_void) -> *const c_void {
-    match deref_opt_t::<*const c_void, N>(ptr) {
+pub fn deref_ptr<const N: u8>(ptr: *const ()) -> *const () {
+    match deref_opt_t::<_, N>(ptr) {
         Some(ptr) => ptr,
         None => std::ptr::null(),
     }
 }
 
-pub fn deref_opt_ptr<const N: u8>(ptr: *const c_void) -> Option<*const c_void> {
-    match deref_opt_t::<*const c_void, N>(ptr) {
+pub fn deref_opt_ptr<const N: u8>(ptr: *const ()) -> Option<*const ()> {
+    match deref_opt_t::<*const (), N>(ptr) {
         Some(ptr) if !ptr.is_null() => Some(ptr),
         _ => None,
     }
 }
 
-pub fn deref_res_ptr<const N: u8>(ptr: *const c_void) -> LoleResult<*const c_void> {
+pub fn deref_res_ptr<const N: u8>(ptr: *const ()) -> LoleResult<*const ()> {
     match deref_opt_ptr::<N>(ptr) {
         Some(ptr) => Ok(ptr),
         _ => Err(LoleError::NullPtrError),
@@ -266,10 +271,8 @@ pub fn copy_original_opcodes(addr: Addr, n: usize) -> Box<[u8]> {
 }
 
 pub fn prepare_endscene_trampoline() -> Patch {
-    let endscene_addr = loop {
-        if let Some(addr) = find_EndScene() {
-            break addr;
-        }
+    let Some(endscene_addr) = find_EndScene_addr() else {
+        fatal_error_exit(anyhow::anyhow!("Couldn't find EndScene"));
     };
 
     tracing::info!("EndScene: {:p}", endscene_addr as *const ());
@@ -294,11 +297,17 @@ pub fn prepare_endscene_trampoline() -> Patch {
     }
 }
 
-#[allow(non_snake_case)]
-fn find_EndScene() -> Option<Addr> {
+fn get_wow_d3d9() -> Option<*const IDirect3DDevice9> {
     unsafe {
-        let wowd3d9 = deref_opt_t::<*const c_void, 1>(offsets::D3D9_DEVICE as *const c_void)?;
-        let d3d9 = deref_opt_t::<*const c_void, 2>(wowd3d9.offset(offsets::D3D9_DEVICE_OFFSET))?;
-        deref_opt_t::<Addr, 1>(d3d9.offset(0x2A * 4))
+        let d1 = deref_opt_ptr::<1>(offsets::D3D9_DEVICE as _)?;
+        Some(d1.wrapping_byte_offset(offsets::D3D9_DEVICE_OFFSET) as _)
+    }
+}
+
+#[allow(non_snake_case)]
+fn find_EndScene_addr() -> Option<Addr> {
+    unsafe {
+        let d3d9 = &*get_wow_d3d9()?;
+        Some(d3d9.vtable().EndScene as _)
     }
 }

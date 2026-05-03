@@ -2,6 +2,7 @@ use rand::RngExt;
 use std::arch::asm;
 use std::collections::VecDeque;
 use std::f32::consts::PI;
+use std::f32::consts::TAU;
 use std::ffi::c_void;
 use std::sync::LazyLock;
 use std::sync::Mutex;
@@ -10,6 +11,7 @@ use std::time::{Duration, Instant};
 use crate::addrs::offsets::ctm::CTM_FINISHED_PATCHADDR;
 use crate::addrs::{self, offsets};
 use crate::dostring;
+use crate::linalg::WowVector3;
 use crate::lua::RUN_SCRIPT_AFTER_N_FRAMES;
 use crate::objectmanager::{GUID, GUIDFmt, NO_TARGET, ObjectManager};
 use crate::patch::{
@@ -18,14 +20,13 @@ use crate::patch::{
 };
 use crate::socket::facing::{self, SETFACING_STATE};
 use crate::socket::movement_flags;
-use crate::vec3::{TWO_PI, Vec3};
 use crate::{Addr, LoleError, assembly};
 
 static QUEUE: LazyLock<Mutex<CtmQueue>> = LazyLock::new(|| {
     Mutex::new(CtmQueue {
         events: Default::default(),
         current: None,
-        prev_pos: Default::default(),
+        prev_pos: WowVector3::zero(),
         last_frame_time: Instant::now(),
         yards_moved: Default::default(),
     })
@@ -80,7 +81,7 @@ impl<const W: usize> MovingAverage<W> {
 struct CtmQueue {
     events: VecDeque<CtmEvent>,
     current: Option<(CtmEvent, Instant)>,
-    prev_pos: Vec3,
+    prev_pos: WowVector3,
     last_frame_time: Instant,
     yards_moved: MovingAverage<30>,
 }
@@ -98,18 +99,18 @@ impl PartialOrd for CtmPriority {
     }
 }
 
-pub fn get_wow_ctm_target_pos() -> Vec3 {
+pub fn get_wow_ctm_target_pos() -> WowVector3 {
     let [x, y, z] = read_elems_from_addr::<3, f32>(offsets::ctm::TARGET_POS_X as _);
-    Vec3 { x, y, z }
+    WowVector3::new(x, y, z)
 }
 
 pub fn short_angle_dist(start: f32, end: f32) -> f32 {
-    let da = (end - start) % TWO_PI;
-    2.0 * da % TWO_PI - da
+    let da = (end - start) % TAU;
+    2.0 * da % TAU - da
 }
 
 pub fn angle_lerp(start: f32, end: f32, t: f32) -> f32 {
-    (start + short_angle_dist(start, end) * t) % TWO_PI
+    (start + short_angle_dist(start, end) * t) % TAU
 }
 
 const PROBABLY_STUCK_THRESHOLD: f32 = 4.0;
@@ -390,7 +391,7 @@ pub enum CtmBackend {
 #[derive(Debug)]
 pub struct CtmEvent {
     pub id: u64,
-    pub target_pos: Vec3,
+    pub target_pos: WowVector3,
     pub priority: CtmPriority,
     pub action: CtmAction,
     pub interact_guid: Option<GUID>,
@@ -407,7 +408,7 @@ impl Default for CtmEvent {
         *ctm = id + 1;
         Self {
             id,
-            target_pos: Vec3::default(),
+            target_pos: WowVector3::zero(),
             priority: CtmPriority::None,
             action: CtmAction::Move,
             interact_guid: None,
@@ -430,7 +431,7 @@ pub mod ctm_constants {
 // extern "stdcall" wow_click_to_move(action: u32, coordinates: *const f32, guid: *const GUID, unk: u32);
 
 impl CtmEvent {
-    fn update_target_pos(&mut self, new_pos: Vec3, distance_margin: Option<f32>) {
+    fn update_target_pos(&mut self, new_pos: WowVector3, distance_margin: Option<f32>) {
         self.target_pos = new_pos;
         self.distance_margin = distance_margin;
     }
@@ -476,7 +477,7 @@ impl CtmEvent {
                 "push {}",
                 "push {}",
                 "push {}",
-                in(reg) &self.target_pos.x as *const f32,
+                in(reg) &self.target_pos.0.x as *const f32,
                 in(reg) &interact_guid as *const GUID,
                 in(reg) action as u32,
                 out("ecx") _,
@@ -511,7 +512,7 @@ impl CtmEvent {
         let ppos = p.get_pos()?;
         let diff = ppos - self.target_pos;
         let walking_angle =
-            (diff.y.atan2(diff.x) - ppos.y.atan2(ppos.x) - 0.5 * PI).rem_euclid(TWO_PI);
+            (diff.0.y.atan2(diff.0.x) - ppos.0.y.atan2(ppos.0.x) - 0.5 * PI).rem_euclid(TAU);
 
         let (const2, min_distance, interact_guid) = match self.action {
             CtmAction::Loot => match self.interact_guid {
@@ -553,9 +554,9 @@ impl CtmEvent {
         write_addr(
             offsets::ctm::TARGET_POS_X,
             &[
-                final_target_point.x,
-                final_target_point.y,
-                final_target_point.z,
+                final_target_point.0.x,
+                final_target_point.0.y,
+                final_target_point.0.z,
             ],
         )?;
 

@@ -228,6 +228,9 @@ pub mod offsets {
     pub const RENDERING_ENABLES: Addr = 0xCD774C;
     pub const RENDERING_ENABLES_DEFAULT_VALUE: u32 = 0x1F104F73;
 
+    pub const WOW_CAMERA: Addr = 0xB7436C;
+    pub const WOW_CAMERA_L2_OFFSET: Offset = 0x7E20;
+
     #[allow(non_upper_case_globals)]
     pub mod wow_cfuncs {
         use crate::{Addr, addrs::UNKNOWN_ADDRESS};

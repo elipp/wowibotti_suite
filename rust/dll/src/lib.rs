@@ -1,9 +1,6 @@
 use addrs::offsets::LAST_HARDWARE_ACTION;
 use shared::SendSyncWrapper;
 
-#[cfg(feature = "addonmessage_broker")]
-use std::collections::VecDeque;
-
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
@@ -50,17 +47,18 @@ pub mod addrs;
 pub mod assembly;
 pub mod ctm;
 pub mod divx;
+pub mod linalg;
 pub mod lua;
 pub mod objectmanager;
 pub mod patch;
 pub mod socket;
 pub mod spell_error;
-pub mod vec3;
+pub mod wc3;
 pub mod wowproto_opcodes;
 #[cfg(feature = "addonmessage_broker")]
 use crate::addonmessage::unpack_broker_message_queue;
 use crate::addrs::offsets::{RENDERING_ENABLES, RENDERING_ENABLES_DEFAULT_VALUE};
-use crate::lua::{DEBUG_TRACING_OUTPUT_AVAILABLE, LuaType};
+use crate::lua::{LuaType, WORLD_ENTERED, dump_all_globals_to_file, enter_world};
 use crate::patch::{AVAILABLE_PATCHES, Patch};
 use crate::spell_error::SpellError;
 
@@ -366,8 +364,8 @@ impl<'a> tracing::field::Visit for StringVisitor<'a> {
 
 // This must occur on the main thread, otherwise Wow gets "Fatal condition" errors
 fn flush_tracing_log_queue() {
-    let mut pending = PENDING_MESSAGES.lock().unwrap();
-    if DEBUG_TRACING_OUTPUT_AVAILABLE.load(Ordering::Relaxed) {
+    if WORLD_ENTERED.load(Ordering::Relaxed) {
+        let mut pending = PENDING_MESSAGES.lock().unwrap();
         for msg in pending.drain(..) {
             msg.print();
         }
@@ -375,21 +373,13 @@ fn flush_tracing_log_queue() {
 }
 
 fn on_every_frame() -> anyhow::Result<()> {
+    enter_world()?;
+
     match ctm::poll() {
         Ok(_) => {}
         Err(e) if let Some(LoleError::PlayerNotFound) = e.downcast_ref() => {}
         Err(e) => return Err(e),
     }
-
-    // #[cfg(feature = "tbc")]
-    // tbc client isn't doing any frame limiting for clients in the background
-    // {
-    //     let now = lua_GetTime()?;
-    //     let dt = now - get_state_!().last_frame_time;
-    //     if 0.0 < dt && dt < TARGET_SPF {
-    //         std::thread::sleep(std::time::Duration::from_secs_f64(TARGET_SPF - dt));
-    //     }
-    // }
 
     unsafe {
         reduce_rendering_if_not_focused()?;
@@ -439,9 +429,9 @@ pub(crate) struct Account(WowAccount);
 
 impl Account {
     fn login(&self) -> anyhow::Result<()> {
-        let sleep_duration = std::time::Duration::from_millis(rand::random::<u64>() % 4000) * 0;
-        tracing::info!("Sleeping for {sleep_duration:?}");
-        std::thread::sleep(sleep_duration);
+        // let sleep_duration = std::time::Duration::from_millis(rand::random::<u64>() % 4000) * 0;
+        // tracing::info!("Sleeping for {sleep_duration:?}");
+        // std::thread::sleep(sleep_duration);
         dostring!(
             "DefaultServerLogin('{}', '{}')",
             self.0.username,
@@ -496,12 +486,22 @@ fn initialize_dll() -> anyhow::Result<()> {
 
     // let (debug_log_layer, state) = DebugLogLayer::new();
 
+    use tracing_subscriber::prelude::*;
+
+    // let file = std::fs::File::create(format!("/tmp/log-{lole_id}.txt"))
+    //     .expect("failed to create log file");
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
         .with(tracing_subscriber::fmt::layer().with_ansi(!cfg!(feature = "host-linux"))) // host-windows with the extended terminal capabilities actually supports ansi codes, just not wine terminal
+        // .with(
+        //     tracing_subscriber::fmt::layer()
+        //         .with_ansi(false)
+        //         .with_writer(file),
+        // )
         .with(LuaPrintLayer)
         // .with(debug_log_layer)
         .init();
@@ -559,10 +559,10 @@ fn initialize_dll() -> anyhow::Result<()> {
         }
     }
 
-    tracing::info!("wowibottihookdll_rust: init done! :D enabled patches:");
+    tracing::info!("init done! :D LOLE_ID: {lole_id} - enabled patches:");
 
     for p in global_var!(ENABLED_PATCHES).iter() {
-        tracing::info!("* {} @ 0x{:08X}", p.name, p.patch_addr);
+        tracing::info!("{} @ 0x{:08X}", p.name, p.patch_addr);
     }
     Ok(())
 }
@@ -572,7 +572,7 @@ fn fatal_error_exit(err: anyhow::Error) -> ! {
         MessageBoxW(
             None,
             windows_string!(&format!("{err}")),
-            windows_string!("wowibottihookdll_rust error :("),
+            windows_string!("lole error :("),
             MB_OK | MB_ICONERROR, // MB_OK apparently waits for the user to click OK
         );
         ExitProcess(1)
@@ -587,7 +587,6 @@ pub unsafe extern "stdcall" fn EndScene_hook() {
             // fatal_error_exit(e);
             tracing::error!("dll init failed: {e}");
         }
-        tracing::info!("EndScene_hook: {:p}", EndScene_hook as *const ());
         get_state_!().need_init = false;
     } else if get_state_!().should_eject {
         if let Err(e) = eject_dll() {

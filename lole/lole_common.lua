@@ -1253,20 +1253,34 @@ end
 -- }
 
 local guild_members = {
-    Brah = 1,
-    Ahaa = 2,
-    Juuh = 3,
-    Jaakko = 4,
-    ['Entsä'] = 5,
+    noobs = {
+        Brah = 1,
+        Ahaa = 2,
+        Juuh = 3,
+        Jaakko = 4,
+        ['Entsä'] = 5,
+    },
+    raid = {
+        Sepe = 10,
+        Rhotaa = 11,
+        Toope = 12,
+        Retro = 13,
+        Grans = 14,
+        Rouge = 15,
+        Dotti = 16,
+        Tykki = 17,
+        Pap = 18,
+        Doom = 19,
+    }
 }
 
-for name, num in pairs(guild_members) do
-    HEALS_IN_PROGRESS[name] = {};
-    UNREACHABLE_TARGETS[name] = 0;
+function get_guild_members()
+    return guild_members.raid
 end
 
-function get_guild_members()
-    return guild_members
+for name, num in pairs(get_guild_members()) do
+    HEALS_IN_PROGRESS[name] = {};
+    UNREACHABLE_TARGETS[name] = 0;
 end
 
 function get_guild_members_list()

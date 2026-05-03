@@ -8,7 +8,7 @@ function LOP:call(opcode, ...)
     if query_injected() then
         return lop_exec(opcode, ...)
     else
-        lole_error("LOP:call(" .. tostring(opcode) .. ") called, but we're not injected!")
+        -- lole_error("LOP:call(" .. tostring(opcode) .. ") called, but we're not injected!")
         return NOT_INJECTED
     end
 end
@@ -398,10 +398,10 @@ function enable_wc3mode(enabled)
     LOP:call(LOP.WC3MODE, tonumber(enabled))
 end
 
--- enable `tracing` logging
+-- set WORLD_ENTERED flag for stuff that needs to be done only once per login
 local frame = CreateFrame("Frame")
 frame:SetScript("OnUpdate", function(self)
-    if LOP:call(LOP.EnableLogging) ~= NOT_INJECTED then
+    if LOP:call(LOP.WorldEntered) ~= NOT_INJECTED then
         self:SetScript("OnUpdate", nil)
     end
 end)

@@ -7,6 +7,7 @@ use uuid::Uuid;
 pub enum CharacterClass {
     Druid,
     Hunter,
+    #[serde(rename = "Death Knight")]
     DeathKnight,
     Paladin,
     Priest,

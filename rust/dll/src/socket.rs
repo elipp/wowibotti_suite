@@ -1,5 +1,4 @@
 use std::arch::asm;
-use std::ffi::c_void;
 
 use windows::Win32::Networking::WinSock::SOCKET;
 use windows::Win32::Networking::WinSock::{self, SEND_RECV_FLAGS};
@@ -7,11 +6,11 @@ use windows::Win32::System::SystemInformation::GetTickCount;
 
 use crate::addrs::offsets::{self};
 use crate::assembly;
+use crate::linalg::WowVector3;
 use crate::patch::{
     InstructionBuffer, Patch, PatchKind, copy_original_opcodes, deref_opt_t, deref_res_ptr,
     deref_res_t, write_addr,
 };
-use crate::vec3::Vec3;
 use crate::wowproto_opcodes::{MSG_MOVE_SET_FACING, OPCODE_NAME_MAP, is_movement_opcode};
 use crate::{Addr, LoleError, LoleResult, objectmanager::GUID};
 
@@ -21,9 +20,8 @@ pub struct WowSocket(Addr, SOCKET);
 impl WowSocket {}
 
 pub fn get_wow_sockobj() -> Option<WowSocket> {
-    let tmp = deref_opt_t::<*const c_void, 1>(offsets::socket::CONNECTION as *const c_void)?;
-    let sockobj =
-        deref_opt_t::<*const c_void, 1>(tmp.wrapping_byte_offset(offsets::socket::SOCKOBJ))?;
+    let tmp = deref_opt_t::<*const (), 1>(offsets::socket::CONNECTION as _)?;
+    let sockobj = deref_opt_t::<*const (), 1>(tmp.wrapping_byte_offset(offsets::socket::SOCKOBJ))?;
     let socket = deref_opt_t::<usize, 1>(sockobj.wrapping_byte_offset(0x4))?;
     Some(WowSocket(sockobj as usize, SOCKET(socket)))
 }
@@ -184,6 +182,7 @@ fn set_facing_remote(pos: Vec3, angle: f32, movement_flags: u8) -> LoleResult<()
 #[cfg(feature = "wotlk")]
 pub mod facing {
     use std::arch::asm;
+    use std::f32::consts::TAU;
     use std::sync::{LazyLock, Mutex};
 
     use super::movement_flags::NOT_MOVING;
@@ -191,12 +190,12 @@ pub mod facing {
     use crate::LoleError;
     use crate::addrs::offsets;
     use crate::ctm;
+    use crate::linalg::WowVector3;
     use crate::objectmanager::WowObject;
     use crate::socket::get_wow_sockobj;
     use crate::{
         LoleResult,
         objectmanager::{GUID, ObjectManager},
-        vec3::{TWO_PI, Vec3},
         wowproto_opcodes::MSG_MOVE_SET_FACING,
     };
 
@@ -241,7 +240,7 @@ pub mod facing {
 
     pub fn create_facing_packet(
         player_guid: GUID,
-        pos: Vec3,
+        pos: WowVector3,
         angle: f32,
         movement_flags: u8,
     ) -> Vec<u8> {
@@ -258,7 +257,7 @@ pub mod facing {
         packet.extend(ticks.to_le_bytes());
 
         packet.extend(
-            [pos.x, pos.y, pos.z, angle]
+            [pos.0.x, pos.0.y, pos.0.z, angle]
                 .into_iter()
                 .flat_map(|f| f.to_le_bytes()),
         );
@@ -272,7 +271,7 @@ pub mod facing {
 
     pub fn set_facing_remote(
         player_guid: GUID,
-        pos: Vec3,
+        pos: WowVector3,
         angle: f32,
         movement_flags: u8,
     ) -> LoleResult<()> {
@@ -284,7 +283,7 @@ pub mod facing {
     }
 
     pub fn set_facing(player: WowObject, angle: f32, movement_flags: u8) -> anyhow::Result<()> {
-        let angle = angle.rem_euclid(TWO_PI);
+        let angle = angle.rem_euclid(TAU);
         let mut setfacing = SETFACING_STATE.lock().unwrap();
         let (_prev_angle, timestamp) = setfacing.clone();
         let timeout_passed =
@@ -328,21 +327,21 @@ fn increment_cast_count() -> anyhow::Result<()> {
     write_addr(offsets::SPELL_CAST_COUNTER, &[new_value])
 }
 
-pub fn cast_gtaoe(spellid: i32, pos: Vec3) -> anyhow::Result<()> {
+pub fn cast_gtaoe(spellid: i32, pos: WowVector3) -> anyhow::Result<()> {
     let mut packet: Vec<u8> = vec![0x0, 0x1B, 0x2E, 0x1, 0x0, 0x0]; // packet size, 0x012E -> CMSG_CAST_SPELL
     packet.push(read_cast_count()?);
     packet.extend(spellid.to_le_bytes());
     packet.extend([0x0, 0x40, 0x0, 0x0, 0x0, 0x0]); // flags + something
-    packet.extend(pos.x.to_le_bytes());
-    packet.extend(pos.y.to_le_bytes());
-    packet.extend(pos.z.to_le_bytes());
+    packet.extend(pos.0.x.to_le_bytes());
+    packet.extend(pos.0.y.to_le_bytes());
+    packet.extend(pos.0.z.to_le_bytes());
     let wowsocket = get_wow_sockobj().ok_or_else(|| LoleError::WowSocketNotAvailable)?;
     wowsocket.send_packet(packet)?;
     increment_cast_count()?;
     Ok(())
 }
 
-fn wrap_dump_outbound_packet(edi: *const c_void) -> LoleResult<()> {
+fn wrap_dump_outbound_packet(edi: *const ()) -> LoleResult<()> {
     if edi.is_null() {
         return Err(LoleError::NullPtrError);
     }
@@ -392,7 +391,7 @@ fn wrap_dump_outbound_packet(edi: *const c_void) -> LoleResult<()> {
     // print_as_c_array("outbound packet", packet_bytes);
 }
 
-unsafe extern "stdcall" fn dump_outbound_packet(edi: *const c_void) {
+unsafe extern "stdcall" fn dump_outbound_packet(edi: *const ()) {
     match wrap_dump_outbound_packet(edi) {
         Ok(_) => {}
         Err(e) => tracing::error!("dump_outbound_packet: {e:?}"),
