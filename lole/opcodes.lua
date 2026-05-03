@@ -136,7 +136,6 @@ function lole_debug_dump_wowobjects(type_filter, ...)
 end
 
 function lole_debug()
-    echo("moi")
     LOP:call(LOP.Debug);
     return true;
 end
@@ -338,6 +337,7 @@ function enable_wc3mode(enabled)
     LOP:call(LOP.WC3MODE, tonumber(enabled))
 end
 
+-- enable `tracing` logging
 local frame = CreateFrame("Frame")
 frame:SetScript("OnUpdate", function(self)
     if LOP:call(LOP.EnableLogging) ~= NOT_INJECTED then

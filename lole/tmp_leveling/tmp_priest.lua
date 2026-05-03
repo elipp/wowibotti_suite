@@ -13,10 +13,6 @@ local function shadow()
 end
 
 function tmp_priest_combat()
-    if not UnitAffectingCombat("player") then
-        buff_if_eligible("Power Word: Fortitude", "Brah")
-    end
-
     local heal_targets = sorted_by_urgency(get_assigned_targets(UnitName("player")));
 
     if heal_targets[1] == 'raid' then

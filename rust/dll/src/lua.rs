@@ -1083,7 +1083,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
         }
 
         Opcode::EnableLogging => {
-            if let Ok(true) = DEBUG_TRACING_OUTPUT_AVAILABLE.compare_exchange(
+            if let Ok(_) = DEBUG_TRACING_OUTPUT_AVAILABLE.compare_exchange(
                 false,
                 true,
                 Ordering::Relaxed,

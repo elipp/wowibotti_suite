@@ -35,7 +35,7 @@ use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
-use windows::core::{PCSTR, PCWSTR};
+use windows::core::PCWSTR;
 
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Console::AllocConsole;
@@ -49,6 +49,7 @@ type Offset = isize;
 pub mod addrs;
 pub mod assembly;
 pub mod ctm;
+pub mod divx;
 pub mod lua;
 pub mod objectmanager;
 pub mod patch;
@@ -317,7 +318,7 @@ pub struct DebugLogLayer {
 }
 
 impl DebugLogLayer {
-    pub fn new() -> (Self, Arc<Mutex<LogState>>) {
+    fn new() -> (Self, Arc<Mutex<LogState>>) {
         let state = Arc::new(Mutex::new(LogState::default()));
         (
             Self {
@@ -595,7 +596,7 @@ fn initialize_dll() -> anyhow::Result<()> {
             let _handle = std::thread::spawn(move || {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(async {
-                    start_addonmessage_client(
+                    match start_addonmessage_client(
                         rx,
                         character_name.clone(),
                         |connection_id| {
@@ -617,7 +618,10 @@ fn initialize_dll() -> anyhow::Result<()> {
                         addr,
                     )
                     .await
-                    .unwrap();
+                    {
+                        Ok(_) => tracing::info!("Addonmessage client started"),
+                        Err(e) => tracing::error!("Couldn't connect to addonmessage server: {e:?}. Using regular SendAddonMessage API."),
+                    }
                 });
             });
         }
@@ -770,65 +774,4 @@ extern "system" fn main_thread(_: *mut c_void) -> u32 {
         global_var!(ENABLED_PATCHES).push(tramp);
     }
     0
-}
-
-struct DivxReal {
-    divx_decode: unsafe extern "C" fn(i32, i32, i32) -> i32,
-    initialize: unsafe extern "C" fn(i32) -> i32,
-    set_output_format: unsafe extern "C" fn(i32, i32, i32, i32) -> i32,
-    uninitialize: unsafe extern "C" fn(i32) -> i32,
-}
-
-static REAL: OnceLock<DivxReal> = OnceLock::new();
-
-fn real() -> &'static DivxReal {
-    REAL.get_or_init(|| unsafe {
-        let lib = LoadLibraryA(PCSTR(b"DivxDecoder.dll.real\0".as_ptr())).unwrap();
-        macro_rules! proc {
-            ($name:literal, $type:ty) => {
-                std::mem::transmute::<_, $type>(GetProcAddress(lib, PCSTR($name.as_ptr())).unwrap())
-            };
-        }
-        DivxReal {
-            divx_decode: proc!(b"DivxDecode\0", unsafe extern "C" fn(i32, i32, i32) -> i32),
-            initialize: proc!(b"InitializeDivxDecoder\0", unsafe extern "C" fn(i32) -> i32),
-            set_output_format: proc!(
-                b"SetOutputFormat\0",
-                unsafe extern "C" fn(i32, i32, i32, i32) -> i32
-            ),
-            uninitialize: proc!(
-                b"UnInitializeDivxDecoder\0",
-                unsafe extern "C" fn(i32) -> i32
-            ),
-        }
-    })
-}
-
-macro_rules! int3h {
-    () => {
-        asm! {
-            "int 3h"
-        }
-    };
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn DivxDecode(a: i32, b: i32, c: i32) -> i32 {
-    // int3h!();
-    unsafe { (real().divx_decode)(a, b, c) }
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn InitializeDivxDecoder(a: i32) -> i32 {
-    // int3h!();
-    unsafe { (real().initialize)(a) }
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn SetOutputFormat(a: i32, b: i32, c: i32, d: i32) -> i32 {
-    // int3h!();
-    unsafe { (real().set_output_format)(a, b, c, d) }
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn UnInitializeDivxDecoder(a: i32) -> i32 {
-    // int3h!();
-    unsafe { (real().uninitialize)(a) }
 }
