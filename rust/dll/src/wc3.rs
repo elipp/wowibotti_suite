@@ -1,15 +1,21 @@
-use std::sync::LazyLock;
+use std::sync::{LazyLock, Mutex};
 
-use nalgebra::{Matrix4, Rotation3, RowVector4, Vector3, Vector4};
+use nalgebra::{Matrix4, Rotation3, RowVector4, Vector3};
+use windows::Win32::{
+    Foundation::RECT,
+    UI::WindowsAndMessaging::{GetClientRect, GetForegroundWindow},
+};
 
 use crate::{
-    Addr,
+    Addr, LoleError,
     addrs::offsets::{WOW_CAMERA, WOW_CAMERA_L2_OFFSET},
     assembly::NOP,
     linalg::WowVector3,
     objectmanager::ObjectManager,
     patch::{deref_opt_ptr, write_addr},
 };
+
+pub static CUSTOM_CAMERA: LazyLock<Mutex<CustomCamera>> = LazyLock::new(Default::default);
 
 #[repr(C)]
 #[derive(Debug)]
@@ -70,8 +76,14 @@ impl WowCamera {
         pos * self.get_wow_rot()
     }
 
-    pub fn set_rot(&mut self, rot: &Matrix4<f32>) {
-        let rot3 = rot.fixed_view::<3, 3>(0, 0).transpose();
+    pub fn set_pos(&mut self, pos: &WowVector3) {
+        self.x = pos.0.x;
+        self.y = pos.0.y;
+        self.z = pos.0.z;
+    }
+
+    pub fn set_rot(&mut self, rot: Rotation3<f32>) {
+        let rot3 = rot.to_homogeneous().fixed_view::<3, 3>(0, 0).clone_owned(); //.transpose();
         self.rot = rot3.into();
     }
 
@@ -82,26 +94,38 @@ impl WowCamera {
     pub fn fetch_mut() -> Option<&'static mut Self> {
         let c1 = deref_opt_ptr::<1>(WOW_CAMERA as _)?;
         let c2 = deref_opt_ptr::<1>(c1.wrapping_byte_offset(WOW_CAMERA_L2_OFFSET) as _)?;
-        unsafe { Some(&mut *(c2 as *mut Self)) }
+        unsafe { (c2 as *mut Self).as_mut() }
     }
 }
 
 pub struct CustomCamera {
     s: f32,
     maxdistance: f32,
-    pos: Vector4<f32>,
+    pos: WowVector3,
 }
 
 const S_MIN: f32 = 0.4;
 const S_MAX: f32 = 0.7;
 const S_INCREMENT: f32 = 0.01;
 
+impl Default for CustomCamera {
+    fn default() -> Self {
+        let res = Self {
+            s: 0.5,
+            maxdistance: 80.0,
+            pos: WowVector3::new(0.0, 80.0, 0.0),
+        };
+        res
+    }
+}
+
 impl CustomCamera {
-    pub fn get_cameraoffset(&self) -> Vector4<f32> {
-        self.maxdistance * Vector4::new(0.0, 2.0 * self.s * self.s, self.s, 1.0)
+    pub fn get_cameraoffset(&self) -> WowVector3 {
+        // self.maxdistance * WowVector3::new(0.0, 2.0 * self.s * self.s, self.s)
+        self.maxdistance * WowVector3::new(-0.5 * self.s.powi(2), 0.0, 0.5 * self.s)
     }
     pub fn get_angle(&self) -> f32 {
-        self.s * 1.57 // dunno.
+        0.5 + self.s * 0.6
     }
     pub fn increment_s(&mut self) {
         self.s = (self.s + S_INCREMENT).clamp(S_MIN, S_MAX);
@@ -112,39 +136,65 @@ impl CustomCamera {
     pub fn get_s(&self) -> f32 {
         self.s
     }
-    pub fn reset_camera(&mut self) -> anyhow::Result<()> {
-        let wowcamera = unsafe {
-            &mut *WowCamera::fetch_mut()
-                .ok_or_else(|| anyhow::anyhow!("couldn't get wow camera"))?
-        };
 
+    pub fn get_rot(&self) -> Rotation3<f32> {
+        Rotation3::new(Vector3::y() * self.get_angle())
+        // Rotation3::new(Vector3::y() * 1.3)
+    }
+
+    pub fn update(&mut self, wow_camera: &mut WowCamera) -> anyhow::Result<()> {
+        wow_camera.set_rot(self.get_rot());
+        wow_camera.set_pos(&self.pos.into());
+        Ok(())
+    }
+
+    /// Reset camera to the "default" view over the player
+    pub fn reset_camera(&mut self, wow_camera: &mut WowCamera) -> anyhow::Result<()> {
         let Ok(om) = ObjectManager::new() else {
-            return Err(anyhow::anyhow!("No OM"));
+            return Err(LoleError::ObjectManagerIsNull)?;
         };
 
         let p = om.get_player()?;
         let pos = p.get_pos()?;
-        self.pos = pos.xyzw().into();
-        self.pos.z += 8.0;
+        self.pos = pos;
 
         let newpos = self.pos + self.get_cameraoffset();
-        let newpos_wow: WowVector3 = newpos.xyz().into();
-        wowcamera.x = newpos_wow.0.x;
-        wowcamera.y = newpos_wow.0.y;
-        wowcamera.z = newpos_wow.0.z;
+        wow_camera.set_pos(&newpos);
+        wow_camera.set_rot(self.get_rot());
 
         Ok(())
     }
 }
 
-const CAMERAPATCH_BASE: usize = 0x6075AB;
-const CAMERAPATCH_END: usize = 0x6075EC;
+pub fn get_window_dimensions() -> anyhow::Result<(i32, i32)> {
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        let mut rect = RECT::default();
+        GetClientRect(hwnd, &mut rect)?;
+        let width = rect.right - rect.left;
+        let height = rect.bottom - rect.top;
+        Ok((width, height))
+    }
+}
+
+const CAMERAPATCH_BASE: Addr = 0x6075AB;
+const CAMERAPATCH_END: Addr = 0x6075EC;
 const CAMERAPATCH_SIZE: usize = CAMERAPATCH_END - CAMERAPATCH_BASE;
 
-pub struct CameraPatch;
+pub struct CameraPatch {
+    original: [u8; CAMERAPATCH_SIZE],
+    patched: bool,
+}
 
-pub static ORIGINAL_CAMERA_FUNC_OPCODES: LazyLock<[u8; CAMERAPATCH_SIZE]> =
-    LazyLock::new(|| unsafe { CameraPatch::snapshot() });
+static CAMERA_PATCH: LazyLock<Mutex<CameraPatch>> = LazyLock::new(|| {
+    let mut res = CameraPatch {
+        original: unsafe { CameraPatch::snapshot() },
+        patched: false,
+    };
+    unsafe { res.patch().expect("Camera patching to succeed") }
+    unsafe { res.unpatch().expect("Camera unpatching to succeed") }
+    Mutex::new(res)
+});
 
 impl CameraPatch {
     /// Reads the current (patched) bytes at CAMERAPATCH_BASE
@@ -164,20 +214,11 @@ impl CameraPatch {
         write_addr(address, bytes)
     }
 
-    /// Restores the original bytes (undo the patch).
-    pub unsafe fn unpatch(&self) -> anyhow::Result<()> {
-        unsafe {
-            self.write(CAMERAPATCH_BASE, &*ORIGINAL_CAMERA_FUNC_OPCODES)?;
-
-            // Restore the two-byte rep movsd at 0x4C5810
-            let orig_rot: [u8; _] = [0xF3, 0xA5];
-            self.write(0x4C5810, &orig_rot)?;
-        }
-        Ok(())
-    }
-
     /// Applies the camera patch (NOP out the write-back instructions).
-    pub unsafe fn patch(&self) -> anyhow::Result<()> {
+    pub unsafe fn patch(&mut self) -> anyhow::Result<()> {
+        if self.patched {
+            return Ok(());
+        }
         let nop4 = [NOP; 4];
         unsafe {
             // 2-byte NOP at CAMERAPATCH_BASE (0x6075AB)
@@ -201,6 +242,56 @@ impl CameraPatch {
             // 2-byte NOP at 0x4C5810 (rep movsd -> NOP, kills game camera rotation write-back)
             self.write(0x4C5810, &nop4[..2])?;
         }
+        tracing::info!("Patched Wow camera writeback locations");
+        self.patched = true;
         Ok(())
     }
+
+    /// Restores the original bytes (undo the patch).
+    pub unsafe fn unpatch(&mut self) -> anyhow::Result<()> {
+        if !self.patched {
+            return Ok(());
+        }
+        unsafe {
+            self.write(CAMERAPATCH_BASE, &self.original)?;
+
+            // Restore the two-byte rep movsd at 0x4C5810
+            let orig_rot: [u8; _] = [0xF3, 0xA5];
+            self.write(0x4C5810, &orig_rot)?;
+        }
+        tracing::info!("Restored Wow camera writeback locations");
+        self.patched = false;
+        Ok(())
+    }
+}
+
+pub fn do_wc3mode_stuff() -> anyhow::Result<()> {
+    let mut patch = CAMERA_PATCH
+        .lock()
+        .map_err(|_| anyhow::anyhow!("CAMERA_PATCH lock"))?;
+
+    unsafe {
+        patch.patch()?;
+    }
+
+    let mut custom_camera = CUSTOM_CAMERA
+        .lock()
+        .map_err(|_| anyhow::anyhow!("custom_camera mutex"))?;
+
+    let mut wow_camera = WowCamera::fetch_mut().ok_or_else(|| anyhow::anyhow!("No Wow camera"))?;
+    custom_camera.reset_camera(&mut wow_camera)?;
+
+    Ok(())
+}
+
+pub fn undo_wc3mode_patches() -> anyhow::Result<()> {
+    let mut patch = CAMERA_PATCH
+        .lock()
+        .map_err(|_| anyhow::anyhow!("CAMERA_PATCH lock"))?;
+
+    unsafe {
+        patch.unpatch()?;
+    }
+    // reset camera?
+    Ok(())
 }

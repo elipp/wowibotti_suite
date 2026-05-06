@@ -2,7 +2,7 @@ use std::{io::Write, path::Path};
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, ItemEnum, LitStr, Type};
+use syn::{ItemEnum, LitStr, Type, parse_macro_input};
 
 #[proc_macro_attribute]
 pub fn generate_lua_enum(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -94,5 +94,42 @@ pub fn generate_lua_enum(args: TokenStream, input: TokenStream) -> TokenStream {
     };
 
     // Return the generated Rust code as a TokenStream
+    TokenStream::from(expanded)
+}
+
+#[proc_macro_attribute]
+pub fn auto_enum_try_from(args: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as ItemEnum);
+    let repr_type = parse_macro_input!(args as Type);
+
+    let enum_name = &input.ident;
+    let mut try_from_mappings = vec![];
+
+    for variant in &input.variants {
+        let variant_name = &variant.ident;
+        let discriminant = if let Some((_, expr)) = &variant.discriminant {
+            quote! { #expr }
+        } else {
+            panic!("All enum variants must have an explicit discriminant");
+        };
+        try_from_mappings.push(quote! { #discriminant => Ok(#enum_name::#variant_name), });
+    }
+
+    let expanded = quote! {
+        #input
+
+        impl TryFrom<#repr_type> for #enum_name {
+            type Error = LoleError;
+            fn try_from(value: #repr_type) -> std::result::Result<Self, Self::Error> {
+                match value {
+                    #(#try_from_mappings)*
+                    v => Err(LoleError::InvalidEnumValue(
+                        format!(concat!(stringify!(#enum_name), "::try_from({})"), v)
+                    ))
+                }
+            }
+        }
+    };
+
     TokenStream::from(expanded)
 }

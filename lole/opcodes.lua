@@ -569,6 +569,10 @@ function face_mob()
     end
 end
 
+function lole_enable_wc3mode(enabled)
+    return LOP:call(LOP.Wc3Mode, enabled)
+end
+
 function L_MoveForwardStart()
     refresh_hwevent_timestamp()
     execute_script("MoveForwardStart()")

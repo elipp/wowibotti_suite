@@ -93,6 +93,7 @@ macro_rules! chatframe_print {
 }
 
 pub static WORLD_ENTERED: AtomicBool = AtomicBool::new(false);
+pub static WC3MODE_ENABLED: AtomicBool = AtomicBool::new(false);
 
 add_repr_and_tryfrom! {
     i32,
@@ -387,6 +388,7 @@ pub enum Opcode {
     StorePath = 0x100,
     PlaybackPath = 0x101,
     SendAddonMessage = 0x200,
+    Wc3Mode = 0x201,
     Debug = 0x400,
     Dump = 0x401,
     DoString = 0x402,
@@ -586,19 +588,19 @@ impl Drop for TaintReseter {
 pub fn lua_debug_func(_lua: lua_State) -> anyhow::Result<i32> {
     let om = ObjectManager::new()?;
     let _time = lua_GetTime()?;
-    tracing::info!(
-        "{:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
-        om.get_unit_by_nameref_internal("player"),
-        om.get_unit_by_nameref_internal("target"),
-        om.get_unit_by_nameref_internal("pet"),
-        om.get_unit_by_nameref_internal("pettarget"),
-        om.get_unit_by_nameref_internal("targettarget"),
-        om.get_unit_by_nameref_internal("raid1"),
-        om.get_unit_by_nameref_internal("pylly"),
-    );
+    // tracing::info!(
+    //     "{:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+    //     om.get_unit_by_nameref_internal("player"),
+    //     om.get_unit_by_nameref_internal("target"),
+    //     om.get_unit_by_nameref_internal("pet"),
+    //     om.get_unit_by_nameref_internal("pettarget"),
+    //     om.get_unit_by_nameref_internal("targettarget"),
+    //     om.get_unit_by_nameref_internal("raid1"),
+    //     om.get_unit_by_nameref_internal("pylly"),
+    // );
 
-    let camera = WowCamera::fetch().ok_or_else(|| anyhow::anyhow!("no camera"))?;
-    tracing::info!("{camera:?}");
+    let player = om.get_player()?;
+    unsafe { player.draw_pylpyr()? };
 
     Ok(0)
 }
@@ -1129,6 +1131,10 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
                 return LUA_NO_RETVALS;
             }
         }
+        Opcode::Wc3Mode if nargs == 1 => {
+            let enabled = lua_toboolean(lua, 2) == LUA_TRUE;
+            WC3MODE_ENABLED.store(enabled, Ordering::Relaxed);
+        }
         Opcode::DumpWowObject => {
             // when mob is looted, base + 0x2A*4 is set to 0, meanwhile "NpcState" seems to not be very interesting
             let _n_bytes = if nargs >= 1 {
@@ -1432,9 +1438,7 @@ pub fn dump_all_globals_to_file() -> anyhow::Result<()> {
 }
 
 pub fn enter_world() -> anyhow::Result<()> {
-    if !WORLD_ENTERED.load(Ordering::Relaxed) {
-        dostring!(r#"if CharSelectEnterWorldButton then CharSelectEnterWorldButton:Click() end"#);
-    }
+    dostring!(r#"if CharSelectEnterWorldButton then CharSelectEnterWorldButton:Click() end"#);
     Ok(())
 }
 

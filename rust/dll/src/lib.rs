@@ -47,6 +47,7 @@ pub mod addrs;
 pub mod assembly;
 pub mod ctm;
 pub mod divx;
+pub mod input;
 pub mod linalg;
 pub mod lua;
 pub mod objectmanager;
@@ -55,12 +56,14 @@ pub mod socket;
 pub mod spell_error;
 pub mod wc3;
 pub mod wowproto_opcodes;
+
 #[cfg(feature = "addonmessage_broker")]
 use crate::addonmessage::unpack_broker_message_queue;
 use crate::addrs::offsets::{RENDERING_ENABLES, RENDERING_ENABLES_DEFAULT_VALUE};
-use crate::lua::{LuaType, WORLD_ENTERED, dump_all_globals_to_file, enter_world};
+use crate::lua::{LuaType, WC3MODE_ENABLED, WORLD_ENTERED, dump_all_globals_to_file, enter_world};
 use crate::patch::{AVAILABLE_PATCHES, Patch};
 use crate::spell_error::SpellError;
+use crate::wc3::{do_wc3mode_stuff, undo_wc3mode_patches};
 
 pub mod postgres {
     pub const POSTGRES_ADDR: &str = "127.0.0.1:5432";
@@ -234,14 +237,6 @@ unsafe fn afk_refresh_hardware_event_timestamp() -> anyhow::Result<()> {
     Ok(())
 }
 
-macro_rules! do_once {
-    ($b:expr, $stuff:block) => {
-        if let Ok(true) = $b.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed) {
-            $stuff
-        }
-    };
-}
-
 unsafe fn reduce_rendering_if_not_focused() -> anyhow::Result<()> {
     unsafe {
         let fg = GetForegroundWindow();
@@ -373,7 +368,15 @@ fn flush_tracing_log_queue() {
 }
 
 fn on_every_frame() -> anyhow::Result<()> {
-    enter_world()?;
+    if !WORLD_ENTERED.load(Ordering::Relaxed) {
+        enter_world()?;
+    };
+
+    if WC3MODE_ENABLED.load(Ordering::Relaxed) {
+        do_wc3mode_stuff()?;
+    } else {
+        undo_wc3mode_patches()?;
+    }
 
     match ctm::poll() {
         Ok(_) => {}
@@ -559,8 +562,10 @@ fn initialize_dll() -> anyhow::Result<()> {
         }
     }
 
-    tracing::info!("init done! :D LOLE_ID: {lole_id} - enabled patches:");
+    tracing::info!("init done! :D");
+    tracing::info!("LOLE_ID: {lole_id}");
 
+    tracing::info!("Enabled patches:");
     for p in global_var!(ENABLED_PATCHES).iter() {
         tracing::info!("{} @ 0x{:08X}", p.name, p.patch_addr);
     }

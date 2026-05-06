@@ -271,6 +271,30 @@ impl WowObject {
             Err(LoleError::UnknownBranchTaken)
         }
     }
+
+    fn vtable(&self) -> *const () {
+        // if we got this far, the base ptr should be "valid"
+        deref_ptr::<1>(self.base)
+    }
+
+    pub unsafe fn draw_pylpyr(&self) -> LoleResult<()> {
+        unsafe {
+            let vtable = self.vtable();
+            let pylpyr = deref_ptr::<1>(vtable.wrapping_byte_offset(0x6C));
+            tracing::info!("Draw pylpyr");
+
+            asm! {
+                "mov ecx, {0:e}",
+                "call {1}",
+                in(reg) self.base,
+                in(reg) pylpyr,
+                out("ecx") _,
+                clobber_abi("C"),
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl std::fmt::Display for WowObject {

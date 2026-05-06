@@ -246,6 +246,7 @@ pub mod offsets {
         pub const SARC4_Encrypt: Addr = 0x774EA0;
         pub const EncryptPacketHeader: Addr = 0x4665B0;
         pub const SetMovementFlags: Addr = 0x5FA170;
+        pub const AddInputEvent: Addr = 0x868D40;
     }
 
     #[allow(non_upper_case_globals)]

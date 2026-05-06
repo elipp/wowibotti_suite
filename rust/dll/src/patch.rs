@@ -15,13 +15,10 @@ use windows::{
     core::Interface,
 };
 
+use crate::spell_error::prepare_spell_err_msg_trampoline;
 use crate::{Addr, EndScene_hook, LoleError, LoleResult, assembly};
 use crate::{addrs::offsets, lua::prepare_ClosePetStables_patch};
-use crate::{
-    addrs::offsets::{WOW_CAMERA, WOW_CAMERA_L2_OFFSET},
-    spell_error::prepare_spell_err_msg_trampoline,
-};
-use crate::{ctm::prepare_ctm_finished_patch, wc3::WowCamera};
+use crate::{ctm::prepare_ctm_finished_patch, input::prepare_AddInputEvent_patch};
 use crate::{fatal_error_exit, socket::prepare_dump_outbound_packet_patch};
 
 pub static AVAILABLE_PATCHES: LazyLock<HashMap<&'static str, Patch>> = LazyLock::new(|| {
@@ -31,6 +28,7 @@ pub static AVAILABLE_PATCHES: LazyLock<HashMap<&'static str, Patch>> = LazyLock:
         ("CTM_finished", prepare_ctm_finished_patch()),
         ("dump_outbound_packet", prepare_dump_outbound_packet_patch()),
         ("SpellErrMsg", prepare_spell_err_msg_trampoline()),
+        ("AddInputEvent", prepare_AddInputEvent_patch()),
     ])
 });
 
@@ -297,17 +295,14 @@ pub fn prepare_endscene_trampoline() -> Patch {
     }
 }
 
-fn get_wow_d3d9() -> Option<*const IDirect3DDevice9> {
-    unsafe {
-        let d1 = deref_opt_ptr::<1>(offsets::D3D9_DEVICE as _)?;
-        Some(d1.wrapping_byte_offset(offsets::D3D9_DEVICE_OFFSET) as _)
-    }
+fn get_wow_d3d9() -> Option<&'static IDirect3DDevice9> {
+    let d1 = deref_opt_ptr::<1>(offsets::D3D9_DEVICE as _)?;
+    let ptr = d1.wrapping_byte_offset(offsets::D3D9_DEVICE_OFFSET) as *const IDirect3DDevice9;
+    unsafe { ptr.as_ref() }
 }
 
 #[allow(non_snake_case)]
 fn find_EndScene_addr() -> Option<Addr> {
-    unsafe {
-        let d3d9 = &*get_wow_d3d9()?;
-        Some(d3d9.vtable().EndScene as _)
-    }
+    let d3d9 = get_wow_d3d9()?;
+    Some(d3d9.vtable().EndScene as _)
 }
