@@ -159,6 +159,13 @@ function get_ui_coords(px, py)
     return x, y
 end
 
+local function get_rect(x1, y1, x2, y2) -- heh
+    local left   = math.min(x1, x2)
+    local top = math.min(y1, y2)
+    local width  = math.abs(x2 - x1)
+    local height = math.abs(y2 - y1)
+    return left, top, width, height
+end
 
 function lole_start_wc3mode_rect(ww, wh, cx, cy)
     window_width_pixels = ww
@@ -168,14 +175,6 @@ function lole_start_wc3mode_rect(ww, wh, cx, cy)
     local ux,uy = get_ui_coords(cx, cy)
     wc3mode_select_rect:SetPoint("TOPLEFT", UIParent, "TOPLEFT", ux, -uy)
     wc3mode_select_rect:SetSize(0,0)
-end
-
-local function get_rect(x1, y1, x2, y2) -- heh
-    local left   = math.min(x1, x2)
-    local top = math.min(y1, y2)
-    local width  = math.abs(x2 - x1)
-    local height = math.abs(y2 - y1)
-    return left, top, width, height
 end
 
 function lole_update_wc3mode_rect(cx, cy, x, y)
@@ -197,6 +196,8 @@ function lole_end_wc3mode_rect(cx, cy, x, y)
     lole_wc3mode_select(left, top, width, height)
 
     wc3mode_select_rect:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -10000, -10000)
+
+    -- Delay Hide() for one frame, so we don't get that annoying flicker + can reuse the frame
     wc3mode_select_rect:SetScript("OnUpdate", function(self, _)
         self:Hide()
         self:SetScript("OnUpdate", nil)
