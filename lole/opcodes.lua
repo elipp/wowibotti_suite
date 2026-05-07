@@ -135,9 +135,76 @@ function lole_debug_dump_wowobjects(type_filter, ...)
     return true;
 end
 
-function lole_debug()
-    LOP:call(LOP.Debug);
+function lole_debug(...)
+    LOP:call(LOP.Debug, ...);
     return true;
+end
+
+local wc3mode_select_rect = CreateFrame("Frame", nil, UIParent)
+wc3mode_select_rect.state = {}
+
+local tex = wc3mode_select_rect:CreateTexture(nil, "BACKGROUND")
+tex:SetAllPoints(wc3mode_select_rect)
+tex:SetTexture(0, 1.0, 0, 0.1)
+
+local window_width_pixels = 0
+local window_height_pixels = 0
+
+function get_ui_coords(px, py)
+    local screen_width = GetScreenWidth()
+    local screen_height = GetScreenHeight()
+
+    local x = px * (screen_width / window_width_pixels)
+    local y = py * (screen_height / window_height_pixels)
+    return x, y
+end
+
+
+function lole_start_wc3mode_rect(ww, wh, cx, cy)
+    window_width_pixels = ww
+    window_height_pixels = wh
+
+    wc3mode_select_rect:ClearAllPoints()
+    local ux,uy = get_ui_coords(cx, cy)
+    wc3mode_select_rect:SetPoint("TOPLEFT", UIParent, "TOPLEFT", ux, -uy)
+    wc3mode_select_rect:SetSize(0,0)
+end
+
+local function get_rect(x1, y1, x2, y2) -- heh
+    local left   = math.min(x1, x2)
+    local top = math.min(y1, y2)
+    local width  = math.abs(x2 - x1)
+    local height = math.abs(y2 - y1)
+    return left, top, width, height
+end
+
+function lole_update_wc3mode_rect(cx, cy, x, y)
+    local ucx,ucy = get_ui_coords(cx,cy)
+    local ux,uy = get_ui_coords(x,y)
+
+    local left,top,width,height = get_rect(ucx, ucy, ux, uy)
+
+    wc3mode_select_rect:ClearAllPoints()
+    wc3mode_select_rect:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, -top)
+    wc3mode_select_rect:SetSize(width, height)
+    if not wc3mode_select_rect:IsShown() then
+        wc3mode_select_rect:Show()
+    end
+end
+
+function lole_end_wc3mode_rect(cx, cy, x, y)
+    local left, top, width, height = get_rect(cx, cy, x, y)
+    lole_wc3mode_select(left, top, width, height)
+
+    wc3mode_select_rect:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -10000, -10000)
+    wc3mode_select_rect:SetScript("OnUpdate", function(self, _)
+        self:Hide()
+        self:SetScript("OnUpdate", nil)
+    end)
+end
+
+function lole_wc3mode_select(left, top, width, height)
+    return LOP:call(LOP.Wc3Select, left, top, width, height)
 end
 
 -- wowhead.com "pre-bis articles" can be scraped like this:

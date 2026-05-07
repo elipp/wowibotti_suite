@@ -247,6 +247,7 @@ pub mod offsets {
         pub const EncryptPacketHeader: Addr = 0x4665B0;
         pub const SetMovementFlags: Addr = 0x5FA170;
         pub const AddInputEvent: Addr = 0x868D40;
+        pub const Pylpyr: Addr = 0x4F6F90;
     }
 
     #[allow(non_upper_case_globals)]

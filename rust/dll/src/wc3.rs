@@ -1,8 +1,8 @@
 use std::sync::{LazyLock, Mutex};
 
-use nalgebra::{Matrix4, Rotation3, RowVector4, Vector3};
+use nalgebra::{Matrix4, Perspective3, Rotation3, RowVector4, Translation3, Vector3, Vector4};
 use windows::Win32::{
-    Foundation::RECT,
+    Foundation::{HWND, RECT},
     UI::WindowsAndMessaging::{GetClientRect, GetForegroundWindow},
 };
 
@@ -10,12 +10,15 @@ use crate::{
     Addr, LoleError,
     addrs::offsets::{WOW_CAMERA, WOW_CAMERA_L2_OFFSET},
     assembly::NOP,
+    input::{get_cursor_position, get_screen_size},
     linalg::WowVector3,
-    objectmanager::ObjectManager,
+    objectmanager::{GUID, ObjectManager, WowObject, WowObjectType},
     patch::{deref_opt_ptr, write_addr},
 };
 
 pub static CUSTOM_CAMERA: LazyLock<Mutex<CustomCamera>> = LazyLock::new(Default::default);
+
+pub static SELECTED_UNIT_GUIDS: LazyLock<Mutex<Vec<GUID>>> = LazyLock::new(Default::default);
 
 #[repr(C)]
 #[derive(Debug)]
@@ -82,6 +85,10 @@ impl WowCamera {
         self.z = pos.0.z;
     }
 
+    pub fn get_pos(&self) -> WowVector3 {
+        return WowVector3::new(self.x, self.y, self.z);
+    }
+
     pub fn set_rot(&mut self, rot: Rotation3<f32>) {
         let rot3 = rot.to_homogeneous().fixed_view::<3, 3>(0, 0).clone_owned(); //.transpose();
         self.rot = rot3.into();
@@ -139,7 +146,6 @@ impl CustomCamera {
 
     pub fn get_rot(&self) -> Rotation3<f32> {
         Rotation3::new(Vector3::y() * self.get_angle())
-        // Rotation3::new(Vector3::y() * 1.3)
     }
 
     pub fn update(&mut self, wow_camera: &mut WowCamera) -> anyhow::Result<()> {
@@ -155,20 +161,26 @@ impl CustomCamera {
         };
 
         let p = om.get_player()?;
-        let pos = p.get_pos()?;
-        self.pos = pos;
+        self.pos = p.get_pos()? + self.get_cameraoffset();
 
-        let newpos = self.pos + self.get_cameraoffset();
-        wow_camera.set_pos(&newpos);
+        wow_camera.set_pos(&self.pos);
         wow_camera.set_rot(self.get_rot());
 
         Ok(())
     }
 }
 
+pub fn get_foreground_window() -> anyhow::Result<HWND> {
+    let hwnd = unsafe { GetForegroundWindow() };
+    if hwnd.is_invalid() {
+        return Err(anyhow::anyhow!("invalid fg window"));
+    }
+    Ok(hwnd)
+}
+
 pub fn get_window_dimensions() -> anyhow::Result<(i32, i32)> {
     unsafe {
-        let hwnd = GetForegroundWindow();
+        let hwnd = get_foreground_window()?;
         let mut rect = RECT::default();
         GetClientRect(hwnd, &mut rect)?;
         let width = rect.right - rect.left;
@@ -294,4 +306,131 @@ pub fn undo_wc3mode_patches() -> anyhow::Result<()> {
     }
     // reset camera?
     Ok(())
+}
+
+pub mod pylpyr {
+    use crate::{
+        Addr,
+        addrs::offsets,
+        assembly,
+        objectmanager::ObjectManager,
+        patch::{InstructionBuffer, Patch, PatchKind, copy_original_opcodes},
+        wc3::SELECTED_UNIT_GUIDS,
+    };
+
+    pub unsafe extern "stdcall" fn pylpyr_hook() {
+        let Ok(selected_unit_guids) = SELECTED_UNIT_GUIDS.lock() else {
+            return tracing::error!("SELECTED_UNIT_GUIDS lock error");
+        };
+        let Ok(om) = ObjectManager::new() else {
+            return tracing::error!("No object manager");
+        };
+        for guid in selected_unit_guids.iter() {
+            if let Ok(Some(obj)) = om.get_object_by_guid(*guid) {
+                let _ = unsafe { obj.draw_pylpyr() };
+            }
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub fn prepare_pylpyr_patch() -> Patch {
+        let original_opcodes = copy_original_opcodes(offsets::wow_cfuncs::Pylpyr, 9);
+        let mut patch_opcodes = InstructionBuffer::new();
+        // pushad
+        patch_opcodes.push(assembly::PUSHAD);
+        patch_opcodes.push_call_to(pylpyr_hook as *const () as Addr);
+        // popad
+        patch_opcodes.push(assembly::POPAD);
+        patch_opcodes.push_slice(&original_opcodes);
+        // push ret addr
+        patch_opcodes.push(assembly::PUSH_IMM);
+        patch_opcodes
+            .push_slice(&(offsets::wow_cfuncs::Pylpyr + original_opcodes.len()).to_le_bytes());
+        patch_opcodes.push(assembly::RET);
+        Patch {
+            name: "Pylpyr",
+            patch_addr: offsets::wow_cfuncs::Pylpyr,
+            original_opcodes,
+            patch_opcodes,
+            kind: PatchKind::JmpToTrampoline,
+        }
+    }
+}
+
+fn get_screen_coords(
+    pos: WowVector3,
+    mvp: &Matrix4<f32>,
+    screen_w: i32,
+    screen_h: i32,
+) -> Option<(f32, f32)> {
+    // match wow2glm axis swap from original
+    let pos_gl: Vector3<f32> = pos.into();
+    let pos_gl = Vector4::<f32>::new(pos_gl.x, pos_gl.y, pos_gl.z, 1.0);
+
+    let clip = mvp * pos_gl;
+
+    if clip.w == 0.0 {
+        return None;
+    }
+    let ndc = clip / clip.w;
+
+    // behind camera
+    if ndc.z < -1.0 || ndc.z > 1.0 {
+        return None;
+    }
+
+    // NDC to screen: NDC is [-1,1], map to [0, screen_w/h]
+    let sx = (ndc.x + 1.0) / 2.0 * (screen_w as f32);
+    let sy = (1.0 - ndc.y) / 2.0 * (screen_h as f32); // flip Y
+
+    Some((sx, sy))
+}
+
+fn in_rect(sx: f32, sy: f32, left: f32, top: f32, w: f32, h: f32) -> bool {
+    sx >= left && sx <= left + w && sy >= top && sy <= top + h
+}
+
+pub fn find_units_within_screen_region(
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+) -> anyhow::Result<Vec<WowObject>> {
+    let camera = WowCamera::fetch().ok_or_else(|| anyhow::anyhow!("No camera"))?;
+    let custom_camera = CUSTOM_CAMERA.lock().unwrap();
+
+    let camera_pos: Vector3<f32> = custom_camera.pos.into();
+
+    let proj =
+        Perspective3::new(camera.aspect, camera.fov, camera.z_near, camera.z_far).to_homogeneous();
+
+    let translation = Translation3::from(-camera_pos).to_homogeneous();
+    let rot = Rotation3::new(Vector3::x() * custom_camera.get_angle()).to_homogeneous();
+    let mvp = proj * rot * translation;
+
+    // let view = Translation3::from(-camera_pos).to_homogeneous();
+    // let rot = Rotation3::new(Vector3::z() * custom_camera.get_angle()).to_homogeneous();
+    // let rot = custom_camera.get_rot().to_homogeneous();
+    // let mvp = proj * rot * view;
+
+    let om = ObjectManager::new()?;
+
+    let (cx, cy) = get_cursor_position()?;
+    tracing::info!("{:?}", (cx, cy));
+    let (sw, sh) = get_screen_size()?;
+
+    let mut res = vec![];
+    for unit in om
+        .iter()
+        .filter(|o| matches!(o.get_type(), WowObjectType::Unit))
+    {
+        if let Some((sx, sy)) = get_screen_coords(unit.get_pos()?, &mvp, sw, sh)
+            && in_rect(sx, sy, left, top, width, height)
+        {
+            tracing::info!("{}: {:?}", unit.get_name(), (sx, sy));
+            res.push(unit);
+        }
+    }
+
+    Ok(res)
 }

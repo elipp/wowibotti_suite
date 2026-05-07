@@ -9,7 +9,7 @@ use rand::RngExt;
 use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
 use crate::linalg::WowVector3;
-use crate::objectmanager::{GUIDFmt, ObjectManager, WowObject, WowObjectType, guid_from_str};
+use crate::objectmanager::{GUID, GUIDFmt, ObjectManager, WowObject, WowObjectType, guid_from_str};
 use crate::patch::{
     InstructionBuffer, Patch, PatchKind, copy_original_opcodes, deref_opt_ptr, deref_opt_t,
     deref_t, write_addr,
@@ -17,7 +17,7 @@ use crate::patch::{
 use crate::socket::cast_gtaoe;
 use crate::socket::facing::{self};
 use crate::socket::movement_flags::NOT_MOVING;
-use crate::wc3::WowCamera;
+use crate::wc3::{SELECTED_UNIT_GUIDS, WowCamera, find_units_within_screen_region};
 use crate::{
     LoleError, LoleResult, add_repr_and_tryfrom, assembly, get_state, write_last_hardware_action,
 };
@@ -389,6 +389,7 @@ pub enum Opcode {
     PlaybackPath = 0x101,
     SendAddonMessage = 0x200,
     Wc3Mode = 0x201,
+    Wc3Select = 0x202,
     Debug = 0x400,
     Dump = 0x401,
     DoString = 0x402,
@@ -585,7 +586,7 @@ impl Drop for TaintReseter {
     }
 }
 
-pub fn lua_debug_func(_lua: lua_State) -> anyhow::Result<i32> {
+pub fn lua_debug_func(_lua: lua_State, arg: Option<String>) -> anyhow::Result<i32> {
     let om = ObjectManager::new()?;
     let _time = lua_GetTime()?;
     // tracing::info!(
@@ -599,8 +600,19 @@ pub fn lua_debug_func(_lua: lua_State) -> anyhow::Result<i32> {
     //     om.get_unit_by_nameref_internal("pylly"),
     // );
 
-    let player = om.get_player()?;
-    unsafe { player.draw_pylpyr()? };
+    if let Some(arg) = arg {
+        let mut units = SELECTED_UNIT_GUIDS.lock().unwrap();
+        units.clear();
+        for s in arg.split(",") {
+            if let Ok(guid) = guid_from_str(s) {
+                units.push(guid);
+            }
+        }
+        tracing::info!("Selected units: {units:X?}");
+    }
+
+    // let player = om.get_player()?;
+    // unsafe { player.draw_pylpyr()? };
 
     Ok(0)
 }
@@ -1069,7 +1081,12 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             }
         }
         Opcode::Debug => {
-            return lua_debug_func(lua);
+            if nargs == 1 {
+                let arg = lua_tostring!(lua, 2)?;
+                return lua_debug_func(lua, Some(arg.to_owned()));
+            } else {
+                return lua_debug_func(lua, None);
+            }
         }
         Opcode::EjectDll => {
             get_state().lock().unwrap().should_eject = true;
@@ -1134,6 +1151,18 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
         Opcode::Wc3Mode if nargs == 1 => {
             let enabled = lua_toboolean(lua, 2) == LUA_TRUE;
             WC3MODE_ENABLED.store(enabled, Ordering::Relaxed);
+        }
+        Opcode::Wc3Select if nargs == 4 => {
+            if !WC3MODE_ENABLED.load(Ordering::Relaxed) {
+                return LUA_NO_RETVALS;
+            }
+            let left = lua_tonumber_f32!(lua, 2);
+            let top = lua_tonumber_f32!(lua, 3);
+            let width = lua_tonumber_f32!(lua, 4);
+            let height = lua_tonumber_f32!(lua, 5);
+
+            let selected = find_units_within_screen_region(left, top, width, height)?;
+            tracing::info!("{selected:?}");
         }
         Opcode::DumpWowObject => {
             // when mob is looted, base + 0x2A*4 is set to 0, meanwhile "NpcState" seems to not be very interesting

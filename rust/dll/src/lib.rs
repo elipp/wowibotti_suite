@@ -63,7 +63,7 @@ use crate::addrs::offsets::{RENDERING_ENABLES, RENDERING_ENABLES_DEFAULT_VALUE};
 use crate::lua::{LuaType, WC3MODE_ENABLED, WORLD_ENTERED, dump_all_globals_to_file, enter_world};
 use crate::patch::{AVAILABLE_PATCHES, Patch};
 use crate::spell_error::SpellError;
-use crate::wc3::{do_wc3mode_stuff, undo_wc3mode_patches};
+use crate::wc3::{do_wc3mode_stuff, get_foreground_window, undo_wc3mode_patches};
 
 pub mod postgres {
     pub const POSTGRES_ADDR: &str = "127.0.0.1:5432";
@@ -239,13 +239,9 @@ unsafe fn afk_refresh_hardware_event_timestamp() -> anyhow::Result<()> {
 
 unsafe fn reduce_rendering_if_not_focused() -> anyhow::Result<()> {
     unsafe {
-        let fg = GetForegroundWindow();
-        if fg.is_invalid() {
-            return Ok(());
-        }
-
+        let hwnd = get_foreground_window()?;
         let mut fg_pid = 0u32;
-        GetWindowThreadProcessId(fg, Some(&mut fg_pid));
+        GetWindowThreadProcessId(hwnd, Some(&mut fg_pid));
         if fg_pid != GetCurrentProcessId() {
             write_addr(RENDERING_ENABLES, &[0u32])?;
         } else {
@@ -385,7 +381,7 @@ fn on_every_frame() -> anyhow::Result<()> {
     }
 
     unsafe {
-        reduce_rendering_if_not_focused()?;
+        let _ = reduce_rendering_if_not_focused();
         afk_refresh_hardware_event_timestamp()?;
     }
 
@@ -473,103 +469,6 @@ fn read_config_from_file(identifier: &str) -> anyhow::Result<ClientConfig> {
             "DllConfigReadErr: ({config_path:?}) {err:?}"
         )),
     }
-}
-
-fn initialize_dll() -> anyhow::Result<()> {
-    let Ok(lole_id) = std::env::var("LOLE_ID") else {
-        return Err(LoleError::InvalidParam(String::from("LOLE_ID missing")))?;
-    };
-
-    #[cfg(feature = "host-windows")]
-    open_console()?;
-
-    let filter = tracing_subscriber::filter::LevelFilter::INFO;
-    let (_, reload_handle) =
-        tracing_subscriber::reload::Layer::<LevelFilter, Registry>::new(filter);
-
-    // let (debug_log_layer, state) = DebugLogLayer::new();
-
-    use tracing_subscriber::prelude::*;
-
-    // let file = std::fs::File::create(format!("/tmp/log-{lole_id}.txt"))
-    //     .expect("failed to create log file");
-
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
-        .with(tracing_subscriber::fmt::layer().with_ansi(!cfg!(feature = "host-linux"))) // host-windows with the extended terminal capabilities actually supports ansi codes, just not wine terminal
-        // .with(
-        //     tracing_subscriber::fmt::layer()
-        //         .with_ansi(false)
-        //         .with_writer(file),
-        // )
-        .with(LuaPrintLayer)
-        // .with(debug_log_layer)
-        .init();
-
-    let config = match read_config_from_file(&lole_id) {
-        Ok(config) => {
-            // NOTE: this means "we're still in the login/character selection screen"
-            if let Err(LoleError::ObjectManagerIsNull) = ObjectManager::new() {
-                if let Some(realm) = config.realm.clone() {
-                    DllRealmInfo(realm).set_realm_info()?;
-                }
-                if let Some(account) = config.account.clone() {
-                    Account(account).login()?;
-                }
-            }
-            if let Some(ref log_level) = config.log_level {
-                let log_level = log_level.to_lowercase();
-                let filter_from_config = LevelFilter::from_str(&log_level).unwrap();
-                reload_handle
-                    .modify(|filter| *filter = filter_from_config)
-                    .unwrap();
-            }
-
-            tracing::info!("{config:#?}");
-            config
-        }
-        Err(e) => {
-            tracing::warn!("reading config failed with {e}");
-            return Ok(());
-        }
-    };
-
-    let config = CLIENT_CONFIG.get_or_init(|| config);
-
-    for p in config.enabled_patches.iter() {
-        if let Some(patch) = AVAILABLE_PATCHES.get(p.as_str()) {
-            unsafe {
-                patch.enable()?;
-            }
-            tracing::info!("enabled patch {p}");
-            global_var!(ENABLED_PATCHES).push(patch);
-        } else {
-            panic!("unknown patch {p}");
-        }
-    }
-
-    #[cfg(feature = "addonmessage_broker")]
-    {
-        if let Some(character_name) = get_current_character_name()
-            && let Some(addr) = config.addonmessage_broker_addr.clone()
-        {
-            use crate::addonmessage::start_client;
-
-            start_client(character_name, addr);
-        }
-    }
-
-    tracing::info!("init done! :D");
-    tracing::info!("LOLE_ID: {lole_id}");
-
-    tracing::info!("Enabled patches:");
-    for p in global_var!(ENABLED_PATCHES).iter() {
-        tracing::info!("{} @ 0x{:08X}", p.name, p.patch_addr);
-    }
-    Ok(())
 }
 
 fn fatal_error_exit(err: anyhow::Error) -> ! {
@@ -710,4 +609,101 @@ extern "system" fn main_thread(_: *mut c_void) -> u32 {
         global_var!(ENABLED_PATCHES).push(tramp);
     }
     0
+}
+
+fn initialize_dll() -> anyhow::Result<()> {
+    let Ok(lole_id) = std::env::var("LOLE_ID") else {
+        return Err(LoleError::InvalidParam(String::from("LOLE_ID missing")))?;
+    };
+
+    #[cfg(feature = "host-windows")]
+    open_console()?;
+
+    let filter = tracing_subscriber::filter::LevelFilter::INFO;
+    let (_, reload_handle) =
+        tracing_subscriber::reload::Layer::<LevelFilter, Registry>::new(filter);
+
+    // let (debug_log_layer, state) = DebugLogLayer::new();
+
+    use tracing_subscriber::prelude::*;
+
+    let file = std::fs::File::create(format!("/tmp/log-{lole_id}.txt"))
+        .expect("failed to create log file");
+
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .with(tracing_subscriber::fmt::layer().with_ansi(!cfg!(feature = "host-linux"))) // host-windows with the extended terminal capabilities actually supports ansi codes, just not wine terminal
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_ansi(false)
+                .with_writer(file),
+        )
+        .with(LuaPrintLayer)
+        // .with(debug_log_layer)
+        .init();
+
+    let config = match read_config_from_file(&lole_id) {
+        Ok(config) => {
+            // NOTE: this means "we're still in the login/character selection screen"
+            if let Err(LoleError::ObjectManagerIsNull) = ObjectManager::new() {
+                if let Some(realm) = config.realm.clone() {
+                    DllRealmInfo(realm).set_realm_info()?;
+                }
+                if let Some(account) = config.account.clone() {
+                    Account(account).login()?;
+                }
+            }
+            if let Some(ref log_level) = config.log_level {
+                let log_level = log_level.to_lowercase();
+                let filter_from_config = LevelFilter::from_str(&log_level).unwrap();
+                reload_handle
+                    .modify(|filter| *filter = filter_from_config)
+                    .unwrap();
+            }
+
+            tracing::info!("{config:#?}");
+            config
+        }
+        Err(e) => {
+            tracing::warn!("reading config failed with {e}");
+            return Ok(());
+        }
+    };
+
+    let config = CLIENT_CONFIG.get_or_init(|| config);
+
+    for p in config.enabled_patches.iter() {
+        if let Some(patch) = AVAILABLE_PATCHES.get(p.as_str()) {
+            unsafe {
+                patch.enable()?;
+            }
+            tracing::info!("enabled patch {p}");
+            global_var!(ENABLED_PATCHES).push(patch);
+        } else {
+            panic!("unknown patch {p}");
+        }
+    }
+
+    #[cfg(feature = "addonmessage_broker")]
+    {
+        if let Some(character_name) = get_current_character_name()
+            && let Some(addr) = config.addonmessage_broker_addr.clone()
+        {
+            use crate::addonmessage::start_client;
+
+            start_client(character_name, addr);
+        }
+    }
+
+    tracing::info!("init done! :D");
+    tracing::info!("LOLE_ID: {lole_id}");
+
+    tracing::info!("Enabled patches:");
+    for p in global_var!(ENABLED_PATCHES).iter() {
+        tracing::info!("{} @ 0x{:08X}", p.name, p.patch_addr);
+    }
+    Ok(())
 }

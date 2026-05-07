@@ -277,11 +277,11 @@ impl WowObject {
         deref_ptr::<1>(self.base)
     }
 
+    // NOTE: this needs to be called every frame to become visible
     pub unsafe fn draw_pylpyr(&self) -> LoleResult<()> {
         unsafe {
             let vtable = self.vtable();
             let pylpyr = deref_ptr::<1>(vtable.wrapping_byte_offset(0x6C));
-            tracing::info!("Draw pylpyr");
 
             asm! {
                 "mov ecx, {0:e}",
@@ -402,6 +402,7 @@ impl ObjectManager {
         ))
     }
     pub fn get_object_by_guid(&self, guid: GUID) -> LoleResult<Option<WowObject>> {
+        // wow also has a built-in function for this...
         if guid != 0 {
             Ok(self.iter().find(|w| w.get_guid() == guid))
         } else {

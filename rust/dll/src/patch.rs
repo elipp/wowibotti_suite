@@ -15,11 +15,11 @@ use windows::{
     core::Interface,
 };
 
-use crate::spell_error::prepare_spell_err_msg_trampoline;
 use crate::{Addr, EndScene_hook, LoleError, LoleResult, assembly};
 use crate::{addrs::offsets, lua::prepare_ClosePetStables_patch};
 use crate::{ctm::prepare_ctm_finished_patch, input::prepare_AddInputEvent_patch};
 use crate::{fatal_error_exit, socket::prepare_dump_outbound_packet_patch};
+use crate::{spell_error::prepare_spell_err_msg_trampoline, wc3::pylpyr::prepare_pylpyr_patch};
 
 pub static AVAILABLE_PATCHES: LazyLock<HashMap<&'static str, Patch>> = LazyLock::new(|| {
     HashMap::from_iter([
@@ -29,6 +29,7 @@ pub static AVAILABLE_PATCHES: LazyLock<HashMap<&'static str, Patch>> = LazyLock:
         ("dump_outbound_packet", prepare_dump_outbound_packet_patch()),
         ("SpellErrMsg", prepare_spell_err_msg_trampoline()),
         ("AddInputEvent", prepare_AddInputEvent_patch()),
+        ("Pylpyr", prepare_pylpyr_patch()),
     ])
 });
 
