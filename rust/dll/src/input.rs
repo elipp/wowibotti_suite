@@ -6,7 +6,7 @@ use crate::{
     assembly, dostring,
     lua::WC3MODE_ENABLED,
     patch::{InstructionBuffer, Patch, PatchKind, copy_original_opcodes},
-    wc3::{CUSTOM_CAMERA, get_foreground_window, get_window_dimensions},
+    wc3::{CUSTOM_CAMERA, WowCamera, get_foreground_window, get_window_dimensions},
 };
 use lole_macros::auto_enum_try_from;
 use windows::{
@@ -119,7 +119,22 @@ unsafe extern "stdcall" fn AddInputEvent_hook(event: *const WowInputEvent) -> i3
     if let Some(event) = unsafe { event.as_ref() } {
         if let Ok(e) = InputEvent::try_from(event.event) {
             match e {
-                InputEvent::KeyDown => {}
+                InputEvent::KeyDown => {
+                    if let Ok(k) = Key::try_from(event.param) {
+                        match k {
+                            Key::R => {
+                                let mut c = CUSTOM_CAMERA.lock().unwrap();
+                                let Some(wow_camera) = WowCamera::fetch_mut() else {
+                                    tracing::warn!("No wow camera");
+                                    return INPUT_EVENT_PASS_TO_NORMAL_HANDLER;
+                                };
+                                let _ = c.reset_camera(wow_camera);
+                                return INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
                 InputEvent::KeyUp => {}
                 InputEvent::MouseDown => {
                     if let Ok(p) = MouseButton::try_from(event.param) {
@@ -130,7 +145,8 @@ unsafe extern "stdcall" fn AddInputEvent_hook(event: *const WowInputEvent) -> i3
                             match p {
                                 MouseButton::Left => {
                                     state.left_press_start_location = Some((cx, cy));
-                                    dostring!("lole_start_wc3mode_rect({w}, {h}, {cx}, {cy})",);
+                                    dostring!("lole_wc3mode:set_window_dims_pixels({w}, {h})",);
+                                    dostring!("lole_wc3mode.selection:start({cx}, {cy})",);
                                 }
                                 MouseButton::Right => {
                                     state.right_press_start_location = Some((cx, cy))
@@ -153,7 +169,7 @@ unsafe extern "stdcall" fn AddInputEvent_hook(event: *const WowInputEvent) -> i3
                         match p {
                             MouseButton::Left => {
                                 if let Some((x, y)) = state.left_press_start_location {
-                                    dostring!("lole_end_wc3mode_rect({cx}, {cy}, {x}, {y})",);
+                                    dostring!("lole_wc3mode.selection:finish({cx}, {cy})",);
                                 }
                                 state.left_press_start_location = None;
                             }
@@ -175,7 +191,7 @@ unsafe extern "stdcall" fn AddInputEvent_hook(event: *const WowInputEvent) -> i3
                         return INPUT_EVENT_PASS_TO_NORMAL_HANDLER;
                     };
                     if let Some((x, y)) = state.left_press_start_location {
-                        dostring!("lole_update_wc3mode_rect({cx}, {cy}, {x}, {y})",);
+                        dostring!("lole_wc3mode.selection:update({cx}, {cy})",);
                     }
                 }
                 InputEvent::MouseWheel => {

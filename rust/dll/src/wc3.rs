@@ -7,9 +7,10 @@ use windows::Win32::{
 };
 
 use crate::{
-    Addr, LoleError,
+    Addr,
     addrs::offsets::{WOW_CAMERA, WOW_CAMERA_L2_OFFSET},
     assembly::NOP,
+    dostring,
     input::{get_cursor_position, get_screen_size},
     linalg::WowVector3,
     objectmanager::{GUID, ObjectManager, WowObject, WowObjectType},
@@ -111,8 +112,8 @@ pub struct CustomCamera {
     pos: WowVector3,
 }
 
-const S_MIN: f32 = 0.4;
-const S_MAX: f32 = 0.7;
+const S_MIN: f32 = 0.3;
+const S_MAX: f32 = 0.8;
 const S_INCREMENT: f32 = 0.01;
 
 impl Default for CustomCamera {
@@ -148,24 +149,40 @@ impl CustomCamera {
         Rotation3::new(Vector3::y() * self.get_angle())
     }
 
-    pub fn update(&mut self, wow_camera: &mut WowCamera) -> anyhow::Result<()> {
+    pub fn commit_to_wowcamera_memory(&mut self, wow_camera: &mut WowCamera) -> anyhow::Result<()> {
         wow_camera.set_rot(self.get_rot());
         wow_camera.set_pos(&self.pos.into());
         Ok(())
     }
 
+    pub fn tick(&mut self, wow_camera: &mut WowCamera) -> anyhow::Result<()> {
+        let (cx, cy) = get_cursor_position()?;
+        let (sx, sy) = get_screen_size()?;
+
+        const MARGIN: i32 = 80;
+        const INCREMENT: f32 = 0.05;
+
+        if cx < MARGIN {
+            self.pos.0.y += INCREMENT;
+        } else if cx > sx - MARGIN {
+            self.pos.0.y += -INCREMENT;
+        }
+        if cy < MARGIN {
+            self.pos.0.x += INCREMENT;
+        } else if cy > sy - MARGIN {
+            self.pos.0.x += -INCREMENT;
+        }
+
+        self.commit_to_wowcamera_memory(wow_camera)?;
+
+        Ok(())
+    }
+
     /// Reset camera to the "default" view over the player
     pub fn reset_camera(&mut self, wow_camera: &mut WowCamera) -> anyhow::Result<()> {
-        let Ok(om) = ObjectManager::new() else {
-            return Err(LoleError::ObjectManagerIsNull)?;
-        };
-
-        let p = om.get_player()?;
+        let p = ObjectManager::new()?.get_player()?;
         self.pos = p.get_pos()? + self.get_cameraoffset();
-
-        wow_camera.set_pos(&self.pos);
-        wow_camera.set_rot(self.get_rot());
-
+        self.commit_to_wowcamera_memory(wow_camera)?;
         Ok(())
     }
 }
@@ -286,13 +303,42 @@ pub fn do_wc3mode_stuff() -> anyhow::Result<()> {
         patch.patch()?;
     }
 
-    let mut custom_camera = CUSTOM_CAMERA
-        .lock()
-        .map_err(|_| anyhow::anyhow!("custom_camera mutex"))?;
+    {
+        let mut custom_camera = CUSTOM_CAMERA
+            .lock()
+            .map_err(|_| anyhow::anyhow!("custom_camera mutex"))?;
+        let mut wow_camera =
+            WowCamera::fetch_mut().ok_or_else(|| anyhow::anyhow!("No Wow camera"))?;
 
-    let mut wow_camera = WowCamera::fetch_mut().ok_or_else(|| anyhow::anyhow!("No Wow camera"))?;
-    custom_camera.reset_camera(&mut wow_camera)?;
+        // custom_camera.reset_camera(&mut wow_camera)?;
+        custom_camera.tick(&mut wow_camera)?;
+    }
 
+    draw_debug_markers()?;
+
+    Ok(())
+}
+
+pub fn draw_debug_markers() -> anyhow::Result<()> {
+    let mvp = get_wow_mvp_matrix_in_nalgebra_space()?;
+    let (sw, sh) = get_screen_size()?;
+
+    let mut units = vec![];
+    for unit in ObjectManager::new()?
+        .iter()
+        .filter(|o| matches!(o.get_type(), WowObjectType::Unit))
+    {
+        if let Some((sx, sy)) = get_screen_coords(unit.get_pos()?, &mvp, sw, sh) {
+            units.push(format!(
+                "{{x = {sx}, y = {sy}, name = '{}'}}",
+                unit.get_name().to_owned()
+            ));
+        }
+    }
+
+    let markers = units.join(",");
+
+    dostring!("lole_wc3mode_debug({{{}}})", markers);
     Ok(())
 }
 
@@ -358,12 +404,13 @@ pub mod pylpyr {
 }
 
 fn get_screen_coords(
-    pos: WowVector3,
+    mut pos: WowVector3,
     mvp: &Matrix4<f32>,
     screen_w: i32,
     screen_h: i32,
 ) -> Option<(f32, f32)> {
     // match wow2glm axis swap from original
+    // pos.0.z += 4.0; // makes the selection a bit more intuitive (more like mass center of this unit)
     let pos_gl: Vector3<f32> = pos.into();
     let pos_gl = Vector4::<f32>::new(pos_gl.x, pos_gl.y, pos_gl.z, 1.0);
 
@@ -390,29 +437,36 @@ fn in_rect(sx: f32, sy: f32, left: f32, top: f32, w: f32, h: f32) -> bool {
     sx >= left && sx <= left + w && sy >= top && sy <= top + h
 }
 
-pub fn find_units_within_screen_region(
-    left: f32,
-    top: f32,
-    width: f32,
-    height: f32,
-) -> anyhow::Result<Vec<WowObject>> {
+pub fn get_wow_mvp_matrix_in_nalgebra_space() -> anyhow::Result<Matrix4<f32>> {
     let camera = WowCamera::fetch().ok_or_else(|| anyhow::anyhow!("No camera"))?;
     let custom_camera = CUSTOM_CAMERA.lock().unwrap();
 
     let camera_pos: Vector3<f32> = custom_camera.pos.into();
 
-    let proj =
-        Perspective3::new(camera.aspect, camera.fov, camera.z_near, camera.z_far).to_homogeneous();
+    let fovy = 2.0 * ((camera.fov / 2.0).tan() / camera.aspect).atan();
+    // let fovy = (camera.fov.tan() / camera.aspect).atan();
+    //
 
+    let proj =
+        // Perspective3::new(camera.aspect, camera.fov, camera.z_near, camera.z_far).to_homogeneous();
+        Perspective3::new(camera.aspect, fovy, camera.z_near, camera.z_far).to_homogeneous();
+
+    let wow_proj = camera.get_wow_proj_matrix();
+    // tracing::info!("{proj:.3}");
+    // tracing::info!("{wow:.3}");
     let translation = Translation3::from(-camera_pos).to_homogeneous();
     let rot = Rotation3::new(Vector3::x() * custom_camera.get_angle()).to_homogeneous();
-    let mvp = proj * rot * translation;
+    let mvp = wow_proj * rot * translation;
+    Ok(mvp)
+}
 
-    // let view = Translation3::from(-camera_pos).to_homogeneous();
-    // let rot = Rotation3::new(Vector3::z() * custom_camera.get_angle()).to_homogeneous();
-    // let rot = custom_camera.get_rot().to_homogeneous();
-    // let mvp = proj * rot * view;
-
+pub fn find_units_within_screen_region(
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+    mvp: &Matrix4<f32>,
+) -> anyhow::Result<Vec<WowObject>> {
     let om = ObjectManager::new()?;
 
     let (cx, cy) = get_cursor_position()?;

@@ -17,7 +17,10 @@ use crate::patch::{
 use crate::socket::cast_gtaoe;
 use crate::socket::facing::{self};
 use crate::socket::movement_flags::NOT_MOVING;
-use crate::wc3::{SELECTED_UNIT_GUIDS, WowCamera, find_units_within_screen_region};
+use crate::wc3::{
+    SELECTED_UNIT_GUIDS, WowCamera, find_units_within_screen_region,
+    get_wow_mvp_matrix_in_nalgebra_space,
+};
 use crate::{
     LoleError, LoleResult, add_repr_and_tryfrom, assembly, get_state, write_last_hardware_action,
 };
@@ -1161,7 +1164,8 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             let width = lua_tonumber_f32!(lua, 4);
             let height = lua_tonumber_f32!(lua, 5);
 
-            let selected = find_units_within_screen_region(left, top, width, height)?;
+            let mvp = get_wow_mvp_matrix_in_nalgebra_space()?;
+            let selected = find_units_within_screen_region(left, top, width, height, &mvp)?;
             tracing::info!("{selected:?}");
         }
         Opcode::DumpWowObject => {

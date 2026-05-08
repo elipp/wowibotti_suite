@@ -140,72 +140,115 @@ function lole_debug(...)
     return true;
 end
 
-local wc3mode_select_rect = CreateFrame("Frame", nil, UIParent)
-wc3mode_select_rect.state = {}
-
-local tex = wc3mode_select_rect:CreateTexture(nil, "BACKGROUND")
-tex:SetAllPoints(wc3mode_select_rect)
-tex:SetTexture(0, 1.0, 0, 0.1)
-
-local window_width_pixels = 0
-local window_height_pixels = 0
-
 function get_ui_coords(px, py)
     local screen_width = GetScreenWidth()
     local screen_height = GetScreenHeight()
 
-    local x = px * (screen_width / window_width_pixels)
-    local y = py * (screen_height / window_height_pixels)
+    local x = px * (screen_width / lole_wc3mode.window.width)
+    local y = py * (screen_height / lole_wc3mode.window.height)
     return x, y
 end
 
 local function get_rect(x1, y1, x2, y2) -- heh
-    local left   = math.min(x1, x2)
+    local left = math.min(x1, x2)
     local top = math.min(y1, y2)
-    local width  = math.abs(x2 - x1)
+    local width = math.abs(x2 - x1)
     local height = math.abs(y2 - y1)
     return left, top, width, height
 end
 
-function lole_start_wc3mode_rect(ww, wh, cx, cy)
-    window_width_pixels = ww
-    window_height_pixels = wh
 
-    wc3mode_select_rect:ClearAllPoints()
-    local ux,uy = get_ui_coords(cx, cy)
-    wc3mode_select_rect:SetPoint("TOPLEFT", UIParent, "TOPLEFT", ux, -uy)
-    wc3mode_select_rect:SetSize(0,0)
+local function lole_wc3mode_select(left, top, width, height)
+    return LOP:call(LOP.Wc3Select, left, top, width, height)
 end
 
-function lole_update_wc3mode_rect(cx, cy, x, y)
-    local ucx,ucy = get_ui_coords(cx,cy)
-    local ux,uy = get_ui_coords(x,y)
+local SelectionRect = {}
+SelectionRect.__index = SelectionRect
 
-    local left,top,width,height = get_rect(ucx, ucy, ux, uy)
+function SelectionRect.new(frame)
+    local self = setmetatable({}, SelectionRect)
+    self.frame = frame
+    self.initial = { x=0, y=0 }
+    return self
+end
 
-    wc3mode_select_rect:ClearAllPoints()
-    wc3mode_select_rect:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, -top)
-    wc3mode_select_rect:SetSize(width, height)
-    if not wc3mode_select_rect:IsShown() then
-        wc3mode_select_rect:Show()
+function SelectionRect.new_with_frame()
+    local frame = CreateFrame("Frame", nil, UIParent)
+    frame:SetFrameStrata("TOOLTIP")
+    frame:SetSize(0, 0)
+    frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -10000, -10000)
+    frame:Hide()
+
+    local texture = frame:CreateTexture(nil, "BACKGROUND")
+    texture:SetTexture(0, 1.0, 0, 0.1)
+    texture:SetAllPoints(frame)
+
+    return SelectionRect.new(frame)
+end
+
+function SelectionRect:start(cx, cy)
+    self.frame:ClearAllPoints()
+    self.initial = { x = cx, y = cy }
+    local ux, uy = get_ui_coords(cx, cy)
+    self.frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", ux, -uy)
+    self.frame:SetSize(0, 0)
+end
+
+function SelectionRect:update(cx, cy)
+    local ucx, ucy = get_ui_coords(self.initial.x, self.initial.y)
+    local ux, uy = get_ui_coords(cx, cy)
+    local left, top, width, height = get_rect(ucx, ucy, ux, uy)
+    self.frame:ClearAllPoints()
+    self.frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, -top)
+    self.frame:SetSize(width, height)
+    if not self.frame:IsShown() then
+        self.frame:Show()
     end
 end
 
-function lole_end_wc3mode_rect(cx, cy, x, y)
-    local left, top, width, height = get_rect(cx, cy, x, y)
-    lole_wc3mode_select(left, top, width, height)
+function SelectionRect:finish(cx, cy)
+    local left, top, width, height = get_rect(cx, cy, self.initial.x, self.initial.y)
+    lole_wc3mode.select(left, top, width, height)
 
-    wc3mode_select_rect:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -10000, -10000)
-
-    -- Delay Hide() for one frame, so we don't get that annoying flicker + can reuse the frame
-    wc3mode_select_rect:SetScript("OnUpdate", function(self, _)
-        self:Hide()
-        self:SetScript("OnUpdate", nil)
+    -- delay Hide() for "1" frame to not get a flickering frame
+    self.frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -10000, -10000)
+    self.frame:SetScript("OnUpdate", function(f, _)
+        f:Hide()
+        f:SetScript("OnUpdate", nil)
     end)
 end
 
-function lole_wc3mode_select(left, top, width, height)
-    return LOP:call(LOP.Wc3Select, left, top, width, height)
+function SelectionRect:destroy()
+    self.frame:Hide()
+    self.frame:SetParent(nil)
+    self.frame = nil
+end
+
+lole_wc3mode = {
+    window = { width = 0, height = 0, },
+    selection = SelectionRect.new_with_frame(),
+    select = lole_wc3mode_select,
+}
+
+function lole_wc3mode:set_window_dims_pixels(width, height)
+    self.window = {
+        width = width,
+        height = height
+    }
+end
+
+local debug_frames = {}
+
+function lole_wc3mode_debug(markers)
+    for _,v in ipairs(markers) do
+        if debug_frames[v.name] == nil then
+            debug_frames[v.name] = SelectionRect:new_with_frame()
+        end
+        local m = debug_frames[v.name]
+        local size = 6
+        m.initial = {x = v.x - size, y = v.y - size}
+        m:update(v.x + size, v.y + size)
+    end
 end
 
 -- wowhead.com "pre-bis articles" can be scraped like this:
