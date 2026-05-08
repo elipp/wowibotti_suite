@@ -454,8 +454,7 @@ impl DllRealmInfo {
 }
 
 pub fn get_config_file_path(identifier: &str) -> anyhow::Result<PathBuf> {
-    let temp = std::env::var("TEMP")?;
-    Ok(Path::new(&temp).join(format!("wow-{identifier}.json")))
+    Ok(std::env::temp_dir().join(format!("wow-{identifier}.json")))
 }
 
 fn read_config_from_file(identifier: &str) -> anyhow::Result<ClientConfig> {
@@ -627,7 +626,7 @@ fn initialize_dll() -> anyhow::Result<()> {
 
     use tracing_subscriber::prelude::*;
 
-    let file = std::fs::File::create(format!("/tmp/log-{lole_id}.txt"))
+    let file = std::fs::File::create(std::env::temp_dir().join(format!("/log-{lole_id}.txt")))
         .expect("failed to create log file");
 
     tracing_subscriber::registry()
