@@ -8,8 +8,9 @@ use rand::RngExt;
 
 use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
+use crate::input::get_screen_size;
 use crate::linalg::WowVector3;
-use crate::objectmanager::{GUID, GUIDFmt, ObjectManager, WowObject, WowObjectType, guid_from_str};
+use crate::objectmanager::{GUIDFmt, ObjectManager, WowObject, WowObjectType, guid_from_str};
 use crate::patch::{
     InstructionBuffer, Patch, PatchKind, copy_original_opcodes, deref_opt_ptr, deref_opt_t,
     deref_t, write_addr,
@@ -18,7 +19,7 @@ use crate::socket::cast_gtaoe;
 use crate::socket::facing::{self};
 use crate::socket::movement_flags::NOT_MOVING;
 use crate::wc3::{
-    SELECTED_UNIT_GUIDS, WowCamera, find_units_within_screen_region,
+    CUSTOM_CAMERA, SELECTED_UNITS, WC3MODE_ENABLED, WowCamera, find_units_within_screen_region,
     get_wow_mvp_matrix_in_nalgebra_space,
 };
 use crate::{
@@ -96,7 +97,6 @@ macro_rules! chatframe_print {
 }
 
 pub static WORLD_ENTERED: AtomicBool = AtomicBool::new(false);
-pub static WC3MODE_ENABLED: AtomicBool = AtomicBool::new(false);
 
 add_repr_and_tryfrom! {
     i32,
@@ -393,6 +393,7 @@ pub enum Opcode {
     SendAddonMessage = 0x200,
     Wc3Mode = 0x201,
     Wc3Select = 0x202,
+    Wc3ResetCamera = 0x203,
     Debug = 0x400,
     Dump = 0x401,
     DoString = 0x402,
@@ -602,20 +603,6 @@ pub fn lua_debug_func(_lua: lua_State, arg: Option<String>) -> anyhow::Result<i3
     //     om.get_unit_by_nameref_internal("raid1"),
     //     om.get_unit_by_nameref_internal("pylly"),
     // );
-
-    if let Some(arg) = arg {
-        let mut units = SELECTED_UNIT_GUIDS.lock().unwrap();
-        units.clear();
-        for s in arg.split(",") {
-            if let Ok(guid) = guid_from_str(s) {
-                units.push(guid);
-            }
-        }
-        tracing::info!("Selected units: {units:X?}");
-    }
-
-    // let player = om.get_player()?;
-    // unsafe { player.draw_pylpyr()? };
 
     Ok(0)
 }
@@ -1159,6 +1146,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             if !WC3MODE_ENABLED.load(Ordering::Relaxed) {
                 return LUA_NO_RETVALS;
             }
+
             let left = lua_tonumber_f32!(lua, 2);
             let top = lua_tonumber_f32!(lua, 3);
             let width = lua_tonumber_f32!(lua, 4);
@@ -1166,7 +1154,40 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
 
             let mvp = get_wow_mvp_matrix_in_nalgebra_space()?;
             let selected = find_units_within_screen_region(left, top, width, height, &mvp)?;
-            tracing::info!("{selected:?}");
+            let mut selected_units = SELECTED_UNITS.lock().expect("SELECTED_UNITS");
+            selected_units.clear();
+            selected_units.extend(
+                selected
+                    .iter()
+                    .map(|o| (o.get_name().to_owned(), o.get_guid())),
+            );
+
+            lua_createtable(lua, 0, 0);
+
+            let mut num = 1i32;
+            for (name, guid) in selected_units.iter() {
+                let name = CString::new(name.as_str())?;
+                let guid = CString::new(format!("{}", GUIDFmt(*guid)))?;
+                lua_createtable(lua, 0, 0);
+
+                guid.push_to_table_with_key(lua, c"guid")?;
+                name.push_to_table_with_key(lua, c"name")?;
+                lua_rawseti(lua, -2, num);
+
+                num += 1;
+            }
+            return Ok(1);
+        }
+        Opcode::Wc3ResetCamera => {
+            if !WC3MODE_ENABLED.load(Ordering::Relaxed) {
+                return LUA_NO_RETVALS;
+            }
+            let mut custom_camera = CUSTOM_CAMERA.lock().unwrap();
+            let mut wow_camera =
+                WowCamera::fetch_mut().ok_or_else(|| anyhow::anyhow!("No camera"))?;
+            custom_camera.reset_camera(&mut wow_camera)?;
+
+            return LUA_NO_RETVALS;
         }
         Opcode::DumpWowObject => {
             // when mob is looted, base + 0x2A*4 is set to 0, meanwhile "NpcState" seems to not be very interesting

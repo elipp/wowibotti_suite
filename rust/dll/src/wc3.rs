@@ -1,4 +1,4 @@
-use std::sync::{LazyLock, Mutex};
+use std::sync::{LazyLock, Mutex, atomic::AtomicBool};
 
 use nalgebra::{Matrix4, Perspective3, Rotation3, RowVector4, Translation3, Vector3, Vector4};
 use windows::Win32::{
@@ -17,9 +17,10 @@ use crate::{
     patch::{deref_opt_ptr, write_addr},
 };
 
+pub static WC3MODE_ENABLED: AtomicBool = AtomicBool::new(false);
 pub static CUSTOM_CAMERA: LazyLock<Mutex<CustomCamera>> = LazyLock::new(Default::default);
 
-pub static SELECTED_UNIT_GUIDS: LazyLock<Mutex<Vec<GUID>>> = LazyLock::new(Default::default);
+pub static SELECTED_UNITS: LazyLock<Mutex<Vec<(String, GUID)>>> = LazyLock::new(Default::default);
 
 #[repr(C)]
 #[derive(Debug)]
@@ -145,13 +146,17 @@ impl CustomCamera {
         self.s
     }
 
+    pub fn get_absolute_pos(&self) -> WowVector3 {
+        self.pos + self.get_cameraoffset()
+    }
+
     pub fn get_rot(&self) -> Rotation3<f32> {
         Rotation3::new(Vector3::y() * self.get_angle())
     }
 
     pub fn commit_to_wowcamera_memory(&mut self, wow_camera: &mut WowCamera) -> anyhow::Result<()> {
         wow_camera.set_rot(self.get_rot());
-        wow_camera.set_pos(&self.pos.into());
+        wow_camera.set_pos(&self.get_absolute_pos().into());
         Ok(())
     }
 
@@ -159,17 +164,18 @@ impl CustomCamera {
         let (cx, cy) = get_cursor_position()?;
         let (sx, sy) = get_screen_size()?;
 
-        const MARGIN: i32 = 80;
+        let margin_x: i32 = ((sx as f32) * 0.12).round() as i32;
+        let margin_y: i32 = ((sy as f32) * 0.12).round() as i32;
         const INCREMENT: f32 = 0.05;
 
-        if cx < MARGIN {
+        if cx < margin_x {
             self.pos.0.y += INCREMENT;
-        } else if cx > sx - MARGIN {
+        } else if cx > sx - margin_x {
             self.pos.0.y += -INCREMENT;
         }
-        if cy < MARGIN {
+        if cy < margin_y {
             self.pos.0.x += INCREMENT;
-        } else if cy > sy - MARGIN {
+        } else if cy > sy - margin_y {
             self.pos.0.x += -INCREMENT;
         }
 
@@ -181,7 +187,7 @@ impl CustomCamera {
     /// Reset camera to the "default" view over the player
     pub fn reset_camera(&mut self, wow_camera: &mut WowCamera) -> anyhow::Result<()> {
         let p = ObjectManager::new()?.get_player()?;
-        self.pos = p.get_pos()? + self.get_cameraoffset();
+        self.pos = p.get_pos()?;
         self.commit_to_wowcamera_memory(wow_camera)?;
         Ok(())
     }
@@ -314,6 +320,9 @@ pub fn do_wc3mode_stuff() -> anyhow::Result<()> {
         custom_camera.tick(&mut wow_camera)?;
     }
 
+    let (sw, sh) = get_screen_size()?;
+    dostring!("lole_wc3mode:set_window_dims_pixels({}, {})", sw, sh);
+
     draw_debug_markers()?;
 
     Ok(())
@@ -338,7 +347,7 @@ pub fn draw_debug_markers() -> anyhow::Result<()> {
 
     let markers = units.join(",");
 
-    dostring!("lole_wc3mode_debug({{{}}})", markers);
+    dostring!("lole_wc3mode.debug({{{}}})", markers);
     Ok(())
 }
 
@@ -361,17 +370,17 @@ pub mod pylpyr {
         assembly,
         objectmanager::ObjectManager,
         patch::{InstructionBuffer, Patch, PatchKind, copy_original_opcodes},
-        wc3::SELECTED_UNIT_GUIDS,
+        wc3::SELECTED_UNITS,
     };
 
     pub unsafe extern "stdcall" fn pylpyr_hook() {
-        let Ok(selected_unit_guids) = SELECTED_UNIT_GUIDS.lock() else {
+        let Ok(selected_units) = SELECTED_UNITS.lock() else {
             return tracing::error!("SELECTED_UNIT_GUIDS lock error");
         };
         let Ok(om) = ObjectManager::new() else {
             return tracing::error!("No object manager");
         };
-        for guid in selected_unit_guids.iter() {
+        for (_, guid) in selected_units.iter() {
             if let Ok(Some(obj)) = om.get_object_by_guid(*guid) {
                 let _ = unsafe { obj.draw_pylpyr() };
             }
@@ -410,7 +419,7 @@ fn get_screen_coords(
     screen_h: i32,
 ) -> Option<(f32, f32)> {
     // match wow2glm axis swap from original
-    // pos.0.z += 4.0; // makes the selection a bit more intuitive (more like mass center of this unit)
+    pos.0.z += 1.0; // makes the selection a bit more intuitive (more like mass center of this unit)
     let pos_gl: Vector3<f32> = pos.into();
     let pos_gl = Vector4::<f32>::new(pos_gl.x, pos_gl.y, pos_gl.z, 1.0);
 
@@ -441,22 +450,16 @@ pub fn get_wow_mvp_matrix_in_nalgebra_space() -> anyhow::Result<Matrix4<f32>> {
     let camera = WowCamera::fetch().ok_or_else(|| anyhow::anyhow!("No camera"))?;
     let custom_camera = CUSTOM_CAMERA.lock().unwrap();
 
-    let camera_pos: Vector3<f32> = custom_camera.pos.into();
+    let camera_pos: Vector3<f32> = custom_camera.get_absolute_pos().into();
 
-    let fovy = 2.0 * ((camera.fov / 2.0).tan() / camera.aspect).atan();
-    // let fovy = (camera.fov.tan() / camera.aspect).atan();
-    //
+    const FOVY_CORRECTION_FACTOR: f32 = 0.92; // no idea why this is needed but
+    let fovy = FOVY_CORRECTION_FACTOR * 2.0 * ((camera.fov / 2.0).tan() / camera.aspect).atan();
 
-    let proj =
-        // Perspective3::new(camera.aspect, camera.fov, camera.z_near, camera.z_far).to_homogeneous();
-        Perspective3::new(camera.aspect, fovy, camera.z_near, camera.z_far).to_homogeneous();
+    let proj = Perspective3::new(camera.aspect, fovy, camera.z_near, camera.z_far).to_homogeneous();
 
-    let wow_proj = camera.get_wow_proj_matrix();
-    // tracing::info!("{proj:.3}");
-    // tracing::info!("{wow:.3}");
     let translation = Translation3::from(-camera_pos).to_homogeneous();
     let rot = Rotation3::new(Vector3::x() * custom_camera.get_angle()).to_homogeneous();
-    let mvp = wow_proj * rot * translation;
+    let mvp = proj * rot * translation;
     Ok(mvp)
 }
 

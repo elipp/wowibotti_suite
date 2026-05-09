@@ -60,10 +60,10 @@ pub mod wowproto_opcodes;
 #[cfg(feature = "addonmessage_broker")]
 use crate::addonmessage::unpack_broker_message_queue;
 use crate::addrs::offsets::{RENDERING_ENABLES, RENDERING_ENABLES_DEFAULT_VALUE};
-use crate::lua::{LuaType, WC3MODE_ENABLED, WORLD_ENTERED, dump_all_globals_to_file, enter_world};
+use crate::lua::{LuaType, WORLD_ENTERED, dump_all_globals_to_file, enter_world};
 use crate::patch::{AVAILABLE_PATCHES, Patch};
 use crate::spell_error::SpellError;
-use crate::wc3::{do_wc3mode_stuff, get_foreground_window, undo_wc3mode_patches};
+use crate::wc3::{WC3MODE_ENABLED, do_wc3mode_stuff, get_foreground_window, undo_wc3mode_patches};
 
 pub mod postgres {
     pub const POSTGRES_ADDR: &str = "127.0.0.1:5432";
