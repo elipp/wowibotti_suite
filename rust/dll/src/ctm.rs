@@ -477,8 +477,8 @@ impl CtmEvent {
                 "push {}",
                 "push {}",
                 "push {}",
-                in(reg) &self.target_pos.0.x as *const f32,
-                in(reg) &interact_guid as *const GUID,
+                in(reg) &self.target_pos.0.as_ptr(),
+                in(reg) &interact_guid as *const _,
                 in(reg) action as u32,
                 out("ecx") _,
             }

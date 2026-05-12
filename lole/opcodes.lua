@@ -161,7 +161,7 @@ end
 
 local catcher = CreateFrame("Frame", nil, WorldFrame)
 catcher:SetAllPoints(WorldFrame)
-catcher:EnableMouse(true)
+catcher:EnableMouse(false)
 catcher:SetFrameStrata("BACKGROUND")
 catcher:Show()
 
@@ -253,6 +253,12 @@ lole_wc3mode = {
     enabled = false,
 
     enable = function(self, enabled)
+        catcher:EnableMouse(enabled)
+        if enabled then
+            catcher:Show()
+        else
+            catcher:Hide()
+        end
         self.enabled = enabled
         return LOP:call(LOP.Wc3Mode, enabled)
     end,
@@ -260,6 +266,10 @@ lole_wc3mode = {
     set_window_dims_pixels = function(self, width, height)
         self.window.width = width
         self.window.height = height
+    end,
+
+    broadcast_click_to_move = function(cx, cy)
+
     end,
 
     debug = function(markers)
@@ -282,6 +292,8 @@ catcher:SetScript("OnMouseDown", function(self, button)
     local cx,cy = GetCursorPosition()
     if button == 'LeftButton' then
         lole_wc3mode.selection:start(cx, cy)
+    elseif button == 'RightButton' then
+        lole_wc3mode.broadcast_click_to_move(cx, cy)
     end
 end)
 catcher:SetScript("OnMouseUp", function(self, button)
