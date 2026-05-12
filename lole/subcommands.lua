@@ -161,7 +161,7 @@ CtmPrio = {
 }
 
 local function lole_broadcast_ctm(x, y, z)
-    local units = get_selected_units()
+    local units = selection_ui:get_selected_units()
 
     for i, n in pairs(units) do
         lole_subcommands.sendmacro_to(n, "/lole ctm", x, y, z, CtmPrio.ClearHold);
@@ -180,7 +180,7 @@ local function lole_ctm(x, y, z, prio)
 end
 
 local function lole_broadcast_hold()
-    local units = get_selected_units()
+    local units = selection_ui:get_selected_units()
 
     for i, n in pairs(units) do
         lole_subcommands.sendmacro_to(n, "/lole hold");
@@ -200,11 +200,11 @@ local function lole_hide()
 end
 
 local function lole_sfshow()
-    selection_frame_show()
+    selection_ui:show()
 end
 
 local function lole_sfhide()
-    selection_frame_hide()
+    selection_ui:hide()
 end
 
 
@@ -527,11 +527,11 @@ end
 
 local function lole_setselection(targets)
     local target_table = tokenize_string(targets, ",")
-    update_selection(target_table)
+    selection_ui:update_selection(target_table)
 end
 
 local function lole_clearselection()
-    clear_selection()
+    selection_ui:clear_selection()
 end
 
 local function lole_resetcamera()
@@ -835,7 +835,7 @@ local function lole_broadcast_target(GUID_str)
 end
 
 local function lole_broadcast_attack(GUID_str)
-    local units = get_selected_units()
+    local units = selection_ui:get_selected_units()
     for i, n in pairs(units) do
         lole_subcommands.sendmacro_to(n, "/lole target", GUID_str); -- last arg == priority level
         lole_subcommands.sendmacro_to(n, "/lole set blast 1")

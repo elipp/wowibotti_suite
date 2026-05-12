@@ -1,220 +1,178 @@
-local us_frame = CreateFrame("Frame", nil, WorldFrame);
+local selection_frame = {}
+selection_frame.__index = selection_frame
 
-local backdrop = {
-	bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-	edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-	  -- true to repeat the background texture to fill the frame, false to scale it
-	tile = false,
-	  -- size (width or height) of the square repeating background tiles (in pixels)
-	tileSize = 32,
-	  -- thickness of edge segments and square size of edge corners (in pixels)
-	edgeSize = 12,
-	  -- distance from the edges of the frame to those of the background texture (in pixels)
-	insets = {
-		left = 0,
-		right = 0,
-		top = 0,
-		bottom = 0
-	}
+local BACKDROP = {
+    bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background",
+    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+    tile = false, tileSize = 32, edgeSize = 12,
+    insets = { left = 0, right = 0, top = 0, bottom = 0 }
 }
 
-us_frame:SetHeight(0.20*GetScreenHeight())
-us_frame:SetWidth(0.7*GetScreenWidth())
-us_frame:SetPoint("BOTTOM", 0, 10)
+local STRIDE_PIXELS = 52
+local SEX_STRINGS   = { "UNKNOWN", "MALE", "FEMALE" }
 
-us_frame:SetBackdrop(backdrop)
-us_frame:Hide()
+function selection_frame.new()
+    local self = setmetatable({}, selection_frame)
 
-us_frame:EnableMouse(true)
-us_frame:SetMovable(false)
+    self.selected_units = {}
+    self.num_units      = 0
 
-us_frame:SetFrameStrata("HIGH")
+    self:_build_frame()
+    self:_build_close_button()
 
-local close_button = CreateFrame("Button", "close_button", us_frame, "UIPanelCloseButton");
-close_button:SetPoint("TOPRIGHT", 0, 0);
-
-close_button:SetScript("OnClick", function()
-	us_frame:Hide();
-end)
-
-function selection_frame_show()
-	us_frame:Show()
-	UIParent:Hide()
+    return self
 end
 
-function selection_frame_hide()
-	us_frame:Hide()
-	UIParent:Show()
+function selection_frame:_build_frame()
+    self.frame = CreateFrame("Frame", nil, WorldFrame)
+    self.frame:SetHeight(0.20 * GetScreenHeight())
+    self.frame:SetWidth(0.70 * GetScreenWidth())
+    self.frame:SetPoint("BOTTOM", 0, 10)
+    self.frame:SetBackdrop(BACKDROP)
+    self.frame:SetFrameStrata("HIGH")
+    self.frame:EnableMouse(true)
+    self.frame:SetMovable(false)
+    self.frame:Hide()
 end
 
-local sex_strings = { 'UNKNOWN', 'MALE', 'FEMALE' }
-
-local function get_portrait_filename()
-	local _,race = UnitRace("target")
-	race = string.upper(race)
-
-	local sex = sex_strings[UnitSex("target")]
-	return "Interface\\CHARACTERFRAME\\TEMPORARYPORTRAIT-"..sex.."-"..race..".BLP"
-
+function selection_frame:_build_close_button()
+    local btn = CreateFrame("Button", nil, self.frame, "UIPanelCloseButton")
+    btn:SetPoint("TOPRIGHT", 0, 0)
+    btn:SetScript("OnClick", function() self:hide() end)
 end
 
-local function create_portrait(parent)
-
-	local pframe = CreateFrame("Frame", nil, parent)
-
-	pframe:SetHeight(40)
-	pframe:SetWidth(40)
-	pframe:SetPoint("CENTER")
-
-	local texname = get_portrait_filename()
-	local port = pframe:CreateTexture(nil, "ARTWORK")
-	port:SetWidth(40)
-	port:SetHeight(40)
-	port:SetTexture(texname)
-	port:SetPoint("CENTER")
-
-	return pframe;
+function selection_frame:show()
+    self.frame:Show()
+    UIParent:Hide()
 end
 
-local function create_class_icon(parent)
-
-	local iconframe = CreateFrame("Frame", nil, parent)
-	iconframe:SetHeight(16)
-	iconframe:SetWidth(16)
-	iconframe:SetPoint("TOPRIGHT", 2, 2)
-
-	local icon = iconframe:CreateTexture(nil, "ARTWORK")
-	icon:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES.blp")
-	icon:SetWidth(16)
-	icon:SetHeight(16)
-	icon:SetPoint("TOPRIGHT", 2, 2)
-	local _, class = UnitClass("target")
-	local coords = CLASS_ICON_TCOORDS[class]; -- get the coordinates of the class icon we want
-	icon:SetTexCoord(unpack(coords)); -- cut out the region with our class icon according to coord
-
-	return iconframe
+function selection_frame:hide()
+    self.frame:Hide()
+    UIParent:Show()
 end
 
-local selected_units = {}
-local num_units = 0
-
-function clear_selection()
-	for i, uf in pairs(selected_units) do
-		uf.unitframe:Hide()
-	end
-	selected_units = {}
-	num_units = 0
+function selection_frame:clear_selection()
+    for _, uf in ipairs(self.selected_units) do
+        uf.unit_frame:Hide()
+    end
+    self.selected_units = {}
+    self.num_units      = 0
 end
 
-local stride_pixels = 52
+local unit_frame_pool = {}
 
-local function add_unitframe(unitname, unitframe)
-	local uf = {}
-	uf.unitname = unitname
-	uf.unitframe = unitframe
-	unitframe:SetPoint("TOPLEFT", 30+num_units*stride_pixels, -30)
-	selected_units[#selected_units + 1] = uf
-	num_units = #selected_units
+function selection_frame:update_selection(units_table)
+    self:clear_selection()
+    for _, unit in ipairs(units_table) do
+        if unit_frame_pool[unit.name] == nil then
+            unit_frame_pool[unit.name] = self:_create_unit_frame(unit.name)
+        end
+        self:_add_unit_frame(unit.name, unit_frame_pool[unit.name])
+    end
+    print(self:get_selected_units_comma_separated())
 end
 
-local function refresh_unitframe_positions()
-	for i, uf in pairs(selected_units) do
-		uf.unitframe:SetPoint("TOPLEFT", 30 + (i-1)*stride_pixels, -30)
-	end
+function selection_frame:deselect_unit(unit_name)
+    local index
+    for i, uf in ipairs(self.selected_units) do
+        if uf.unit_name == unit_name then index = i; break end
+    end
+    if not index then return end
+
+    self.selected_units[index].unit_frame:Hide()
+    table.remove(self.selected_units, index)
+    self.num_units = #self.selected_units
+
+    self:_refresh_unit_frame_positions()
 end
 
-local function deselect_unit(unitname)
-
-	local index = nil
-	for i, uf in pairs(selected_units) do
-		if uf.unitname == unitname then
-			index = i
-			break
-		end
-	end
-
-	if not index then return end
-
-	selected_units[index].unitframe:Hide()
-
-	for i = index,num_units-1 do
-		selected_units[i] = selected_units[i+1]
-	end
-
-	table.remove(selected_units) -- this is like a "pop" operation
-	num_units = #selected_units
-
-	refresh_unitframe_positions()
-	set_selection(get_selected_units_commaseparated())
-
+function selection_frame:get_selected_units()
+    local units = {}
+    for _, uf in ipairs(self.selected_units) do
+        units[#units + 1] = uf.unit_name
+    end
+    return units
 end
 
-local function create_unit_frame(unitname)
-	L_TargetUnit(unitname)
-
-	if not UnitExists("target") then
-		lole_error("unit " .. unitname .. " doesn't exist!")
-		return
-	end
-
-	local unitframe = CreateFrame("Button", nil, us_frame)
-	unitframe:SetBackdrop(backdrop)
-
-	unitframe:SetHeight(40)
-	unitframe:SetWidth(40)
-	local portframe = create_portrait(unitframe)
-	local icon = create_class_icon(portframe)
-
-	-- SetPoint is done later (even though it's kind of weird), in add_unitframe
-
-	local name = unitframe:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	name:SetPoint("BOTTOM", unitframe, 0, -12)
-	name:SetText(UnitName("target"))
-	unitframe.unitname = UnitName("target")
-
-	unitframe:SetScript("OnClick", function(self)
-		if IsControlKeyDown() then
-			deselect_unit(self.unitname)
-		else
-			set_selection(self.unitname)
-		end
-	end)
-
-	L_ClearTarget()
-
-	return unitframe
-
+function selection_frame:get_selected_units_comma_separated()
+    local parts = {}
+    for _, uf in ipairs(self.selected_units) do
+        parts[#parts + 1] = uf.unit_name
+    end
+    return table.concat(parts, ",")
 end
 
--- local header_texture = us_frame:CreateTexture(nil, "ARTWORK")
--- header_texture:SetTexture(get_portrait_filename("player"))
--- header_texture:SetWidth(36)
--- header_texture:SetHeight(36)
--- header_texture:SetPoint("TOP", 0, 12)
-
-function update_selection(selected_units_table)
-	clear_selection()
-	for i, unit in pairs(selected_units_table) do
-		add_unitframe(unit.name, create_unit_frame(unit.name))
-	end
+function selection_frame:_add_unit_frame(unit_name, unit_frame)
+    local uf = { unit_name = unit_name, unit_frame = unit_frame }
+    unit_frame:SetPoint("TOPLEFT", 30 + self.num_units * STRIDE_PIXELS, -30)
+    self.selected_units[#self.selected_units + 1] = uf
+    self.num_units = #self.selected_units
 end
 
-function get_selected_units()
-	local u = {}
-	for i,uf in pairs(selected_units) do
-		u[#u + 1] = uf.unitname
-	end
-
-	return u
+function selection_frame:_refresh_unit_frame_positions()
+    for i, uf in ipairs(self.selected_units) do
+        uf.unit_frame:SetPoint("TOPLEFT", 30 + (i - 1) * STRIDE_PIXELS, -30)
+    end
 end
 
-function get_selected_units_commaseparated()
-	local s = ""
-	for i,uf in pairs(selected_units) do
-		s = s .. uf.unitname .. ","
-	end
-	return s:sub(1, -2) -- deletes the last comma apparently
-
+function selection_frame:_get_portrait_filename(name)
+    local _, race = UnitRace(name)
+    local sex = SEX_STRINGS[UnitSex(name)]
+    return "Interface\\CHARACTERFRAME\\TEMPORARYPORTRAIT-"
+           .. sex .. "-" .. string.upper(race) .. ".BLP"
 end
 
---us_frame:SetScript("OnUpdate", update_selected)
+function selection_frame:_create_portrait(parent, name)
+    local portrait_frame = CreateFrame("Frame", nil, parent)
+    portrait_frame:SetSize(40, 40)
+    portrait_frame:SetPoint("CENTER")
+
+    local tex = portrait_frame:CreateTexture(nil, "ARTWORK")
+    tex:SetSize(40, 40)
+    tex:SetTexture(self:_get_portrait_filename(name))
+    tex:SetPoint("CENTER")
+
+    return portrait_frame
+end
+
+function selection_frame:_create_class_icon(parent, name)
+    local icon_frame = CreateFrame("Frame", nil, parent)
+    icon_frame:SetSize(16, 16)
+    icon_frame:SetPoint("TOPRIGHT", 2, 2)
+
+    local icon = icon_frame:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(16, 16)
+    icon:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES.blp")
+    icon:SetPoint("TOPRIGHT", 2, 2)
+
+    local _, class = UnitClass(name)
+    icon:SetTexCoord(unpack(CLASS_ICON_TCOORDS[class]))
+
+    return icon_frame
+end
+
+function selection_frame:_create_unit_frame(unit_name)
+    local unit_frame = CreateFrame("Button", nil, self.frame)
+    unit_frame:SetBackdrop(BACKDROP)
+    unit_frame:SetSize(40, 40)
+
+    local portrait_frame = self:_create_portrait(unit_frame, unit_name)
+    self:_create_class_icon(portrait_frame, unit_name)
+
+    local label    = unit_frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    label:SetPoint("BOTTOM", unit_frame, 0, -12)
+    label:SetText(unit_name)
+
+    unit_frame.unit_name = unit_name
+    unit_frame:SetScript("OnClick", function(self)
+        if IsControlKeyDown() then
+            self:deselect_unit(self.unit_name)
+        else
+            self:update_selection({ {name = self.unit_name} })
+        end
+    end)
+
+    return unit_frame
+end
+
+selection_ui = selection_frame.new()

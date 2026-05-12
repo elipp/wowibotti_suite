@@ -9,6 +9,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use crate::addrs::offsets::ctm::CTM_FINISHED_PATCHADDR;
+use crate::addrs::offsets::ctm::WOW_CLICK_TO_MOVE;
 use crate::addrs::{self, offsets};
 use crate::dostring;
 use crate::linalg::WowVector3;
@@ -654,6 +655,53 @@ pub fn prepare_ctm_finished_patch() -> Patch {
         patch_addr,
         patch_opcodes,
         original_opcodes,
+        kind: PatchKind::JmpToTrampoline,
+    }
+}
+
+#[repr(C)]
+struct CtmFinalArgs {
+    action: u32,
+    guid: *const GUID,
+    coords: *const f32,
+    s2: u32,
+}
+
+unsafe extern "stdcall" fn ctm_main_hook(args: *const CtmFinalArgs) {}
+
+pub fn prepare_ctm_main_patch() -> Patch {
+    let original_opcodes = copy_original_opcodes(WOW_CLICK_TO_MOVE, 6);
+    let mut patch_opcodes = InstructionBuffer::new();
+
+    // pushad; lea edx, [esp + 0x24]; push edx
+    patch_opcodes.push(assembly::PUSHAD);
+    patch_opcodes.push_slice(&[0x8D, 0x54, 0x24, 0x24, 0x52]);
+    patch_opcodes.push_call_to(ctm_main_hook as *const () as Addr);
+
+    // cmp eax, 0
+    patch_opcodes.push_slice(&[0x83, 0xF8, 0x00]);
+
+    // jz branch2 (branch2 is after: popad + original_opcodes + push_imm + dword + ret = 1 + size + 1 + 4 + 1 = 7 + size bytes)
+    let branch2_offset: u32 = (1 + original_opcodes.len() + 1 + 4 + 1) as u32;
+    patch_opcodes.push_slice(&[0x0F, 0x84]);
+    patch_opcodes.push_slice(&branch2_offset.to_le_bytes());
+
+    // branch 1 - execute original and continue
+    patch_opcodes.push(assembly::POPAD);
+    patch_opcodes.push_slice(&original_opcodes);
+    patch_opcodes.push(assembly::PUSH_IMM);
+    patch_opcodes.push_slice(&(WOW_CLICK_TO_MOVE + original_opcodes.len()).to_le_bytes());
+    patch_opcodes.push(assembly::RET);
+
+    // branch 2 - filter/skip
+    patch_opcodes.push(assembly::POPAD);
+    patch_opcodes.push_slice(&assembly::RETN(10)); // retn 10
+
+    Patch {
+        name: "CTM_main",
+        patch_addr: WOW_CLICK_TO_MOVE,
+        original_opcodes,
+        patch_opcodes,
         kind: PatchKind::JmpToTrampoline,
     }
 }

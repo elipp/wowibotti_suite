@@ -682,7 +682,7 @@ fn initialize_dll() -> anyhow::Result<()> {
             tracing::info!("enabled patch {p}");
             global_var!(ENABLED_PATCHES).push(patch);
         } else {
-            panic!("unknown patch {p}");
+            fatal_error_exit(anyhow::anyhow!("Unknown patch '{}'", p));
         }
     }
 

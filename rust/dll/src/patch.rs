@@ -15,7 +15,7 @@ use windows::{
     core::Interface,
 };
 
-use crate::{Addr, EndScene_hook, LoleError, LoleResult, assembly};
+use crate::{Addr, EndScene_hook, LoleError, LoleResult, assembly, ctm::prepare_ctm_main_patch};
 use crate::{addrs::offsets, lua::prepare_ClosePetStables_patch};
 use crate::{ctm::prepare_ctm_finished_patch, input::prepare_AddInputEvent_patch};
 use crate::{fatal_error_exit, socket::prepare_dump_outbound_packet_patch};
@@ -25,6 +25,7 @@ pub static AVAILABLE_PATCHES: LazyLock<HashMap<&'static str, Patch>> = LazyLock:
     HashMap::from_iter([
         ("EndScene", prepare_endscene_trampoline()),
         ("ClosePetStables__lop_exec", prepare_ClosePetStables_patch()),
+        ("CTM_main", prepare_ctm_main_patch()),
         ("CTM_finished", prepare_ctm_finished_patch()),
         ("dump_outbound_packet", prepare_dump_outbound_packet_patch()),
         ("SpellErrMsg", prepare_spell_err_msg_trampoline()),

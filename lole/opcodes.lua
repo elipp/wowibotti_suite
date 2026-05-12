@@ -222,7 +222,7 @@ function SelectionRect:finish(cx, cy)
 
     local res = LOP:call(LOP.Wc3Select, left, top, width, height)
     if res then
-        update_selection(res)
+        selection_ui:update_selection(res)
     end
 
     -- delay Hide() for "1" frame to not get a flickering frame
@@ -482,10 +482,6 @@ end
 
 function has_aggro()
     return LOP:call(LOP.HasAggro)
-end
-
-function set_selection(names_commaseparated)
-    return LOP:call(LOP.SL_SETSELECT, names_commaseparated)
 end
 
 function interact_with_object(...)
