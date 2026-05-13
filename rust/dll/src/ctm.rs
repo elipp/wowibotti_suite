@@ -630,7 +630,7 @@ pub fn prepare_ctm_finished_patch() -> Patch {
 #[repr(C)]
 #[derive(Debug)]
 struct CtmFinalArgs {
-    action: u8,
+    action: u32,
     guid: *const GUID,
     coords: *const f32,
     s2: u32,
@@ -645,20 +645,15 @@ fn ctm_main(args: *const CtmFinalArgs) -> anyhow::Result<i32> {
     } else {
         let args = unsafe { args.as_ref() }.ok_or_else(|| anyhow!("null args"))?;
 
-        if args.coords.is_null() {
-            return Err(anyhow!("null coords"));
-        }
-
-        if args.guid.is_null() {
-            return Err(anyhow!("null guid"));
-        }
-
         tracing::info!("{args:?}");
 
-        let c: &[f32] = unsafe { std::slice::from_raw_parts(args.coords, 3) };
-
-        match args.action.try_into()? {
+        match (args.action as u8).try_into()? {
             CtmAction::Move => {
+                if args.coords.is_null() {
+                    return Err(anyhow!("null coords"));
+                }
+
+                let c: &[f32] = unsafe { std::slice::from_raw_parts(args.coords, 3) };
                 dostring!(
                     r#"lole_broadcast("ctm", {:.3}, {:.3}, {:.3})"#,
                     c[0],
@@ -668,14 +663,18 @@ fn ctm_main(args: *const CtmFinalArgs) -> anyhow::Result<i32> {
                 return Ok(CTM_MAIN_PREVENT_DEFAULT);
             }
             CtmAction::MoveAttack => {
-                let guid = unsafe { args.guid.as_ref() }.ok_or_else(|| anyhow::anyhow!("guid"))?;
-                if let Ok(player) = ObjectManager::new().and_then(|om| om.get_player()) {
-                    let _ = stopfollow(&player); // this actually clears the CTM queue
-                } else {
-                    tracing::error!("stopfollow failed");
-                    return Ok(CTM_MAIN_LET_THROUGH);
+                if args.guid.is_null() {
+                    return Err(anyhow!("null guid"));
                 }
-                dostring!(r#"lole_broadcast("attack", "{}")"#, GUIDFmt(*guid));
+
+                // let guid = unsafe { args.guid.as_ref() }.ok_or_else(|| anyhow::anyhow!("guid"))?;
+                // if let Ok(player) = ObjectManager::new().and_then(|om| om.get_player()) {
+                //     let _ = stopfollow(&player); // this actually clears the CTM queue
+                // } else {
+                //     tracing::error!("stopfollow failed");
+                //     return Ok(CTM_MAIN_LET_THROUGH);
+                // }
+                // dostring!(r#"lole_broadcast("attack", "{}")"#, GUIDFmt(*guid));
                 return Ok(CTM_MAIN_PREVENT_DEFAULT);
             }
             _ => return Ok(CTM_MAIN_LET_THROUGH),
