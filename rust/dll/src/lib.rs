@@ -369,7 +369,7 @@ fn on_every_frame() -> anyhow::Result<()> {
     };
 
     if WC3MODE_ENABLED.load(Ordering::Relaxed) {
-        do_wc3mode_stuff()?;
+        let _ = do_wc3mode_stuff();
     } else {
         undo_wc3mode_patches()?;
     }
