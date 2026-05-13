@@ -78,13 +78,11 @@ const INPUT_EVENT_PASS_TO_NORMAL_HANDLER: i32 = 1;
 #[derive(Debug)]
 struct MouseState {
     left_press_start_location: Option<(i32, i32)>,
-    right_press_start_location: Option<(i32, i32)>,
 }
 
 static MOUSE_STATE: LazyLock<Mutex<MouseState>> = LazyLock::new(|| {
     Mutex::new(MouseState {
         left_press_start_location: None,
-        right_press_start_location: None,
     })
 });
 
@@ -112,108 +110,91 @@ pub fn get_screen_size() -> anyhow::Result<(i32, i32)> {
     }
 }
 
-#[allow(non_snake_case)]
-unsafe extern "stdcall" fn AddInputEvent_hook(event: *const WowInputEvent) -> i32 {
+fn add_input_event(event: *const WowInputEvent) -> anyhow::Result<i32> {
     if !WC3MODE_ENABLED.load(Ordering::Relaxed) {
-        return INPUT_EVENT_PASS_TO_NORMAL_HANDLER;
+        return Ok(INPUT_EVENT_PASS_TO_NORMAL_HANDLER);
     }
-    if let Some(event) = unsafe { event.as_ref() } {
-        if let Ok(e) = InputEvent::try_from(event.event) {
-            match e {
-                InputEvent::KeyDown => {
-                    // if let Ok(k) = Key::try_from(event.param) {
-                    //     match k {
-                    //         Key::R => {
-                    //             let mut c = CUSTOM_CAMERA.lock().unwrap();
-                    //             let Some(wow_camera) = WowCamera::fetch_mut() else {
-                    //                 tracing::warn!("No wow camera");
-                    //                 return INPUT_EVENT_PASS_TO_NORMAL_HANDLER;
-                    //             };
-                    //             let _ = c.reset_camera(wow_camera);
-                    //             return INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER;
-                    //         }
-                    //         _ => {}
-                    //     }
-                    // }
+    let event = unsafe { event.as_ref() }.ok_or_else(|| anyhow::anyhow!("event.as_ref"))?;
+    match event.event.try_into()? {
+        InputEvent::KeyDown => {
+            // if let Ok(k) = Key::try_from(event.param) {
+            //     match k {
+            //         Key::R => {
+            //             let mut c = CUSTOM_CAMERA.lock().unwrap();
+            //             let Some(wow_camera) = WowCamera::fetch_mut() else {
+            //                 tracing::warn!("No wow camera");
+            //                 return INPUT_EVENT_PASS_TO_NORMAL_HANDLER;
+            //             };
+            //             let _ = c.reset_camera(wow_camera);
+            //             return INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER;
+            //         }
+            //         _ => {}
+            //     }
+            // }
+        }
+        InputEvent::KeyUp => {}
+        InputEvent::MouseDown => {
+            let mut state = MOUSE_STATE.lock().unwrap();
+            let (cx, cy) = get_cursor_position()?;
+            let (w, h) = get_window_dimensions()?;
+            match MouseButton::try_from(event.param)? {
+                MouseButton::Left => {
+                    state.left_press_start_location = Some((cx, cy));
+                    dostring!("lole_wc3mode:set_window_dims_pixels({w}, {h})",);
+                    dostring!("lole_wc3mode.selection:start({cx}, {cy})",);
+                    return Ok(INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER);
                 }
-                InputEvent::KeyUp => {}
-                InputEvent::MouseDown => {
-                    // if let Ok(p) = MouseButton::try_from(event.param) {
-                    //     let mut state = MOUSE_STATE.lock().unwrap();
-                    //     if let Ok((cx, cy)) = get_cursor_position()
-                    //         && let Ok((w, h)) = get_window_dimensions()
-                    //     {
-                    //         if let Ok(true) = cursor_in_selectionframearea(cx, cy) {
-                    //             return INPUT_EVENT_PASS_TO_NORMAL_HANDLER;
-                    //         }
-                    //         match p {
-                    //             MouseButton::Left => {
-                    //                 state.left_press_start_location = Some((cx, cy));
-                    //                 dostring!("lole_wc3mode:set_window_dims_pixels({w}, {h})",);
-                    //                 dostring!("lole_wc3mode.selection:start({cx}, {cy})",);
-                    //             }
-                    //             MouseButton::Right => {
-                    //                 state.right_press_start_location = Some((cx, cy))
-                    //             }
-                    //         }
-                    //         return INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER;
-                    //     } else {
-                    //         tracing::warn!("wh failed");
-                    //         return INPUT_EVENT_PASS_TO_NORMAL_HANDLER;
-                    //     }
-                    // }
-                }
-                InputEvent::MouseUp => {
-                    // if let Ok(p) = MouseButton::try_from(event.param) {
-                    //     let mut state = MOUSE_STATE.lock().unwrap();
-
-                    //     if let Ok((cx, cy)) = get_cursor_position()
-                    //         && let Ok((w, h)) = get_window_dimensions()
-                    //     {
-                    //         match p {
-                    //             MouseButton::Left => {
-                    //                 if let Ok(true) = cursor_in_selectionframearea(cx, cy) {
-                    //                     return INPUT_EVENT_PASS_TO_NORMAL_HANDLER;
-                    //                 }
-                    //                 if let Some((_, _)) = state.left_press_start_location {
-                    //                     dostring!("lole_wc3mode.selection:finish({cx}, {cy})",);
-                    //                 }
-                    //                 state.left_press_start_location = None;
-                    //             }
-                    //             MouseButton::Right => state.right_press_start_location = None,
-                    //         }
-                    //         return INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER;
-                    //     }
-                    // } else {
-                    //     tracing::warn!("get_cursor_position failed");
-                    //     return INPUT_EVENT_PASS_TO_NORMAL_HANDLER;
-                    // }
-                }
-
-                InputEvent::MouseDrag => {}
-
-                InputEvent::MouseMove => {
-                    // let state = MOUSE_STATE.lock().unwrap();
-                    // let Ok((cx, cy)) = get_cursor_position() else {
-                    //     tracing::warn!("get_cursor_position failed");
-                    //     return INPUT_EVENT_PASS_TO_NORMAL_HANDLER;
-                    // };
-                    // if let Some((x, y)) = state.left_press_start_location {
-                    //     dostring!("lole_wc3mode.selection:update({cx}, {cy})",);
-                    // }
-                }
-                InputEvent::MouseWheel => {
-                    let mut camera = CUSTOM_CAMERA.lock().unwrap();
-                    if event.param > 0 {
-                        camera.decrement_s();
-                    } else {
-                        camera.increment_s();
+                MouseButton::Right => {}
+            }
+        }
+        InputEvent::MouseUp => {
+            let mut state = MOUSE_STATE.lock().unwrap();
+            let (cx, cy) = get_cursor_position()?;
+            match MouseButton::try_from(event.param)? {
+                MouseButton::Left => {
+                    if let Some((_, _)) = state.left_press_start_location {
+                        dostring!("lole_wc3mode.selection:finish({cx}, {cy})",);
                     }
+                    state.left_press_start_location = None;
+                    return Ok(INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER);
                 }
+                MouseButton::Right => {}
+            }
+        }
+
+        InputEvent::MouseDrag => {}
+
+        InputEvent::MouseMove => {
+            // let state = MOUSE_STATE.lock().unwrap();
+            // let Ok((cx, cy)) = get_cursor_position() else {
+            //     tracing::warn!("get_cursor_position failed");
+            //     return INPUT_EVENT_PASS_TO_NORMAL_HANDLER;
+            // };
+            // if let Some((x, y)) = state.left_press_start_location {
+            //     dostring!("lole_wc3mode.selection:update({cx}, {cy})",);
+            // }
+        }
+        InputEvent::MouseWheel => {
+            let mut camera = CUSTOM_CAMERA.lock().unwrap();
+            if event.param > 0 {
+                camera.decrement_s();
+            } else {
+                camera.increment_s();
             }
         }
     }
-    INPUT_EVENT_PASS_TO_NORMAL_HANDLER
+    Ok(INPUT_EVENT_PASS_TO_NORMAL_HANDLER)
+}
+
+#[allow(non_snake_case)]
+unsafe extern "stdcall" fn AddInputEvent_hook(event: *const WowInputEvent) -> i32 {
+    match add_input_event(event) {
+        Ok(res) => res,
+        Err(e) => {
+            tracing::error!("{e}");
+            INPUT_EVENT_PASS_TO_NORMAL_HANDLER
+        }
+    }
 }
 
 #[allow(non_snake_case)]

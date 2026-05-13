@@ -316,7 +316,6 @@ pub fn do_wc3mode_stuff() -> anyhow::Result<()> {
         let mut wow_camera =
             WowCamera::fetch_mut().ok_or_else(|| anyhow::anyhow!("No Wow camera"))?;
 
-        // custom_camera.reset_camera(&mut wow_camera)?;
         custom_camera.tick(&mut wow_camera)?;
     }
 

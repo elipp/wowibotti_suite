@@ -101,9 +101,9 @@ pub fn generate_lua_enum(args: TokenStream, input: TokenStream) -> TokenStream {
 pub fn auto_enum_try_from(args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemEnum);
     let repr_type = parse_macro_input!(args as Type);
-
     let enum_name = &input.ident;
     let mut try_from_mappings = vec![];
+    let mut into_repr_mappings = vec![];
 
     for variant in &input.variants {
         let variant_name = &variant.ident;
@@ -113,11 +113,12 @@ pub fn auto_enum_try_from(args: TokenStream, input: TokenStream) -> TokenStream 
             panic!("All enum variants must have an explicit discriminant");
         };
         try_from_mappings.push(quote! { #discriminant => Ok(#enum_name::#variant_name), });
+        into_repr_mappings
+            .push(quote! { #enum_name::#variant_name => Ok(#discriminant as #repr_type), });
     }
 
     let expanded = quote! {
         #input
-
         impl TryFrom<#repr_type> for #enum_name {
             type Error = LoleError;
             fn try_from(value: #repr_type) -> std::result::Result<Self, Self::Error> {
@@ -129,7 +130,14 @@ pub fn auto_enum_try_from(args: TokenStream, input: TokenStream) -> TokenStream 
                 }
             }
         }
+        impl TryFrom<#enum_name> for #repr_type {
+            type Error = LoleError;
+            fn try_from(value: #enum_name) -> std::result::Result<Self, Self::Error> {
+                match value {
+                    #(#into_repr_mappings)*
+                }
+            }
+        }
     };
-
     TokenStream::from(expanded)
 }

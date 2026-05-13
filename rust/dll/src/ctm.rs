@@ -1,3 +1,5 @@
+use anyhow::anyhow;
+use lole_macros::auto_enum_try_from;
 use rand::RngExt;
 use std::arch::asm;
 use std::collections::VecDeque;
@@ -6,6 +8,7 @@ use std::f32::consts::TAU;
 use std::ffi::c_void;
 use std::sync::LazyLock;
 use std::sync::Mutex;
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use crate::addrs::offsets::ctm::CTM_FINISHED_PATCHADDR;
@@ -14,6 +17,7 @@ use crate::addrs::{self, offsets};
 use crate::dostring;
 use crate::linalg::WowVector3;
 use crate::lua::RUN_SCRIPT_AFTER_N_FRAMES;
+use crate::lua::stopfollow;
 use crate::objectmanager::{GUID, GUIDFmt, NO_TARGET, ObjectManager};
 use crate::patch::{
     InstructionBuffer, Patch, PatchKind, copy_original_opcodes, deref_t, read_elems_from_addr,
@@ -21,6 +25,7 @@ use crate::patch::{
 };
 use crate::socket::facing::{self, SETFACING_STATE};
 use crate::socket::movement_flags;
+use crate::wc3::WC3MODE_ENABLED;
 use crate::{Addr, LoleError, assembly};
 
 static QUEUE: LazyLock<Mutex<CtmQueue>> = LazyLock::new(|| {
@@ -311,68 +316,31 @@ impl CtmQueue {
     }
 }
 
-#[macro_export]
-macro_rules! add_repr_and_tryfrom {
-    ($repr_type:ty,
-        $(#[$attrs:meta])*
-        $vis:vis enum $name:ident {
-            $($variant:ident = $value:literal,)*
-        }
-    ) => {
-        $(#[$attrs])*
-        #[repr($repr_type)]
-        $vis enum $name {
-            $($variant = $value,)*
-        }
-        impl TryFrom<$repr_type> for $name {
-            type Error = LoleError;
-            fn try_from(value: $repr_type) -> std::result::Result<Self, Self::Error> {
-                match value {
-                    $($value => Ok($name::$variant),)*
-                    v => Err(LoleError::InvalidEnumValue(format!(concat!(stringify!($name), "::try_from({})"), v)))
-                }
-            }
-        }
-
-        impl From<$name> for $repr_type {
-            fn from(value: $name) -> Self {
-                match value {
-                    $($name::$variant => $value,)*
-                }
-            }
-        }
-    };
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[auto_enum_try_from(i32)]
+pub enum CtmPriority {
+    None = 0,
+    Path = 1,
+    Move = 2,
+    Replace = 3,
+    Exclusive = 4,
+    Follow = 5,
+    NoOverride = 6,
+    HoldPosition = 7,
+    ClearHold = 8,
 }
 
-add_repr_and_tryfrom! {
-    i32,
-    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-    pub enum CtmPriority {
-        None = 0,
-        Path = 1,
-        Move = 2,
-        Replace = 3,
-        Exclusive = 4,
-        Follow = 5,
-        NoOverride = 6,
-        HoldPosition = 7,
-        ClearHold = 8,
-    }
-}
-
-add_repr_and_tryfrom! {
-    u8,
-    #[derive(Debug, Clone, Copy)]
-    pub enum CtmAction {
-        HunterAimedShot = 0x0,
-        Face = 0x2,
-        Follow = 0x3,
-        Move = 0x4,
-        TalkNpc = 0x5,
-        Loot = 0x6,
-        MoveAttack = 0xA,
-        Done = 0xD,
-    }
+#[derive(Debug, Clone, Copy)]
+#[auto_enum_try_from(u8)]
+pub enum CtmAction {
+    HunterAimedShot = 0x0,
+    Face = 0x2,
+    Follow = 0x3,
+    Move = 0x4,
+    TalkNpc = 0x5,
+    Loot = 0x6,
+    MoveAttack = 0xA,
+    Done = 0xD,
 }
 
 #[derive(Debug)]
@@ -470,7 +438,7 @@ impl CtmEvent {
                 return Err(LoleError::NullPtrError)?;
             }
 
-            let action: u8 = self.action.into();
+            let action: u8 = self.action.try_into()?;
             let interact_guid = self.interact_guid.unwrap_or(0x0);
 
             asm! {
@@ -561,7 +529,7 @@ impl CtmEvent {
             ],
         )?;
 
-        write_addr::<u8>(offsets::ctm::ACTION, &[self.action.into()])?;
+        write_addr::<u8>(offsets::ctm::ACTION, &[self.action.try_into()?])?;
         (*SETFACING_STATE.lock().unwrap()) = (walking_angle, std::time::Instant::now());
         Ok(())
     }
@@ -660,14 +628,70 @@ pub fn prepare_ctm_finished_patch() -> Patch {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 struct CtmFinalArgs {
-    action: u32,
+    action: u8,
     guid: *const GUID,
     coords: *const f32,
     s2: u32,
 }
 
-unsafe extern "stdcall" fn ctm_main_hook(args: *const CtmFinalArgs) {}
+const CTM_MAIN_LET_THROUGH: i32 = 1;
+const CTM_MAIN_PREVENT_DEFAULT: i32 = 0;
+
+fn ctm_main(args: *const CtmFinalArgs) -> anyhow::Result<i32> {
+    if !WC3MODE_ENABLED.load(Ordering::Relaxed) {
+        return Ok(CTM_MAIN_LET_THROUGH);
+    } else {
+        let args = unsafe { args.as_ref() }.ok_or_else(|| anyhow!("null args"))?;
+
+        if args.coords.is_null() {
+            return Err(anyhow!("null coords"));
+        }
+
+        if args.guid.is_null() {
+            return Err(anyhow!("null guid"));
+        }
+
+        tracing::info!("{args:?}");
+
+        let c: &[f32] = unsafe { std::slice::from_raw_parts(args.coords, 3) };
+
+        match args.action.try_into()? {
+            CtmAction::Move => {
+                dostring!(
+                    r#"lole_broadcast("ctm", {:.3}, {:.3}, {:.3})"#,
+                    c[0],
+                    c[1],
+                    c[2]
+                );
+                return Ok(CTM_MAIN_PREVENT_DEFAULT);
+            }
+            CtmAction::MoveAttack => {
+                let guid = unsafe { args.guid.as_ref() }.ok_or_else(|| anyhow::anyhow!("guid"))?;
+                if let Ok(player) = ObjectManager::new().and_then(|om| om.get_player()) {
+                    let _ = stopfollow(&player); // this actually clears the CTM queue
+                } else {
+                    tracing::error!("stopfollow failed");
+                    return Ok(CTM_MAIN_LET_THROUGH);
+                }
+                dostring!(r#"lole_broadcast("attack", "{}")"#, GUIDFmt(*guid));
+                return Ok(CTM_MAIN_PREVENT_DEFAULT);
+            }
+            _ => return Ok(CTM_MAIN_LET_THROUGH),
+        }
+    }
+}
+
+unsafe extern "stdcall" fn ctm_main_hook(args: *const CtmFinalArgs) -> i32 {
+    match ctm_main(args) {
+        Ok(res) => res,
+        Err(e) => {
+            tracing::error!("{e}");
+            CTM_MAIN_LET_THROUGH
+        }
+    }
+}
 
 pub fn prepare_ctm_main_patch() -> Patch {
     let original_opcodes = copy_original_opcodes(WOW_CLICK_TO_MOVE, 6);

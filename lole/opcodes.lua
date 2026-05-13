@@ -159,12 +159,6 @@ function SelectionRect.new(frame)
     return self
 end
 
-local catcher = CreateFrame("Frame", nil, WorldFrame)
-catcher:SetAllPoints(WorldFrame)
-catcher:EnableMouse(false)
-catcher:SetFrameStrata("BACKGROUND")
-catcher:Show()
-
 function SelectionRect:get_ui_coords(px, py)
     local parent = self.frame:GetParent()
     local screen_width = parent:GetWidth()
@@ -201,21 +195,26 @@ end
 
 function SelectionRect:start(cx, cy)
     self.frame:ClearAllPoints()
-    self.initial = { x = cx, y = cy }
-    self.frame:SetPoint("BOTTOMLEFT", cx, cy)
+    local x, y = self:get_ui_coords(cx, cy)
+    self.initial = { x = x, y = y }
+    self.frame:SetPoint("BOTTOMLEFT", x, y)
     self.frame:SetSize(0, 0)
     self.frame:Show()
+    self.frame:SetScript("OnUpdate", function(_frame)
+        local x,y = GetCursorPosition();
+        self:update(x, y)
+    end)
 end
 
 function SelectionRect:update(cx, cy)
-    local left, top, width, height = get_rect(self.initial.x, self.initial.y, cx, cy)
+    local x, y = cx, cy
+    local left, top, width, height = get_rect(self.initial.x, self.initial.y, x, y)
     self.frame:ClearAllPoints()
     self.frame:SetPoint("BOTTOMLEFT", left, top)
     self.frame:SetSize(width, height)
 end
 
 function SelectionRect:finish(cx, cy)
-    local cx, cy = self:get_pixel_coords(cx, cy)
     local ix, iy = self:get_pixel_coords(self.initial.x, self.initial.y)
 
     local left, top, width, height = get_rect(cx, cy, ix, iy)
@@ -225,8 +224,9 @@ function SelectionRect:finish(cx, cy)
         selection_ui:update_selection(res)
     end
 
-    -- delay Hide() for "1" frame to not get a flickering frame
     self.frame:SetPoint("BOTTOMLEFT", -10000, -10000)
+
+    -- delay Hide() for "1" frame to not get a flickering frame
     self.frame:SetScript("OnUpdate", function(f, _)
         f:Hide()
         f:SetScript("OnUpdate", nil)
@@ -253,12 +253,6 @@ lole_wc3mode = {
     enabled = false,
 
     enable = function(self, enabled)
-        catcher:EnableMouse(enabled)
-        if enabled then
-            catcher:Show()
-        else
-            catcher:Hide()
-        end
         self.enabled = enabled
         return LOP:call(LOP.Wc3Mode, enabled)
     end,
@@ -287,31 +281,6 @@ lole_wc3mode = {
         end
     end,
 }
-
-catcher:SetScript("OnMouseDown", function(self, button)
-    local cx,cy = GetCursorPosition()
-    if button == 'LeftButton' then
-        lole_wc3mode.selection:start(cx, cy)
-    elseif button == 'RightButton' then
-        lole_wc3mode.broadcast_click_to_move(cx, cy)
-    end
-end)
-catcher:SetScript("OnMouseUp", function(self, button)
-    local cx,cy = GetCursorPosition()
-    if button == 'LeftButton' then
-        if lole_wc3mode.selection.frame:IsShown() then
-            lole_wc3mode.selection:finish(cx, cy)
-        end
-    end
-end)
-
-catcher:SetScript("OnUpdate", function(self, ...)
-    local cx,cy = GetCursorPosition()
-    if lole_wc3mode.selection.frame:IsShown() then
-        lole_wc3mode.selection:update(cx, cy)
-    end
-end)
-
 
 -- wowhead.com "pre-bis articles" can be scraped like this:
 -- var items = [...document.querySelectorAll('div.gear-planner-slots-group-slot[data-item-id]')].map(el => el.dataset.itemId); console.log(`{${items.join(', ')}}`);

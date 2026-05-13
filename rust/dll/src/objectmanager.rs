@@ -1,10 +1,12 @@
 use std::ffi::{CString, c_char, c_void};
 
+use lole_macros::auto_enum_try_from;
+
 use crate::linalg::WowVector3;
 use crate::patch::{
     deref_opt_ptr, deref_opt_t, deref_ptr, deref_res_ptr, deref_res_t, read_elems_from_addr,
 };
-use crate::{LoleError, LoleResult, add_repr_and_tryfrom};
+use crate::{LoleError, LoleResult};
 
 use crate::addrs::offsets;
 use crate::addrs::offsets::wowobject;
@@ -34,22 +36,20 @@ pub struct WowObject {
     pub base: *const (),
 }
 
-add_repr_and_tryfrom! {
-    i32,
-    #[derive(Debug)]
-    pub enum WowObjectType {
-        Object = 0,
-        Item = 1,
-        Container = 2,
-        Npc = 3,
-        Unit = 4,
-        GameObject = 5,
-        DynamicObject = 6,
-        Corpse = 7,
-        AreaTrigger = 8,
-        SceneObject = 9,
-        Unknown = 10,
-    }
+#[derive(Debug)]
+#[auto_enum_try_from(i32)]
+pub enum WowObjectType {
+    Object = 0,
+    Item = 1,
+    Container = 2,
+    Npc = 3,
+    Unit = 4,
+    GameObject = 5,
+    DynamicObject = 6,
+    Corpse = 7,
+    AreaTrigger = 8,
+    SceneObject = 9,
+    Unknown = 10,
 }
 
 impl WowObject {

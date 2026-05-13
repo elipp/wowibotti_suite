@@ -7,10 +7,6 @@ use nalgebra::{Vector3, Vector4};
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct WowVector3(pub Vector3<f32>);
 
-// ---------------------------------------------------------------------------
-// Arithmetic with WowVector3
-// ---------------------------------------------------------------------------
-
 impl Add for WowVector3 {
     type Output = Self;
     fn add(self, rhs: Self) -> Self {
@@ -43,10 +39,6 @@ impl Neg for WowVector3 {
         WowVector3(-self.0)
     }
 }
-
-// ---------------------------------------------------------------------------
-// Scalar arithmetic (f32)
-// ---------------------------------------------------------------------------
 
 impl Mul<f32> for WowVector3 {
     type Output = Self;
@@ -81,10 +73,6 @@ impl DivAssign<f32> for WowVector3 {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Interop with raw Vector3<f32>
-// ---------------------------------------------------------------------------
-
 impl Add<Vector3<f32>> for WowVector3 {
     type Output = Self;
     fn add(self, rhs: Vector3<f32>) -> Self {
@@ -98,10 +86,6 @@ impl Sub<Vector3<f32>> for WowVector3 {
         WowVector3(self.0 - rhs)
     }
 }
-
-// ---------------------------------------------------------------------------
-// Indexing
-// ---------------------------------------------------------------------------
 
 impl Index<usize> for WowVector3 {
     type Output = f32;

@@ -909,7 +909,7 @@ local lole_broadcast_commands = {
     eject = lole_broadcast_eject,
 }
 
-local function lole_broadcast(funcname, ...)
+function lole_broadcast(funcname, ...)
     local usage = "lole_broadcast: usage: /lole broadcast funcname [args]";
     if not funcname or funcname == "" then
         echo(usage)

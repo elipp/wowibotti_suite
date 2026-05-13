@@ -3,7 +3,7 @@ use std::ffi::{CStr, CString, c_char, c_void};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use lole_macros::generate_lua_enum;
+use lole_macros::{auto_enum_try_from, generate_lua_enum};
 use rand::RngExt;
 
 use crate::addrs::offsets::{self, TAINT_CALLER};
@@ -22,9 +22,7 @@ use crate::wc3::{
     CUSTOM_CAMERA, SELECTED_UNITS, WC3MODE_ENABLED, WowCamera, find_units_within_screen_region,
     get_wow_mvp_matrix_in_nalgebra_space,
 };
-use crate::{
-    LoleError, LoleResult, add_repr_and_tryfrom, assembly, get_state, write_last_hardware_action,
-};
+use crate::{LoleError, LoleResult, assembly, get_state, write_last_hardware_action};
 
 #[cfg(feature = "addonmessage_broker")]
 use addonmessage_broker::server::{AddonMessage, Msg, MsgSender, MsgWrapper};
@@ -98,23 +96,21 @@ macro_rules! chatframe_print {
 
 pub static WORLD_ENTERED: AtomicBool = AtomicBool::new(false);
 
-add_repr_and_tryfrom! {
-    i32,
-    #[derive(Debug)]
-    pub enum LuaType {
-        Nil = 0,
-        Boolean = 1,
-        UserData = 2,
-        Number = 3,
-        // Integer, // not official Lua
-        String = 4,
-        Table = 5,
-        Function = 6,
-        UserData2 = 7,
-        Thread = 8,
-        Proto = 9,
-        Upval = 10,
-    }
+#[derive(Debug)]
+#[auto_enum_try_from(i32)]
+pub enum LuaType {
+    Nil = 0,
+    Boolean = 1,
+    UserData = 2,
+    Number = 3,
+    // Integer, // not official Lua
+    String = 4,
+    Table = 5,
+    Function = 6,
+    UserData2 = 7,
+    Thread = 8,
+    Proto = 9,
+    Upval = 10,
 }
 
 pub enum LuaValue {
@@ -687,6 +683,19 @@ impl PushToTable for lua_Number {
     }
 }
 
+pub fn stopfollow(player: &WowObject) -> anyhow::Result<()> {
+    *TRYING_TO_FOLLOW.lock().unwrap() = None;
+    let target_pos = player.yards_in_front_of(0.1)?;
+    ctm::clear()?;
+    ctm::add_to_queue(CtmEvent {
+        target_pos,
+        priority: CtmPriority::NoOverride,
+        action: CtmAction::Move,
+        ..Default::default()
+    })?;
+    Ok(())
+}
+
 fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
     let _taint_reseter = TaintReseter::new();
 
@@ -723,15 +732,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             }
         }
         Opcode::StopFollow if nargs == 0 => {
-            *TRYING_TO_FOLLOW.lock().unwrap() = None;
-            let target_pos = player.yards_in_front_of(0.1)?;
-            ctm::clear()?;
-            ctm::add_to_queue(CtmEvent {
-                target_pos,
-                priority: CtmPriority::NoOverride,
-                action: CtmAction::Move,
-                ..Default::default()
-            })?;
+            stopfollow(&player)?;
         }
         Opcode::Dump => {
             for o in om {
