@@ -8,7 +8,6 @@ use rand::RngExt;
 
 use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
-use crate::input::get_screen_size;
 use crate::linalg::WowVector3;
 use crate::objectmanager::{GUIDFmt, ObjectManager, WowObject, WowObjectType, guid_from_str};
 use crate::patch::{
@@ -19,8 +18,8 @@ use crate::socket::cast_gtaoe;
 use crate::socket::facing::{self};
 use crate::socket::movement_flags::NOT_MOVING;
 use crate::wc3::{
-    CUSTOM_CAMERA, SELECTED_UNITS, WC3MODE_ENABLED, WowCamera, find_units_within_screen_region,
-    get_wow_mvp_matrix_in_nalgebra_space,
+    CUSTOM_CAMERA, SELECTED_UNITS, ScreenRegion, UNITSELECTION_FRAME_REGION, WC3MODE_ENABLED,
+    WowCamera, get_wow_mvp_matrix_in_nalgebra_space,
 };
 use crate::{LoleError, LoleResult, assembly, get_state, write_last_hardware_action};
 
@@ -390,6 +389,7 @@ pub enum Opcode {
     Wc3Mode = 0x201,
     Wc3Select = 0x202,
     Wc3ResetCamera = 0x203,
+    Wc3UnitSelectionFrameRegion = 0x204,
     Debug = 0x400,
     Dump = 0x401,
     DoString = 0x402,
@@ -855,6 +855,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             let y = lua_tonumber_f32!(lua, 3);
             let z = lua_tonumber_f32!(lua, 4);
             let prio = lua_tointeger(lua, 5);
+            tracing::info!("walk_to {x:.3}, {y:.3}, {z:.3}, {prio}");
             let action = CtmEvent {
                 target_pos: WowVector3::new(x, y, z),
                 priority: prio.try_into()?,
@@ -1013,12 +1014,10 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
                 lua_tonumber_f32!(lua, 5),
             );
             cast_gtaoe(spellid, pos)?;
-            return LUA_NO_RETVALS;
         }
 
         Opcode::FaceMob if nargs == 0 => {
             face_target(player, target)?;
-            return LUA_NO_RETVALS;
         }
 
         Opcode::StorePath if nargs == 3 => {
@@ -1153,8 +1152,16 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             let width = lua_tonumber_f32!(lua, 4);
             let height = lua_tonumber_f32!(lua, 5);
 
+            let region = ScreenRegion {
+                left,
+                top,
+                width,
+                height,
+            };
+
             let mvp = get_wow_mvp_matrix_in_nalgebra_space()?;
-            let selected = find_units_within_screen_region(left, top, width, height, &mvp)?;
+            let selected = region.find_units_within_projection(&mvp)?;
+
             let mut selected_units = SELECTED_UNITS.lock().expect("SELECTED_UNITS");
             selected_units.clear();
             selected_units.extend(
@@ -1180,15 +1187,25 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             return Ok(1);
         }
         Opcode::Wc3ResetCamera => {
-            if !WC3MODE_ENABLED.load(Ordering::Relaxed) {
-                return LUA_NO_RETVALS;
-            }
             let mut custom_camera = CUSTOM_CAMERA.lock().unwrap();
             let mut wow_camera =
                 WowCamera::fetch_mut().ok_or_else(|| anyhow::anyhow!("No camera"))?;
             custom_camera.reset_camera(&mut wow_camera)?;
+        }
+        Opcode::Wc3UnitSelectionFrameRegion if nargs == 4 => {
+            let left = lua_tonumber_f32!(lua, 2);
+            let top = lua_tonumber_f32!(lua, 3);
+            let width = lua_tonumber_f32!(lua, 4);
+            let height = lua_tonumber_f32!(lua, 5);
 
-            return LUA_NO_RETVALS;
+            let region = ScreenRegion {
+                left,
+                top,
+                width,
+                height,
+            };
+
+            *UNITSELECTION_FRAME_REGION.lock().unwrap() = region;
         }
         Opcode::DumpWowObject => {
             // when mob is looted, base + 0x2A*4 is set to 0, meanwhile "NpcState" seems to not be very interesting

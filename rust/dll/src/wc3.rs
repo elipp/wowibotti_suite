@@ -22,6 +22,21 @@ pub static CUSTOM_CAMERA: LazyLock<Mutex<CustomCamera>> = LazyLock::new(Default:
 
 pub static SELECTED_UNITS: LazyLock<Mutex<Vec<(String, GUID)>>> = LazyLock::new(Default::default);
 
+#[derive(Debug)]
+pub struct ScreenRegion {
+    pub left: f32,
+    pub top: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+pub static UNITSELECTION_FRAME_REGION: Mutex<ScreenRegion> = Mutex::new(ScreenRegion {
+    left: 1.0,
+    top: 1.0,
+    width: 1.0,
+    height: 1.0,
+});
+
 #[repr(C)]
 #[derive(Debug)]
 pub struct WowCamera {
@@ -319,10 +334,7 @@ pub fn do_wc3mode_stuff() -> anyhow::Result<()> {
         custom_camera.tick(&mut wow_camera)?;
     }
 
-    let (sw, sh) = get_screen_size()?;
-    dostring!("lole_wc3mode:set_window_dims_pixels({}, {})", sw, sh);
-
-    draw_debug_markers()?;
+    // draw_debug_markers()?;
 
     Ok(())
 }
@@ -462,31 +474,32 @@ pub fn get_wow_mvp_matrix_in_nalgebra_space() -> anyhow::Result<Matrix4<f32>> {
     Ok(mvp)
 }
 
-pub fn find_units_within_screen_region(
-    left: f32,
-    top: f32,
-    width: f32,
-    height: f32,
-    mvp: &Matrix4<f32>,
-) -> anyhow::Result<Vec<WowObject>> {
-    let om = ObjectManager::new()?;
+impl ScreenRegion {
+    pub fn find_units_within_projection(
+        &self,
+        mvp: &Matrix4<f32>,
+    ) -> anyhow::Result<Vec<WowObject>> {
+        let om = ObjectManager::new()?;
 
-    let (cx, cy) = get_cursor_position()?;
-    tracing::info!("{:?}", (cx, cy));
-    let (sw, sh) = get_screen_size()?;
+        let (sw, sh) = get_screen_size()?;
 
-    let mut res = vec![];
-    for unit in om
-        .iter()
-        .filter(|o| matches!(o.get_type(), WowObjectType::Unit))
-    {
-        if let Some((sx, sy)) = get_screen_coords(unit.get_pos()?, &mvp, sw, sh)
-            && in_rect(sx, sy, left, top, width, height)
+        let mut res = vec![];
+        for unit in om
+            .iter()
+            .filter(|o| matches!(o.get_type(), WowObjectType::Unit))
         {
-            tracing::info!("{}: {:?}", unit.get_name(), (sx, sy));
-            res.push(unit);
+            if let Some((sx, sy)) = get_screen_coords(unit.get_pos()?, &mvp, sw, sh)
+                && self.contains(sx, sy)
+            {
+                // tracing::info!("{}: {:?}", unit.get_name(), (sx, sy));
+                res.push(unit);
+            }
         }
+
+        Ok(res)
     }
 
-    Ok(res)
+    pub fn contains(&self, x: f32, y: f32) -> bool {
+        in_rect(x, y, self.left, self.top, self.width, self.height)
+    }
 }

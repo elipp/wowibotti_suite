@@ -6,7 +6,8 @@ use crate::{
     assembly, dostring,
     patch::{InstructionBuffer, Patch, PatchKind, copy_original_opcodes},
     wc3::{
-        CUSTOM_CAMERA, WC3MODE_ENABLED, WowCamera, get_foreground_window, get_window_dimensions,
+        CUSTOM_CAMERA, UNITSELECTION_FRAME_REGION, WC3MODE_ENABLED, get_foreground_window,
+        get_window_dimensions,
     },
 };
 use lole_macros::auto_enum_try_from;
@@ -29,6 +30,7 @@ pub enum MouseButton {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[auto_enum_try_from(i32)]
 pub enum InputEvent {
+    KeySomething = 0x1,
     KeyDown = 0x7,
     KeyUp = 0x8,
     MouseDown = 0x9,
@@ -116,6 +118,7 @@ fn add_input_event(event: *const WowInputEvent) -> anyhow::Result<i32> {
     }
     let event = unsafe { event.as_ref() }.ok_or_else(|| anyhow::anyhow!("event.as_ref"))?;
     match event.event.try_into()? {
+        InputEvent::KeySomething => {}
         InputEvent::KeyDown => {
             // if let Ok(k) = Key::try_from(event.param) {
             //     match k {
@@ -139,9 +142,15 @@ fn add_input_event(event: *const WowInputEvent) -> anyhow::Result<i32> {
             let (w, h) = get_window_dimensions()?;
             match MouseButton::try_from(event.param)? {
                 MouseButton::Left => {
+                    let region = UNITSELECTION_FRAME_REGION.lock().unwrap();
+                    if region.contains(cx as f32, cy as f32) {
+                        return Ok(INPUT_EVENT_PASS_TO_NORMAL_HANDLER);
+                    }
+
                     state.left_press_start_location = Some((cx, cy));
                     dostring!("lole_wc3mode:set_window_dims_pixels({w}, {h})",);
                     dostring!("lole_wc3mode.selection:start({cx}, {cy})",);
+
                     return Ok(INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER);
                 }
                 MouseButton::Right => {}
@@ -150,13 +159,17 @@ fn add_input_event(event: *const WowInputEvent) -> anyhow::Result<i32> {
         InputEvent::MouseUp => {
             let mut state = MOUSE_STATE.lock().unwrap();
             let (cx, cy) = get_cursor_position()?;
+
             match MouseButton::try_from(event.param)? {
                 MouseButton::Left => {
-                    if let Some((_, _)) = state.left_press_start_location {
-                        dostring!("lole_wc3mode.selection:finish({cx}, {cy})",);
+                    let region = UNITSELECTION_FRAME_REGION.lock().unwrap();
+                    if let Some((lx, ly)) = state.left_press_start_location {
+                        if !region.contains(lx as f32, ly as f32) {
+                            dostring!("lole_wc3mode.selection:finish({cx}, {cy})",);
+                            state.left_press_start_location = None;
+                            return Ok(INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER);
+                        }
                     }
-                    state.left_press_start_location = None;
-                    return Ok(INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER);
                 }
                 MouseButton::Right => {}
             }

@@ -837,6 +837,7 @@ end
 local function lole_broadcast_attack(GUID_str)
     local units = selection_ui:get_selected_units()
     for i, n in pairs(units) do
+        print("Broadcast attack to "..n)
         lole_subcommands.sendmacro_to(n, "/lole target", GUID_str); -- last arg == priority level
         lole_subcommands.sendmacro_to(n, "/lole set blast 1")
         lole_subcommands.sendmacro_to(n, "/lole set hold 0")

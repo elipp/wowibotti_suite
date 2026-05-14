@@ -159,24 +159,39 @@ function SelectionRect.new(frame)
     return self
 end
 
-function SelectionRect:get_ui_coords(px, py)
-    local parent = self.frame:GetParent()
-    local screen_width = parent:GetWidth()
-    local screen_height = parent:GetHeight()
+function get_ui_coords(px, py)
+    local screen_width = WorldFrame:GetWidth()
+    local screen_height = WorldFrame:GetHeight()
 
     local x = px * (screen_width / lole_wc3mode.window.width)
     local y = screen_height - py * (screen_height / lole_wc3mode.window.height)
     return x, y
 end
 
-function SelectionRect:get_pixel_coords(px, py)
-    local parent = self.frame:GetParent()
-    local screen_width = parent:GetWidth()
-    local screen_height = parent:GetHeight()
+function get_pixel_coords(ux, uy)
+    local screen_width = WorldFrame:GetWidth()
+    local screen_height = WorldFrame:GetHeight()
 
-    local x = px * (lole_wc3mode.window.width / screen_width)
-    local y = lole_wc3mode.window.height - py * (lole_wc3mode.window.height / screen_height)
+    local x = ux * (lole_wc3mode.window.width / screen_width)
+    local y = lole_wc3mode.window.height - uy * (lole_wc3mode.window.height / screen_height)
     return x, y
+end
+
+function get_pixel_rect(frame)
+    local screen_width = WorldFrame:GetWidth()
+    local screen_height = WorldFrame:GetHeight()
+
+    local left, _bottom, width, height = frame:GetRect()
+    local top = frame:GetTop()
+    local px_left, px_top = get_pixel_coords(left, top)
+
+    local xf = lole_wc3mode.window.width / screen_width
+    local yf = lole_wc3mode.window.height / screen_height
+
+    local px_width = xf * frame:GetWidth()
+    local px_height = yf * frame:GetHeight()
+
+    return px_left, px_top, px_width, px_height
 end
 
 function SelectionRect.new_with_frame()
@@ -195,7 +210,7 @@ end
 
 function SelectionRect:start(cx, cy)
     self.frame:ClearAllPoints()
-    local x, y = self:get_ui_coords(cx, cy)
+    local x, y = get_ui_coords(cx, cy)
     self.initial = { x = x, y = y }
     self.frame:SetPoint("BOTTOMLEFT", x, y)
     self.frame:SetSize(0, 0)
@@ -214,10 +229,22 @@ function SelectionRect:update(cx, cy)
     self.frame:SetSize(width, height)
 end
 
+local MIN_AREA = 200
+local MIN_SQUARE_SIZE = 20  -- sqrt(MIN_SQUARE_AREA), e.g. 400 -> 20
+
 function SelectionRect:finish(cx, cy)
-    local ix, iy = self:get_pixel_coords(self.initial.x, self.initial.y)
+    local ix, iy = get_pixel_coords(self.initial.x, self.initial.y)
 
     local left, top, width, height = get_rect(cx, cy, ix, iy)
+
+    if width * height < MIN_AREA then
+        local cx_rect = left + width / 2
+        local cy_rect = top + height / 2
+        left   = cx_rect - MIN_SQUARE_SIZE / 2
+        top    = cy_rect - MIN_SQUARE_SIZE / 2
+        width  = MIN_SQUARE_SIZE
+        height = MIN_SQUARE_SIZE
+    end
 
     local res = LOP:call(LOP.Wc3Select, left, top, width, height)
     if res then
@@ -262,10 +289,6 @@ lole_wc3mode = {
         self.window.height = height
     end,
 
-    broadcast_click_to_move = function(cx, cy)
-
-    end,
-
     debug = function(markers)
         for _,v in ipairs(markers) do
             if debug_frames[v.name] == nil then
@@ -273,13 +296,17 @@ lole_wc3mode = {
             end
             local frame = debug_frames[v.name]
             local size = 6
-            local ux, uy = lole_wc3mode.selection:get_ui_coords(v.x, v.y)
+            local ux, uy = get_ui_coords(v.x, v.y)
 
             frame.initial = {x = ux - size, y = uy - size}
             frame.frame:Show()
             frame:update(ux + size, uy + size)
         end
     end,
+
+    unitselection_frame_region = function(left, top, width, height)
+        return LOP:call(LOP.Wc3UnitSelectionFrameRegion, left, top, width, height)
+    end
 }
 
 -- wowhead.com "pre-bis articles" can be scraped like this:

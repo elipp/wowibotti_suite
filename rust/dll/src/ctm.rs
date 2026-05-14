@@ -8,6 +8,7 @@ use std::f32::consts::TAU;
 use std::ffi::c_void;
 use std::sync::LazyLock;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
@@ -47,7 +48,8 @@ struct InterpStatus {
 }
 
 pub static TRYING_TO_FOLLOW: Mutex<Option<GUID>> = Mutex::new(None);
-pub static CTM_EVENT_ID: Mutex<u64> = Mutex::new(0);
+pub static CTM_EVENT_ID: AtomicU64 = AtomicU64::new(0);
+
 static ANGLE_INTERP_STATUS: Mutex<Option<InterpStatus>> = Mutex::new(None);
 
 #[derive(Debug, Default)]
@@ -372,9 +374,7 @@ pub struct CtmEvent {
 
 impl Default for CtmEvent {
     fn default() -> Self {
-        let mut ctm = CTM_EVENT_ID.lock().unwrap();
-        let id = *ctm;
-        *ctm = id + 1;
+        let id = CTM_EVENT_ID.fetch_add(1, Ordering::Relaxed);
         Self {
             id,
             target_pos: WowVector3::zero(),
@@ -466,8 +466,8 @@ impl CtmEvent {
     fn commit(&self) -> anyhow::Result<()> {
         match self.backend {
             CtmBackend::ClickToMove => {
-                // self.commit_to_memory()?;
-                unsafe { self.call_wow_click_to_move()? }
+                self.commit_to_memory()?;
+                // unsafe { self.call_wow_click_to_move()? }
             }
             CtmBackend::Playback => {
                 self.start_walking_towards()?;
@@ -520,14 +520,7 @@ impl CtmEvent {
 
         let final_target_point = self.target_pos; // + 2.5 * (self.target_pos - ppos).unit(); // set target "too far", such that `ctm_finished` is not triggered
 
-        write_addr(
-            offsets::ctm::TARGET_POS_X,
-            &[
-                final_target_point.0.x,
-                final_target_point.0.y,
-                final_target_point.0.z,
-            ],
-        )?;
+        write_addr(offsets::ctm::TARGET_POS_X, final_target_point.0.as_slice())?;
 
         write_addr::<u8>(offsets::ctm::ACTION, &[self.action.try_into()?])?;
         (*SETFACING_STATE.lock().unwrap()) = (walking_angle, std::time::Instant::now());
@@ -645,8 +638,6 @@ fn ctm_main(args: *const CtmFinalArgs) -> anyhow::Result<i32> {
     } else {
         let args = unsafe { args.as_ref() }.ok_or_else(|| anyhow!("null args"))?;
 
-        tracing::info!("{args:?}");
-
         match (args.action as u8).try_into()? {
             CtmAction::Move => {
                 if args.coords.is_null() {
@@ -654,6 +645,7 @@ fn ctm_main(args: *const CtmFinalArgs) -> anyhow::Result<i32> {
                 }
 
                 let c: &[f32] = unsafe { std::slice::from_raw_parts(args.coords, 3) };
+                tracing::info!("{} {:.3?}", args.action, c);
                 dostring!(
                     r#"lole_broadcast("ctm", {:.3}, {:.3}, {:.3})"#,
                     c[0],
@@ -667,14 +659,16 @@ fn ctm_main(args: *const CtmFinalArgs) -> anyhow::Result<i32> {
                     return Err(anyhow!("null guid"));
                 }
 
-                // let guid = unsafe { args.guid.as_ref() }.ok_or_else(|| anyhow::anyhow!("guid"))?;
-                // if let Ok(player) = ObjectManager::new().and_then(|om| om.get_player()) {
-                //     let _ = stopfollow(&player); // this actually clears the CTM queue
-                // } else {
-                //     tracing::error!("stopfollow failed");
-                //     return Ok(CTM_MAIN_LET_THROUGH);
-                // }
-                // dostring!(r#"lole_broadcast("attack", "{}")"#, GUIDFmt(*guid));
+                let guid = unsafe { args.guid.as_ref() }.ok_or_else(|| anyhow::anyhow!("guid"))?;
+                if let Ok(player) = ObjectManager::new().and_then(|om| om.get_player()) {
+                    let _ = stopfollow(&player); // this actually clears the CTM queue
+                } else {
+                    tracing::error!("stopfollow failed");
+                    return Ok(CTM_MAIN_LET_THROUGH);
+                }
+                let guidfmt = GUIDFmt(*guid);
+                tracing::info!("{} {}", args.action, guidfmt);
+                dostring!(r#"lole_broadcast("attack", "{}")"#, guidfmt);
                 return Ok(CTM_MAIN_PREVENT_DEFAULT);
             }
             _ => return Ok(CTM_MAIN_LET_THROUGH),
@@ -718,7 +712,7 @@ pub fn prepare_ctm_main_patch() -> Patch {
 
     // branch 2 - filter/skip
     patch_opcodes.push(assembly::POPAD);
-    patch_opcodes.push_slice(&[0x31, 0xC0]); // xor eax, eax (return 0)
+    patch_opcodes.push_slice(&[0x31, 0xC0]); // xor eax, eax (return 0) // probably doesn't matter much
     patch_opcodes.push_slice(&assembly::RETN(0x10));
 
     Patch {
