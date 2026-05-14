@@ -633,11 +633,11 @@ struct CtmFinalArgs {
     action: u32,
     guid: *const GUID,
     coords: *const f32,
-    s2: u32,
+    s2: f32, // the code uses FSTP for this, so probably a float
 }
 
-const CTM_MAIN_LET_THROUGH: i32 = 1;
 const CTM_MAIN_PREVENT_DEFAULT: i32 = 0;
+const CTM_MAIN_LET_THROUGH: i32 = 1;
 
 fn ctm_main(args: *const CtmFinalArgs) -> anyhow::Result<i32> {
     if !WC3MODE_ENABLED.load(Ordering::Relaxed) {
@@ -718,7 +718,8 @@ pub fn prepare_ctm_main_patch() -> Patch {
 
     // branch 2 - filter/skip
     patch_opcodes.push(assembly::POPAD);
-    patch_opcodes.push_slice(&assembly::RETN(10)); // retn 10
+    patch_opcodes.push_slice(&[0x31, 0xC0]); // xor eax, eax (return 0)
+    patch_opcodes.push_slice(&assembly::RETN(0x10));
 
     Patch {
         name: "CTM_main",
