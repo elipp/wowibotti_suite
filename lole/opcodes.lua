@@ -277,6 +277,10 @@ lole_wc3mode = {
         return LOP:call(LOP.Wc3ResetCamera)
     end,
 
+    set_camera_params = function(znear, zfar, fov, aspect)
+        return LOP:call(LOP.Wc3CameraParams, znear, zfar, fov, aspect)
+    end,
+
     enabled = false,
 
     enable = function(self, enabled)
@@ -307,6 +311,7 @@ lole_wc3mode = {
     unitselection_frame_region = function(left, top, width, height)
         return LOP:call(LOP.Wc3UnitSelectionFrameRegion, left, top, width, height)
     end
+
 }
 
 -- wowhead.com "pre-bis articles" can be scraped like this:

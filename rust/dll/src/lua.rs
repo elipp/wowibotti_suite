@@ -386,10 +386,13 @@ pub enum Opcode {
     StorePath = 0x100,
     PlaybackPath = 0x101,
     SendAddonMessage = 0x200,
+
     Wc3Mode = 0x201,
     Wc3Select = 0x202,
     Wc3ResetCamera = 0x203,
     Wc3UnitSelectionFrameRegion = 0x204,
+    Wc3CameraParams = 0x205,
+
     Debug = 0x400,
     Dump = 0x401,
     DoString = 0x402,
@@ -1206,6 +1209,31 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             };
 
             *UNITSELECTION_FRAME_REGION.lock().unwrap() = region;
+        }
+        Opcode::Wc3CameraParams if nargs >= 2 => {
+            let mut cam = CUSTOM_CAMERA.lock().unwrap();
+            let znear = lua_tonumber_f32!(lua, 2);
+            if znear != 0.0 {
+                cam.znear = Some(znear);
+            }
+
+            let zfar = lua_tonumber_f32!(lua, 3);
+            if zfar != 0.0 {
+                cam.zfar = Some(zfar);
+            }
+
+            if nargs >= 3 {
+                let fov = lua_tonumber_f32!(lua, 4);
+                if fov != 0.0 {
+                    cam.fov = Some(fov);
+                }
+            }
+            if nargs >= 4 {
+                let aspect = lua_tonumber_f32!(lua, 5);
+                if aspect != 0.0 {
+                    cam.aspect = Some(aspect);
+                }
+            }
         }
         Opcode::DumpWowObject => {
             // when mob is looted, base + 0x2A*4 is set to 0, meanwhile "NpcState" seems to not be very interesting

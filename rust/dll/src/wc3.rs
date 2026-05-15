@@ -46,8 +46,8 @@ pub struct WowCamera {
     pub y: f32,
     pub z: f32,
     pub rot: [[f32; 3]; 3],
-    pub z_near: f32,
-    pub z_far: f32,
+    pub znear: f32,
+    pub zfar: f32,
     pub fov: f32,
     pub aspect: f32,
 }
@@ -61,8 +61,8 @@ impl WowCamera {
     pub fn get_wow_proj_matrix(&self) -> Matrix4<f32> {
         let ys = 1.0 / (self.fov / 2.0).tan();
         let xs = ys / self.aspect;
-        let n = self.z_near;
-        let f = self.z_far;
+        let n = self.znear;
+        let f = self.zfar;
 
         Matrix4::from_rows(&[
             RowVector4::new(xs, 0.0, 0.0, 0.0),
@@ -123,9 +123,13 @@ impl WowCamera {
 }
 
 pub struct CustomCamera {
-    s: f32,
-    maxdistance: f32,
-    pos: WowVector3,
+    pub s: f32,
+    pub maxdistance: f32,
+    pub pos: WowVector3,
+    pub znear: Option<f32>,
+    pub zfar: Option<f32>,
+    pub fov: Option<f32>,
+    pub aspect: Option<f32>,
 }
 
 const S_MIN: f32 = 0.3;
@@ -138,6 +142,10 @@ impl Default for CustomCamera {
             s: 0.5,
             maxdistance: 80.0,
             pos: WowVector3::new(0.0, 80.0, 0.0),
+            znear: None,
+            zfar: None,
+            fov: None,
+            aspect: None,
         };
         res
     }
@@ -172,6 +180,19 @@ impl CustomCamera {
     pub fn commit_to_wowcamera_memory(&mut self, wow_camera: &mut WowCamera) -> anyhow::Result<()> {
         wow_camera.set_rot(self.get_rot());
         wow_camera.set_pos(&self.get_absolute_pos().into());
+
+        if let Some(znear) = self.znear {
+            wow_camera.znear = znear;
+        }
+        if let Some(zfar) = self.zfar {
+            wow_camera.zfar = zfar;
+        }
+        if let Some(fov) = self.fov {
+            wow_camera.fov = fov;
+        }
+        if let Some(aspect) = self.aspect {
+            wow_camera.aspect = aspect;
+        }
         Ok(())
     }
 
@@ -466,7 +487,7 @@ pub fn get_wow_mvp_matrix_in_nalgebra_space() -> anyhow::Result<Matrix4<f32>> {
     const FOVY_CORRECTION_FACTOR: f32 = 0.92; // no idea why this is needed but
     let fovy = FOVY_CORRECTION_FACTOR * 2.0 * ((camera.fov / 2.0).tan() / camera.aspect).atan();
 
-    let proj = Perspective3::new(camera.aspect, fovy, camera.z_near, camera.z_far).to_homogeneous();
+    let proj = Perspective3::new(camera.aspect, fovy, camera.znear, camera.zfar).to_homogeneous();
 
     let translation = Translation3::from(-camera_pos).to_homogeneous();
     let rot = Rotation3::new(Vector3::x() * custom_camera.get_angle()).to_homogeneous();
