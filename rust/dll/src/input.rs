@@ -4,11 +4,9 @@ use crate::{
     Addr, LoleError,
     addrs::offsets,
     assembly, dostring,
+    lua::{LUA_FALSE, cursor_is_on_WorldFrame},
     patch::{InstructionBuffer, Patch, PatchKind, copy_original_opcodes},
-    wc3::{
-        CUSTOM_CAMERA, UNITSELECTION_FRAME_REGION, WC3MODE_ENABLED, get_foreground_window,
-        get_window_dimensions,
-    },
+    wc3::{CUSTOM_CAMERA, WC3MODE_ENABLED, get_foreground_window, get_window_dimensions},
 };
 use lole_macros::auto_enum_try_from;
 use windows::{
@@ -30,7 +28,9 @@ pub enum MouseButton {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[auto_enum_try_from(i32)]
 pub enum InputEvent {
-    KeySomething = 0x1,
+    // the first two are some kind of keyboard events
+    UnknownKeyEvent1 = 0x1,
+    UnknownKeyEvent3 = 0x3,
     KeyDown = 0x7,
     KeyUp = 0x8,
     MouseDown = 0x9,
@@ -40,12 +40,8 @@ pub enum InputEvent {
     MouseUp = 0xD,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[auto_enum_try_from(i32)]
-pub enum KeyModifier {
-    Ctrl = 0x2,
-    Alt = 0x4,
-}
+const KEY_MOD_CTRL: i32 = 0x2;
+const KEY_MOD_ALT: i32 = 0x4;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[auto_enum_try_from(i32)]
@@ -74,7 +70,7 @@ struct WowInputEvent {
     unk1: i32,
 }
 
-const INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER: i32 = 0;
+const INPUT_EVENT_PREVENT_DEFAULT: i32 = 0;
 const INPUT_EVENT_PASS_TO_NORMAL_HANDLER: i32 = 1;
 
 #[derive(Debug)]
@@ -118,32 +114,36 @@ fn add_input_event(event: *const WowInputEvent) -> anyhow::Result<i32> {
     }
     let event = unsafe { event.as_ref() }.ok_or_else(|| anyhow::anyhow!("event.as_ref"))?;
     match event.event.try_into()? {
-        InputEvent::KeySomething => {}
-        InputEvent::KeyDown => {
-            // if let Ok(k) = Key::try_from(event.param) {
-            //     match k {
-            //         Key::R => {
-            //             let mut c = CUSTOM_CAMERA.lock().unwrap();
-            //             let Some(wow_camera) = WowCamera::fetch_mut() else {
-            //                 tracing::warn!("No wow camera");
-            //                 return INPUT_EVENT_PASS_TO_NORMAL_HANDLER;
-            //             };
-            //             let _ = c.reset_camera(wow_camera);
-            //             return INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER;
-            //         }
-            //         _ => {}
-            //     }
-            // }
-        }
-        InputEvent::KeyUp => {}
+        InputEvent::UnknownKeyEvent1 => {}
+        InputEvent::UnknownKeyEvent3 => {}
+        InputEvent::KeyUp => match Key::try_from(event.param) {
+            Ok(Key::R) => {}
+            Ok(
+                num @ (Key::Num1
+                | Key::Num2
+                | Key::Num3
+                | Key::Num4
+                | Key::Num5
+                | Key::Num6
+                | Key::Num7
+                | Key::Num8
+                | Key::Num9),
+            ) => {
+                if event.param & KEY_MOD_CTRL != 0 {
+                } else {
+                }
+            }
+            _ => {}
+        },
+        InputEvent::KeyDown => {}
         InputEvent::MouseDown => {
             let mut state = MOUSE_STATE.lock().unwrap();
             let (cx, cy) = get_cursor_position()?;
             let (w, h) = get_window_dimensions()?;
             match MouseButton::try_from(event.param)? {
                 MouseButton::Left => {
-                    let region = UNITSELECTION_FRAME_REGION.lock().unwrap();
-                    if region.contains(cx as f32, cy as f32) {
+                    if let Ok(LUA_FALSE) = cursor_is_on_WorldFrame() {
+                        // we clicked on a visible frame of some kind
                         return Ok(INPUT_EVENT_PASS_TO_NORMAL_HANDLER);
                     }
 
@@ -151,7 +151,7 @@ fn add_input_event(event: *const WowInputEvent) -> anyhow::Result<i32> {
                     dostring!("lole_wc3mode:set_window_dims_pixels({w}, {h})",);
                     dostring!("lole_wc3mode.selection:start({cx}, {cy})",);
 
-                    return Ok(INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER);
+                    return Ok(INPUT_EVENT_PREVENT_DEFAULT);
                 }
                 MouseButton::Right => {}
             }
@@ -162,13 +162,10 @@ fn add_input_event(event: *const WowInputEvent) -> anyhow::Result<i32> {
 
             match MouseButton::try_from(event.param)? {
                 MouseButton::Left => {
-                    let region = UNITSELECTION_FRAME_REGION.lock().unwrap();
-                    if let Some((lx, ly)) = state.left_press_start_location {
-                        if !region.contains(lx as f32, ly as f32) {
-                            dostring!("lole_wc3mode.selection:finish({cx}, {cy})",);
-                            state.left_press_start_location = None;
-                            return Ok(INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER);
-                        }
+                    if let Some(_) = state.left_press_start_location {
+                        dostring!("lole_wc3mode.selection:finish({cx}, {cy})",);
+                        state.left_press_start_location = None;
+                        return Ok(INPUT_EVENT_PREVENT_DEFAULT);
                     }
                 }
                 MouseButton::Right => {}

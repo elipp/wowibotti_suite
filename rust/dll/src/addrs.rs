@@ -230,8 +230,8 @@ pub mod offsets {
 
     pub const WOW_CAMERA: Addr = 0xB7436C;
     pub const WOW_CAMERA_L2_OFFSET: Offset = 0x7E20;
-    pub const Z_NEAR = 0xADEED4;
-    pub const Z_FAR = 0xCD7748;
+    pub const Z_NEAR_STATIC: Addr = 0xADEED4;
+    pub const Z_FAR_STATIC: Addr = 0xCD7748;
 
     #[allow(non_upper_case_globals)]
     pub mod wow_cfuncs {

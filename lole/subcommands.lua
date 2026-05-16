@@ -199,15 +199,6 @@ local function lole_hide()
     main_frame_hide()
 end
 
-local function lole_sfshow()
-    selection_ui:show()
-end
-
-local function lole_sfhide()
-    selection_ui:hide()
-end
-
-
 local function lole_cooldowns()
     L_UseInventoryItem(13);
     L_UseInventoryItem(14);
@@ -1138,9 +1129,6 @@ lole_subcommands = {
     buffs = do_buffs,
     show = lole_show,
     hide = lole_hide,
-
-    sfshow = lole_sfshow,
-    sfhide = lole_sfhide,
 
     drink = lole_drink,
     raid = lole_raid,

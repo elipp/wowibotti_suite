@@ -8,7 +8,7 @@ use windows::Win32::{
 
 use crate::{
     Addr,
-    addrs::offsets::{WOW_CAMERA, WOW_CAMERA_L2_OFFSET},
+    addrs::offsets::{WOW_CAMERA, WOW_CAMERA_L2_OFFSET, Z_FAR_STATIC, Z_NEAR_STATIC},
     assembly::NOP,
     dostring,
     input::{get_cursor_position, get_screen_size},
@@ -29,13 +29,6 @@ pub struct ScreenRegion {
     pub width: f32,
     pub height: f32,
 }
-
-pub static UNITSELECTION_FRAME_REGION: Mutex<ScreenRegion> = Mutex::new(ScreenRegion {
-    left: 1.0,
-    top: 1.0,
-    width: 1.0,
-    height: 1.0,
-});
 
 #[repr(C)]
 #[derive(Debug)]
@@ -182,10 +175,10 @@ impl CustomCamera {
         wow_camera.set_pos(&self.get_absolute_pos().into());
 
         if let Some(znear) = self.znear {
-            wow_camera.znear = znear;
+            write_addr(Z_NEAR_STATIC, &[znear])?;
         }
         if let Some(zfar) = self.zfar {
-            wow_camera.zfar = zfar;
+            write_addr(Z_FAR_STATIC, &[zfar])?;
         }
         if let Some(fov) = self.fov {
             wow_camera.fov = fov;
