@@ -307,6 +307,10 @@ lole_wc3mode = {
             frame:update(ux + size, uy + size)
         end
     end,
+
+    update_selection = function(units_table)
+        return LOP:call(LOP.Wc3UpdateSelection, units_table)
+    end,
 }
 
 function cursor_is_on_WorldFrame()

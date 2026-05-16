@@ -29,8 +29,8 @@ pub enum MouseButton {
 #[auto_enum_try_from(i32)]
 pub enum InputEvent {
     // the first two are some kind of keyboard events
-    KeySomething1 = 0x1,
-    KeySomething3 = 0x3,
+    UnknownKeyEvent1 = 0x1,
+    UnknownKeyEvent3 = 0x3,
     KeyDown = 0x7,
     KeyUp = 0x8,
     MouseDown = 0x9,
@@ -40,12 +40,8 @@ pub enum InputEvent {
     MouseUp = 0xD,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[auto_enum_try_from(i32)]
-pub enum KeyModifier {
-    Ctrl = 0x2,
-    Alt = 0x4,
-}
+const KEY_MOD_CTRL: i32 = 0x2;
+const KEY_MOD_ALT: i32 = 0x4;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[auto_enum_try_from(i32)]
@@ -118,25 +114,28 @@ fn add_input_event(event: *const WowInputEvent) -> anyhow::Result<i32> {
     }
     let event = unsafe { event.as_ref() }.ok_or_else(|| anyhow::anyhow!("event.as_ref"))?;
     match event.event.try_into()? {
-        InputEvent::KeySomething1 => {}
-        InputEvent::KeySomething3 => {}
-        InputEvent::KeyDown => {
-            // if let Ok(k) = Key::try_from(event.param) {
-            //     match k {
-            //         Key::R => {
-            //             let mut c = CUSTOM_CAMERA.lock().unwrap();
-            //             let Some(wow_camera) = WowCamera::fetch_mut() else {
-            //                 tracing::warn!("No wow camera");
-            //                 return INPUT_EVENT_PASS_TO_NORMAL_HANDLER;
-            //             };
-            //             let _ = c.reset_camera(wow_camera);
-            //             return INPUT_EVENT_DONT_PASS_TO_NORMAL_HANDLER;
-            //         }
-            //         _ => {}
-            //     }
-            // }
-        }
-        InputEvent::KeyUp => {}
+        InputEvent::UnknownKeyEvent1 => {}
+        InputEvent::UnknownKeyEvent3 => {}
+        InputEvent::KeyUp => match Key::try_from(event.param) {
+            Ok(Key::R) => {}
+            Ok(
+                num @ (Key::Num1
+                | Key::Num2
+                | Key::Num3
+                | Key::Num4
+                | Key::Num5
+                | Key::Num6
+                | Key::Num7
+                | Key::Num8
+                | Key::Num9),
+            ) => {
+                if event.param & KEY_MOD_CTRL != 0 {
+                } else {
+                }
+            }
+            _ => {}
+        },
+        InputEvent::KeyDown => {}
         InputEvent::MouseDown => {
             let mut state = MOUSE_STATE.lock().unwrap();
             let (cx, cy) = get_cursor_position()?;

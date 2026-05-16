@@ -389,8 +389,9 @@ pub enum Opcode {
 
     Wc3Mode = 0x201,
     Wc3Select = 0x202,
-    Wc3ResetCamera = 0x203,
-    Wc3CameraParams = 0x204,
+    Wc3UpdateSelection = 0x203,
+    Wc3ResetCamera = 0x204,
+    Wc3CameraParams = 0x205,
 
     Debug = 0x400,
     Dump = 0x401,
@@ -1162,22 +1163,14 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             };
 
             let mvp = get_wow_mvp_matrix_in_nalgebra_space()?;
-            let selected = region.find_units_within_projection(&mvp)?;
-
-            let mut selected_units = SELECTED_UNITS.lock().expect("SELECTED_UNITS");
-            selected_units.clear();
-            selected_units.extend(
-                selected
-                    .iter()
-                    .map(|o| (o.get_name().to_owned(), o.get_guid())),
-            );
+            let units_within_selection = region.find_units_within_projection(&mvp)?;
 
             lua_createtable(lua, 0, 0);
 
             let mut num = 1i32;
-            for (name, guid) in selected_units.iter() {
-                let name = CString::new(name.as_str())?;
-                let guid = CString::new(format!("{}", GUIDFmt(*guid)))?;
+            for o in units_within_selection.iter() {
+                let name = CString::new(o.get_name())?;
+                let guid = CString::new(format!("{}", GUIDFmt(o.get_guid())))?;
                 lua_createtable(lua, 0, 0);
 
                 guid.push_to_table_with_key(lua, c"guid")?;
@@ -1187,6 +1180,46 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
                 num += 1;
             }
             return Ok(1);
+        }
+        Opcode::Wc3UpdateSelection if nargs == 1 => {
+            let mut units = Vec::new();
+            tracing::info!("stack top: {}", lua_gettop(lua));
+            tracing::info!("type at 2: {:?}", LuaType::try_from(lua_gettype(lua, 2)));
+            if let LuaType::Table = lua_gettype(lua, 2).try_into()? {
+                lua_pushnil(lua); // starts the outer table iteration
+                tracing::info!("stack top: {}", lua_gettop(lua));
+                tracing::info!("type at 2: {:?}", LuaType::try_from(lua_gettype(lua, 2)));
+                while lua_next(lua, 2) != 0 {
+                    tracing::info!("Iteration");
+                    if let LuaType::Table = lua_gettype(lua, -1).try_into()? {
+                        tracing::info!("table");
+                        lua_getfield_(lua, -1, c"name");
+                        lua_getfield_(lua, -2, c"guid");
+
+                        let name = lua_tostring!(lua, -2)?;
+                        let guid = lua_tostring!(lua, -1)?;
+                        tracing::info!("{name} {guid}");
+                        let guid = guid_from_str(guid)?;
+                        // Pop the fields, but keep the inner table for the next iteration
+                        lua_pop!(lua, 2);
+
+                        units.push((name.to_owned(), guid));
+                    } else {
+                        tracing::warn!(
+                            "(nested) got {:?}, expected table",
+                            LuaType::try_from(lua_gettype(lua, -1))
+                        );
+                    }
+                    lua_pop!(lua, 1);
+                }
+            } else {
+                tracing::warn!(
+                    "Got {:?}, expected table",
+                    LuaType::try_from(lua_gettype(lua, 2))
+                );
+            }
+            let mut selected_units = SELECTED_UNITS.lock().expect("SELECTED_UNITS");
+            *selected_units = units;
         }
         Opcode::Wc3ResetCamera => {
             let mut custom_camera = CUSTOM_CAMERA.lock().unwrap();

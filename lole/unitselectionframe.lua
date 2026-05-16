@@ -109,6 +109,7 @@ function UnitSelectionFrame:update_selection(units_table)
         self:_add_unit_frame(unit.name, frame)
         frame:Show()
     end
+    lole_wc3mode.update_selection(units_table)
 end
 
 function UnitSelectionFrame:deselect_unit(unit_name)
