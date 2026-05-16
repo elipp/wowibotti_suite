@@ -307,12 +307,16 @@ lole_wc3mode = {
             frame:update(ux + size, uy + size)
         end
     end,
-
-    unitselection_frame_region = function(left, top, width, height)
-        return LOP:call(LOP.Wc3UnitSelectionFrameRegion, left, top, width, height)
-    end
-
 }
+
+function cursor_is_on_WorldFrame()
+    local focus = GetMouseFocus()
+    if focus then
+        return focus:GetName() == 'WorldFrame'
+    else
+        return false
+    end
+end
 
 -- wowhead.com "pre-bis articles" can be scraped like this:
 -- var items = [...document.querySelectorAll('div.gear-planner-slots-group-slot[data-item-id]')].map(el => el.dataset.itemId); console.log(`{${items.join(', ')}}`);

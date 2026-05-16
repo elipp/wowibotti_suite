@@ -18,8 +18,8 @@ use crate::socket::cast_gtaoe;
 use crate::socket::facing::{self};
 use crate::socket::movement_flags::NOT_MOVING;
 use crate::wc3::{
-    CUSTOM_CAMERA, SELECTED_UNITS, ScreenRegion, UNITSELECTION_FRAME_REGION, WC3MODE_ENABLED,
-    WowCamera, get_wow_mvp_matrix_in_nalgebra_space,
+    CUSTOM_CAMERA, SELECTED_UNITS, ScreenRegion, WC3MODE_ENABLED, WowCamera,
+    get_wow_mvp_matrix_in_nalgebra_space,
 };
 use crate::{LoleError, LoleResult, assembly, get_state, write_last_hardware_action};
 
@@ -390,8 +390,7 @@ pub enum Opcode {
     Wc3Mode = 0x201,
     Wc3Select = 0x202,
     Wc3ResetCamera = 0x203,
-    Wc3UnitSelectionFrameRegion = 0x204,
-    Wc3CameraParams = 0x205,
+    Wc3CameraParams = 0x204,
 
     Debug = 0x400,
     Dump = 0x401,
@@ -1195,21 +1194,6 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
                 WowCamera::fetch_mut().ok_or_else(|| anyhow::anyhow!("No camera"))?;
             custom_camera.reset_camera(&mut wow_camera)?;
         }
-        Opcode::Wc3UnitSelectionFrameRegion if nargs == 4 => {
-            let left = lua_tonumber_f32!(lua, 2);
-            let top = lua_tonumber_f32!(lua, 3);
-            let width = lua_tonumber_f32!(lua, 4);
-            let height = lua_tonumber_f32!(lua, 5);
-
-            let region = ScreenRegion {
-                left,
-                top,
-                width,
-                height,
-            };
-
-            *UNITSELECTION_FRAME_REGION.lock().unwrap() = region;
-        }
         Opcode::Wc3CameraParams if nargs >= 2 => {
             let mut cam = CUSTOM_CAMERA.lock().unwrap();
             let znear = lua_tonumber_f32!(lua, 2);
@@ -1358,6 +1342,17 @@ pub fn lua_GetTime() -> anyhow::Result<lua_Number> {
     let number = lua_tonumber(lua, -1);
     lua_pop!(lua, 1);
     Ok(number)
+}
+
+#[allow(non_snake_case)]
+pub fn cursor_is_on_WorldFrame() -> anyhow::Result<lua_Boolean> {
+    let lua = get_wow_lua_state()?;
+
+    lua_getglobal!(lua, c"cursor_is_on_WorldFrame");
+    pcall(lua, 0, 1)?;
+    let boolean = lua_toboolean(lua, -1);
+    lua_pop!(lua, 1);
+    Ok(boolean)
 }
 
 #[cfg(feature = "wotlk")]
