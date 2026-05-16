@@ -9,6 +9,7 @@ use rand::RngExt;
 use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
 use crate::linalg::WowVector3;
+use crate::lua::wc3::{get_selected_units, update_selected_units};
 use crate::objectmanager::{GUIDFmt, ObjectManager, WowObject, WowObjectType, guid_from_str};
 use crate::patch::{
     InstructionBuffer, Patch, PatchKind, copy_original_opcodes, deref_opt_ptr, deref_opt_t,
@@ -18,8 +19,7 @@ use crate::socket::cast_gtaoe;
 use crate::socket::facing::{self};
 use crate::socket::movement_flags::NOT_MOVING;
 use crate::wc3::{
-    CUSTOM_CAMERA, SELECTED_UNITS, ScreenRegion, WC3MODE_ENABLED, WowCamera,
-    get_wow_mvp_matrix_in_nalgebra_space,
+    CUSTOM_CAMERA, ScreenRegion, WC3MODE_ENABLED, WowCamera, get_wow_mvp_matrix_in_nalgebra_space,
 };
 use crate::{LoleError, LoleResult, assembly, get_state, write_last_hardware_action};
 
@@ -220,6 +220,7 @@ define_lua_function!(
 
 macro_rules! lua_tostring {
     ($lua:expr, $idx:literal) => {{
+        use crate::lua::{lua_tolstring, LoleError};
         let mut len: usize = 0;
         // NOTE: lua actually checks for `lua_isstring` before `lua_tostring`, this is pretty good still
         match lua_gettype($lua, $idx).try_into() {
@@ -227,7 +228,7 @@ macro_rules! lua_tostring {
                 let s = lua_tolstring($lua, $idx, &mut len);
                 cstr_to_str!(s)
             }
-            Ok(t) => Err(LoleError::LuaUnexpectedTypeError(t, LuaType::String))?,
+            Ok(t) => Err(LoleError::LuaUnexpectedTypeError(LuaType::String, t))?,
             Err(e) => Err(e)?,
         }
     }};
@@ -339,6 +340,7 @@ macro_rules! lua_getglobal {
         lua_getfield_($lua, LUA_GLOBALSINDEX, $s)
     };
     ($lua:expr, $s:expr) => {
+        use crate::lua::{LUA_GLOBALSINDEX, lua_getfield_};
         lua_getfield_($lua, LUA_GLOBALSINDEX, $s)
     };
 }
@@ -389,9 +391,8 @@ pub enum Opcode {
 
     Wc3Mode = 0x201,
     Wc3Select = 0x202,
-    Wc3UpdateSelection = 0x203,
-    Wc3ResetCamera = 0x204,
-    Wc3CameraParams = 0x205,
+    Wc3ResetCamera = 0x203,
+    Wc3CameraParams = 0x204,
 
     Debug = 0x400,
     Dump = 0x401,
@@ -447,6 +448,82 @@ fn get_melee_position_status(
     }
 
     status
+}
+
+pub mod input {
+    use crate::{
+        input::KbdModifiers,
+        lua::{
+            LUA_GLOBALSINDEX, get_wow_lua_state, lua_getfield_, lua_pcall_, lua_settop,
+            lua_tointeger,
+        },
+    };
+
+    #[allow(non_snake_case)]
+    pub fn get_kbd_modifiers() -> anyhow::Result<KbdModifiers> {
+        let lua = get_wow_lua_state()?;
+
+        lua_getglobal!(lua, c"get_kbd_modifiers");
+        lua_pcall_(lua, 0, 1)?;
+        let mask = lua_tointeger(lua, -1);
+        lua_pop!(lua, 1);
+
+        KbdModifiers::from_bits(mask)
+            .ok_or_else(|| anyhow::anyhow!("Unknown kbd modifier bitflags"))
+    }
+}
+
+pub mod wc3 {
+    use crate::{
+        lua::{
+            LUA_GLOBALSINDEX, LuaValue, get_wow_lua_state, lua_createtable, lua_getfield_,
+            lua_gettop, lua_pcall_, lua_rawseti, lua_setfield_, lua_settop,
+        },
+        lua_get_string_fields, lua_table_iter,
+        objectmanager::{GUIDFmt, guid_from_str},
+    };
+
+    // one source of truth (selection_ui.selected_units)
+    #[allow(non_snake_case)]
+    pub fn get_selected_units() -> anyhow::Result<Vec<(String, u64)>> {
+        let lua = get_wow_lua_state()?;
+        let mut units = Vec::new();
+
+        lua_getglobal!(lua, c"selection_ui");
+        lua_getfield_(lua, -1, c"selected_units");
+        let top = lua_gettop(lua);
+
+        lua_table_iter!(lua, top, |lua| {
+            let n = lua_get_string_fields!(lua, c"name", c"guid");
+            units.push((n[0].to_owned(), guid_from_str(&n[1])?));
+        });
+        lua_pop!(lua, 2);
+        Ok(units)
+    }
+
+    pub fn update_selected_units(units: Vec<(String, u64)>) -> anyhow::Result<()> {
+        let lua = get_wow_lua_state()?;
+
+        lua_getglobal!(lua, c"selection_ui");
+        lua_getfield_(lua, -1, c"update_selection");
+        lua_getglobal!(lua, c"selection_ui"); // self
+
+        lua_createtable(lua, units.len() as i32, 0);
+        for (i, (name, guid)) in units.iter().enumerate() {
+            lua_createtable(lua, 0, 2);
+            LuaValue::String(name.to_owned()).push(lua)?;
+            lua_setfield_(lua, -2, c"name");
+            let guid_str = GUIDFmt(*guid);
+            LuaValue::String(guid_str.to_string()).push(lua)?;
+            lua_setfield_(lua, -2, c"guid");
+            lua_rawseti(lua, -2, (i + 1) as i32);
+        }
+
+        lua_pcall_(lua, 2, 0)?;
+        lua_pop!(lua, 1); // pop selection_ui
+
+        Ok(())
+    }
 }
 
 fn get_caster_position_status(
@@ -590,8 +667,14 @@ impl Drop for TaintReseter {
 }
 
 pub fn lua_debug_func(_lua: lua_State, arg: Option<String>) -> anyhow::Result<i32> {
-    let om = ObjectManager::new()?;
+    // let om = ObjectManager::new()?;
     let _time = lua_GetTime()?;
+    tracing::info!("{:?}", get_selected_units());
+    tracing::info!(
+        "{:?}",
+        update_selected_units(vec![("Moi".to_owned(), 0x123)])
+    );
+    tracing::info!("Selected now: {:?}", get_selected_units());
     // tracing::info!(
     //     "{:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
     //     om.get_unit_by_nameref_internal("player"),
@@ -697,6 +780,64 @@ pub fn stopfollow(player: &WowObject) -> anyhow::Result<()> {
         ..Default::default()
     })?;
     Ok(())
+}
+
+#[macro_export]
+macro_rules! lua_table_iter {
+    ($lua:expr, $idx:expr, |$inner:ident| $body:block) => {{
+        use crate::lua::{LuaType, lua_gettype, lua_next, lua_pushnil};
+        if let Ok(LuaType::Table) = lua_gettype($lua, $idx).try_into() {
+            lua_pushnil($lua);
+            while lua_next($lua, $idx) != 0 {
+                if let Ok(LuaType::Table) = lua_gettype($lua, -1).try_into() {
+                    let $inner = $lua;
+                    $body
+                }
+                lua_pop!($lua, 1);
+            }
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! lua_get_fields {
+    ($lua:expr, $($field:literal),+) => {{
+        let mut _offset = 0i32;
+        $(
+            lua_getfield_($lua, -1 - _offset, $field);
+            _offset += 1;
+        )+
+        // return the count so we know how many to pop
+        _offset
+    }};
+}
+
+#[macro_export]
+macro_rules! lua_get_string_fields {
+    ($lua:expr, $($field:literal),+) => {{
+        let mut results = Vec::new();
+        $(
+            lua_getfield_($lua, -1, $field);
+            let val = lua_tostring!($lua, -1)?;
+            results.push(val.to_owned());
+            lua_pop!($lua, 1);
+        )+
+        results
+    }};
+}
+
+#[macro_export]
+macro_rules! lua_get_number_fields {
+    ($lua:expr, $($field:literal),+) => {{
+        let mut results = Vec::new();
+        $(
+            lua_getfield_($lua, -1, $field);
+            let val = lua_tonumber($lua, -1) as f32;
+            lua_pop!($lua, 1);
+            results.push(val);
+        )+
+        results
+    }};
 }
 
 fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
@@ -1027,25 +1168,10 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             let mut path = Vec::new();
             let name = lua_tostring!(lua, 2)?;
             let zonetext = lua_tostring!(lua, 3)?;
-            if let Ok(LuaType::Table) = lua_gettype(lua, 4).try_into() {
-                lua_pushnil(lua); // starts the outer table iteration
-                while lua_next(lua, 4) != 0 {
-                    if let Ok(LuaType::Table) = lua_gettype(lua, -1).try_into() {
-                        lua_getfield_(lua, -1, c"x");
-                        lua_getfield_(lua, -2, c"y");
-                        lua_getfield_(lua, -3, c"z");
-
-                        let x = lua_tonumber(lua, -3) as f32;
-                        let y = lua_tonumber(lua, -2) as f32;
-                        let z = lua_tonumber(lua, -1) as f32;
-                        // Pop the fields, but keep the inner table for the next iteration
-                        lua_pop!(lua, 3);
-
-                        path.push(WowVector3::new(x, y, z));
-                    }
-                    lua_pop!(lua, 1);
-                }
-            }
+            lua_table_iter!(lua, 4, |lua| {
+                let nums = lua_get_number_fields!(lua, c"x", c"y", c"z");
+                path.push(WowVector3::new(nums[0], nums[1], nums[2]));
+            });
             store_path_to_db(name, zonetext, path)?;
         }
         Opcode::PlaybackPath if (1..=2).contains(&nargs) => {
@@ -1180,46 +1306,6 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
                 num += 1;
             }
             return Ok(1);
-        }
-        Opcode::Wc3UpdateSelection if nargs == 1 => {
-            let mut units = Vec::new();
-            tracing::info!("stack top: {}", lua_gettop(lua));
-            tracing::info!("type at 2: {:?}", LuaType::try_from(lua_gettype(lua, 2)));
-            if let LuaType::Table = lua_gettype(lua, 2).try_into()? {
-                lua_pushnil(lua); // starts the outer table iteration
-                tracing::info!("stack top: {}", lua_gettop(lua));
-                tracing::info!("type at 2: {:?}", LuaType::try_from(lua_gettype(lua, 2)));
-                while lua_next(lua, 2) != 0 {
-                    tracing::info!("Iteration");
-                    if let LuaType::Table = lua_gettype(lua, -1).try_into()? {
-                        tracing::info!("table");
-                        lua_getfield_(lua, -1, c"name");
-                        lua_getfield_(lua, -2, c"guid");
-
-                        let name = lua_tostring!(lua, -2)?;
-                        let guid = lua_tostring!(lua, -1)?;
-                        tracing::info!("{name} {guid}");
-                        let guid = guid_from_str(guid)?;
-                        // Pop the fields, but keep the inner table for the next iteration
-                        lua_pop!(lua, 2);
-
-                        units.push((name.to_owned(), guid));
-                    } else {
-                        tracing::warn!(
-                            "(nested) got {:?}, expected table",
-                            LuaType::try_from(lua_gettype(lua, -1))
-                        );
-                    }
-                    lua_pop!(lua, 1);
-                }
-            } else {
-                tracing::warn!(
-                    "Got {:?}, expected table",
-                    LuaType::try_from(lua_gettype(lua, 2))
-                );
-            }
-            let mut selected_units = SELECTED_UNITS.lock().expect("SELECTED_UNITS");
-            *selected_units = units;
         }
         Opcode::Wc3ResetCamera => {
             let mut custom_camera = CUSTOM_CAMERA.lock().unwrap();
@@ -1371,7 +1457,7 @@ pub fn lua_GetTime() -> anyhow::Result<lua_Number> {
     let lua = get_wow_lua_state()?;
 
     lua_getglobal!(lua, c"GetTime");
-    pcall(lua, 0, 1)?;
+    lua_pcall_(lua, 0, 1)?;
     let number = lua_tonumber(lua, -1);
     lua_pop!(lua, 1);
     Ok(number)
@@ -1382,7 +1468,7 @@ pub fn cursor_is_on_WorldFrame() -> anyhow::Result<lua_Boolean> {
     let lua = get_wow_lua_state()?;
 
     lua_getglobal!(lua, c"cursor_is_on_WorldFrame");
-    pcall(lua, 0, 1)?;
+    lua_pcall_(lua, 0, 1)?;
     let boolean = lua_toboolean(lua, -1);
     lua_pop!(lua, 1);
     Ok(boolean)
@@ -1404,7 +1490,7 @@ pub fn prepare_ClosePetStables_patch() -> Patch {
     }
 }
 
-fn pcall(lua: lua_State, nargs: i32, nresults: i32) -> anyhow::Result<()> {
+pub fn lua_pcall_(lua: lua_State, nargs: i32, nresults: i32) -> anyhow::Result<()> {
     if lua_pcall(lua, nargs, nresults, 0) != LUA_OK {
         let error = lua_tostring!(lua, -1)?;
         return Err(LoleError::LuaError(error.to_owned()))?;
@@ -1418,7 +1504,7 @@ pub fn spell_errmsg_received(msg: u32) -> anyhow::Result<()> {
     let lua = get_wow_lua_state()?;
     lua_getglobal!(lua, c"spell_errmsg_received");
     lua_pushinteger(lua, msg as isize);
-    pcall(lua, 1, 0)?;
+    lua_pcall_(lua, 1, 0)?;
     Ok(())
 }
 
@@ -1428,7 +1514,7 @@ pub fn move_forward_start() -> anyhow::Result<()> {
     }
     let lua = get_wow_lua_state()?;
     lua_getglobal!(lua, c"MoveForwardStart");
-    pcall(lua, 0, 0)?;
+    lua_pcall_(lua, 0, 0)?;
     Ok(())
 }
 
@@ -1438,7 +1524,7 @@ pub fn move_forward_stop() -> anyhow::Result<()> {
     }
     let lua = get_wow_lua_state()?;
     lua_getglobal!(lua, c"MoveForwardStop");
-    pcall(lua, 0, 0)?;
+    lua_pcall_(lua, 0, 0)?;
     Ok(())
 }
 
@@ -1508,7 +1594,7 @@ pub trait LuaPushMulti {
 }
 
 impl LuaValue {
-    fn push(&self, lua: lua_State) -> anyhow::Result<()> {
+    pub fn push(&self, lua: lua_State) -> anyhow::Result<()> {
         match self {
             LuaValue::Nil => lua_pushnil(lua),
             LuaValue::Boolean(v) => lua_pushboolean(lua, *v),
@@ -1550,9 +1636,6 @@ pub fn dump_all_globals_to_file() -> anyhow::Result<()> {
     lua_pushnil(lua);
 
     while lua_next(lua, -2) != 0 {
-        // stack: ... | _G | key | value
-        // only call lua_tostring on the key if it's already a string
-        // number keys won't be coerced since we skip them or handle separately
         let key = lua_tostring!(lua, -2); // -2 is the key, -1 is the value
         if let Ok(key) = key {
             writeln!(file, "{key}")?;

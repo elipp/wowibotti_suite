@@ -4,9 +4,16 @@ use crate::{
     Addr, LoleError,
     addrs::offsets,
     assembly, dostring,
-    lua::{LUA_FALSE, cursor_is_on_WorldFrame},
+    lua::{
+        LUA_FALSE, cursor_is_on_WorldFrame,
+        input::get_kbd_modifiers,
+        wc3::{get_selected_units, update_selected_units},
+    },
     patch::{InstructionBuffer, Patch, PatchKind, copy_original_opcodes},
-    wc3::{CUSTOM_CAMERA, WC3MODE_ENABLED, get_foreground_window, get_window_dimensions},
+    wc3::{
+        CONTROL_GROUPS, CUSTOM_CAMERA, WC3MODE_ENABLED, get_foreground_window,
+        get_window_dimensions,
+    },
 };
 use lole_macros::auto_enum_try_from;
 use windows::{
@@ -40,9 +47,6 @@ pub enum InputEvent {
     MouseUp = 0xD,
 }
 
-const KEY_MOD_CTRL: i32 = 0x2;
-const KEY_MOD_ALT: i32 = 0x4;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[auto_enum_try_from(i32)]
 pub enum Key {
@@ -58,6 +62,15 @@ pub enum Key {
     Num9 = 0x39,
     H = 0x48,
     R = 0x52,
+}
+
+bitflags::bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct KbdModifiers: i32 {
+        const CTRL = 1 << 0;
+        const ALT = 1 << 1;
+        const SHIFT = 1 << 2;
+    }
 }
 
 #[repr(C)]
@@ -127,10 +140,28 @@ fn add_input_event(event: *const WowInputEvent) -> anyhow::Result<i32> {
                 | Key::Num6
                 | Key::Num7
                 | Key::Num8
-                | Key::Num9),
+                | Key::Num9
+                | Key::Num0),
             ) => {
-                if event.param & KEY_MOD_CTRL != 0 {
+                let cgroup_index = (if let Key::Num0 = num {
+                    9
                 } else {
+                    event.param - 0x30 - 1
+                })
+                .clamp(0, 9) as usize;
+
+                let kbd_modifiers = get_kbd_modifiers()?;
+
+                let mut cgroups = CONTROL_GROUPS.lock().unwrap();
+                if kbd_modifiers.contains(KbdModifiers::CTRL) {
+                    cgroups[cgroup_index] = get_selected_units()?;
+                    tracing::info!(
+                        "Created control group {} {:?}",
+                        cgroup_index + 1,
+                        cgroups[cgroup_index]
+                    );
+                } else {
+                    update_selected_units(cgroups[cgroup_index].clone())?;
                 }
             }
             _ => {}

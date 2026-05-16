@@ -307,10 +307,6 @@ lole_wc3mode = {
             frame:update(ux + size, uy + size)
         end
     end,
-
-    update_selection = function(units_table)
-        return LOP:call(LOP.Wc3UpdateSelection, units_table)
-    end,
 }
 
 function cursor_is_on_WorldFrame()
@@ -320,6 +316,13 @@ function cursor_is_on_WorldFrame()
     else
         return false
     end
+end
+
+function get_kbd_modifiers()
+    local ctrl = IsControlKeyDown() and 1 or 0
+    local alt = IsAltKeyDown() and 2 or 0
+    local shift = IsShiftKeyDown() and 4 or 0
+    return bit.bor(ctrl, alt, shift)
 end
 
 -- wowhead.com "pre-bis articles" can be scraped like this:

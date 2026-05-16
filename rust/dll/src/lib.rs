@@ -698,6 +698,10 @@ fn initialize_dll() -> anyhow::Result<()> {
     }
 
     tracing::info!("init done! :D");
+
+    let thread_id = unsafe { windows::Win32::System::Threading::GetCurrentThreadId() };
+    tracing::info!("main thread id: {}", thread_id);
+
     tracing::info!("LOLE_ID: {lole_id}");
 
     tracing::info!("Enabled patches:");

@@ -20,7 +20,8 @@ use crate::{
 pub static WC3MODE_ENABLED: AtomicBool = AtomicBool::new(false);
 pub static CUSTOM_CAMERA: LazyLock<Mutex<CustomCamera>> = LazyLock::new(Default::default);
 
-pub static SELECTED_UNITS: LazyLock<Mutex<Vec<(String, GUID)>>> = LazyLock::new(Default::default);
+pub static CONTROL_GROUPS: LazyLock<Mutex<[Vec<(String, GUID)>; 10]>> =
+    LazyLock::new(Default::default);
 
 #[derive(Debug)]
 pub struct ScreenRegion {
@@ -393,14 +394,14 @@ pub mod pylpyr {
         Addr,
         addrs::offsets,
         assembly,
+        lua::wc3::get_selected_units,
         objectmanager::ObjectManager,
         patch::{InstructionBuffer, Patch, PatchKind, copy_original_opcodes},
-        wc3::SELECTED_UNITS,
     };
 
     pub unsafe extern "stdcall" fn pylpyr_hook() {
-        let Ok(selected_units) = SELECTED_UNITS.lock() else {
-            return tracing::error!("SELECTED_UNIT_GUIDS lock error");
+        let Ok(selected_units) = get_selected_units() else {
+            return tracing::error!("selected units failed");
         };
         let Ok(om) = ObjectManager::new() else {
             return tracing::error!("No object manager");
@@ -477,7 +478,7 @@ pub fn get_wow_mvp_matrix_in_nalgebra_space() -> anyhow::Result<Matrix4<f32>> {
 
     let camera_pos: Vector3<f32> = custom_camera.get_absolute_pos().into();
 
-    const FOVY_CORRECTION_FACTOR: f32 = 0.92; // no idea why this is needed but
+    const FOVY_CORRECTION_FACTOR: f32 = 0.92; // no idea why this is needed but. Found empirically
     let fovy = FOVY_CORRECTION_FACTOR * 2.0 * ((camera.fov / 2.0).tan() / camera.aspect).atan();
 
     let proj = Perspective3::new(camera.aspect, fovy, camera.znear, camera.zfar).to_homogeneous();
