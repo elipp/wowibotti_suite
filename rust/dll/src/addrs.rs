@@ -304,7 +304,8 @@ pub mod offsets {
         pub const lua_createtable: Addr = 0x84E6E0;
 
         pub const lua_replace: Addr = UNKNOWN_ADDRESS;
-        pub const lua_next: Addr = 0x854690;
+        // pub const lua_next: Addr = 0x854690;
+        pub const lua_next: Addr = 0x84EF50;
         pub const lua_gettype: Addr = 0x84DEB0;
         pub const lua_gettypestring: Addr = 0x84DED0;
         pub const lua_dostring: Addr = 0x819210;
