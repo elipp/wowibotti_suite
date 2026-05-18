@@ -406,6 +406,7 @@ pub mod pylpyr {
         let Ok(om) = ObjectManager::new() else {
             return tracing::error!("No object manager");
         };
+        tracing::info!("{selected_units:?}");
         for (_, guid) in selected_units.iter() {
             if let Ok(Some(obj)) = om.get_object_by_guid(*guid) {
                 let _ = unsafe { obj.draw_pylpyr() };

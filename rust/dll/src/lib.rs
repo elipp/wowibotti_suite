@@ -121,6 +121,21 @@ macro_rules! get_state_ {
     };
 }
 
+#[macro_export]
+macro_rules! executing_on_main_thread {
+    () => {{
+        use crate::DLL_STATE;
+        let thread_id = unsafe { windows::Win32::System::Threading::GetCurrentThreadId() };
+        DLL_STATE
+            .get()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .main_thread_id
+            .is_some_and(|id| id == thread_id)
+    }};
+}
+
 static DLL_HANDLE: OnceLock<SendSyncWrapper<HMODULE>> = OnceLock::new();
 
 pub static CLIENT_CONFIG: OnceLock<ClientConfig> = OnceLock::new();

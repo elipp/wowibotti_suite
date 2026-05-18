@@ -293,6 +293,14 @@ lole_wc3mode = {
         self.window.height = height
     end,
 
+    get_selected_units = function()
+        return LOP:call(LOP.Wc3GetSelectedUnits)
+    end,
+
+    update_selected_units = function(units_table)
+        return LOP:call(LOP.Wc3UpdateSelectedUnits)
+    end,
+
     debug = function(markers)
         for _,v in ipairs(markers) do
             if debug_frames[v.name] == nil then

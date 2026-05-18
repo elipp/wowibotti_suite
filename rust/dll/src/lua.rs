@@ -9,7 +9,9 @@ use rand::RngExt;
 use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
 use crate::linalg::WowVector3;
-use crate::lua::wc3::{get_selected_units, update_selected_units};
+use crate::lua::wc3::{
+    get_selected_units, lua_get_selected_units, lua_update_selected_units, update_selected_units,
+};
 use crate::objectmanager::{GUIDFmt, ObjectManager, WowObject, WowObjectType, guid_from_str};
 use crate::patch::{
     InstructionBuffer, Patch, PatchKind, copy_original_opcodes, deref_opt_ptr, deref_opt_t,
@@ -396,6 +398,8 @@ pub enum Opcode {
     Wc3Select = 0x202,
     Wc3ResetCamera = 0x203,
     Wc3CameraParams = 0x204,
+    Wc3GetSelectedUnits = 0x205,
+    Wc3UpdateSelectedUnits = 0x206,
 
     Debug = 0x400,
     Dump = 0x401,
@@ -477,56 +481,73 @@ pub mod input {
 }
 
 pub mod wc3 {
+    use std::sync::Mutex;
+
     use crate::{
-        DLL_STATE, fatal_error_exit,
         lua::{
-            LUA_GLOBALSINDEX, LuaValue, get_wow_lua_state, lua_createtable, lua_getfield_,
-            lua_gettop, lua_pcall_, lua_rawseti, lua_setfield_, lua_settop,
+            LUA_GLOBALSINDEX, LuaValue, get_wow_lua_state, lua_State, lua_createtable,
+            lua_getfield_, lua_gettop, lua_pcall_, lua_rawseti, lua_setfield_, lua_settop,
         },
         lua_get_string_fields, lua_table_iter,
-        objectmanager::{GUIDFmt, guid_from_str},
+        objectmanager::{GUID, GUIDFmt, guid_from_str},
     };
 
+    pub static SELECTED_UNITS: Mutex<Vec<(String, u64)>> = Mutex::new(Vec::new());
+
     // one source of truth (selection_ui.selected_units)
-    #[allow(non_snake_case)]
-    pub fn get_selected_units() -> anyhow::Result<Vec<(String, u64)>> {
-        let lua = get_wow_lua_state()?;
+    // this is actually a working implementation, but calling it from the `pylpyr` hook triggers a Fatal condition
+    // #[allow(non_snake_case)]
+    // pub fn get_selected_units() -> anyhow::Result<Vec<(String, u64)>> {
+    //     let lua = get_wow_lua_state()?;
+    //     let mut units = Vec::new();
+
+    //     lua_getglobal!(lua, c"selection_ui");
+    //     lua_getfield_(lua, -1, c"selected_units");
+    //     let top = lua_gettop(lua);
+
+    //     lua_table_iter!(lua, top, |lua| {
+    //         let n = lua_get_string_fields!(lua, c"name", c"guid");
+    //         units.push((n[0].to_owned(), guid_from_str(&n[1])?));
+    //     });
+    //     lua_pop!(lua, 2);
+    //     Ok(units)
+    // }
+
+    pub fn get_selected_units() -> anyhow::Result<Vec<(String, GUID)>> {
+        let units = SELECTED_UNITS.lock().unwrap();
+        Ok(units.clone())
+    }
+
+    pub fn lua_get_selected_units(lua: lua_State) -> anyhow::Result<i32> {
+        let units = SELECTED_UNITS.lock().unwrap();
+        lua_createtable(lua, units.len() as i32, 0);
+        for (i, (name, guid)) in units.iter().enumerate() {
+            lua_createtable(lua, 0, 2);
+            LuaValue::String(name.to_owned()).push(lua).unwrap();
+            lua_setfield_(lua, -2, c"name");
+            let guid_str = GUIDFmt(*guid);
+            LuaValue::String(guid_str.to_string()).push(lua).unwrap();
+            lua_setfield_(lua, -2, c"guid");
+            lua_rawseti(lua, -2, (i + 1) as i32);
+        }
+        Ok(1) // number of return values
+    }
+
+    pub fn update_selected_units(units: Vec<(String, u64)>) -> anyhow::Result<()> {
+        let mut selected_units = SELECTED_UNITS.lock().unwrap();
+        *selected_units = units;
+        Ok(())
+    }
+
+    pub fn lua_update_selected_units(lua: lua_State) -> anyhow::Result<i32> {
         let mut units = Vec::new();
-
-        lua_getglobal!(lua, c"selection_ui");
-        lua_getfield_(lua, -1, c"selected_units");
         let top = lua_gettop(lua);
-
         lua_table_iter!(lua, top, |lua| {
             let n = lua_get_string_fields!(lua, c"name", c"guid");
             units.push((n[0].to_owned(), guid_from_str(&n[1])?));
         });
-        lua_pop!(lua, 2);
-        Ok(units)
-    }
-
-    pub fn update_selected_units(units: Vec<(String, u64)>) -> anyhow::Result<()> {
-        let lua = get_wow_lua_state()?;
-
-        lua_getglobal!(lua, c"selection_ui");
-        lua_getfield_(lua, -1, c"update_selected_units");
-        lua_getglobal!(lua, c"selection_ui"); // self
-
-        lua_createtable(lua, units.len() as i32, 0);
-        for (i, (name, guid)) in units.iter().enumerate() {
-            lua_createtable(lua, 0, 2);
-            LuaValue::String(name.to_owned()).push(lua)?;
-            lua_setfield_(lua, -2, c"name");
-            let guid_str = GUIDFmt(*guid);
-            LuaValue::String(guid_str.to_string()).push(lua)?;
-            lua_setfield_(lua, -2, c"guid");
-            lua_rawseti(lua, -2, (i + 1) as i32);
-        }
-
-        lua_pcall_(lua, 2, 0)?; // yeah `self` is the first argument
-        lua_pop!(lua, 1); // pop selection_ui
-
-        Ok(())
+        update_selected_units(units)?;
+        Ok(0)
     }
 }
 
@@ -1296,13 +1317,13 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             let mvp = get_wow_mvp_matrix_in_nalgebra_space()?;
             let units_within_selection = region.find_units_within_projection(&mvp)?;
 
-            lua_createtable(lua, 0, 0);
+            lua_createtable(lua, units_within_selection.len() as _, 0);
 
             let mut num = 1i32;
             for o in units_within_selection.iter() {
                 let name = CString::new(o.get_name())?;
                 let guid = CString::new(format!("{}", GUIDFmt(o.get_guid())))?;
-                lua_createtable(lua, 0, 0);
+                lua_createtable(lua, 0, 2);
 
                 guid.push_to_table_with_key(lua, c"guid")?;
                 name.push_to_table_with_key(lua, c"name")?;
@@ -1343,6 +1364,9 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
                 }
             }
         }
+        Opcode::Wc3GetSelectedUnits => return lua_get_selected_units(lua),
+        Opcode::Wc3UpdateSelectedUnits => return lua_update_selected_units(lua),
+
         Opcode::DumpWowObject => {
             // when mob is looted, base + 0x2A*4 is set to 0, meanwhile "NpcState" seems to not be very interesting
             let _n_bytes = if nargs >= 1 {

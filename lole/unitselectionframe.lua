@@ -46,12 +46,12 @@ function UnitSelectionFrame.new()
 end
 
 function UnitSelectionFrame:_build_frame()
-    self.frame = CreateFrame("Frame", "unitSelectionFrame", WorldFrame)
+    self.frame = CreateFrame("Frame", "loleUnitSelectionFrame", WorldFrame)
     self.frame:SetHeight(0.20 * GetScreenHeight())
     self.frame:SetWidth(0.70 * GetScreenWidth())
     self.frame:SetPoint("BOTTOM", 0, 10)
     self.frame:SetBackdrop(BACKDROP)
-    self.frame:SetFrameStrata("BACKGROUND")
+    self.frame:SetFrameStrata("LOW")
     self.frame:EnableMouse(true)
     self.frame:SetMovable(false)
     self.frame:Hide()
@@ -109,6 +109,8 @@ function UnitSelectionFrame:update_selected_units(units_table)
         self:_add_unit_frame(unit.name, frame)
         frame:Show()
     end
+    -- print(json.encode(units_table))
+    lole_wc3mode.update_selected_units(self.selected_units)
 end
 
 function UnitSelectionFrame:deselect_unit(unit_name)
@@ -276,11 +278,12 @@ function UnitSelectionFrame:_create_unit_frame(unit_name)
     label:SetText(unit_name)
 
     unit_frame.unit_name = unit_name
+    unit_frame.unit_guid = UnitGUID(unit_name)
     unit_frame:SetScript("OnMouseDown", function(_unit_frame, button)
         if IsControlKeyDown() then
             self:deselect_unit(_unit_frame.unit_name)
         else
-            self:update_selected_units({ {name = _unit_frame.unit_name} })
+            self:update_selected_units({ {name = _unit_frame.unit_name, guid = _unit_frame.unit_guid } })
         end
     end)
 
@@ -292,7 +295,3 @@ selection_ui = UnitSelectionFrame.new()
 -- selection_ui.frame:SetScript("OnUpdate", function(self)
 --     -- hideBlizzUI()
 -- end)
-
-function update_selected_units(units_table)
-    selection_ui:update_selected_units(units_table)
-end
