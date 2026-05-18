@@ -248,7 +248,7 @@ function SelectionRect:finish(cx, cy)
 
     local res = LOP:call(LOP.Wc3Select, left, top, width, height)
     if res then
-        selection_ui:update_selection(res)
+        selection_ui:update_selected_units(res)
     end
 
     self.frame:SetPoint("BOTTOMLEFT", -10000, -10000)

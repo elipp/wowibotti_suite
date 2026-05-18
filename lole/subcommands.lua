@@ -518,7 +518,7 @@ end
 
 local function lole_setselection(targets)
     local target_table = tokenize_string(targets, ",")
-    selection_ui:update_selection(target_table)
+    selection_ui:update_selected_units(target_table)
 end
 
 local function lole_clearselection()

@@ -21,7 +21,10 @@ use crate::socket::movement_flags::NOT_MOVING;
 use crate::wc3::{
     CUSTOM_CAMERA, ScreenRegion, WC3MODE_ENABLED, WowCamera, get_wow_mvp_matrix_in_nalgebra_space,
 };
-use crate::{LoleError, LoleResult, assembly, get_state, write_last_hardware_action};
+use crate::{
+    DLL_STATE, LoleError, LoleResult, assembly, fatal_error_exit, get_dll_state,
+    write_last_hardware_action,
+};
 
 #[cfg(feature = "addonmessage_broker")]
 use addonmessage_broker::server::{AddonMessage, Msg, MsgSender, MsgWrapper};
@@ -475,6 +478,7 @@ pub mod input {
 
 pub mod wc3 {
     use crate::{
+        DLL_STATE, fatal_error_exit,
         lua::{
             LUA_GLOBALSINDEX, LuaValue, get_wow_lua_state, lua_createtable, lua_getfield_,
             lua_gettop, lua_pcall_, lua_rawseti, lua_setfield_, lua_settop,
@@ -505,7 +509,7 @@ pub mod wc3 {
         let lua = get_wow_lua_state()?;
 
         lua_getglobal!(lua, c"selection_ui");
-        lua_getfield_(lua, -1, c"update_selection");
+        lua_getfield_(lua, -1, c"update_selected_units");
         lua_getglobal!(lua, c"selection_ui"); // self
 
         lua_createtable(lua, units.len() as i32, 0);
@@ -519,7 +523,7 @@ pub mod wc3 {
             lua_rawseti(lua, -2, (i + 1) as i32);
         }
 
-        lua_pcall_(lua, 2, 0)?;
+        lua_pcall_(lua, 2, 0)?; // yeah `self` is the first argument
         lua_pop!(lua, 1); // pop selection_ui
 
         Ok(())
@@ -670,11 +674,12 @@ pub fn lua_debug_func(_lua: lua_State, arg: Option<String>) -> anyhow::Result<i3
     // let om = ObjectManager::new()?;
     let _time = lua_GetTime()?;
     tracing::info!("{:?}", get_selected_units());
-    tracing::info!(
-        "{:?}",
-        update_selected_units(vec![("Moi".to_owned(), 0x123)])
-    );
-    tracing::info!("Selected now: {:?}", get_selected_units());
+
+    // tracing::info!(
+    //     "{:?}",
+    //     update_selected_units(vec![("Sepe".to_owned(), 0x123)])
+    // );
+    // tracing::info!("Selected now: {:?}", get_selected_units());
     // tracing::info!(
     //     "{:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
     //     om.get_unit_by_nameref_internal("player"),
@@ -1029,7 +1034,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             }
         }
         Opcode::GetLastSpellErrMsg if nargs == 0 => {
-            let state = get_state().lock().unwrap();
+            let state = get_dll_state().lock().unwrap();
             let l = &state.last_spell_err_msg;
             let mut values: Vec<(_, _)> = l.iter().map(|(k, v)| (*k, *v)).collect();
             values.sort_unstable_by_key(|(_, v)| *v);
@@ -1208,7 +1213,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             }
         }
         Opcode::EjectDll => {
-            get_state().lock().unwrap().should_eject = true;
+            get_dll_state().lock().unwrap().should_eject = true;
         }
         Opcode::QueryInjected => {
             lua_pushboolean(lua, 1);
@@ -1493,6 +1498,7 @@ pub fn prepare_ClosePetStables_patch() -> Patch {
 pub fn lua_pcall_(lua: lua_State, nargs: i32, nresults: i32) -> anyhow::Result<()> {
     if lua_pcall(lua, nargs, nresults, 0) != LUA_OK {
         let error = lua_tostring!(lua, -1)?;
+        lua_pop!(lua, 1);
         return Err(LoleError::LuaError(error.to_owned()))?;
     }
 

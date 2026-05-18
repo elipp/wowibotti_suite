@@ -87,12 +87,13 @@ pub struct DllState {
     pub last_frame_num: lua_Integer,
     pub last_hardware_interval: Option<std::time::Instant>,
     pub last_spell_err_msg: HashMap<SpellError, lua_Integer>,
+    pub main_thread_id: Option<u32>,
 }
 
-pub static STATE: OnceLock<Mutex<DllState>> = OnceLock::new();
+pub static DLL_STATE: OnceLock<Mutex<DllState>> = OnceLock::new();
 
-pub fn get_state() -> &'static Mutex<DllState> {
-    STATE.get_or_init(|| {
+pub fn get_dll_state() -> &'static Mutex<DllState> {
+    DLL_STATE.get_or_init(|| {
         Mutex::new(DllState {
             need_init: true,
             should_eject: false,
@@ -102,13 +103,21 @@ pub fn get_state() -> &'static Mutex<DllState> {
             last_frame_num: 0,
             last_hardware_interval: None, // initialize lazily, not at TLS init time
             last_spell_err_msg: HashMap::new(),
+            main_thread_id: None,
         })
     })
 }
 
+impl DllState {
+    pub fn executing_on_the_main_thread(&self) -> bool {
+        let thread_id = unsafe { windows::Win32::System::Threading::GetCurrentThreadId() };
+        self.main_thread_id.is_some_and(|id| id == thread_id)
+    }
+}
+
 macro_rules! get_state_ {
     () => {
-        get_state().lock().unwrap()
+        get_dll_state().lock().unwrap()
     };
 }
 
@@ -699,8 +708,12 @@ fn initialize_dll() -> anyhow::Result<()> {
 
     tracing::info!("init done! :D");
 
-    let thread_id = unsafe { windows::Win32::System::Threading::GetCurrentThreadId() };
-    tracing::info!("main thread id: {}", thread_id);
+    {
+        let mut state = get_state_!();
+        let thread_id = unsafe { windows::Win32::System::Threading::GetCurrentThreadId() };
+        state.main_thread_id = Some(thread_id);
+        tracing::info!("main thread id: {}", thread_id);
+    }
 
     tracing::info!("LOLE_ID: {lole_id}");
 

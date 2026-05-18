@@ -99,7 +99,7 @@ end
 
 local unit_frame_pool = {}
 
-function UnitSelectionFrame:update_selection(units_table)
+function UnitSelectionFrame:update_selected_units(units_table)
     self:clear_selection()
     for _, unit in ipairs(units_table) do
         if unit_frame_pool[unit.name] == nil then
@@ -280,7 +280,7 @@ function UnitSelectionFrame:_create_unit_frame(unit_name)
         if IsControlKeyDown() then
             self:deselect_unit(_unit_frame.unit_name)
         else
-            self:update_selection({ {name = _unit_frame.unit_name} })
+            self:update_selected_units({ {name = _unit_frame.unit_name} })
         end
     end)
 
@@ -289,6 +289,10 @@ end
 
 selection_ui = UnitSelectionFrame.new()
 
-selection_ui.frame:SetScript("OnUpdate", function(self)
-    -- hideBlizzUI()
-end)
+-- selection_ui.frame:SetScript("OnUpdate", function(self)
+--     -- hideBlizzUI()
+-- end)
+
+function update_selected_units(units_table)
+    selection_ui:update_selected_units(units_table)
+end
