@@ -161,7 +161,7 @@ CtmPrio = {
 }
 
 local function lole_broadcast_ctm(x, y, z)
-    local units = selection_ui:get_selected_units()
+    local units = selection_ui:get_selected_unit_names()
 
     for i, n in pairs(units) do
         lole_subcommands.sendmacro_to(n, "/lole ctm", x, y, z, CtmPrio.ClearHold);
@@ -180,7 +180,7 @@ local function lole_ctm(x, y, z, prio)
 end
 
 local function lole_broadcast_hold()
-    local units = selection_ui:get_selected_units()
+    local units = selection_ui:get_selected_unit_names()
 
     for i, n in pairs(units) do
         lole_subcommands.sendmacro_to(n, "/lole hold");
@@ -826,7 +826,7 @@ local function lole_broadcast_target(GUID_str)
 end
 
 local function lole_broadcast_attack(GUID_str)
-    local units = selection_ui:get_selected_units()
+    local units = selection_ui:get_selected_unit_names()
     for i, n in pairs(units) do
         print("Broadcast attack to "..n)
         lole_subcommands.sendmacro_to(n, "/lole target", GUID_str); -- last arg == priority level

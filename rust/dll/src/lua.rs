@@ -479,7 +479,10 @@ pub mod input {
 }
 
 pub mod wc3 {
-    use std::sync::Mutex;
+    use std::{
+        hash::{DefaultHasher, Hash, Hasher},
+        sync::Mutex,
+    };
 
     use crate::{
         lua::{
@@ -517,7 +520,8 @@ pub mod wc3 {
     }
 
     pub fn lua_get_selected_units(lua: lua_State) -> anyhow::Result<i32> {
-        let units = SELECTED_UNITS.lock().unwrap();
+        let mut units = get_selected_units()?;
+        units.sort_unstable_by_key(|(_, guid)| *guid);
         lua_createtable(lua, units.len() as i32, 0);
         for (i, (name, guid)) in units.iter().enumerate() {
             lua_createtable(lua, 0, 2);
@@ -528,7 +532,15 @@ pub mod wc3 {
             lua_setfield_(lua, -2, c"guid");
             lua_rawseti(lua, -2, (i + 1) as i32);
         }
-        Ok(1) // number of return values
+
+        let mut s = DefaultHasher::new();
+        units.hash(&mut s);
+        let hash = s.finish();
+
+        LuaValue::Number((hash & 0xFFFF_FFFF) as f64)
+            .push(lua)
+            .unwrap();
+        Ok(2) // number of return values
     }
 
     pub fn update_selected_units(units: Vec<(String, u64)>) -> anyhow::Result<()> {
@@ -542,10 +554,9 @@ pub mod wc3 {
         let top = lua_gettop(lua);
         lua_table_iter!(lua, top, |lua| {
             let n = lua_get_string_fields!(lua, c"name", c"guid");
-            units.push((n[0].to_owned(), guid_from_str(&n[1])?));
+            units.push((n[0].to_owned(), guid_from_str(&n[1]).unwrap()));
         });
         update_selected_units(units)?;
-        dostring!("selection_ui:update_selected_units(lole_wc3mode.get_selected_units())");
         Ok(0)
     }
 }

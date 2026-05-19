@@ -248,7 +248,7 @@ function SelectionRect:finish(cx, cy)
 
     local res = LOP:call(LOP.Wc3Select, left, top, width, height)
     if res then
-        selection_ui:update_selected_units(res)
+        lole_wc3mode.update_selected_units(res)
     end
 
     self.frame:SetPoint("BOTTOMLEFT", -10000, -10000)
@@ -298,7 +298,7 @@ lole_wc3mode = {
     end,
 
     update_selected_units = function(units_table)
-        return LOP:call(LOP.Wc3UpdateSelectedUnits, units_table)
+        LOP:call(LOP.Wc3UpdateSelectedUnits, units_table)
     end,
 
     debug = function(markers)

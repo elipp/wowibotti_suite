@@ -37,7 +37,8 @@ function UnitSelectionFrame.new()
     local self = setmetatable({}, UnitSelectionFrame)
 
     self.selected_units = {}
-    self.num_units      = 0
+    self.num_units = 0
+    self.prev_hash = 0
 
     self:_build_frame()
     self:_build_close_button()
@@ -107,24 +108,28 @@ function UnitSelectionFrame:update_selected_units(units_table)
         end
         self:_add_unit_frame(unit, unit_frame_pool[unit.name])
     end
-    -- print(json.encode(units_table))
-    lole_wc3mode.update_selected_units(self.selected_units)
 end
 
-function UnitSelectionFrame:deselect_unit(unit_name)
+function UnitSelectionFrame:units_without(unit_name)
+    local res = {}
     for i, unit in ipairs(self.selected_units) do
-        if unit.name == unit_name then
-            self.selected_units[i].frame:Hide()
-            table.remove(self.selected_units, i)
-            self.num_units = #self.selected_units
-
-            self:_refresh_unit_frame_positions()
+        if unit.name ~= unit_name then
+            table.insert(res, unit)
         end
     end
-
+    return res
 end
 
-function UnitSelectionFrame:get_selected_units()
+function UnitSelectionFrame:find_unit(unit_name)
+    for i, unit in ipairs(self.selected_units) do
+        if unit.name == unit_name then
+            return {unit}
+        end
+    end
+    return {}
+end
+
+function UnitSelectionFrame:get_selected_unit_names()
     local units = {}
     for _, unit in ipairs(self.selected_units) do
         units[#units + 1] = unit.name
@@ -132,12 +137,8 @@ function UnitSelectionFrame:get_selected_units()
     return units
 end
 
-function UnitSelectionFrame:get_selected_units_comma_separated()
-    local parts = {}
-    for _, uf in ipairs(self.selected_units) do
-        parts[#parts + 1] = uf.unit_name
-    end
-    return table.concat(parts, ",")
+function UnitSelectionFrame:get_selected_unit_names_comma_separated()
+    return self:get_selected_unit_names().concat(parts, ",")
 end
 
 function UnitSelectionFrame:_add_unit_frame(unit, frame)
@@ -146,12 +147,6 @@ function UnitSelectionFrame:_add_unit_frame(unit, frame)
     unit.frame:Show()
     self.selected_units[#self.selected_units + 1] = unit
     self.num_units = #self.selected_units
-end
-
-function UnitSelectionFrame:_refresh_unit_frame_positions()
-    for i, unit in ipairs(self.selected_units) do
-        unit.frame:SetPoint("TOPLEFT", 30 + (i - 1) * STRIDE_PIXELS, -30)
-    end
 end
 
 function UnitSelectionFrame:_get_portrait_filename(name)
@@ -258,6 +253,15 @@ function UnitSelectionFrame:_create_unit_bars(parent, unit_name)
     return hp_bar, pw_bar
 end
 
+local function find(t, key, value)
+    for _, inner in ipairs(t) do
+        if inner[key] == value then
+            return { inner }
+        end
+    end
+    return {}
+end
+
 function UnitSelectionFrame:_create_unit_frame(unit_name)
     local unit_frame = CreateFrame("Button", nil, self.frame)
     unit_frame:SetBackdrop(BACKDROP)
@@ -276,11 +280,9 @@ function UnitSelectionFrame:_create_unit_frame(unit_name)
     label:SetText(unit_name)
 
     unit_frame:SetScript("OnMouseDown", function(_unit_frame, button)
-        if IsControlKeyDown() then
-            self:deselect_unit(_unit_frame.unit_name)
-        else
-            self:update_selected_units({ {name = _unit_frame.unit_name, guid = _unit_frame.unit_guid } })
-        end
+        local new_units = IsControlKeyDown() and self:units_without(unit_name) or self:find_unit(unit_name)
+        lole_wc3mode.update_selected_units(new_units)
+        self:update_selected_units(new_units)
     end)
 
     return unit_frame
@@ -288,6 +290,10 @@ end
 
 selection_ui = UnitSelectionFrame.new()
 
--- selection_ui.frame:SetScript("OnUpdate", function(self)
---     -- hideBlizzUI()
--- end)
+selection_ui.frame:SetScript("OnUpdate", function(self)
+    local units, hash = lole_wc3mode.get_selected_units()
+    if hash ~= selection_ui.prev_hash then
+        selection_ui.prev_hash = hash
+        selection_ui:update_selected_units(units)
+    end
+end)
