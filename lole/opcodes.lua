@@ -298,7 +298,7 @@ lole_wc3mode = {
     end,
 
     update_selected_units = function(units_table)
-        return LOP:call(LOP.Wc3UpdateSelectedUnits)
+        return LOP:call(LOP.Wc3UpdateSelectedUnits, units_table)
     end,
 
     debug = function(markers)

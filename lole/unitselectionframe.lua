@@ -90,8 +90,8 @@ function UnitSelectionFrame:hide()
 end
 
 function UnitSelectionFrame:clear_selection()
-    for _, uf in ipairs(self.selected_units) do
-        uf.unit_frame:Hide()
+    for _, unit in ipairs(self.selected_units) do
+        unit.frame:Hide()
     end
     self.selected_units = {}
     self.num_units = 0
@@ -105,32 +105,29 @@ function UnitSelectionFrame:update_selected_units(units_table)
         if unit_frame_pool[unit.name] == nil then
             unit_frame_pool[unit.name] = self:_create_unit_frame(unit.name)
         end
-        local frame = unit_frame_pool[unit.name]
-        self:_add_unit_frame(unit.name, frame)
-        frame:Show()
+        self:_add_unit_frame(unit, unit_frame_pool[unit.name])
     end
     -- print(json.encode(units_table))
     lole_wc3mode.update_selected_units(self.selected_units)
 end
 
 function UnitSelectionFrame:deselect_unit(unit_name)
-    local index
-    for i, uf in ipairs(self.selected_units) do
-        if uf.unit_name == unit_name then index = i; break end
+    for i, unit in ipairs(self.selected_units) do
+        if unit.name == unit_name then
+            self.selected_units[i].frame:Hide()
+            table.remove(self.selected_units, i)
+            self.num_units = #self.selected_units
+
+            self:_refresh_unit_frame_positions()
+        end
     end
-    if not index then return end
 
-    self.selected_units[index].unit_frame:Hide()
-    table.remove(self.selected_units, index)
-    self.num_units = #self.selected_units
-
-    self:_refresh_unit_frame_positions()
 end
 
 function UnitSelectionFrame:get_selected_units()
     local units = {}
-    for _, uf in ipairs(self.selected_units) do
-        units[#units + 1] = uf.unit_name
+    for _, unit in ipairs(self.selected_units) do
+        units[#units + 1] = unit.name
     end
     return units
 end
@@ -143,16 +140,17 @@ function UnitSelectionFrame:get_selected_units_comma_separated()
     return table.concat(parts, ",")
 end
 
-function UnitSelectionFrame:_add_unit_frame(unit_name, unit_frame)
-    local uf = { unit_name = unit_name, unit_frame = unit_frame }
-    unit_frame:SetPoint("TOPLEFT", 30 + self.num_units * STRIDE_PIXELS, -30)
-    self.selected_units[#self.selected_units + 1] = uf
+function UnitSelectionFrame:_add_unit_frame(unit, frame)
+    unit.frame = frame
+    unit.frame:SetPoint("TOPLEFT", 30 + self.num_units * STRIDE_PIXELS, -30)
+    unit.frame:Show()
+    self.selected_units[#self.selected_units + 1] = unit
     self.num_units = #self.selected_units
 end
 
 function UnitSelectionFrame:_refresh_unit_frame_positions()
-    for i, uf in ipairs(self.selected_units) do
-        uf.unit_frame:SetPoint("TOPLEFT", 30 + (i - 1) * STRIDE_PIXELS, -30)
+    for i, unit in ipairs(self.selected_units) do
+        unit.frame:SetPoint("TOPLEFT", 30 + (i - 1) * STRIDE_PIXELS, -30)
     end
 end
 
@@ -277,8 +275,6 @@ function UnitSelectionFrame:_create_unit_frame(unit_name)
     label:SetPoint("BOTTOM", unit_frame, 0, -16)
     label:SetText(unit_name)
 
-    unit_frame.unit_name = unit_name
-    unit_frame.unit_guid = UnitGUID(unit_name)
     unit_frame:SetScript("OnMouseDown", function(_unit_frame, button)
         if IsControlKeyDown() then
             self:deselect_unit(_unit_frame.unit_name)

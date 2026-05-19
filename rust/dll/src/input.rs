@@ -163,6 +163,7 @@ fn add_input_event(event: *const WowInputEvent) -> anyhow::Result<i32> {
                 } else {
                     update_selected_units(cgroups[cgroup_index].clone())?;
                 }
+                return Ok(INPUT_EVENT_PREVENT_DEFAULT);
             }
             _ => {}
         },

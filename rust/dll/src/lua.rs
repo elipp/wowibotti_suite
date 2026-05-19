@@ -9,9 +9,7 @@ use rand::RngExt;
 use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
 use crate::linalg::WowVector3;
-use crate::lua::wc3::{
-    get_selected_units, lua_get_selected_units, lua_update_selected_units, update_selected_units,
-};
+use crate::lua::wc3::{get_selected_units, lua_get_selected_units, lua_update_selected_units};
 use crate::objectmanager::{GUIDFmt, ObjectManager, WowObject, WowObjectType, guid_from_str};
 use crate::patch::{
     InstructionBuffer, Patch, PatchKind, copy_original_opcodes, deref_opt_ptr, deref_opt_t,
@@ -547,6 +545,7 @@ pub mod wc3 {
             units.push((n[0].to_owned(), guid_from_str(&n[1])?));
         });
         update_selected_units(units)?;
+        dostring!("selection_ui:update_selected_units(lole_wc3mode.get_selected_units())");
         Ok(0)
     }
 }
@@ -1365,7 +1364,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
             }
         }
         Opcode::Wc3GetSelectedUnits => return lua_get_selected_units(lua),
-        Opcode::Wc3UpdateSelectedUnits => return lua_update_selected_units(lua),
+        Opcode::Wc3UpdateSelectedUnits if nargs == 1 => return lua_update_selected_units(lua),
 
         Opcode::DumpWowObject => {
             // when mob is looted, base + 0x2A*4 is set to 0, meanwhile "NpcState" seems to not be very interesting
