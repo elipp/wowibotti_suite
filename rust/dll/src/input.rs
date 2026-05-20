@@ -223,6 +223,8 @@ fn add_input_event(event: *const WowInputEvent) -> anyhow::Result<i32> {
             } else {
                 camera.increment_s();
             }
+            dostring!("CameraZoomOut()"); // prevent disappearing "player" character
+            return Ok(INPUT_EVENT_PREVENT_DEFAULT);
         }
     }
     Ok(INPUT_EVENT_PASS_TO_NORMAL_HANDLER)
