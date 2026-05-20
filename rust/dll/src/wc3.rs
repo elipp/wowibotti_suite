@@ -147,11 +147,10 @@ impl Default for CustomCamera {
 
 impl CustomCamera {
     pub fn get_cameraoffset(&self) -> WowVector3 {
-        // self.maxdistance * WowVector3::new(0.0, 2.0 * self.s * self.s, self.s)
-        self.maxdistance * WowVector3::new(-0.5 * self.s.powi(2), 0.0, 0.5 * self.s)
+        self.maxdistance * WowVector3::new(-0.1 * self.s.powi(2), 0.0, 0.5 * self.s)
     }
     pub fn get_angle(&self) -> f32 {
-        0.5 + self.s * 0.6
+        0.9 + self.s * 0.4
     }
     pub fn increment_s(&mut self) {
         self.s = (self.s + S_INCREMENT).clamp(S_MIN, S_MAX);
@@ -196,17 +195,17 @@ impl CustomCamera {
 
         let margin_x: i32 = ((sx as f32) * 0.12).round() as i32;
         let margin_y: i32 = ((sy as f32) * 0.12).round() as i32;
-        const INCREMENT: f32 = 0.05;
+        const INCREMENT: f32 = 0.5;
 
         if cx < margin_x {
-            self.pos.0.y += INCREMENT;
+            self.pos.0.y += INCREMENT * ((margin_x - cx) as f32) / (sx as f32);
         } else if cx > sx - margin_x {
-            self.pos.0.y += -INCREMENT;
+            self.pos.0.y += -INCREMENT * ((cx - (sx - margin_x)) as f32) / (sx as f32);
         }
         if cy < margin_y {
-            self.pos.0.x += INCREMENT;
+            self.pos.0.x += INCREMENT * ((margin_y - cy) as f32) / (sy as f32);
         } else if cy > sy - margin_y {
-            self.pos.0.x += -INCREMENT;
+            self.pos.0.x += -INCREMENT * ((cy - (sy - margin_y)) as f32) / (sy as f32);
         }
 
         self.commit_to_wowcamera_memory(wow_camera)?;

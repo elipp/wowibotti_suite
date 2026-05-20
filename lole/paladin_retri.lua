@@ -1,32 +1,67 @@
-combat_paladin_retri = function()
-    --if cleanse_raid("Flame Shock") then return; end
+function combat_paladin_retribution()
+    if not validate_target() then return end
+    melee_attack_behind(5)
 
-    if not validate_target() then return; end
+    local ppos = vec3:create(get_unit_position("player"))
+    local tpos = vec3:create(get_unit_position("target"))
+    local dist = ppos:distance(tpos)
 
-    --melee_avoid_aoe_buff(33238)
-    melee_attack_behind()
-
-    local jud_on_cd = true;
-    if GetSpellCooldown("Judgement") == 0 then
-        jud_on_cd = false;
-    end
-
-    if not jud_on_cd and not has_debuff("target", "Judgement of the Crusader") then
-        if not has_buff("player", "Seal of the Crusader") then
-            cast_if_nocd("Seal of the Crusader");
+    if lole_get("aoemode") == 1 and get_aoe_feasibility("target", 8) > 2.50 then
+        -- Multi-target: use Seal of Command
+        if not has_buff("player", "Seal of Command") then
+            L_CastSpellByName("Seal of Command")
+            return
         end
-        cast_if_nocd("Judgement");
-        return;
+    else
+        -- Single-target: use Seal of Vengeance (Horde: Seal of Corruption)
+        if not has_buff("player", "Seal of Vengeance") then
+            L_CastSpellByName("Seal of Vengeance")
+            return
+        end
     end
 
-    if not has_buff("player", "Seal of Blood") then
-        cast_if_nocd("Seal of Blood");
-        return;
+    -- ================================================
+    -- SINGLE TARGET PRIORITY
+    -- ================================================
+
+    -- 1. Crusader Strike
+    if GetSpellCooldown("Crusader Strike") == 0 then
+        L_CastSpellByName("Crusader Strike")
+        return
     end
 
-    if cast_if_nocd("Crusader Strike") then return end
-
-    if not jud_on_cd then
-        L_CastSpellByName("Judgement");
+    -- 2. Judgement of Wisdom
+    if GetSpellCooldown("Judgement of Wisdom") == 0 then
+        L_CastSpellByName("Judgement of Wisdom")
+        return
     end
+
+    -- 3. Divine Storm
+    if GetSpellCooldown("Divine Storm") == 0 then
+        L_CastSpellByName("Divine Storm")
+        return
+    end
+
+    -- 4. Consecration
+    if GetSpellCooldown("Consecration") == 0 then
+        L_CastSpellByName("Consecration")
+        return
+    end
+
+    -- 5. Exorcism (Art of War makes it instant, always prefer that proc)
+    if GetSpellCooldown("Exorcism") == 0 then
+        if has_buff("player", "The Art of War") then
+            L_CastSpellByName("Exorcism")
+            return
+        end
+    end
+
+    -- 6. Holy Wrath (only if target is undead or demon)
+    if GetSpellCooldown("Holy Wrath") == 0 then
+        if UnitCreatureType("target") == "Undead" or UnitCreatureType("target") == "Demon" then
+            L_CastSpellByName("Holy Wrath")
+            return
+        end
+    end
+
 end

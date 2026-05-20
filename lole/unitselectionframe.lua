@@ -291,6 +291,7 @@ end
 selection_ui = UnitSelectionFrame.new()
 
 selection_ui.frame:SetScript("OnUpdate", function(self)
+    MoveViewOutStart()
     local units, hash = lole_wc3mode.get_selected_units()
     if hash ~= selection_ui.prev_hash then
         selection_ui.prev_hash = hash

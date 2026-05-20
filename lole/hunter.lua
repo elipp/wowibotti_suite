@@ -1,16 +1,3 @@
-local petfollow_called = nil
-
-local function petfollow_default()
-    if lole_get("blast") == 0 then
-        if not petfollow_called then
-            L_PetFollow()
-            L_PetPassiveMode()
-            petfollow_called = true
-        end
-    else
-        petfollow_called = nil
-    end
-end
 
 local petframe_dummy = nil
 
@@ -73,7 +60,7 @@ local function cast_if_nocd_pet(spell, rank)
 end
 
 
-function pet_combat()
+local function pet_combat()
     L_PetAttack()
 
     if not UnitExists("pettarget") then return end
@@ -87,13 +74,13 @@ function pet_combat()
         return
     end
 
-    if cast_if_nocd_pet("Growl", 7) then
-        return
+    if not has_buff("player", "Furious Howl") then
+        if cast_if_nocd_pet("Furious Howl") then
+            return
+        end
     end
-    if cast_if_nocd_pet("Gore", 4) then
-        return
-    end
-    if cast_if_nocd_pet("Bite", 8) then
+
+    if cast_if_nocd_pet("Bite", 10) then
         return
     end
 end
@@ -129,9 +116,9 @@ function combat_hunter()
     if not validate_target() then return end -- DEFAULT
     -- caster_range_check(11, 35)
 
-    --local BEST_ASPECT = "Aspect of the Dragonhawk"
+    local BEST_ASPECT = "Aspect of the Dragonhawk"
     -- local BEST_ASPECT = "Aspect of the Wild"
-    local BEST_ASPECT = "Aspect of the Hawk"
+    -- local BEST_ASPECT = "Aspect of the Hawk"
 
     local mana_pct = mana_percentage("player")
 
@@ -145,16 +132,16 @@ function combat_hunter()
     pet_combat()
     L_StartAttack()
 
-    -- if GetSpellCooldown("Kill Command") == 0 then
-    --     L_CastSpellByName("Kill Command")
-    --     return;
-    -- end
+    if GetSpellCooldown("Kill Command") == 0 then
+        L_CastSpellByName("Kill Command")
+        return;
+    end
 
     local target_health_pct = health_percentage("target")
-    -- if target_health_pct < 20 then
-    --     L_CastSpellByName("Kill Shot")
-    --     -- no return, will not be cast if incooldown
-    -- end
+    if target_health_pct < 20 then
+        L_CastSpellByName("Kill Shot")
+        -- no return, will not be cast if incooldown
+    end
 
     if not has_debuff("target", "Hunter's Mark") then
         L_CastSpellByName("Hunter's Mark")

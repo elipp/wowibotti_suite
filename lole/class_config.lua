@@ -84,9 +84,19 @@ local available_configs = {
             get_class_color("paladin"), combat_paladin_prot, {}, ROLES.mana_tank, "TANK", survive_paladin_prot,
             "Devotion Aura"),
 
+    paladin_retri =
+        ClassConfig:create("paladin_retri", {}, {},
+            get_class_color("paladin"), combat_paladin_retribution, {}, ROLES.mana_melee, "MELEE", survive_paladin_prot,
+            "Devotion Aura"),
+
     priest_holy =
         ClassConfig:create("priest_holy", { "Power Word: Fortitude", "Divine Spirit", "Shadow Protection" },
             { "Inner Fire" }, get_class_color("priest"), combat_priest_holy, { "Inner Focus" }, ROLES.healer, "HEALER",
+            survive_priest_holy, "Flash Heal"),
+
+    priest_disc =
+        ClassConfig:create("priest_disc", { "Power Word: Fortitude", "Divine Spirit", "Shadow Protection" },
+            { "Inner Fire" }, get_class_color("priest"), combat_priest_disc, { "Inner Focus" }, ROLES.healer, "HEALER",
             survive_priest_holy, "Flash Heal"),
 
     rogue =
@@ -98,9 +108,14 @@ local available_configs = {
         ClassConfig:create("shaman_resto", {}, { "Water Shield" }, get_class_color("shaman"), combat_shaman_resto,
             { "Bloodlust" }, ROLES.healer, "HEALER", survive_shaman_resto, "Healing Wave"),
 
+
     warrior_prot =
         ClassConfig:create("warrior_prot", {}, { "Commanding Shout" }, get_class_color("warrior"), combat_warrior_prot,
             {}, ROLES.tank, "TANK", survive_warrior_prot, "Battle Shout"),
+
+    warrior_fury =
+        ClassConfig:create("warrior_fury", {}, { "Battle Shout" }, get_class_color("warrior"), combat_warrior_fury,
+            {}, ROLES.melee, "MELEE", survive_template, "Battle Shout"),
 
     ranged_hunter = ClassConfig:create("ranged_hunter", {}, {}, get_class_color("hunter"), combat_ranged_hunter,
         { "Bestial Wrath" }, ROLES.caster, "RANGED", survive_template,
@@ -146,6 +161,10 @@ local available_configs = {
         ClassConfig:create("aoe_warlock_destruction", {}, {}, get_class_color("warlock"), aoe_combat_warlock, {},
             ROLES.caster, "RANGED", survive_template, "Shadow Bolt"),
 
+    warlock_affli =
+        ClassConfig:create("warlock_affli", {}, {}, get_class_color("warlock"), combat_warlock_affliction, {},
+            ROLES.caster, "RANGED", survive_template, "Shadow Bolt"),
+
     aoe_mage_frost =
         ClassConfig:create("aoe_mage_frost", {}, {}, get_class_color("mage"), aoe_combat_mage, {}, ROLES.caster,
             "RANGED", survive_template, "Frostbolt"),
@@ -153,6 +172,10 @@ local available_configs = {
     shaman_resto_leveling =
         ClassConfig:create("shaman_resto_leveling", {}, { "Water Shield" }, get_class_color("shaman"),
             combat_shaman_resto_leveling, {}, ROLES.healer, "HEALER", survive_shaman_resto),
+
+    druid_balance = ClassConfig:create("druid_balance", {}, {}, get_class_color("druid"), combat_druid_balance, {}, ROLES.caster,
+            "RANGED", survive_template, "Wrath"),
+
 };
 
 function get_available_configs()

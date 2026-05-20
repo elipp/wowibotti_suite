@@ -336,6 +336,7 @@ HEAL_ESTIMATES = {
     ["Greater Heal"] = 10000,
     ["Prayer of Healing"] = 4600,
     ["Binding Heal"] = 4000,
+    ["Penance"] = 6000,
     -- leveling stuff
     ["Lesser Heal"] = 160,
     ["Heal"] = 380,
@@ -2064,3 +2065,17 @@ end
 
 local timeout_frame = CreateFrame("Frame", "TimeoutFrame")
 timeout_frame:SetScript("OnUpdate", run_timers)
+
+local petfollow_called = nil
+
+function petfollow_default()
+    if lole_get("blast") == 0 then
+        if not petfollow_called then
+            L_PetFollow()
+            L_PetPassiveMode()
+            petfollow_called = true
+        end
+    else
+        petfollow_called = nil
+    end
+end

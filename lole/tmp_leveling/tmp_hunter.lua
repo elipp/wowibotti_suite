@@ -1,17 +1,3 @@
-local petfollow_called = nil
-
-local function petfollow_default()
-    if lole_get("blast") == 0 then
-        if not petfollow_called then
-            L_PetFollow()
-            L_PetPassiveMode()
-            petfollow_called = true
-        end
-    else
-        petfollow_called = nil
-    end
-end
-
 local petframe_dummy = nil
 
 local aspect_changetime = 0

@@ -147,35 +147,5 @@ function rogue_combat()
     if not validate_target() then
         return
     end
-
-    melee_attack_behind(1.5);
-    L_StartAttack();
-
-    local target_health = UnitHealth("target")
-    local combo_points = GetComboPoints("player", "target")
-
-    L_CastSpellByName("Sinister Strike")
-
-    if TIMER == nil then
-        local interval = jump_interval()
-        TIMER = setTimeout(jump, interval)
-    end
-
-    -- if GetSpellCooldown("Vanish") == 0 and not has_buff("player", "Overkill") then
-    --     L_CastSpellByName("Vanish")
-    -- end
-
-    -- if combo_points < 4 then
-    --     if combo_points > 1 and UnitHealth("target") < 10000 then
-    --         L_CastSpellByName("Envenom")
-    --     else
-    --         L_CastSpellByName("Mutilate")
-    --     end
-    -- else
-    --     if GetComboPoints("player", "target") == 5 then
-    --         L_CastSpellByName("Cold Blood")
-    --     end
-    --     L_CastSpellByName("Envenom")
-    -- end
-
+    return rogue_combat_before()
 end
