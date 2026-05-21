@@ -1,4 +1,4 @@
-use std::ffi::{CString, c_char, c_void};
+use std::ffi::{c_char, c_void, CString};
 
 use lole_macros::auto_enum_try_from;
 
@@ -176,7 +176,11 @@ impl WowObject {
     }
     pub fn try_new(base: *const ()) -> Option<Self> {
         let res = WowObject { base };
-        if res.valid() { Some(res) } else { None }
+        if res.valid() {
+            Some(res)
+        } else {
+            None
+        }
     }
     #[cfg(feature = "wotlk")]
     pub fn get_xyzr(&self) -> LoleResult<[f32; 4]> {
@@ -256,7 +260,7 @@ impl WowObject {
 
     pub fn health_max(&self) -> LoleResult<u32> {
         let unk_state = deref_res_ptr::<1>(self.base.wrapping_byte_offset(wowobject::UnkState2))?;
-        deref_res_t::<_, 1>(unk_state.wrapping_byte_offset(0x4C))
+        deref_res_t::<_, 1>(unk_state.wrapping_byte_offset(0x68))
     }
 
     pub fn is_dead(&self) -> LoleResult<bool> {
