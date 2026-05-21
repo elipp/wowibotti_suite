@@ -1,51 +1,32 @@
 TIME_TOTEMS_REFRESHED = 0;
 
 TOTEM_TYPE_ID_MAP = {
-    fire = 1,
+    fire  = 1,
     earth = 2,
     water = 3,
-    air = 4,
+    air   = 4,
 };
 
 local TOTEM_NAME_TYPE_MAP = {
-    ["Tremor Totem"] = TOTEM_TYPE_ID_MAP["earth"],
-    ["Stoneskin Totem"] = TOTEM_TYPE_ID_MAP["earth"],
+    ["Tremor Totem"]            = TOTEM_TYPE_ID_MAP["earth"],
+    ["Stoneskin Totem"]         = TOTEM_TYPE_ID_MAP["earth"],
     ["Strength of Earth Totem"] = TOTEM_TYPE_ID_MAP["earth"],
-
-    ["Totem of Wrath"] = TOTEM_TYPE_ID_MAP["fire"],
-    ["Frost Resistance Totem"] = TOTEM_TYPE_ID_MAP["fire"],
-    ["Searing Totem"] = TOTEM_TYPE_ID_MAP["fire"],
-    ["Flametongue Totem"] = TOTEM_TYPE_ID_MAP["fire"],
-
-    ["Mana Spring Totem"] = TOTEM_TYPE_ID_MAP["water"],
-    ["Mana Tide Totem"] = TOTEM_TYPE_ID_MAP["water"],
-    ["Cleansing Totem"] = TOTEM_TYPE_ID_MAP["water"],
-
-    ["Wrath of Air Totem"] = TOTEM_TYPE_ID_MAP["air"],
-    ["Windfury Totem"] = TOTEM_TYPE_ID_MAP["air"],
-    ["Grace of Air Totem"] = TOTEM_TYPE_ID_MAP["air"],
-    ["Nature Resistance Totem"] = TOTEM_TYPE_ID_MAP["air"]
+    ["Totem of Wrath"]          = TOTEM_TYPE_ID_MAP["fire"],
+    ["Frost Resistance Totem"]  = TOTEM_TYPE_ID_MAP["fire"],
+    ["Searing Totem"]           = TOTEM_TYPE_ID_MAP["fire"],
+    ["Flametongue Totem"]       = TOTEM_TYPE_ID_MAP["fire"],
+    ["Mana Spring Totem"]       = TOTEM_TYPE_ID_MAP["water"],
+    ["Mana Tide Totem"]         = TOTEM_TYPE_ID_MAP["water"],
+    ["Cleansing Totem"]         = TOTEM_TYPE_ID_MAP["water"],
+    ["Wrath of Air Totem"]      = TOTEM_TYPE_ID_MAP["air"],
+    ["Windfury Totem"]          = TOTEM_TYPE_ID_MAP["air"],
+    ["Grace of Air Totem"]      = TOTEM_TYPE_ID_MAP["air"],
+    ["Nature Resistance Totem"] = TOTEM_TYPE_ID_MAP["air"],
 };
 
-local TOTEM_NAME_BUFFNAME_MAP = {
-    --	["Tremor Totem"] = nil,
-    ["Stoneskin Totem"] = "Stoneskin",
-    ["Strength of Earth Totem"] = "Strength of Earth",
+local TOTEM_RANGE = 30; -- yards, same for all totems in vanilla/wotlk
 
-    ["Totem of Wrath"] = "Totem of Wrath",
-    ["Frost Resistance Totem"] = "Frost Resistance",
-    ["Flametongue Totem"] = "Flametongue Totem",
-
-    ["Mana Spring Totem"] = "Mana Spring",
-    --	["Mana Tide Totem"] = nil,
-    --	["Poison Cleansing Totem"] = nil,
-    --	["Disease Cleansing Totem"] = nil,
-
-    ["Wrath of Air Totem"] = "Wrath of Air Totem",
-    --  ["Windfury Totem"] = nil,
-    ["Grace of Air Totem"] = "Grace of Air"
-
-};
+local MANA_TIDE_TOTEM = "Mana Tide Totem";
 
 function get_active_multicast_totems()
     local r = {}
@@ -60,51 +41,64 @@ function get_active_multicast_summonspell()
     return GetSpellInfo(MultiCastSummonSpellButton.spellId)
 end
 
+-- totems: array of spell name strings indexed 1-4 (from get_active_multicast_totems)
+-- returns: array of booleans indexed 1-4, true = should recast
 function get_totem_status(totems)
     local original_target = UnitGUID("target");
     local res = {}
-    for slot, spell_info in pairs(totems) do
-        if spell_info ~= nil then
-            local should_recast = false
-            local _, totemName, startTime, duration = GetTotemInfo(TOTEM_TYPE_ID_MAP[slot]);
 
-            if totemName == "Mana Tide Totem" then
+    for slot, spell_name in pairs(totems) do
+        if spell_name ~= nil then
+            local should_recast = false
+            local totem_type = TOTEM_NAME_TYPE_MAP[spell_name]
+            local _, totemName, startTime, duration = GetTotemInfo(totem_type);
+
+            if spell_name == MANA_TIDE_TOTEM then
                 should_recast = false
             elseif startTime == 0 and duration == 0 then
                 should_recast = true
-                -- TODO: check if totem is even the same name :D
             else
-                L_TargetUnit(spell_info.name)
-                should_recast = get_distance_between("player", "target") > (spell_info.range - 2)
+                L_TargetUnit(spell_name)
+                should_recast = get_distance_between("player", "target") > (TOTEM_RANGE - 2)
             end
+
             res[slot] = should_recast
         end
     end
 
-    target_unit_with_GUID(original_target)
+    if original_target then
+        target_unit_with_GUID(original_target)
+    end
     return res
 end
 
-function refresh_totems(TOTEMS, TOTEM_BAR)
+-- totems: array of spell name strings (from get_active_multicast_totems)
+-- summon_spell: string spell name for the multicast bar (from get_active_multicast_summonspell)
+function refresh_totems(totems, summon_spell)
     local totems_to_recast = {}
     local num_to_recast = 0
-    for slot, name in pairs(TOTEMS) do
-        if should_recast_totem(name) then
-            totems_to_recast[name] = true
+
+    local totem_status = get_totem_status(totems)
+    for slot, should_recast in pairs(totem_status) do
+        if should_recast then
+            totems_to_recast[slot] = totems[slot]
             num_to_recast = num_to_recast + 1
-        end
-        if num_to_recast > 2 then
-            L_CastSpellByName(TOTEM_BAR)
-            TIME_TOTEMS_REFRESHED = GetTime()
-            return true
         end
     end
 
-    for totem, _ in pairs(totems_to_recast) do
-        L_CastSpellByName(totem)
+    if num_to_recast == 0 then
+        return false
+    end
+
+    if num_to_recast > 2 then
+        L_CastSpellByName(summon_spell)
         TIME_TOTEMS_REFRESHED = GetTime()
         return true
     end
 
-    return false
+    for _, name in pairs(totems_to_recast) do
+        L_CastSpellByName(name)
+    end
+    TIME_TOTEMS_REFRESHED = GetTime()
+    return true
 end

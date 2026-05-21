@@ -36,7 +36,7 @@ pub struct WowObject {
     pub base: *const (),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 #[auto_enum_try_from(i32)]
 pub enum WowObjectType {
     Object = 0,

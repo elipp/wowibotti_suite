@@ -299,10 +299,19 @@ OVERRIDE_COMMAND = nil;
 --   Inspiration = {heals={"Rhotaa", "raid"}}
 -- }
 
-HEALERS = { "Ahaa" }
+-- Some leveling shit
+-- HEALERS = { "Ahaa" }
+-- DEFAULT_HEALER_TARGETS = {
+--     Ahaa = { heals = { "raid" } }
+-- }
+
+
+HEALERS = {"Pap", "Toope"}; -- for keeping order mostly
 DEFAULT_HEALER_TARGETS = {
-    Ahaa = { heals = { "raid" } }
+  Pap = { heals = {"Rhotaa", "raid"} },
+  Toope = { heals={"raid"}, hots={"Rhotaa"} },
 }
+
 
 ASSIGNMENT_DOMAINS = { "heals", "hots", "ignores" };
 HEALS_IN_PROGRESS = {};
@@ -827,30 +836,37 @@ function get_HP_table_and_maxmaxHP(party_only)
     return HP_table, maxmaxHP;
 end
 
-local CS_CASTING, CS_TIMESTAMP, CS_CASTTIME, CS_TARGET = 1, 2, 3, 4;
-local NOT_CASTING = { false, 0.0, 0.0, "none" };
+local cast_state = {
+    casting = false,
+    timestamp = 0.0,
+    cast_time = 0.0,
+    target = "none"
+}
 
-local cast_state = NOT_CASTING;
+local function reset_cast_state()
+    cast_state.casting = false;
+    cast_state.timestamp = 0.0;
+    cast_state.cast_time = 0.0;
+    cast_state.target = "none";
+end
 
 function casting_legit_heal()
-    if UnitCastingInfo("player") then return true; end
-
-    if cast_state[CS_CASTING] then
-        if (GetTime() - cast_state[CS_TIMESTAMP]) * 1000 > (cast_state[CS_CASTTIME] + 100) then
-            cast_state = NOT_CASTING;
+    if UnitCastingInfo("player") or UnitChannelInfo("player") then return true; end
+    if cast_state.casting then
+        if (GetTime() - cast_state.timestamp) * 1000 > (cast_state.cast_time + 100) then
+            reset_cast_state();
             return false;
         elseif not UnitCastingInfo("player") then
-            cast_state = NOT_CASTING;
+            reset_cast_state();
             return false;
         elseif health_percentage("target") > 90 then
             stopfollow();
-            cast_state = NOT_CASTING; -- useful when the UnitHealth info lag causes the char to overheal (or any cause)
+            reset_cast_state();
             return false;
         else
             return true;
         end
     end
-
     return false;
 end
 

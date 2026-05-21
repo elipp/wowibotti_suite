@@ -9,6 +9,7 @@ use rand::RngExt;
 use crate::addrs::offsets::{self, TAINT_CALLER};
 use crate::ctm::{self, CtmAction, CtmBackend, CtmEvent, CtmPriority, TRYING_TO_FOLLOW};
 use crate::linalg::WowVector3;
+use crate::lua::chain_heal::get_chain_heal_target;
 use crate::lua::wc3::{get_selected_units, lua_get_selected_units, lua_update_selected_units};
 use crate::objectmanager::{GUIDFmt, ObjectManager, WowObject, WowObjectType, guid_from_str};
 use crate::patch::{
@@ -21,10 +22,7 @@ use crate::socket::movement_flags::NOT_MOVING;
 use crate::wc3::{
     CUSTOM_CAMERA, ScreenRegion, WC3MODE_ENABLED, WowCamera, get_wow_mvp_matrix_in_nalgebra_space,
 };
-use crate::{
-    DLL_STATE, LoleError, LoleResult, assembly, fatal_error_exit, get_dll_state,
-    write_last_hardware_action,
-};
+use crate::{LoleError, LoleResult, assembly, get_dll_state, write_last_hardware_action};
 
 #[cfg(feature = "addonmessage_broker")]
 use addonmessage_broker::server::{AddonMessage, Msg, MsgSender, MsgWrapper};
@@ -388,6 +386,7 @@ pub enum Opcode {
     GetAoeFeasibility = 17,
     CastGtAoe = 18,
     FaceMob = 19,
+    ChainHealTarget = 20,
     StorePath = 0x100,
     PlaybackPath = 0x101,
     SendAddonMessage = 0x200,
@@ -818,6 +817,148 @@ pub fn stopfollow(player: &WowObject) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub mod chain_heal {
+    use std::collections::HashMap;
+
+    use crate::{
+        linalg::WowVector3,
+        objectmanager::{ObjectManager, WowObject, WowObjectType},
+    };
+
+    const CH_BOUNCE_RANGE: f32 = 12.5;
+    const DEFICIT_THRESHOLD: i32 = 1500;
+
+    #[derive(Debug, Clone)]
+    struct CachedUnit {
+        guid: u64,
+        pos: WowVector3,
+        health: u32,
+        health_max: u32,
+        inc_heals: u32,
+        heal_urgency: f32,
+        name: String,
+    }
+
+    impl CachedUnit {
+        fn compute_urgency(&self, max_max_hp: u32) -> f32 {
+            let deficit_ratio =
+                (self.health_max - (self.health + self.inc_heals)) as f32 / self.health_max as f32;
+            let exponent = max_max_hp as f32 / self.health_max as f32;
+            (deficit_ratio / 0.5).powf(exponent)
+        }
+    }
+
+    fn effective_deficit(obj: &WowObject, inc_heals: u32) -> anyhow::Result<i32> {
+        Ok((obj.health_max()? as i32 - obj.health()? as i32) - inc_heals as i32)
+    }
+
+    fn parse_incoming_heals(arg: &str) -> HashMap<String, u32> {
+        arg.split(',')
+            .filter_map(|token| {
+                let (name, heals) = token.trim().split_once(':')?;
+                Some((name.trim().to_string(), heals.trim().parse().ok()?))
+            })
+            .collect()
+    }
+
+    fn find_most_hurt_within_ch_bounce<'a>(
+        anchor: &CachedUnit,
+        exclude: Option<&CachedUnit>,
+        candidates: &'a [CachedUnit],
+    ) -> Option<&'a CachedUnit> {
+        candidates
+            .iter()
+            .filter(|u| {
+                u.guid != anchor.guid
+                    && exclude.map_or(true, |e| u.guid != e.guid)
+                    && anchor.pos.distance_from(u.pos) <= CH_BOUNCE_RANGE
+            })
+            .max_by(|a, b| a.heal_urgency.total_cmp(&b.heal_urgency))
+    }
+
+    fn score_trio(
+        primary: &CachedUnit,
+        second: Option<&CachedUnit>,
+        third: Option<&CachedUnit>,
+    ) -> f32 {
+        primary.heal_urgency
+            + second.map_or(0.0, |u| u.heal_urgency) * 0.5
+            + third.map_or(0.0, |u| u.heal_urgency) * 0.25
+    }
+
+    pub fn get_chain_heal_target(arg: &str) -> anyhow::Result<Vec<String>> {
+        let incoming_heals = parse_incoming_heals(arg);
+        let om = ObjectManager::new()?;
+
+        let mut candidates: Vec<CachedUnit> = om
+            .iter()
+            .filter(|obj| obj.get_type() == WowObjectType::Unit)
+            .filter_map(|obj| {
+                // a ton of silent fails here....
+                let hp = obj.health().ok()?;
+                let hp_max = obj.health_max().ok()?;
+                let name = obj.get_name();
+                let inc_heals = incoming_heals.get(name).copied().unwrap_or(0);
+                let effective_deficit = effective_deficit(&obj, inc_heals).ok()?;
+
+                if hp > 0 && effective_deficit > DEFICIT_THRESHOLD {
+                    Some(CachedUnit {
+                        guid: obj.get_guid(),
+                        pos: obj.get_pos().ok()?,
+                        health: hp,
+                        health_max: hp_max,
+                        inc_heals,
+                        heal_urgency: 0.0,
+                        name: name.to_owned(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let max_max_hp = candidates.iter().map(|u| u.health_max).max().unwrap_or(1);
+        tracing::debug!("Max max hp: {max_max_hp}, Candidates: {candidates:?}");
+
+        for unit in candidates.iter_mut() {
+            unit.heal_urgency = unit.compute_urgency(max_max_hp);
+            tracing::debug!("{}: {}", unit.name, unit.heal_urgency);
+        }
+
+        let best_trio = candidates
+            .iter()
+            .filter_map(|primary| {
+                let second = find_most_hurt_within_ch_bounce(primary, None, &candidates);
+                let third = second
+                    .and_then(|s| find_most_hurt_within_ch_bounce(s, Some(primary), &candidates));
+                let score = score_trio(primary, second, third);
+                Some((score, primary, second, third))
+            })
+            .max_by(|(a, ..), (b, ..)| a.total_cmp(b))
+            .map(|(a, b, c, d)| (a, b.clone(), c.cloned(), d.cloned()));
+
+        match best_trio {
+            None => Ok(vec![]),
+            Some((score, primary, second, third)) => {
+                tracing::debug!(
+                    "Chosen target: {}, weighed urgency: {}",
+                    primary.name,
+                    score
+                );
+
+                Ok([
+                    Some(primary.name),
+                    second.map(|u| u.name),
+                    third.map(|u| u.name),
+                ]
+                .into_iter()
+                .flatten()
+                .collect())
+            }
+        }
+    }
+}
+
 #[macro_export]
 macro_rules! lua_table_iter {
     ($lua:expr, $idx:expr, |$inner:ident| $body:block) => {{
@@ -1098,8 +1239,7 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
                 .iter_units_and_npcs()
                 .filter(|o| o.in_combat().unwrap_or(false))
             {
-                let guid = CString::new(format!("{}", GUIDFmt(c.get_guid())))?;
-                lua_pushstring(lua, guid.as_c_str().as_ptr());
+                LuaValue::String(GUIDFmt(c.get_guid()).to_string()).push(lua)?;
                 num += 1;
             }
             return Ok(num);
@@ -1198,6 +1338,18 @@ fn handle_lop_exec(lua: lua_State) -> anyhow::Result<i32> {
 
         Opcode::FaceMob if nargs == 0 => {
             face_target(player, target)?;
+        }
+
+        Opcode::ChainHealTarget if nargs == 1 => {
+            let serialized_heals = lua_tostring!(lua, 2)?;
+            let targets = get_chain_heal_target(serialized_heals)?;
+
+            lua_createtable(lua, targets.len() as _, 0);
+            for (i, o) in targets.into_iter().enumerate() {
+                LuaValue::String(o).push(lua)?;
+                lua_rawseti(lua, -2, (i + 1) as i32);
+            }
+            return Ok(1);
         }
 
         Opcode::StorePath if nargs == 3 => {

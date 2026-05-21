@@ -111,7 +111,7 @@ function tank_face()
 end
 
 function get_CH_target_trio(heals_in_progress)
-    return LOP:call(LOP.CHAIN_HEAL_TARGET, heals_in_progress);
+    return LOP:call(LOP.ChainHealTarget, heals_in_progress);
 end
 
 function warlock_maulgar_get_felhound()

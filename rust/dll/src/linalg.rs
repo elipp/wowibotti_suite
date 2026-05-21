@@ -183,11 +183,15 @@ impl WowVector3 {
     }
 
     pub fn select_closer(&self, a: Self, b: Self) -> Self {
-        if (*self - a).length() < (*self - b).length() {
+        if self.distance_from(a) < self.distance_from(b) {
             a
         } else {
             b
         }
+    }
+
+    pub fn distance_from(&self, b: Self) -> f32 {
+        (b - *self).length()
     }
 }
 

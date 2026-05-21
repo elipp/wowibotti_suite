@@ -45,13 +45,13 @@ local function raid_heal()
         cast_heal("Lesser Healing Wave");
         return true;
     else
-        local target, bounce1, bounce2 = get_CH_target_trio(get_serialized_heals());
+        local ch_targets = get_CH_target_trio(get_serialized_heals());
         --local target, urgencies = get_raid_heal_target(true)
         --local heal_targets = get_raid_heal_targets(urgencies, 4);
 
-        if not target then return end
+        if not target or not target[1] then return end
 
-        L_TargetUnit(target);
+        L_TargetUnit(target[1]);
         local target_HPP = health_percentage("target")
 
         if target_HPP < 20 then
@@ -88,7 +88,7 @@ local function raid_heal()
     return true;
 end
 
-function check_EL()
+function check_earthliving()
     local has_mh, mh_exp, mh_charges, has_oh, oh_exp, oh_charges = GetWeaponEnchantInfo()
     --echo(tostring(has_mh) .. ", " .. tostring(mh_exp) .. ", " .. tostring(mh_charges)  .. ", " .. tostring(has_oh) .. ", " .. tostring(oh_exp)  .. ", " .. tostring(oh_charges))
 
@@ -112,9 +112,9 @@ local function cleanse_shaman()
 end
 
 combat_shaman_resto = function()
-    if player_casting() then return end
+    if casting_legit_heal() then return end
 
-    check_EL()
+    check_earthliving()
 
     if not has_buff("player", "Water Shield") and not has_buff("player", "Earth Shield") then
         L_CastSpellByName("Water Shield");
